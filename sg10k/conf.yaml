@@ -1,0 +1,11 @@
+modules: {
+    bwa : 0.7.12,
+    samtools : 1.3,
+    samblaster : 0.1.22
+  }
+files: {
+    # FIXME during auto generation make sure to change base dir
+    reffa : "/mnt/projects/rpd/genomes/human_g1k_v37/human_g1k_v37.fasta",
+    fq1 : "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1.fastq.gz",
+    fq2 : "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2.fastq.gz"
+  }    

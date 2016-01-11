@@ -1,0 +1,17 @@
+"""Some bwa rules
+
+Requires bwa
+"""
+
+rule bwa_fasta_index:
+    input:
+        "{prefix}.{suffix}"
+    output:
+        "{prefix}.{suffix,(fasta|fa)}.pac",
+        "{prefix}.{suffix,(fasta|fa)}.bwt",
+        "{prefix}.{suffix,(fasta|fa)}.sa"
+    shell:
+        """
+       	module load bwa/{config[modules][bwa]}
+	bwa index {input}
+	"""
