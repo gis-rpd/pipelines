@@ -52,6 +52,8 @@ export PATH=/mnt/projects/rpd/apps/miniconda3/bin/:$PATH;
 source activate snakemake-3.5.4;
 
 # define qsub options for all jobs spawned by snakemake
+# FIXME consider using DRMAA
+# FIXME consider using --timestamp
 qsub="qsub -pe OpenMP {threads} -l mem_free=10G -l h_rt=72:00:00 -j y -V -b y -cwd"
 
-snakemake --configfile conf.yaml -j 16 -c "$qsub"
+snakemake --configfile conf.yaml -j 16 -c "$qsub" --timestamp --stats snakemake.stats

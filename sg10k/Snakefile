@@ -21,27 +21,46 @@ include: "rules/bwa.rules"
         
 rule final:
   input:
-        bam='FIXME.bwamem.fixmate.mdups.srt.bam',
-        bai='FIXME.bwamem.fixmate.mdups.srt.bam.bai',
-        stats='FIXME.bwamem.fixmate.mdups.srt.stats.txt',
-    
+        config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam',
+        config['sample'] + '.bwamem.fixmate.mdups.srt.merged.stats.txt'    
   message: 'Pipeline run successfully completed'
-  output:  'COMPLETE'
-  shell:   'touch {output}'
+  # if output is created here, deleting the 'input' will not result in rerun
+  #output:  'COMPLETE'
+  #shell:   'touch {output}'
 
 
-# Expecting gzipped PE input (internal) with read length >70 (BWA-MEM)
+rule sample_merge:
+    """
+    Merge bam files for multiple units into one for the given sample.
+    If the sample has only one unit, a symlink will be created.
+    """
+    input:
+        expand("{unit}.bwamem.fixmate.mdups.srt.bam", unit=config["units"])
+    threads: 16
+    output:
+        config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam'
+    run:
+        if len(input) > 1:
+            shell("""
+            module load samtools/{config[modules][samtools]}; 
+            samtools merge -@ {threads} {output} {input}
+            """)
+        else:
+            shell("ln -s {input} {output} && touch -h {output}")
+
+
+            
+# Expecting SE/PE input read length >70 (BWA-MEM limitation)
 rule map_mdups_sort:
     input:
-        reffa=config['files']['reffa'],
-        reffai=config['files']['reffa'] + ".pac",
-        fq1=config['files']['fq1'],
-        fq2=config['files']['fq2']
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".pac",
+        fastqs = lambda wildcards: config["units"][wildcards.unit]
     output:
-        sam="FIXME.bwamem.fixmate.mdups.srt.bam"
+        bam=temp("{unit}.bwamem.fixmate.mdups.srt.bam")
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
-        rg="@RG\tID:1\tPL:illumina\tPU:PU-FIXME\tLB:LB-FIXME\tSM:SM-FIXME\tCN:GIS"
+        bwa_mem_custom_args=config.get("bwa_mem_custom_args", "")
     message:
         'Aligning PE reads, fixing mate information, marking duplicates and converting to sorted BAM'
     threads:
@@ -49,36 +68,38 @@ rule map_mdups_sort:
         # FIXME how does runtime scale with threads?
     benchmark:
         # should have same name as rule
-        'benchmark_map_mdups_sort.txt'
+        'benchmark/map_mdups_sort.txt'
+    #log:
+    #    # should have same name as rule
+    #    'logs/map_mdups_sort.txt'
     shell:
-        """
-        module load bwa/{config[modules][bwa]}
-        module load samtools/{config[modules][samtools]}
-        module load samblaster/{config[modules][samblaster]}
-
-        # cat process substitution will work for gzipped and plain fastq
-        # and allows for concatentation on the fly
-        #
         # fixmate only works on name sorted files. ignores secondary 
         # alignments, i.e. safe to use with bwa mem -M:
         # http://sourceforge.net/p/samtools/mailman/message/30556922/
         # 
 	# samtools sort might need control of max thread memory to not go 
-        # over limit for v1.3 it's 768M. if we use 16threads this amounts 
-        # to max 12.3GB
+        # over limit for v1.3 it's 768M. if we use 16 threads this amounts 
+        # to max 12.3GB (on top of whatever bwa (8GB for HG) etc. need).
+        # FIXME: set threads to 12?
 	#
         # using samtools instead of sambamba for view and sort:
         # http://genomespot.blogspot.sg/2015/03/sambamba-vs-samtools.html says
         # runtime difference are not too huge and samtools is the conservative
         # choice anyway
         #
-        bwa mem {params.mark_short_splits} -R "{params.rg}" {input.reffa} <(cat {input.fq1}) <(cat {input.fq2}) -t {threads} | \
-        samtools fixmate -O sam - - | \
-        samblaster {params.mark_short_splits} | \
-        samtools view -@ {threads} -bu -o - | \
-        samtools sort -@ {threads} -o {output.sam} -
-        """
+        "module load bwa/{config[modules][bwa]}; "
+        "module load samtools/{config[modules][samtools]}; "
+        "module load samblaster/{config[modules][samblaster]}; "
+        "bwa mem {params.mark_short_splits} -t {threads}"
+        " -R '@RG\tID:{wildcards.unit}\tPL:{config[platform]}\tPU:PU-{wildcards.unit}\tLB:LB-{config[sample]}\tSM:{config[sample]}\tCN:GIS'"
+        " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} | "
+        " samtools fixmate -O sam - - | "
+        " samblaster {params.mark_short_splits} | "
+        " samtools view -@ {threads} -bu -o - | "
+        " samtools sort -@ {threads} -o {output.bam} -"
 
 # FIXME rule report:
 # write program versions
+# how it works
+    
     

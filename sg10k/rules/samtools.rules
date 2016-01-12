@@ -14,8 +14,8 @@ rule samtools_fasta_index:
     shell:
         """
        	module load samtools/{config[modules][samtools]}
-	samtools faidx {input}
-	"""
+        samtools faidx {input}
+        """
 
 
 rule bam_stats:
@@ -27,8 +27,8 @@ rule bam_stats:
     shell:
         """
        	module load samtools/{config[modules][samtools]}
-	samtools idxstats {input.bam} > {output}
-	"""
+        samtools idxstats {input.bam} > {output}
+        """
 
 
 rule bam_index:
@@ -38,8 +38,9 @@ rule bam_index:
         "{prefix}.bam.bai"
     shell:
         """
-	module load samtools/{config[modules][samtools]}
-	samtools index {input}
-	"""
+        module load samtools/{config[modules][samtools]}
+        samtools index {input}
+        """
+
 
 
