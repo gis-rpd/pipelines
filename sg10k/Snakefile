@@ -1,105 +1,132 @@
 import os
 from snakemake.utils import report
 
+
 # non-login bash
 shell.executable("/bin/bash")
-# activate "unofficial bash strict mode" http://www.redsymbol.net/articles/unofficial-bash-strict-mode/
-shell.prefix("set -euo pipefail;")
+# activate "unofficial bash strict mode"
+shell.prefix("set -euo pipefail")
+
+
+# onsuccess and onerror handlers: might be good for sending emails instead of relying on scheduler etc.
+# https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-onsuccess-and-onerror-handlers
+#
+#onsuccess:
+    #print("Workflow finished, no error")
+#onerror:
+    #print("An error occurred")
 
 
 # FIXME to conf once downstream handling clear
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
-# Debugging config:
-#for k, v in config.items():
-#        print("DEBUG {} {}".format(k, v))
-
 
 include: "rules/samtools.rules"
-include: "rules/bwa.rules"
+#include: "rules/bwa.rules"
 
         
 rule final:
   input:
-        config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam',
-        config['sample'] + '.bwamem.fixmate.mdups.srt.merged.stats.txt'    
+        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam',
+        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.stats.txt'    
   message: 'Pipeline run successfully completed'
-  # if output is created here, deleting the 'input' will not result in rerun
+  # if output is created here, deleting the 'input' will not result in
+  # rerun so it's best to not create any fake output files here
   #output:  'COMPLETE'
   #shell:   'touch {output}'
 
 
+rule bq_recal:
+    """Use bamutils for base quality recalibration with bamUtils
+
+    recommended use without deduper: http://genome.sph.umich.edu/wiki/BamUtil:_recab
+    NOTE: saving original tags only needed for debuggin/fastq reversal, but increases space
+    "module load bamutil/{config[modules][bamutil]};"
+    "use bamutil-{config[modules][bamutil]};"
+    """
+    input:
+        bam = 'out/{sample}.bam',
+        reffa = config['references']['genome'],
+        dbsnp = config['references']['dbsnp']
+    output:
+        'out/{sample}.recal.bam'
+    message:
+        "Base quality recalibration with bamUtils"
+    benchmark:# should have same name as rule
+        'benchmark/bq_recal.txt'
+    shell:
+        "echo starting $(which bam) to create ${output};"
+        "bam recab --in {input.bam} --out {output} --refFile {input.reffa} --dbsnp {input.dbsnp} --storeQualTag OQ --maxBaseQual 40"
+    
+    
 rule sample_merge:
     """
     Merge bam files for multiple units into one for the given sample.
     If the sample has only one unit, a symlink will be created.
     """
     input:
-        expand("{unit}.bwamem.fixmate.mdups.srt.bam", unit=config["units"])
-    threads: 16
+        expand("out/{unit}.bwamem.fixmate.mdups.srt.bam", unit=config["units"])
+    threads:
+        16
     output:
-        config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam'
+        temp('out/' + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam')
     run:
         if len(input) > 1:
             shell("""
-            module load samtools/{config[modules][samtools]}; 
             samtools merge -@ {threads} {output} {input}
             """)
         else:
             shell("ln -s {input} {output} && touch -h {output}")
 
 
-            
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
 rule map_mdups_sort:
+    """fixmate only works on name sorted files. ignores secondary 
+    alignments, i.e. safe to use with bwa mem -M:
+    http://sourceforge.net/p/samtools/mailman/message/30556922/
+         
+    samtools sort might need control of max thread memory to not go 
+    over limit for v1.3 it's 768M. if we use 16 threads this amounts 
+    to max 12.3GB (on top of whatever else is running).
+	
+    using samtools instead of sambamba for view and sort:
+    http://genomespot.blogspot.sg/2015/03/sambamba-vs-samtools.html says
+    runtime difference are not too huge and samtools is the conservative
+    choice anyway
+
+    Define temporary sorting out prefix to avoid nameclashes (default
+    -.XXX.bam for stdin)
+    """
     input:
         reffa = config['references']['genome'],
         reffai = config['references']['genome'] + ".pac",
         fastqs = lambda wildcards: config["units"][wildcards.unit]
     output:
-        bam=temp("{unit}.bwamem.fixmate.mdups.srt.bam")
+        bam=temp("out/{unit}.bwamem.fixmate.mdups.srt.bam")
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
-        bwa_mem_custom_args=config.get("bwa_mem_custom_args", "")
+        bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
+        sort_mem='500M'
     message:
         'Aligning PE reads, fixing mate information, marking duplicates and converting to sorted BAM'
     threads:
         16
-        # FIXME how does runtime scale with threads?
-    benchmark:
-        # should have same name as rule
+    benchmark:# should have same name as rule
         'benchmark/map_mdups_sort.txt'
     #log:
     #    # should have same name as rule
     #    'logs/map_mdups_sort.txt'
     shell:
-        # fixmate only works on name sorted files. ignores secondary 
-        # alignments, i.e. safe to use with bwa mem -M:
-        # http://sourceforge.net/p/samtools/mailman/message/30556922/
-        # 
-	# samtools sort might need control of max thread memory to not go 
-        # over limit for v1.3 it's 768M. if we use 16 threads this amounts 
-        # to max 12.3GB (on top of whatever bwa (8GB for HG) etc. need).
-        # FIXME: set threads to 12?
-	#
-        # using samtools instead of sambamba for view and sort:
-        # http://genomespot.blogspot.sg/2015/03/sambamba-vs-samtools.html says
-        # runtime difference are not too huge and samtools is the conservative
-        # choice anyway
-        #
-        "module load bwa/{config[modules][bwa]}; "
-        "module load samtools/{config[modules][samtools]}; "
-        "module load samblaster/{config[modules][samblaster]}; "
-        "bwa mem {params.mark_short_splits} -t {threads}"
-        " -R '@RG\tID:{wildcards.unit}\tPL:{config[platform]}\tPU:PU-{wildcards.unit}\tLB:LB-{config[sample]}\tSM:{config[sample]}\tCN:GIS'"
-        " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} | "
-        " samtools fixmate -O sam - - | "
-        " samblaster {params.mark_short_splits} | "
-        " samtools view -@ {threads} -bu -o - | "
-        " samtools sort -@ {threads} -o {output.bam} -"
+        """
+        bwa mem {params.mark_short_splits} -t {threads} \
+          -R '@RG\tID:{wildcards.unit}\tPL:{config[platform]}\tPU:PU-{wildcards.unit}\tLB:LB-{config[sample]}\tSM:{config[sample]}\tCN:GIS' \
+          {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} | \
+          samtools fixmate -O sam - - | \
+          samblaster {params.mark_short_splits} | \
+          samtools view -@ {threads} -bu -o - | \
+          samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -
+        """
 
 # FIXME rule report:
 # write program versions
 # how it works
-    
-    

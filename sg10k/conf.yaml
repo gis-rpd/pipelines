@@ -2,26 +2,28 @@
     modules: {
         bwa : 0.7.12,
         samtools : 1.3,
-        samblaster : 0.1.22
+        samblaster : 0.1.22,
+        bamutil : 1.0.13,
     },
     # layout roughly following the logic of the official snakemake-workflow repository
     
     references: {
         # FIXME during auto generation make sure to change base dir
-        genome : "/mnt/projects/rpd/genomes/human_g1k_v37/human_g1k_v37.fasta",
+        genome : "/mnt/projects/rpd/genomes/gotcloud-bundles/h37-db142-v1/human.g1k.v37.fa",
+        dbsnp: "/mnt/projects/rpd/genomes/gotcloud-bundles/h37-db142-v1/dbsnp_142.b37.vcf.gz"
     },
 
-    sample: 'SCHMUX',# sample identifier
+    sample: 'ERR091571_',# sample identifier
     units: {
         # read groups assigned according to unit.
         # each unit can be assigned one (SE) or two (PE) files
         #A: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2.fastq.gz"]
-        #A: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000001.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000001.fastq.gz"],
-        #B: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000002.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000002.fastq.gz"],
-        #C: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000003.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000003.fastq.gz"]
-        A: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000001_1konly.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000001_1konly.fastq.gz"],
-        B: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000002_1konly.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000002_1konly.fastq.gz"],
-        C: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000003_1konly.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000003_1konly.fastq.gz"]
+        A: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000001.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000001.fastq.gz"],
+        B: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000002.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000002.fastq.gz"],
+        C: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000003.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000003.fastq.gz"]
+        #A: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000001_1konly.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000001_1konly.fastq.gz"],
+        #B: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000002_1konly.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000002_1konly.fastq.gz"],
+        #C: ["/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_1_split000003_1konly.fastq.gz", "/mnt/projects/rpd/testing/data/SG10K/illumina-platinum-NA12878/ERR091571_2_split000003_1konly.fastq.gz"]
     } ,
     
     platform: "Illumina",
