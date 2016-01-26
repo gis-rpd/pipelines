@@ -1,3 +1,5 @@
+# FIXME settings for GIS. Might need tweaking elsewhere
+#
 # - https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-cluster-configuration
 # - time: changing depending on cluster and input data and used during submission so best set here
 # - mem: needed for cluster submission so best set here
@@ -18,7 +20,7 @@
   
     "bq_recal" :
     {
-      "time" : "06:00:00",
+      "time" : "12:00:00",
       "mem" : 8G,
     },
     
@@ -30,8 +32,13 @@
     
     "map_mdups_sort" :
     {
-      "time" : "12:00:00",
+      "time" : "06:00:00",
       "mem" : 16G,
+    },
+    
+    "contamination_check" :
+    {
+      "time" : "04:00:00",
     }
 }    
                                                                 

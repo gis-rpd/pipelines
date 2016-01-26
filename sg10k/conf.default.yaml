@@ -1,0 +1,27 @@
+{  
+  modules: {
+    # name : version
+    bwa : 0.7.12,
+    samtools : 1.3,
+    samblaster : 0.1.22,
+    bamutil : 1.0.13,
+    verifybamid: 1.1.2,
+    bedtools: 2.25.0,
+  },
+    
+  references: {
+    genome : "$RPD_GENOMES/gotcloud-bundles/h37-db142-v1/human.g1k.v37.fa",
+    dbsnp: "$RPD_GENOMES/gotcloud-bundles/h37-db142-v1/dbsnp_142.b37.vcf.gz",
+    hapmap: "$RPD_GENOMES/gotcloud-bundles/h37-db142-v1/hapmap_3.3.b37.sites.vcf.gz",
+    #cont_vcfs: {
+      #  hapmap: "/mnt/projects/rpd/genomes.testing/gotcloud-bundles/h37-db142-v1/hapmap_3.3.b37.sites.vcf.gz",
+      #  omni: "/mnt/projects/rpd/genomes.testing/gotcloud-bundles/h37-db142-v1/1000G_omni2.5.b37.sites.PASS.vcf.gz"
+      #},
+  },
+    
+  platform: "Illumina",
+  # extra BWA parameters, except -M -R and -t
+  bwa_mem_custom_args: "",
+}
+    
+    

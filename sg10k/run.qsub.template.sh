@@ -22,9 +22,24 @@
 #$ -m bea
 ## run the job in the current working directory (where qsub is called)
 #$ -cwd
+## keep env so that qsub works. otherwise see settings below
+#$ -V
 
 
-source load_env.sh
+#export SGE_ROOT=/opt/uge-8.1.7p3
+#export SGE_CELL=aquila_cell
+#source $SGE_ROOT/$SGE_CELL/common/settings.sh
+
+
+eval `@INIT@`
+
+
+# load snakemake
+#
+echo "Activating snakemake"
+use miniconda-3
+#export PATH=/mnt/projects/rpd/apps/miniconda3/bin/:$PATH
+source activate snakemake-3.5.4;
 
 
 # define qsub options for all jobs spawned by snakemake
@@ -33,26 +48,23 @@ source load_env.sh
 # the job will be put in this directory under the default filename."
 # see https://groups.google.com/forum/#!topic/snakemake/5BRHiWUbIaA for alternatives
 #
-clusterlogdir="./clusterlogs/"
+clusterlogdir="./logs/"
 test -d $clusterlogdir || mkdir $clusterlogdir
 qsub="qsub -pe OpenMP {threads} -l mem_free={cluster.mem} -l h_rt={cluster.time} -V -cwd -e $clusterlogdir -o $clusterlogdir"
+cluster_args="--cluster-config cluster.yaml --cluster \"$qsub\""
+# set cluster_args to "" for local runs
 
-# FIXME consider using DRMAA
-# FIXME left over jobs when head job was killed. fixed with use of drmaa?
-DEVEL=0
-if [ "$DEVEL" -eq 1 ]; then
-    keepgoing=""
-    notemp="--notemp"
-    force="--forceall"
-else
-    keepgoing="--keep-going"
-    notemp=""
-    force=""
-fi
 
-snakemake --cluster-config cluster.yaml \
-          --configfile conf.yaml \
-          --stats snakemake.stats \
-          -j 10 \
-          --cluster "$qsub" \
-          --rerun-incomplete --timestamp $keepgoing $notemp $force
+keepgoing="--keep-going";# irritating. fail immediately
+keepgoing=""
+notemp="--notemp";# for debug only
+notemp=""
+force="--forceall";#for debug only
+force=""
+dryrun="--dryrun"
+dryrun=""
+# for --rerun-incomplete see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
+
+eval snakemake --configfile conf.yaml --stats snakemake.stats -s @SNAKEFILE@ \
+          --rerun-incomplete --timestamp --printshellcmds \
+          -j 10 $cluster_args $keepgoing $notemp $force $dryrun \

@@ -12,25 +12,26 @@ rule samtools_fasta_index:
     output:
         "{prefix}.{suffix,(fasta|fa)}.fai"
     shell:
-       	#module load samtools/{config[modules][samtools]}
-        """
-       	#use samtools-{config[modules][samtools]}
-        samtools faidx {input}
-        """
+        "use samtools-{config[modules][samtools]};"
+        "samtools faidx {input};"
+    
+rule map_rate:
+    input:
+        bam="{prefix}.idxstats.txt",
+    output:
+        "{prefix}.maprate.txt"
+    shell:
+        "cat {input} | awk '{{a+=$3; u+=$4}} END {{printf \"%.2f\\n\", a/(a+u)}}' > {output}"
 
-
-rule bam_stats:
+rule bam_idxstats:
     input:
         bam="{prefix}.bam",
         bai="{prefix}.bam.bai"
     output:
-        "{prefix}.stats.txt"
+        "{prefix}.idxstats.txt"
     shell:
-       	#module load samtools/{config[modules][samtools]}
-        """
-       	#use samtools-{config[modules][samtools]}
-        samtools idxstats {input.bam} > {output}
-        """
+        "use samtools-{config[modules][samtools]};"
+        "samtools idxstats {input.bam} > {output};"
 
 
 rule bam_index:
@@ -39,11 +40,7 @@ rule bam_index:
     output:
         "{prefix}.bam.bai"
     shell:
-        #module load samtools/{config[modules][samtools]}
-        """
-       	#use samtools-{config[modules][samtools]}
-        samtools index {input}
-        """
-
+        "use samtools-{config[modules][samtools]};"
+        "samtools index {input};"
 
 

@@ -1,0 +1,14 @@
+"""Generic bedtools rules
+"""
+
+rule genomecov:
+     # useful for wgs only
+    input:
+        "{sample}.bam"
+    output:
+        "{sample}.genomecov.txt.gz"
+    shell:
+        "use bedtools-{config[modules][bedtools]};"
+        "bedtools genomecov -ibam {input} | gzip > {output};"
+        
+

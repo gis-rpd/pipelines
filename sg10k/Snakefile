@@ -5,7 +5,10 @@ from snakemake.utils import report
 # non-login bash
 shell.executable("/bin/bash")
 # activate "unofficial bash strict mode"
-shell.prefix("set -euo pipefail")
+#shell.prefix("eval `/mnt/projects/rpd/init -d` && set -euo pipefail;")
+#shell.prefix("set -euo pipefail; source dk.rc")
+# order mattter! pipefail last
+shell.prefix("source dk.rc;")
 
 
 # onsuccess and onerror handlers: might be good for sending emails instead of relying on scheduler etc.
@@ -23,40 +26,71 @@ MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 include: "rules/samtools.rules"
 #include: "rules/bwa.rules"
-
+include: "rules/bedtools.rules"
         
 rule final:
   input:
+        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.idxstats.txt',
+        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.maprate.txt',
+        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.selfSM',
+        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.genomecov.txt.gz',
         "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam',
-        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.stats.txt'    
-  message: 'Pipeline run successfully completed'
+  message:
+        """
+        Pipeline run successfully completed
+        
+        FIXME:tests missing
+        FIXME:report missing
+        """
   # if output is created here, deleting the 'input' will not result in
   # rerun so it's best to not create any fake output files here
   #output:  'COMPLETE'
   #shell:   'touch {output}'
 
 
+
+rule contamination_check:
+    input:
+        bam = 'out/{sample}.bam',
+        vcf = config['references']['hapmap']
+    output:
+        # assuming default option --self
+        bam = 'out/{sample}.selfSM'
+    params:
+        outbase = 'out/{sample}'
+    message:
+        "Checking for contamination"
+    benchmark:# should have same name as rule
+        'benchmark/contamination_check.txt'
+    shell:
+        # NOTE: defaults tuned for shallow WGS
+        # See http://genome.sph.umich.edu/wiki/VerifyBamID#What_the_default_option_does
+        # run for sample and read-groups, i.e. don't use --ignoreRG
+        "use verifybamid-{config[modules][verifybamid]};"
+        "verifyBamID --vcf {input.vcf} --bam {input.bam} --out {params.outbase} --noPhoneHome;"
+
+        
 rule bq_recal:
     """Use bamutils for base quality recalibration with bamUtils
 
     recommended use without deduper: http://genome.sph.umich.edu/wiki/BamUtil:_recab
     NOTE: saving original tags only needed for debuggin/fastq reversal, but increases space
-    "module load bamutil/{config[modules][bamutil]};"
-    "use bamutil-{config[modules][bamutil]};"
     """
     input:
         bam = 'out/{sample}.bam',
         reffa = config['references']['genome'],
         dbsnp = config['references']['dbsnp']
     output:
-        'out/{sample}.recal.bam'
+        bam='out/{sample}.recal.bam',
+        qemp='out/{sample}.recal.qemp.bam'
     message:
         "Base quality recalibration with bamUtils"
     benchmark:# should have same name as rule
         'benchmark/bq_recal.txt'
     shell:
-        "echo starting $(which bam) to create ${output};"
-        "bam recab --in {input.bam} --out {output} --refFile {input.reffa} --dbsnp {input.dbsnp} --storeQualTag OQ --maxBaseQual 40"
+        # recommended use is --storeQualTag OQ but we need the BAMs to be small
+        "use bamutil-{config[modules][bamutil]};"
+        "bam recab --in {input.bam} --out {output.bam} --refFile {input.reffa} --dbsnp {input.dbsnp} --maxBaseQual 40 --noPhoneHome"
     
     
 rule sample_merge:
@@ -70,11 +104,14 @@ rule sample_merge:
         16
     output:
         temp('out/' + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam')
+    message:
+        "Merging files"
+    benchmark:# should have same name as rule
+        'benchmark/sample_merge.txt'
     run:
         if len(input) > 1:
-            shell("""
-            samtools merge -@ {threads} {output} {input}
-            """)
+            shell("use samtools-{config[modules][samtools]};"
+                  "samtools merge -@ {threads} {output} {input};")
         else:
             shell("ln -s {input} {output} && touch -h {output}")
 
@@ -116,16 +153,17 @@ rule map_mdups_sort:
     #log:
     #    # should have same name as rule
     #    'logs/map_mdups_sort.txt'
+    #"use bwa-{config[modules][bwa]} || echo 'FATAL: loading bwa failed' 1>&2;"
+    #"use samtools-{config[modules][samtools]}  || echo 'FATAL: loading samtools failed' 1>&2;"
+    #"use samblaster-{config[modules][samblaster]}  || echo 'FATAL: loading samblaster failed' 1>&2;"
     shell:
-        """
-        bwa mem {params.mark_short_splits} -t {threads} \
-          -R '@RG\tID:{wildcards.unit}\tPL:{config[platform]}\tPU:PU-{wildcards.unit}\tLB:LB-{config[sample]}\tSM:{config[sample]}\tCN:GIS' \
-          {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} | \
-          samtools fixmate -O sam - - | \
-          samblaster {params.mark_short_splits} | \
-          samtools view -@ {threads} -bu -o - | \
-          samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -
-        """
+        "bwa mem {params.mark_short_splits} -t {threads}"
+        " -R '@RG\tID:{wildcards.unit}\tPL:{config[platform]}\tPU:PU-{wildcards.unit}\tLB:LB-{config[sample]}\tSM:{config[sample]}\tCN:GIS'"
+        " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
+        " samtools fixmate -O sam - - |"
+        " samblaster {params.mark_short_splits} |"
+        " samtools view -@ {threads} -bu -o - |"
+        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
 
 # FIXME rule report:
 # write program versions
