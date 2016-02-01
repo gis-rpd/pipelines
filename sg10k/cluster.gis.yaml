@@ -20,25 +20,26 @@
   
     "bq_recal" :
     {
-      "time" : "12:00:00",
+      "time" : "16:00:00",
       "mem" : 8G,
     },
     
     "sample_merge" :
     {
-      "time" : "06:00:00",
+      "time" : "04:00:00",
       "mem" : 4G,
     },
     
     "map_mdups_sort" :
     {
-      "time" : "06:00:00",
-      "mem" : 16G,
+      "time" : "04:00:00",
+      "mem" : 24G,
     },
     
     "contamination_check" :
     {
-      "time" : "04:00:00",
+      "time" : "03:00:00",
+      "mem" : 2G,
     }
 }    
                                                                 
