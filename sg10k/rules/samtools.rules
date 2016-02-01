@@ -43,7 +43,7 @@ rule bam_stats:
     shell:
         "od=$(dirname {output.stats}); test -d $od || mkdir $od;"
         "samtools stats {input.bam} > {output.stats};"
-        "plot-bamstats -p ${{{output.plothtml}%.html}} {output.stats};"
+        "plot-bamstats -p $(echo {output.plothtml} | cut -f -1 -d '.') {output.stats};"
         
 
 rule bam_index:
