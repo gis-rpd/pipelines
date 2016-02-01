@@ -18,6 +18,7 @@ from itertools import zip_longest
 import shutil
 import json
 import subprocess
+import string
 
 #--- third-party imports
 #
@@ -31,7 +32,7 @@ import yaml
 LOG = logging.getLogger()
 
 INIT = {'gis': "/mnt/projects/rpd/init"}
-
+ENV_RC = 'env.rc'
 
 def testing_is_active():
     """checks whether this is a developers version of production"""
@@ -64,8 +65,8 @@ def get_init_call():
         cmd.append('-d')
 
     return cmd
-    
-    
+
+
 def get_rpd_vars():
     """Read RPD variables set by calling and parsing output from init
     """
@@ -76,7 +77,7 @@ def get_rpd_vars():
     except subprocess.CalledProcessError:
         LOG.fatal("Couldn't call init as '{}'".format(' '.join(cmd)))
         raise
-    
+
     rpd_vars = dict()
     for line in res.decode().splitlines():
         if line.startswith('export '):
@@ -88,6 +89,22 @@ def get_rpd_vars():
     return rpd_vars
 
 
+
+def write_env_rc(env_rc, config, overwrite=False):
+    """write bash rc file containg dotkit setup and bash strict mode
+    """
+
+    if not overwrite:
+        assert not os.path.exists(env_rc), env_rc
+
+    with open(config) as fh_config, open(env_rc, 'w') as fh_rc:
+        fh_rc.write("eval `{}`;\n".format(' '.join(get_init_call())))
+        for k, v in yaml.safe_load(fh_config)["modules"].items():
+            fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
+        fh_rc.write("# unofficial bash strict has to come last\n")
+        fh_rc.write("set -euo pipefail;\n")
+
+
 def create_cluster_config(outdir, force_overwrite=False):
     """FIXME:add-doc
     """
@@ -97,7 +114,7 @@ def create_cluster_config(outdir, force_overwrite=False):
 
     assert os.path.exists(cluster_config_in)
     if not force_overwrite:
-        assert not os.path.exists(cluster_config_out)
+        assert not os.path.exists(cluster_config_out), cluster_config_out
 
     shutil.copyfile(cluster_config_in, cluster_config_out)
 
@@ -109,17 +126,17 @@ def create_pipeline_config(outdir, user_data, force_overwrite=False):
     rpd_vars = get_rpd_vars()
     for k, v in rpd_vars.items():
         LOG.debug("{} : {}".format(k, v))
-    
+
     basedir = os.path.dirname(sys.argv[0])
     pipeline_config_in = os.path.join(basedir, "conf.default.yaml".format(get_site()))
     pipeline_config_out = os.path.join(outdir, "conf.yaml".format())
 
     assert os.path.exists(pipeline_config_in)
     if not force_overwrite:
-        assert not os.path.exists(pipeline_config_out)
+        assert not os.path.exists(pipeline_config_out), pipeline_config_out
 
     with open(pipeline_config_in, 'r') as fh:
-        config = yaml.load(fh)
+        config = yaml.safe_load(fh)
     config.update(user_data)
 
     # trick to traverse dictionary fully and replace all instances of variable
@@ -128,10 +145,12 @@ def create_pipeline_config(outdir, user_data, force_overwrite=False):
 
     # FIXME we could test presence of files but would need to iterate
     # over config and assume structure
-    
+
     with open(pipeline_config_out, 'w') as fh:
         # default_flow_style=None(default)|True(least readable)|False(most readable)
         yaml.dump(config, fh, default_flow_style=False)
+
+    return pipeline_config_out
 
 
 def main():
@@ -141,15 +160,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-1', "--fq1", required=True, nargs="+",
                         help="FastQ file #1 (gzip recommended)."
-                        " Multiple (split) input files supported")
+                        " Multiple (split) input files supported (auto-sorted)")
     parser.add_argument('-2', "--fq2", required=True, nargs="+",
                         help="FastQ file #2 (gzip recommended)."
-                        " Multiple (split) input files supported")
+                        " Multiple (split) input files supported (auto-sorted)")
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name / identifier")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory")
-    parser.add_argument('-b', '--no-run', action='store_true')
+    parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
     args = parser.parse_args()
@@ -171,49 +190,53 @@ def main():
             if not os.path.exists(f):
                 LOG.fatal("Non-existing input file {}".format(f))
                 sys.exit(1)
+    LOG.info("Will process FastQ pairs as follows:\n{}".format("\n".join([
+        "#{}: {} and {}".format(i, fq1, fq2) for i, (fq1, fq2) in enumerate(fq_pairs)])))
 
     if os.path.exists(args.outdir):
         LOG.fatal("Output directory {} already exists".format(args.outdir))
         sys.exit(1)
     os.makedirs(args.outdir)
     LOG.info("Writing to {}".format(args.outdir))
-    
+
+
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'sample': args.sample}
     user_data['units'] = dict()
+    # keys are ascii letters and used for filenaming
+    unit_keys = string.ascii_letters
+    assert len(fq_pairs) < len(unit_keys)
     for i, (fq1, fq2) in enumerate(fq_pairs):
-        user_data['units'][chr(ord('A')+i)] = [fq1, fq2]
+        user_data['units'][unit_keys[i]] = [fq1, fq2]
 
     LOG.info("Writing config files")
     create_cluster_config(args.outdir)
-    create_pipeline_config(args.outdir, user_data)
+    pipeline_config = create_pipeline_config(args.outdir, user_data)
+    write_env_rc(os.path.join(args.outdir, ENV_RC), pipeline_config)
 
     site = get_site()
     if site == "gis":
-        LOG.info("Writing the run file")
+        LOG.info("Writing the run file for site {}".format(site))
         basedir = os.path.dirname(sys.argv[0])
         run_template = os.path.join(basedir, "run.qsub.template.sh")
         run_out = os.path.join(args.outdir, "run.qsub.sh")
-        init_call = get_init_call()
-        # can't copy snakefile because we need the relative rules directory
+        # FIXME ideally we should copy snakefile to allow for local
+        # modification but currently we need the relative rules
+        # directory so using the original
         snakefile = os.path.abspath(os.path.join(basedir, "Snakefile"))
         assert not os.path.exists(run_out)
         with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
             for line in templ_fh:
-                # FIXME not working and replaced through r
-                line = line.replace("@INIT@", ' '.join(init_call))
                 line = line.replace("@SNAKEFILE@", snakefile)
                 out_fh.write(line)
-                
+
+        cmd = "cd {} && qsub {}".format(os.path.dirname(run_out), run_out)
         if args.no_run:
-            cmd = "cd {} && qsub {}".format(os.path.dirname(run_out), run_out)
-            print("Not actually running pipeline. Once ready use:".format(cmd))
+            LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
         else:
-            LOG.warn("Cheating with dk.rc")
-            shutil.copy("dk.rc", os.path.dirname(run_out))
-            
+            LOG.info("Starting pipeline: {}".format(cmd))
             os.chdir(os.path.dirname(run_out))
-            subprocess.check_call(["qsub", run_out])                  
+            subprocess.check_call(cmd, shell=True)
 
     else:
         raise ValueError(site)

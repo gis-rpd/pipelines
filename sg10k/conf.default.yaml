@@ -6,17 +6,19 @@
     samblaster : 0.1.22,
     bamutil : 1.0.13,
     verifybamid: 1.1.2,
-    bedtools: 2.25.0,
+    bedtools: 2.17.0,
   },
-    
-  references: {
-    genome : "$RPD_GENOMES/gotcloud-bundles/h37-db142-v1/human.g1k.v37.fa",
-    dbsnp: "$RPD_GENOMES/gotcloud-bundles/h37-db142-v1/dbsnp_142.b37.vcf.gz",
-    hapmap: "$RPD_GENOMES/gotcloud-bundles/h37-db142-v1/hapmap_3.3.b37.sites.vcf.gz",
-    #cont_vcfs: {
-      #  hapmap: "/mnt/projects/rpd/genomes.testing/gotcloud-bundles/h37-db142-v1/hapmap_3.3.b37.sites.vcf.gz",
-      #  omni: "/mnt/projects/rpd/genomes.testing/gotcloud-bundles/h37-db142-v1/1000G_omni2.5.b37.sites.PASS.vcf.gz"
-      #},
+
+  references: {    
+    genome : "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/hs37d5.fa",
+    dbsnp: "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/dbsnp_142.b37.vcf.gz",
+    cont_vcfs: {
+        # keys are used for filenaming so don't use funny characters
+        # hapmap: "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/hapmap_3.3.b37.sites.vcf.gz",
+        CHS : "$RPD_GENOMES/sg10k/SGVP_MAF0.01.CHS.sites.vcf.gz",
+        INS : "$RPD_GENOMES/sg10k/SGVP_MAF0.01.INS.sites.vcf.gz",
+        MAS : "$RPD_GENOMES/sg10k/SGVP_MAF0.01.MAS.sites.vcf.gz",
+      },
   },
     
   platform: "Illumina",

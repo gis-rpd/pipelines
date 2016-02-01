@@ -12,7 +12,7 @@
 ## snakemake control job run time
 #$ -l h_rt=72:00:00
 # memory
-#$ -l mem_free=500M
+#$ -l mem_free=1G
 ## 'parallel env'
 #$ -pe OpenMP 1
 ## standard error stream of the job is merged into the standard output stream: #$ -j y
@@ -29,9 +29,6 @@
 #export SGE_ROOT=/opt/uge-8.1.7p3
 #export SGE_CELL=aquila_cell
 #source $SGE_ROOT/$SGE_CELL/common/settings.sh
-
-
-eval `@INIT@`
 
 
 # load snakemake

@@ -12,16 +12,17 @@ rule samtools_fasta_index:
     output:
         "{prefix}.{suffix,(fasta|fa)}.fai"
     shell:
-        "use samtools-{config[modules][samtools]};"
         "samtools faidx {input};"
-    
+
+
 rule map_rate:
     input:
         bam="{prefix}.idxstats.txt",
     output:
         "{prefix}.maprate.txt"
     shell:
-        "cat {input} | awk '{{a+=$3; u+=$4}} END {{printf \"%.2f\\n\", a/(a+u)}}' > {output}"
+        "cat {input} | awk '{{a+=$3; u+=$4}} END {{printf \"%.3f%% reads map\\n\", a/(a+u)*100.0}}' > {output}"
+
 
 rule bam_idxstats:
     input:
@@ -30,9 +31,20 @@ rule bam_idxstats:
     output:
         "{prefix}.idxstats.txt"
     shell:
-        "use samtools-{config[modules][samtools]};"
         "samtools idxstats {input.bam} > {output};"
 
+
+rule bam_stats:
+    input:
+        bam="{prefix}.bam"
+    output:
+        stats="{prefix}.bamstats/stats.txt",
+        plothtml="{prefix}.bamstats/stats_plot.html"
+    shell:
+        "od=$(dirname {output.stats}); test -d $od || mkdir $od;"
+        "samtools stats {input.bam} > {output.stats};"
+        "plot-bamstats -p ${{{output.plothtml}%.html}} {output.stats};"
+        
 
 rule bam_index:
     input:
@@ -40,7 +52,6 @@ rule bam_index:
     output:
         "{prefix}.bam.bai"
     shell:
-        "use samtools-{config[modules][samtools]};"
         "samtools index {input};"
 
 

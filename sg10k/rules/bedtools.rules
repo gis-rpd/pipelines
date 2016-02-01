@@ -2,13 +2,13 @@
 """
 
 rule genomecov:
-     # useful for wgs only
+    # FIXME core dumps with 2.17 and 2.25 on cluster but not interactively
+    # useful for wgs only
     input:
         "{sample}.bam"
     output:
         "{sample}.genomecov.txt.gz"
     shell:
-        "use bedtools-{config[modules][bedtools]};"
         "bedtools genomecov -ibam {input} | gzip > {output};"
         
 
