@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
-"""Pipeline Wrapper for SG10K
+"""{PIPELINE_NAME} pipeline (version: {PIPELINE_VERSION}): creates
+pipeline-specific config files to given output directory and runs the
+pipeline (unless otherwise requested).
+
+If multiple fastq files/pairs are given, a new read-group will be
+created per file/pair (changeable in the created conf.yaml).
 """
+# actual PIPELINE_NAME and PIPELINE_VERSION replaced later
+
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
@@ -28,16 +35,33 @@ import yaml
 #/
 
 
+# same as folder name
+PIPELINE_NAME = "SG10K"
+
+
+INIT = {'gis': "/mnt/projects/rpd/init"}
+# used as bash prefix in Snakemake
+ENV_RC = 'env.rc'
+
+BASEDIR = os.path.dirname(sys.argv[0])
+
+
 # global logger
 LOG = logging.getLogger()
 
-INIT = {'gis': "/mnt/projects/rpd/init"}
-ENV_RC = 'env.rc'
+
+def get_pipeline_version():
+    """determine pipeline version as defined by updir file
+    """
+    version_file = os.path.abspath(os.path.join(BASEDIR, "..", "VERSION"))
+    with open(version_file) as fh:
+        version = fh.readline().strip()
+    return version
+
 
 def testing_is_active():
     """checks whether this is a developers version of production"""
-    basedir = os.path.dirname(sys.argv[0])
-    check_file = os.path.abspath(os.path.join(basedir, "..", "DEVELOPERS_VERSION"))
+    check_file = os.path.abspath(os.path.join(BASEDIR, "..", "DEVELOPERS_VERSION"))
     #LOG.debug("check_file = {}".format(check_file))
     return os.path.exists(check_file)
 
@@ -108,8 +132,7 @@ def write_env_rc(env_rc, config, overwrite=False):
 def create_cluster_config(outdir, force_overwrite=False):
     """FIXME:add-doc
     """
-    basedir = os.path.dirname(sys.argv[0])
-    cluster_config_in = os.path.join(basedir, "cluster.{}.yaml".format(get_site()))
+    cluster_config_in = os.path.join(BASEDIR, "cluster.{}.yaml".format(get_site()))
     cluster_config_out = os.path.join(outdir, "cluster.yaml")
 
     assert os.path.exists(cluster_config_in)
@@ -127,8 +150,7 @@ def create_pipeline_config(outdir, user_data, force_overwrite=False):
     for k, v in rpd_vars.items():
         LOG.debug("{} : {}".format(k, v))
 
-    basedir = os.path.dirname(sys.argv[0])
-    pipeline_config_in = os.path.join(basedir, "conf.default.yaml".format(get_site()))
+    pipeline_config_in = os.path.join(BASEDIR, "conf.default.yaml".format(get_site()))
     pipeline_config_out = os.path.join(outdir, "conf.yaml".format())
 
     assert os.path.exists(pipeline_config_in)
@@ -143,6 +165,15 @@ def create_pipeline_config(outdir, user_data, force_overwrite=False):
     config = dict(json.loads(
         json.dumps(config).replace("$RPD_GENOMES", rpd_vars['RPD_GENOMES'])))
 
+    # for ELM logging
+    assert 'ELM' not in config
+    config['ELM'] = {'libraryID': "FIXME:libraryID",
+                     'runID': "FIXME:runID",
+                     'laneID': "FIXME:laneID",
+                     'pipeLineName': PIPELINE_NAME,
+                     'pipeLineVersion': get_pipeline_version(),
+                     'site': get_site()}
+    
     # FIXME we could test presence of files but would need to iterate
     # over config and assume structure
 
@@ -157,7 +188,9 @@ def main():
     """main function
     """
 
-    parser = argparse.ArgumentParser(description=__doc__)
+    
+    parser = argparse.ArgumentParser(description=__doc__.format(
+        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
     parser.add_argument('-1', "--fq1", required=True, nargs="+",
                         help="FastQ file #1 (gzip recommended)."
                         " Multiple (split) input files supported (auto-sorted)")
@@ -167,12 +200,14 @@ def main():
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name / identifier")
     parser.add_argument('-o', "--outdir", required=True,
-                        help="Output directory")
+                        help="Output directory (may not exist)")
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
+
     args = parser.parse_args()
 
+    
     # Repeateable -v and -q for setting logging level.
     # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
     logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
@@ -217,13 +252,12 @@ def main():
     site = get_site()
     if site == "gis":
         LOG.info("Writing the run file for site {}".format(site))
-        basedir = os.path.dirname(sys.argv[0])
-        run_template = os.path.join(basedir, "run.qsub.template.sh")
+        run_template = os.path.join(BASEDIR, "run.qsub.template.sh")
         run_out = os.path.join(args.outdir, "run.qsub.sh")
         # FIXME ideally we should copy snakefile to allow for local
         # modification but currently we need the relative rules
         # directory so using the original
-        snakefile = os.path.abspath(os.path.join(basedir, "Snakefile"))
+        snakefile = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
         assert not os.path.exists(run_out)
         with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
             for line in templ_fh:
