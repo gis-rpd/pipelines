@@ -1,14 +1,28 @@
 import os
-from datetime import datetime
-from collections import OrderedDict()
+
 from snakemake.utils import report
+
+# for logging
+from datetime import datetime
+import getpass
+import subprocess
 
 
 # FIXME could be exported to same directory where Snakefile resides
 class ElmLogging(object):
     """FIXME-adddoc
     """
+
+    @staticmethod
+    def disk_usage(path):
+        """disk usage via du"""
+        return int(subprocess.check_output(['du','-s', path]).split()[0])
+
     
+    @staticmethod
+    def getuser():
+        return getpass.getuser()
+
     @staticmethod
     def timestamp():
         """returns iso timestamp down to ms"""
@@ -47,6 +61,8 @@ class ElmLogging(object):
                 assert k in config['ELM']
                 self.write(k, config['ELM'][k])                
             self.write("statusID", 5)# == in analysis (startup)
+            self.write("submitter", self.getuser())
+            self.write("snakefile", workflow.snakefile)
                     
 
     def stop(self, success):
@@ -58,9 +74,8 @@ class ElmLogging(object):
             else:
                 status = 7#troubleshooting
             self.write("statusID", status)
+            self.write("library_file_size", self.disk_usage("out"))
                                          
-            # FIXME write library_file_size
-            # FIXME write status_id depending on success
             # FIXME write jids
             # FIXME write head jid as instance_id
             
@@ -71,7 +86,7 @@ elm_logger.start()
 
 # non-login bash
 shell.executable("/bin/bash")
-shell.prefix("source env.rc;")
+shell.prefix("source snakemake_env.rc;")
 
 
 include: "rules/samtools.rules"
@@ -84,9 +99,9 @@ MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 
 onsuccess:
-    elm_logger.stop(success)
+    elm_logger.stop(True)
 onerror:
-    elm_logger.stop(not success)
+    elm_logger.stop(False)
 
     
 rule final:

@@ -38,13 +38,19 @@ import yaml
 # same as folder name
 PIPELINE_NAME = "SG10K"
 
+INIT = {
+    'gis': "/mnt/projects/rpd/init"
+}
 
-INIT = {'gis': "/mnt/projects/rpd/init"}
-# used as bash prefix in Snakemake
-ENV_RC = 'env.rc'
+# RC files
+RC = {
+    'DK_INIT' : 'dk_init.rc',# used to load dotkit
+    'SNAKEMAKE_INIT' : 'snakemake_init.rc',# used to load snakemake
+    'SNAKEMAKE_ENV' : 'snakemake_env.rc',# used as bash prefix within snakemakejobs
+}
 
 BASEDIR = os.path.dirname(sys.argv[0])
-
+LOGDIR = "logs"
 
 # global logger
 LOG = logging.getLogger()
@@ -60,7 +66,8 @@ def get_pipeline_version():
 
 
 def testing_is_active():
-    """checks whether this is a developers version of production"""
+    """checks whether this is a developers version of production
+    """
     check_file = os.path.abspath(os.path.join(BASEDIR, "..", "DEVELOPERS_VERSION"))
     #LOG.debug("check_file = {}".format(check_file))
     return os.path.exists(check_file)
@@ -77,7 +84,7 @@ def get_site():
 
 
 def get_init_call():
-    """FIXME:add-doc
+    """return dotkit init call
     """
     site = get_site()
     try:
@@ -113,24 +120,49 @@ def get_rpd_vars():
     return rpd_vars
 
 
-
-def write_env_rc(env_rc, config, overwrite=False):
-    """write bash rc file containg dotkit setup and bash strict mode
+def write_dk_init(rc_file, overwrite=False):
+    """creates dotkit init rc
     """
-
     if not overwrite:
-        assert not os.path.exists(env_rc), env_rc
+        assert not os.path.exists(rc_file), rc_file
+    with open(rc_file, 'w') as fh:
+        fh.write("eval `{}`;\n".format(' '.join(get_init_call())))
 
-    with open(config) as fh_config, open(env_rc, 'w') as fh_rc:
-        fh_rc.write("eval `{}`;\n".format(' '.join(get_init_call())))
-        for k, v in yaml.safe_load(fh_config)["modules"].items():
-            fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
+
+def write_snakemake_init(rc_file, overwrite=False):
+    """creates file which loads snakemake
+    """
+    if not overwrite:
+        assert not os.path.exists(rc_file), rc_file
+    with open(rc_file, 'w') as fh:
+        fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
+        fh.write("reuse -q miniconda-3\n")
+        fh.write("source activate snakemake-3.5.4\n")
+
+
+def write_snakemake_env(rc_file, config, overwrite=False):
+    """creates file for use as bash prefix within snakemake
+    """
+    if not overwrite:
+        assert not os.path.exists(rc_file), rc_file
+
+    with open(rc_file, 'w') as fh_rc:
+        fh_rc.write("# used as bash prefix within snakemake\n\n")
+        fh_rc.write("# init dotkit\n")
+        fh_rc.write("source dk_init.rc\n\n")
+
+        fh_rc.write("# load modules\n")
+        with open(config) as fh_cfg:
+            for k, v in yaml.safe_load(fh_cfg)["modules"].items():
+                fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
+
+        fh_rc.write("\n")
         fh_rc.write("# unofficial bash strict has to come last\n")
         fh_rc.write("set -euo pipefail;\n")
 
 
-def create_cluster_config(outdir, force_overwrite=False):
-    """FIXME:add-doc
+def write_cluster_config(outdir, force_overwrite=False):
+    """writes site dependend cluster config
     """
     cluster_config_in = os.path.join(BASEDIR, "cluster.{}.yaml".format(get_site()))
     cluster_config_out = os.path.join(outdir, "cluster.yaml")
@@ -142,15 +174,17 @@ def create_cluster_config(outdir, force_overwrite=False):
     shutil.copyfile(cluster_config_in, cluster_config_out)
 
 
-def create_pipeline_config(outdir, user_data, force_overwrite=False):
-    """FIXME:add-doc
+def write_pipeline_config(outdir, user_data, force_overwrite=False):
+    """writes config file for use in snakemake becaused on default config
+
+    FIXME is there a way to retain comments from the tempalte
     """
 
     rpd_vars = get_rpd_vars()
     for k, v in rpd_vars.items():
         LOG.debug("{} : {}".format(k, v))
 
-    pipeline_config_in = os.path.join(BASEDIR, "conf.default.yaml".format(get_site()))
+    pipeline_config_in = os.path.join(BASEDIR, "conf.default.yaml".format())
     pipeline_config_out = os.path.join(outdir, "conf.yaml".format())
 
     assert os.path.exists(pipeline_config_in)
@@ -173,7 +207,7 @@ def create_pipeline_config(outdir, user_data, force_overwrite=False):
                      'pipeLineName': PIPELINE_NAME,
                      'pipeLineVersion': get_pipeline_version(),
                      'site': get_site()}
-    
+
     # FIXME we could test presence of files but would need to iterate
     # over config and assume structure
 
@@ -188,7 +222,6 @@ def main():
     """main function
     """
 
-    
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
     parser.add_argument('-1', "--fq1", required=True, nargs="+",
@@ -207,14 +240,15 @@ def main():
 
     args = parser.parse_args()
 
-    
+
     # Repeateable -v and -q for setting logging level.
     # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
     logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
     logging.basicConfig(level=logging_level,
                         format='%(levelname)s [%(asctime)s]: %(message)s')
 
-    # check fastqs. sorting here should ensure R1 and R2 match
+
+    # Check fastqs. sorting here should ensure R1 and R2 match
     fq_pairs = list(zip_longest(sorted(args.fq1), sorted(args.fq2)))
     for fq1, fq2 in fq_pairs:
         # only zip_longest uses None if one is missing
@@ -228,10 +262,12 @@ def main():
     LOG.info("Will process FastQ pairs as follows:\n{}".format("\n".join([
         "#{}: {} and {}".format(i, fq1, fq2) for i, (fq1, fq2) in enumerate(fq_pairs)])))
 
+
     if os.path.exists(args.outdir):
         LOG.fatal("Output directory {} already exists".format(args.outdir))
         sys.exit(1)
-    os.makedirs(args.outdir)
+    # also create log dir immediately
+    os.makedirs(os.path.join(args.outdir, LOGDIR))
     LOG.info("Writing to {}".format(args.outdir))
 
 
@@ -244,36 +280,41 @@ def main():
     for i, (fq1, fq2) in enumerate(fq_pairs):
         user_data['units'][unit_keys[i]] = [fq1, fq2]
 
-    LOG.info("Writing config files")
-    create_cluster_config(args.outdir)
-    pipeline_config = create_pipeline_config(args.outdir, user_data)
-    write_env_rc(os.path.join(args.outdir, ENV_RC), pipeline_config)
+    LOG.info("Writing config and rc files")
+    write_cluster_config(args.outdir)
+    pipeline_cfgfile = write_pipeline_config(args.outdir, user_data)
+    write_dk_init(os.path.join(args.outdir, RC['DK_INIT']))
+    write_snakemake_init(os.path.join(args.outdir, RC['SNAKEMAKE_INIT']))
+    write_snakemake_env(os.path.join(args.outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
 
     site = get_site()
     if site == "gis":
         LOG.info("Writing the run file for site {}".format(site))
-        run_template = os.path.join(BASEDIR, "run.qsub.template.sh")
-        run_out = os.path.join(args.outdir, "run.qsub.sh")
-        # FIXME ideally we should copy snakefile to allow for local
-        # modification but currently we need the relative rules
-        # directory so using the original
+        run_template = os.path.join(BASEDIR, "run.template.sh")
+        run_out = os.path.join(args.outdir, "run.sh")
+        # if we copied the snakefile (to allow for local modification)
+        # the rules import won't work.  so use the original file
         snakefile = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
         assert not os.path.exists(run_out)
         with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
             for line in templ_fh:
                 line = line.replace("@SNAKEFILE@", snakefile)
+                line = line.replace("@LOGDIR@", LOGDIR)
                 out_fh.write(line)
 
-        cmd = "cd {} && qsub {}".format(os.path.dirname(run_out), run_out)
+                
+        submission_log = os.path.join(LOGDIR, "submission.log")
+        cmd = "cd {} && qsub {} >> {}".format(os.path.dirname(run_out), run_out, submission_log)
         if args.no_run:
             LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
         else:
             LOG.info("Starting pipeline: {}".format(cmd))
             os.chdir(os.path.dirname(run_out))
-            subprocess.check_call(cmd, shell=True)
-
+            res = subprocess.check_output(cmd, shell=True)
+            LOG.warn("FIXME: res={}".format(res.decode()))
     else:
         raise ValueError(site)
+
 
 if __name__ == "__main__":
     main()
