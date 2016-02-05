@@ -6,7 +6,7 @@ pipeline (unless otherwise requested).
 If multiple fastq files/pairs are given, a new read-group will be
 created per file/pair (changeable in the created conf.yaml).
 """
-# actual PIPELINE_NAME and PIPELINE_VERSION replaced later
+# {PIPELINE_NAME} and {PIPELINE_VERSION} replaced for printing usage
 
 
 __author__ = "Andreas Wilm"
@@ -38,6 +38,11 @@ import yaml
 # same as folder name
 PIPELINE_NAME = "SG10K"
 
+# log dir relative to outdir
+LOG_DIR_REL = "logs"
+# master log relative to outdir
+MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.{}.log".format(PIPELINE_NAME))
+
 INIT = {
     'gis': "/mnt/projects/rpd/init"
 }
@@ -50,7 +55,6 @@ RC = {
 }
 
 BASEDIR = os.path.dirname(sys.argv[0])
-LOGDIR = "logs"
 
 # global logger
 LOG = logging.getLogger()
@@ -201,15 +205,15 @@ def write_pipeline_config(outdir, user_data, force_overwrite=False):
 
     # for ELM logging
     assert 'ELM' not in config
-    config['ELM'] = {'libraryID': "FIXME:libraryID",
-                     'runID': "FIXME:runID",
-                     'laneID': "FIXME:laneID",
-                     'pipeLineName': PIPELINE_NAME,
-                     'pipeLineVersion': get_pipeline_version(),
+    config['ELM'] = {'library_id': "FIXME:library_id",
+                     'run_id': "FIXME:run_id",
+                     'lane_id': "FIXME:lane_id",
+                     'pipeline_name': PIPELINE_NAME,
+                     'pipeline_version': get_pipeline_version(),
                      'site': get_site()}
 
-    # FIXME we could test presence of files but would need to iterate
-    # over config and assume structure
+    # FIXME we could check presence of files here but would need to
+    # iterate over config and assume structure
 
     with open(pipeline_config_out, 'w') as fh:
         # default_flow_style=None(default)|True(least readable)|False(most readable)
@@ -267,7 +271,7 @@ def main():
         LOG.fatal("Output directory {} already exists".format(args.outdir))
         sys.exit(1)
     # also create log dir immediately
-    os.makedirs(os.path.join(args.outdir, LOGDIR))
+    os.makedirs(os.path.join(args.outdir, LOG_DIR_REL))
     LOG.info("Writing to {}".format(args.outdir))
 
 
@@ -299,19 +303,25 @@ def main():
         with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
             for line in templ_fh:
                 line = line.replace("@SNAKEFILE@", snakefile)
-                line = line.replace("@LOGDIR@", LOGDIR)
+                line = line.replace("@LOGDIR@", LOG_DIR_REL)
+                line = line.replace("@MASTERLOG@", MASTERLOG)
                 out_fh.write(line)
 
                 
-        submission_log = os.path.join(LOGDIR, "submission.log")
+        submission_log = os.path.join(LOG_DIR_REL, "submission.log")
+        submission_log_abs = os.path.abspath(os.path.join(args.outdir, submission_log))
+        master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))
+        
         cmd = "cd {} && qsub {} >> {}".format(os.path.dirname(run_out), run_out, submission_log)
         if args.no_run:
             LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
+            LOG.warn("Once ready submit with: {}".format(cmd))
         else:
             LOG.info("Starting pipeline: {}".format(cmd))
             os.chdir(os.path.dirname(run_out))
             res = subprocess.check_output(cmd, shell=True)
-            LOG.warn("FIXME: res={}".format(res.decode()))
+            LOG.info("For submission details see {}".format(submission_log_abs))
+            LOG.info("The (master) logfile is {}".format(master_log_abs))
     else:
         raise ValueError(site)
 

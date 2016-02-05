@@ -6,13 +6,29 @@ from snakemake.utils import report
 from datetime import datetime
 import getpass
 import subprocess
+import socket
+from collections import namedtuple
+
+RESULT_OUTDIR = './out'
+
+def getuser():
+    return getpass.getuser()
 
 
 # FIXME could be exported to same directory where Snakefile resides
 class ElmLogging(object):
-    """FIXME-adddoc
+    """
+    NOTE:
+    - all log lines need all fields
+    - one line per runid and lane
     """
 
+   
+    @staticmethod
+    def get_hostname():
+        return socket.gethostname()
+
+    
     @staticmethod
     def disk_usage(path):
         """disk usage via du"""
@@ -20,16 +36,24 @@ class ElmLogging(object):
 
     
     @staticmethod
-    def getuser():
-        return getpass.getuser()
-
-    @staticmethod
     def timestamp():
         """returns iso timestamp down to ms"""
         return datetime.now().isoformat()
 
     
-    def __init__(self, pipeline_name):
+    def __init__(self,
+                 script_name,# used as logging prefix. can be dummy
+                 result_outdir,# where results are stored
+                 library_id,
+                 run_id,
+                 lane_id,
+                 pipeline_name,
+                 pipeline_version,
+                 site,
+                 instance_id,
+                 submitter,
+                 log_path,# main logging file
+             ):
         """FIXME:add-doc"""
         
         elmlogdir = os.getenv('RPD_ELMLOGDIR')
@@ -46,42 +70,70 @@ class ElmLogging(object):
         open(logfile, 'w').close()
         self.logfile = logfile
 
+        # only used as logging prefix (not even parsed by ELM)
+        self.script_name = script_name
+        # required for computing library_file_size
+        self.result_outdir = result_outdir
+        
+        # json-like values
+        self.fields = OrderedDict()
+        # caller provided
+        self.fields['library_id'] = library_id
+        self.fields['run_id'] = run_id
+        self.fields['lane_id'] = lane_id
+        self.fields['pipeline_name'] = pipeline_name
+        self.fields['pipeline_version'] = pipeline_version
+        self.fields['site'] = site
+        self.fields['instance_id'] = instance_id
+        self.fields['submitter'] = submitter
+        self.fields['log_path'] = log_path
+        # internally computed
+        self.fields['library_file_size'] = None
+        self.fields['status_id'] = None
 
-    def write(self, key, value):
+        
+    def write_event(self):
+        """write one logging event to file
+        """
         with open(self.logfile, 'a') as fh:
-            fh.write('{} [EVENTLOG] "{}" : "{}"\n'.format(self.timestamp(), key, value))
+            timestr = datetime.now().strftime('%c')
+            # convert None to 'NA' and all to str
+            jsonstr = json.dumps({k: str(v) if v else "NA"
+                                  for (k, v) in self.fields.items()})
+            fh.write('[{}] [{}] [{}] [EVENTLOG] "{}"\n'.format(
+                timestr, self.get_hostname(), self.script_name, jsonstr))
 
         
     def start(self):
         """Start ELM logging using config values
         """
-        with open(self.logfile, 'a') as fh:
-            for k in ['libraryID', 'runID', 'laneID', 'pipeLineName',
-                      'pipeLineVersion', 'site']:
-                assert k in config['ELM']
-                self.write(k, config['ELM'][k])                
-            self.write("statusID", 5)# == in analysis (startup)
-            self.write("submitter", self.getuser())
-            self.write("snakefile", workflow.snakefile)
-                    
+        self.fields['status_id'] = 5;#startup
+        self.write_event()
+        
 
     def stop(self, success):
         """Finalize ELM logging
         """
-        with open(self.logfile, 'a') as fh:
-            if success:
-                status = 6#done
-            else:
-                status = 7#troubleshooting
-            self.write("statusID", status)
-            self.write("library_file_size", self.disk_usage("out"))
-                                         
-            # FIXME write jids
-            # FIXME write head jid as instance_id
+        if success:
+            self.fields['status_id'] = 6;#done
+        else:
+            self.fields['status_id'] = 7;#troubleshooting
+        self.fields['library_file_size'] = self.disk_usage(
+            self.result_outdir)
+        self.write_event()
             
                 
-elm_logger = ElmLogging(config['ELM']['pipeLineName'])
-elm_logger.start()
+# hack until we have onstart(): see
+# https://groups.google.com/forum/#!topic/snakemake/kq3wbSNOFow
+#
+if not '--dryrun' in sys.argv:
+    elm_logger = ElmLogging(
+        workflow.snakefile, RESULT_OUTDIR,
+        'FIXME:library_id', 'FIXME:run_id', 'FIXME:lane_id',
+        config['ELM']['pipeline_name'], config['ELM']['pipeline_version'],
+        config['ELM']['site'], "FIXME:instance_id", getuser(), 'FIXME:log')
+    
+    elm_logger.start()
 
 
 # non-login bash
@@ -106,11 +158,11 @@ onerror:
     
 rule final:
   input:
-        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.idxstats.txt',
-        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.maprate.txt',
-        expand("out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.{race}.selfSM', race=config['references']['cont_vcfs']),
-        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam',
-        "out/" + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bamstats/stats_plot.html'
+        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.idxstats.txt'),
+        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.maprate.txt'),
+        expand(os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.{race}.selfSM'), race=config['references']['cont_vcfs']),
+        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam'),
+        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bamstats/stats_plot.html')
   message:
         """
         Pipeline run successfully completed
@@ -126,16 +178,16 @@ rule final:
 
 rule contamination_check:
     input:
-        bam = 'out/{sample}.bam',
-        bai = 'out/{sample}.bam.bai',
+        bam = os.path.join(RESULT_OUTDIR, '{sample}.bam'),
+        bai = os.path.join(RESULT_OUTDIR, '{sample}.bam.bai'),
         #vcf = lambda wildcards: config["references"]["cont_vcfs"][wildcards.race]
         #vcf = lambda wildcards: config["references"]["cont_vcfs"][wildcards.race]
         vcf = lambda wildcards: config["references"]["cont_vcfs"][wildcards.race]
     output:
         # assuming default option --self
-        bam = 'out/{sample}.{race}.selfSM'
+        bam = os.path.join(RESULT_OUTDIR, '{sample}.{race}.selfSM')
     params:
-        outbase = 'out/{sample}.{race}'
+        outbase = os.path.join(RESULT_OUTDIR, '{sample}.{race}')
     message:
         "Checking for contamination"
     benchmark:# should have same name as rule
@@ -155,12 +207,12 @@ rule bq_recal:
     Bottleneck because single thread process! See https://github.com/statgen/bamUtil/issues/21
     """
     input:
-        bam = 'out/{sample}.bam',
+        bam = os.path.join(RESULT_OUTDIR, '{sample}.bam'),
         reffa = config['references']['genome'],
         dbsnp = config['references']['dbsnp']
     output:
-        bam='out/{sample}.recal.bam',
-        qemp='out/{sample}.recal.qemp.bam'
+        bam = os.path.join(RESULT_OUTDIR, '{sample}.recal.bam'),
+        qemp = os.path.join(RESULT_OUTDIR, '{sample}.recal.qemp.bam')
     message:
         "Base quality recalibration with bamUtils"
     benchmark:# should have same name as rule
@@ -176,11 +228,11 @@ rule sample_merge:
     If the sample has only one unit, a symlink will be created.
     """
     input:
-        expand("out/{unit}.bwamem.fixmate.mdups.srt.bam", unit=config["units"])
+        expand(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.mdups.srt.bam'), unit=config["units"])
     threads:
         16
     output:
-        temp('out/' + config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam')
+        temp(os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam'))
     message:
         "Merging files"
     benchmark:# should have same name as rule
@@ -215,7 +267,7 @@ rule map_mdups_sort:
         reffai = config['references']['genome'] + ".pac",
         fastqs = lambda wildcards: config["units"][wildcards.unit]
     output:
-        bam=temp("out/{unit}.bwamem.fixmate.mdups.srt.bam")
+        bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.mdups.srt.bam'))
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),

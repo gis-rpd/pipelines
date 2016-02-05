@@ -25,7 +25,7 @@
 ## declare a name for this job to be sample_job
 #$ -N snakemake.SG10K
 ## logs
-#$ -o @LOGDIR@/snakemake.SG10K.log
+#$ -o @MASTERLOG@
 ## combine stdout/stderr
 #$ -j y
 ## snakemake control job run time
