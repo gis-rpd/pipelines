@@ -22,27 +22,27 @@
 
 # UGE options:
 # The #$ must be used to specify the grid engine options used by qsub. 
-## declare a name for this job to be sample_job
+# declare a name for this job to be sample_job
 #$ -N snakemake.SG10K
-## logs
+# logs
 #$ -o @MASTERLOG@
-## combine stdout/stderr
+# combine stdout/stderr
 #$ -j y
-## snakemake control job run time
+# snakemake control job run time
 #$ -l h_rt=72:00:00
 # memory
 #$ -l mem_free=1G
-## 'parallel env'
+# 'parallel env'
 #$ -pe OpenMP 1
-## standard error stream of the job is merged into the standard output stream: #$ -j y
-## specify your email address: otherwise no email send
-#$ -M wilma@gis.a-star.edu.sg
-## mail is sent to you when the job starts and when it terminates or aborts
-#$ -m bea
-## run the job in the current working directory (where qsub is called)
+# run the job in the current working directory (where qsub is called)
 #$ -cwd
-## keep env so that qsub works
+# keep env so that qsub works
 #$ -V
+
+## specify your email address: otherwise no email send
+##$ -M wilma@gis.a-star.edu.sg
+## mail is sent to you when the job starts and when it terminates or aborts
+##$ -m bea
 
 
 DEBUG=0
