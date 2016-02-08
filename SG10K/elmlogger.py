@@ -7,7 +7,9 @@ from datetime import datetime
 import subprocess
 import json
 from collections import OrderedDict
+from collections import namedtuple
 
+UnitId = namedtuple('UnitId', ['run_id', 'library_in', 'lane_id'])
 
 class ElmLogging(object):
     """
@@ -36,18 +38,18 @@ class ElmLogging(object):
 
     def __init__(self,
                  script_name,# used as logging prefix. can be dummy
-                 result_outdir,# where results are stored
-                 library_id,
-                 run_id,
-                 lane_id,
                  pipeline_name,
                  pipeline_version,
+                 submitter,
                  site,
                  instance_id,
-                 submitter,
-                 log_path):# main logging file
+                 log_path,# main logging file                 
+                 result_outdir,# where results are stored
+                 unit_ids):# list of namedtuples
         """FIXME:add-doc"""
 
+        assert isinstance(unit_ids, list)
+        
         elmlogdir = os.getenv('RPD_ELMLOGDIR')
         assert elmlogdir, ("RPD_ELMLOGDIR undefined")
 
@@ -58,8 +60,6 @@ class ElmLogging(object):
         # timestamp just a way to make it unique
         logfile = os.path.join(pipelogdir, self.timestamp() + ".log")
         assert not os.path.exists(logfile)
-        # claim name immediately
-        open(logfile, 'w').close()
         self.logfile = logfile
 
         # only used as logging prefix (not even parsed by ELM)
@@ -70,9 +70,6 @@ class ElmLogging(object):
         # json-like values
         self.fields = OrderedDict()
         # caller provided
-        self.fields['library_id'] = library_id
-        self.fields['run_id'] = run_id
-        self.fields['lane_id'] = lane_id
         self.fields['pipeline_name'] = pipeline_name
         self.fields['pipeline_version'] = pipeline_version
         self.fields['site'] = site
@@ -83,17 +80,24 @@ class ElmLogging(object):
         self.fields['library_file_size'] = None
         self.fields['status_id'] = None
 
+        self.unit_ids = unit_ids
 
+        
     def write_event(self):
-        """write one logging event to file
+        """write logging events to file per unit (yes, that's not intuitive)
         """
-        with open(self.logfile, 'a') as fh:
+        
+        with open(self.logfile, 'a') as fh:                
             timestr = datetime.now().strftime('%c')
-            # convert None to 'NA' and all to str
-            jsonstr = json.dumps({k: str(v) if v else "NA"
-                                  for (k, v) in self.fields.items()})
-            fh.write('[{}] [{}] [{}] [EVENTLOG] "{}"\n'.format(
-                timestr, self.get_hostname(), self.script_name, jsonstr))
+            for unit_id in self.unit_ids:
+                # convert None to 'NA' and all to str
+                dump = unit_id._asdict()
+                for (k, v) in self.fields.items():
+                    assert k not in dump
+                    dump[k] = str(v) if v else "NA" 
+                jsonstr = json.dumps(dump)
+                fh.write('[{}] [{}] [{}] [EVENTLOG] "{}"\n'.format(
+                    timestr, self.get_hostname(), self.script_name, jsonstr))
 
 
     def start(self):

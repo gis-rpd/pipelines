@@ -1,30 +1,15 @@
 import os
-import getpass
 
 from snakemake.utils import report
-from elmlogger import ElmLogging
+from elmlogger import ElmLogging, UnitId
+from wrapper import getuser
+
 
 RESULT_OUTDIR = './out'
 
 
 # FIXME to conf once downstream handling clear
 MARK_SHORT_SPLITS="-M"# "-M" or ""
-
-
-def getuser():
-    return getpass.getuser()
-
-
-# hack until we have onstart(): see
-# https://groups.google.com/forum/#!topic/snakemake/kq3wbSNOFow
-#
-if not '--dryrun' in sys.argv:
-    elm_logger = ElmLogging(
-        workflow.snakefile, RESULT_OUTDIR,
-        config['ELM']['library_id'], config['ELM']['run_id'], config['ELM']['lane_id'],
-        config['ELM']['pipeline_name'], config['ELM']['pipeline_version'],
-        config['ELM']['site'], "FIXME:instance_id", getuser(), 'FIXME:log')
-    elm_logger.start()
 
 
 # non-login bash
@@ -37,6 +22,25 @@ include: "rules/samtools.rules"
 #include: "rules/bedtools.rules"
 
 
+onstart:
+    global elm_logger
+
+    if config['ELM']['run_id'] or config['ELM']['library_id'] or config['ELM']['lane_id']:
+        unit_ids = [UnitId._make(x) for x in zip(
+            config['ELM']['run_id'], config['ELM']['library_id'], config['ELM']['lane_id'])]
+    else:
+        unit_ids = [UnitId._make(['NA', 'NA', 'NA'])]
+        
+    elm_logger = ElmLogging(workflow.snakefile,
+                            config['ELM']['pipeline_name'],
+                            config['ELM']['pipeline_version'],
+                            getuser(),#SET_ON_EXEC
+                            config['ELM']['site'],
+                            "FIXME:instance_id",
+                            config['ELM']['log_path'],#SET_ON_EXEC
+                            RESULT_OUTDIR,
+                            unit_ids)
+    elm_logger.start()
 onsuccess:
     elm_logger.stop(True)
 onerror:

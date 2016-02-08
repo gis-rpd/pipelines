@@ -25,7 +25,10 @@ from itertools import zip_longest
 import shutil
 import json
 import subprocess
-import string
+#import string
+import hashlib
+import getpass
+
 
 #--- third-party imports
 #
@@ -59,6 +62,10 @@ BASEDIR = os.path.dirname(sys.argv[0])
 
 # global logger
 LOG = logging.getLogger()
+
+
+def getuser():
+    return getpass.getuser()
 
 
 def get_pipeline_version():
@@ -142,9 +149,11 @@ def write_snakemake_init(rc_file, overwrite=False):
     with open(rc_file, 'w') as fh:
         fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
         fh.write("reuse -q miniconda-3\n")
-        fh.write("source activate snakemake-3.5.4\n")
+        #fh.write("source activate snakemake-3.5.4\n")
+        #fh.write("source activate snakemake-ga622cdd-onstart\n")
+        fh.write("source activate snakemake-3.5.5-onstart\n")
 
-
+        
 def write_snakemake_env(rc_file, config, overwrite=False):
     """creates file for use as bash prefix within snakemake
     """
@@ -217,6 +226,16 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     return pipeline_config_out
 
 
+def hash_for_fastq(fq1, fq2=None):
+    """return hash for one or two fastq files based on filename only
+    """
+    m = hashlib.md5()
+    m.update(fq1.encode())
+    if fq2:
+        m.update(fq2.encode())
+    return m.hexdigest()
+    
+
 def main():
     """main function
     """
@@ -225,20 +244,22 @@ def main():
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
     parser.add_argument('-1', "--fq1", required=True, nargs="+",
                         help="FastQ file #1 (gzip recommended)."
-                        " Multiple (split) input files supported (auto-sorted)")
+                        " Multiple input files supported (auto-sorted). NOTE: each file gets a unique read group id assigned!")
     parser.add_argument('-2', "--fq2", required=True, nargs="+",
                         help="FastQ file #2 (gzip recommended)."
-                        " Multiple (split) input files supported (auto-sorted)")
+                        " Multiple input files supported (auto-sorted)")
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
-    # FIXME make lib-id, run-id and lane-id required for userrig at least?
     parser.add_argument("--lib-id", nargs="+",
+                        required=True if getuser()=='userrig' else False,
                         help="library id")
     parser.add_argument("--run-id", nargs="+",
+                        required=True if getuser()=='userrig' else False,
                         help="run id")
     parser.add_argument("--lane-id", nargs="+",
+                        required=True if getuser()=='userrig' else False,
                         help="lane id")
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
@@ -246,13 +267,22 @@ def main():
 
     args = parser.parse_args()
 
-
     # Repeateable -v and -q for setting logging level.
     # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
     logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
     logging.basicConfig(level=logging_level,
                         format='%(levelname)s [%(asctime)s]: %(message)s')
 
+
+    # if unit ids are given then we should get one per fastq files
+    if args.lib_id or args.run_id or args.lane_id:
+        try:
+            assert len(args.lib_id) == len(args.run_id)
+            assert len(args.lib_id) == len(args.lane_id)
+            assert len(args.lib_id) == len(args.fq1)
+        except AssertionError:
+            LOG.fatal("Number of library-, run- and lane ids must match number of fastq files if given")
+            sys.exit(1)
 
     # Check fastqs. sorting here should ensure R1 and R2 match
     fq_pairs = list(zip_longest(sorted(args.fq1), sorted(args.fq2)))
@@ -280,11 +310,13 @@ def main():
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'sample': args.sample}
     user_data['units'] = dict()
-    # keys are ascii letters and used for filenaming
-    unit_keys = string.ascii_letters
-    assert len(fq_pairs) < len(unit_keys)
+    # keys are used for filenaming and read group assignment
+    #unit_keys = string.ascii_letters
+    #assert len(fq_pairs) < len(unit_keys)
     for i, (fq1, fq2) in enumerate(fq_pairs):
-        user_data['units'][unit_keys[i]] = [fq1, fq2]
+        #k = unit_keys[i]
+        k = hash_for_fastq(fq1, fq2)
+        user_data['units'][k] = [fq1, fq2]
 
     LOG.info("Writing config and rc files")
     write_cluster_config(args.outdir)
@@ -295,8 +327,11 @@ def main():
                 'lane_id': args.lane_id,
                 'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),
-                'site': get_site()}
-
+                'site': get_site(),
+                'instance_id': 'SET_ON_EXEC',# dummy
+                'submitter': 'SET_ON_EXEC',# dummy
+                'log_path': os.path.abspath(os.path.join(args.outdir, MASTERLOG))}
+                
     pipeline_cfgfile = write_pipeline_config(args.outdir, user_data, elm_data)
     write_dk_init(os.path.join(args.outdir, RC['DK_INIT']))
     write_snakemake_init(os.path.join(args.outdir, RC['SNAKEMAKE_INIT']))
