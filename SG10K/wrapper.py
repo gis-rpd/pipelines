@@ -41,7 +41,8 @@ PIPELINE_NAME = "SG10K"
 # log dir relative to outdir
 LOG_DIR_REL = "logs"
 # master log relative to outdir
-MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.{}.log".format(PIPELINE_NAME))
+MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log".format(PIPELINE_NAME))
+SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log".format(PIPELINE_NAME))
 
 INIT = {
     'gis': "/mnt/projects/rpd/init"
@@ -178,10 +179,10 @@ def write_cluster_config(outdir, force_overwrite=False):
     shutil.copyfile(cluster_config_in, cluster_config_out)
 
 
-def write_pipeline_config(outdir, user_data, force_overwrite=False):
+def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     """writes config file for use in snakemake becaused on default config
 
-    FIXME is there a way to retain comments from the tempalte
+    FIXME is there a way to retain comments from the template
     """
 
     rpd_vars = get_rpd_vars()
@@ -203,15 +204,9 @@ def write_pipeline_config(outdir, user_data, force_overwrite=False):
     config = dict(json.loads(
         json.dumps(config).replace("$RPD_GENOMES", rpd_vars['RPD_GENOMES'])))
 
-    # for ELM logging
     assert 'ELM' not in config
-    config['ELM'] = {'library_id': "FIXME:library_id",
-                     'run_id': "FIXME:run_id",
-                     'lane_id': "FIXME:lane_id",
-                     'pipeline_name': PIPELINE_NAME,
-                     'pipeline_version': get_pipeline_version(),
-                     'site': get_site()}
-
+    config['ELM'] = elm_data
+    
     # FIXME we could check presence of files here but would need to
     # iterate over config and assume structure
 
@@ -235,9 +230,16 @@ def main():
                         help="FastQ file #2 (gzip recommended)."
                         " Multiple (split) input files supported (auto-sorted)")
     parser.add_argument('-s', "--sample", required=True,
-                        help="Sample name / identifier")
+                        help="Sample name")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
+    # FIXME make lib-id, run-id and lane-id required for userrig at least?
+    parser.add_argument("--lib-id", nargs="+",
+                        help="library id")
+    parser.add_argument("--run-id", nargs="+",
+                        help="run id")
+    parser.add_argument("--lane-id", nargs="+",
+                        help="lane id")
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
@@ -286,7 +288,16 @@ def main():
 
     LOG.info("Writing config and rc files")
     write_cluster_config(args.outdir)
-    pipeline_cfgfile = write_pipeline_config(args.outdir, user_data)
+
+    # FIXME could be lists
+    elm_data = {'library_id': args.lib_id,
+                'run_id': args.run_id,
+                'lane_id': args.lane_id,
+                'pipeline_name': PIPELINE_NAME,
+                'pipeline_version': get_pipeline_version(),
+                'site': get_site()}
+
+    pipeline_cfgfile = write_pipeline_config(args.outdir, user_data, elm_data)
     write_dk_init(os.path.join(args.outdir, RC['DK_INIT']))
     write_snakemake_init(os.path.join(args.outdir, RC['SNAKEMAKE_INIT']))
     write_snakemake_env(os.path.join(args.outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
@@ -307,12 +318,8 @@ def main():
                 line = line.replace("@MASTERLOG@", MASTERLOG)
                 out_fh.write(line)
 
-                
-        submission_log = os.path.join(LOG_DIR_REL, "submission.log")
-        submission_log_abs = os.path.abspath(os.path.join(args.outdir, submission_log))
-        master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))
-        
-        cmd = "cd {} && qsub {} >> {}".format(os.path.dirname(run_out), run_out, submission_log)
+                        
+        cmd = "cd {} && qsub {} >> {}".format(os.path.dirname(run_out), run_out, SUBMISSIONLOG)
         if args.no_run:
             LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
             LOG.warn("Once ready submit with: {}".format(cmd))
@@ -320,6 +327,8 @@ def main():
             LOG.info("Starting pipeline: {}".format(cmd))
             os.chdir(os.path.dirname(run_out))
             res = subprocess.check_output(cmd, shell=True)
+            submission_log_abs = os.path.abspath(os.path.join(args.outdir, SUBMISSIONLOG))
+            master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))
             LOG.info("For submission details see {}".format(submission_log_abs))
             LOG.info("The (master) logfile is {}".format(master_log_abs))
     else:
