@@ -10,7 +10,12 @@ conffile = sys.argv[1]
 with open(conffile) as fh:
     data = load(fh, Loader=Loader)
 
-for k, v in data.items():
-    print(k, v)
-    
+if isinstance(data, dict):
+    print("dict")
+    for k, v in data.items():
+        print(k, v)
+else:
+    print("list")
+    for v in data:
+        print(type(v), v)
 print("\nOK")

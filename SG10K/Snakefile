@@ -2,7 +2,7 @@ import os
 
 from snakemake.utils import report
 from elmlogger import ElmLogging, UnitId, timestamp
-from wrapper import getuser
+from SG10K import getuser
 
 
 RESULT_OUTDIR = './out'
@@ -135,6 +135,26 @@ rule sample_merge:
             shell("ln -s {input} {output} && touch -h {output}")
 
 
+def gen_lib_id(unit):
+    if unit['library_id']:
+        return unit['library_id']
+    else:
+        return "dummy-" + unit['rg_id']
+
+    
+def gen_rg_pu_id(unit):
+    """https://www.biostars.org/p/50349/"""
+    if unit['run_id'] and unit['lane_id']:
+        return "{}.{}".format(unit['run_id'], unit['lane_id'])
+    else:
+        return "dummy-" + unit['rg_id']
+
+def fastqs_fo_unit(unit):
+    """FIXME:add-doc
+    """
+    return unit['fq1'], unit['fq2']
+
+
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
 rule map_mdups_sort:
     """fixmate only works on name sorted files. ignores secondary 
@@ -152,17 +172,25 @@ rule map_mdups_sort:
 
     Define temporary sorting out prefix to avoid nameclashes (default
     -.XXX.bam for stdin)
+
+    Setting read groups correctly is tricky and also depends on
+    downstream programs. See
+    e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+    For example for BQSR PU takes precedence over ID. PU should contain lane
     """
     input:
         reffa = config['references']['genome'],
         reffai = config['references']['genome'] + ".pac",
-        fastqs = lambda wildcards: config["units"][wildcards.unit]
+        fastqs = lambda wildcards: fastqs_fo_unit(config["units"][wildcards.unit])
     output:
         bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.mdups.srt.bam'))
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
-        sort_mem='500M'
+        sort_mem='500M',
+        rg_id=lambda wildcards: config["units"][wildcards.unit]['rg_id'],# always set
+        lib_id=lambda wildcards: gen_lib_id(config["units"][wildcards.unit]),
+        pu_id=lambda wildcards: gen_rg_pu_id(config["units"][wildcards.unit])
     message:
         'Aligning PE reads, fixing mate information, marking duplicates and converting to sorted BAM'
     threads:
@@ -171,7 +199,7 @@ rule map_mdups_sort:
         'benchmark/map_mdups_sort.txt'
     shell:
         "bwa mem {params.mark_short_splits} -t {threads}"
-        " -R '@RG\tID:{wildcards.unit}\tPL:{config[platform]}\tPU:PU-{wildcards.unit}\tLB:LB-{config[sample]}\tSM:{config[sample]}\tCN:GIS'"
+        " -R '@RG\tID:{params.rg_id}\tPL:{config[platform]}\tPU:{params.pu_id}\tLB:{params.lib_id}\tSM:{config[sample]}\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         " samblaster {params.mark_short_splits} |"

@@ -22,7 +22,7 @@ import subprocess
 #import string
 import hashlib
 import getpass
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 #--- third-party imports
 #
@@ -37,7 +37,7 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-ReadUnit = namedtuple('ReadUnit', ['fq1', 'fq2', 'run_id', 'lib_id', 'lane_id'])
+ReadUnit = namedtuple('ReadUnit', ['run_id', 'library_id', 'lane_id', 'rg_id', 'fq1', 'fq2'])
 
 
 # same as folder name
@@ -233,10 +233,17 @@ def get_reads_unit_from_cfgfile(cfgfile):
     read_units = []
     with open(cfgfile) as fh_cfg:
         for entry in yaml.safe_load(fh_cfg):
-            try:
-                ru = ReadUnit._make(entry)
-            except:
+            if len(entry) == 5:
+                rg_id = None
+                [run_id, library_id, lane_id, fq1, fq2] = entry
+                ru = ReadUnit._make([run_id, library_id, lane_id, rg_id, fq1, fq2])
+                ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
+            elif len(entry) == 6:
+                [run_id, library_id, lane_id, rg_id, fq1, fq2] = entry
+                ru = ReadUnit._make([run_id, library_id, lane_id, rg_id, fq1, fq2])
+            else:
                 LOG.fatal("Couldn't parse read unit from '{}'".format(entry))
+                raise ValueError(entry)
             read_units.append(ru)
     return read_units
 
@@ -252,12 +259,14 @@ def get_reads_unit_from_args(fqs1, fqs2):
     for (fq1, fq2) in fq_pairs:
         if (fq1, fq2) not in fq_pairs_orig:
             print_fq_sort_warning = True
-        run_id = lib_id = lane_id = None
-        read_units.append(ReadUnit._make([run_id, lib_id, lane_id, fq1, fq2]))
+        run_id = library_id = lane_id = rg_id = None
+        ru = ReadUnit._make([run_id, library_id, lane_id, rg_id, fq1, fq2])
+        ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
+        read_units.append(ru)
     if print_fq_sort_warning:
-        LOG.warn("Sorted fq1 and fq2 files for you. Pairs are now processed as follow: {}".format(fq_pairs))
+        LOG.warn("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
+            ' \n'.join(["{} and {}".format(fq1, fq2) for fq1, fq2 in fq_pairs])))
     return read_units
-
 
 
 def hash_for_fastq(fq1, fq2=None):
@@ -271,15 +280,24 @@ def hash_for_fastq(fq1, fq2=None):
 
 
 def key_for_read_unit(ru):
-    """FIXME:add-doc
+    """used for file nameing hence made unique based on fastq file names
     """
+    return hash_for_fastq(ru.fq1, ru.fq2)
 
+
+def create_rg_id_from_ru(ru):
+    """Same RG for files coming from same source. If no source info is
+    given use fastq files names
+    """
     m = hashlib.md5()
-    if all([ru.run_id, ru.lib_id, ru.lane_id]):
-        m.update("{} {} {}".format(ru.run_id, ru.lib_id, ru.lane_id).encode())
-        return m.hexdigest
-    else:
+    if all([ru.run_id, ru.library_id, ru.lane_id]):
+        m.update("{} {} {}".format(ru.run_id, ru.library_id, ru.lane_id).encode())
+        return m.hexdigest()
+    elif ru.fq1:
+        # no source info? then use fastq file names
         return hash_for_fastq(ru.fq1, ru.fq2)
+    else:
+        raise ValueError(ru)
 
 
 def main():
@@ -315,7 +333,6 @@ def main():
     logging.basicConfig(level=logging_level,
                         format='%(levelname)s [%(asctime)s]: %(message)s')
 
-    sys.stderr.write("FIXME ELM and largely gotcloud compatible YAML config\n")
     if args.config:
         if any([args.fq1, args.fq2]):
             LOG.fatal("Config file overrides fastq input arguments. Use one or the other")
@@ -328,6 +345,7 @@ def main():
         read_units = get_reads_unit_from_args(args.fq1, args.fq2)
 
     for ru in read_units:
+        LOG.debug("Checking read unit: {}".format(ru))
         for f in [ru.fq1, ru.fq2]:
             if not os.path.exists(f):
                 LOG.fatal("Non-existing input file {}".format(f))
@@ -341,20 +359,21 @@ def main():
     LOG.info("Writing to {}".format(args.outdir))
 
 
-    # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'sample': args.sample}
-    user_data['units'] = dict()
-    for ru in read_units:
-        k = key_for_read_unit(ru)
-        user_data['units'][k] = ru
-
     LOG.info("Writing config and rc files")
+
     write_cluster_config(args.outdir)
 
+    # turn arguments into user_data that gets merged into pipeline config
+    user_data = {'sample': args.sample}
+    user_data['units'] = OrderedDict()
+    for ru in read_units:
+        k = key_for_read_unit(ru)
+        user_data['units'][k] = ru._asdict()
+
     # FIXME could be lists
-    elm_data = {'library_id': args.lib_id,
-                'run_id': args.run_id,
-                'lane_id': args.lane_id,
+    elm_data = {'run_id': [ru.run_id for ru in read_units],
+                'library_id': [ru.library_id for ru in read_units],
+                'lane_id': [ru.lane_id for ru in read_units],
                 'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),
                 'site': get_site(),

@@ -73,9 +73,9 @@ def main():
 
     # FIXME missing useage
     
-    wrapper = os.path.join(os.path.dirname(sys.argv[0]), "wrapper.py")
+    wrapper = os.path.join(os.path.dirname(sys.argv[0]), "SG10K.py")
     #sys.path.insert(0, os.path.dirname(wrapper))
-    from wrapper import SUBMISSIONLOG
+    from SG10K import SUBMISSIONLOG
 
     rpd_root = os.getenv('RPD_ROOT')
     assert rpd_root, ("Environment variable RPD_ROOT not defined")
@@ -125,6 +125,13 @@ def main():
     if False:
         if os.path.isdir(outdir):
             shutil.rmtree(outdir)
+    raise NotImplementedError
+
+
+    sys.stderr.write("FIXME test snv performance on success\n")
+    raise NotImplementedError
+
+    sys.stderr.write("Test config file option\n")
     raise NotImplementedError
 
 

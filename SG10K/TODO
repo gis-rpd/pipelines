@@ -1,0 +1,6 @@
+- fix tests
+- optimize mem and cpu based on error logs
+- check while running whether cluster.time etc is used for qsub
+- logs jids to ELM comment on shutdown
+ 
+
