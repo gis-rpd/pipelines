@@ -11,6 +11,13 @@ from collections import namedtuple
 
 UnitId = namedtuple('UnitId', ['run_id', 'library_in', 'lane_id'])
 
+
+def timestamp():
+    """returns iso timestamp down to ms"""
+    return datetime.now().isoformat()
+
+
+
 class ElmLogging(object):
     """
     NOTE:
@@ -28,12 +35,6 @@ class ElmLogging(object):
     def disk_usage(path):
         """disk usage via du"""
         return int(subprocess.check_output(['du', '-s', path]).split()[0])
-
-
-    @staticmethod
-    def timestamp():
-        """returns iso timestamp down to ms"""
-        return datetime.now().isoformat()
 
 
     def __init__(self,
@@ -58,7 +59,7 @@ class ElmLogging(object):
             "pipeline log dir {} doesn't exist".format(pipelogdir))
 
         # timestamp just a way to make it unique
-        logfile = os.path.join(pipelogdir, self.timestamp() + ".log")
+        logfile = os.path.join(pipelogdir, timestamp() + ".log")
         assert not os.path.exists(logfile)
         self.logfile = logfile
 

@@ -1,7 +1,7 @@
 import os
 
 from snakemake.utils import report
-from elmlogger import ElmLogging, UnitId
+from elmlogger import ElmLogging, UnitId, timestamp
 from wrapper import getuser
 
 
@@ -22,7 +22,7 @@ include: "rules/samtools.rules"
 #include: "rules/bedtools.rules"
 
 
-onstart:
+onstart:# available as patched snakemake 3.5.5
     global elm_logger
 
     if config['ELM']['run_id'] or config['ELM']['library_id'] or config['ELM']['lane_id']:
@@ -36,7 +36,7 @@ onstart:
                             config['ELM']['pipeline_version'],
                             getuser(),#SET_ON_EXEC
                             config['ELM']['site'],
-                            "FIXME:instance_id",
+                            timestamp(),# crutch: master jid would be best, but site dependent. log location unknown. how to treat manual runs?
                             config['ELM']['log_path'],#SET_ON_EXEC
                             RESULT_OUTDIR,
                             unit_ids)
@@ -103,7 +103,7 @@ rule bq_recal:
         dbsnp = config['references']['dbsnp']
     output:
         bam = os.path.join(RESULT_OUTDIR, '{sample}.recal.bam'),
-        qemp = os.path.join(RESULT_OUTDIR, '{sample}.recal.qemp.bam')
+        qemp = os.path.join(RESULT_OUTDIR, '{sample}.recal.bam.qemp')
     message:
         "Base quality recalibration with bamUtils"
     benchmark:# should have same name as rule
@@ -169,9 +169,6 @@ rule map_mdups_sort:
         16
     benchmark:# should have same name as rule
         'benchmark/map_mdups_sort.txt'
-    #log:
-    #    # should have same name as rule
-    #    'logs/map_mdups_sort.txt'
     shell:
         "bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\tID:{wildcards.unit}\tPL:{config[platform]}\tPU:PU-{wildcards.unit}\tLB:LB-{config[sample]}\tSM:{config[sample]}\tCN:GIS'"
