@@ -9,6 +9,7 @@ import json
 from collections import OrderedDict
 from collections import namedtuple
 
+# run_id is without flowcell id
 UnitId = namedtuple('UnitId', ['run_id', 'library_id', 'lane_id'])
 
 

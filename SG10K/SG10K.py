@@ -37,7 +37,7 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-ReadUnit = namedtuple('ReadUnit', ['run_id', 'library_id', 'lane_id', 'rg_id', 'fq1', 'fq2'])
+ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id', 'lane_id', 'rg_id', 'fq1', 'fq2'])
 
 
 # same as folder name
@@ -233,14 +233,14 @@ def get_reads_unit_from_cfgfile(cfgfile):
     read_units = []
     with open(cfgfile) as fh_cfg:
         for entry in yaml.safe_load(fh_cfg):
-            if len(entry) == 5:
+            if len(entry) == 6:
                 rg_id = None
-                [run_id, library_id, lane_id, fq1, fq2] = entry
-                ru = ReadUnit._make([run_id, library_id, lane_id, rg_id, fq1, fq2])
+                [run_id, flowcell_id, library_id, lane_id, fq1, fq2] = entry
+                ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
                 ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-            elif len(entry) == 6:
-                [run_id, library_id, lane_id, rg_id, fq1, fq2] = entry
-                ru = ReadUnit._make([run_id, library_id, lane_id, rg_id, fq1, fq2])
+            elif len(entry) == 7:
+                [run_id, flowcell_id, library_id, lane_id, fq1, fq2, rg_id] = entry
+                ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
             else:
                 LOG.fatal("Couldn't parse read unit from '{}'".format(entry))
                 raise ValueError(entry)
@@ -260,7 +260,7 @@ def get_reads_unit_from_args(fqs1, fqs2):
         if (fq1, fq2) not in fq_pairs_orig:
             print_fq_sort_warning = True
         run_id = library_id = lane_id = rg_id = None
-        ru = ReadUnit._make([run_id, library_id, lane_id, rg_id, fq1, fq2])
+        ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         read_units.append(ru)
     if print_fq_sort_warning:
@@ -289,16 +289,13 @@ def create_rg_id_from_ru(ru):
     """Same RG for files coming from same source. If no source info is
     given use fastq files names
     """
-    m = hashlib.md5()
     if all([ru.run_id, ru.library_id, ru.lane_id]):
-        m.update("{} {} {}".format(ru.run_id, ru.library_id, ru.lane_id).encode())
-        return m.hexdigest()
+        return "{}.{}".format(ru.run_id, ru.lane_id)
     elif ru.fq1:
         # no source info? then use fastq file names
+        m = hashlib.md5()
         return hash_for_fastq(ru.fq1, ru.fq2)
-    else:
-        raise ValueError(ru)
-
+    
 
 def main():
     """main function
