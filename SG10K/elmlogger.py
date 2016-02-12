@@ -9,7 +9,7 @@ import json
 from collections import OrderedDict
 from collections import namedtuple
 
-UnitId = namedtuple('UnitId', ['run_id', 'library_in', 'lane_id'])
+UnitId = namedtuple('UnitId', ['run_id', 'library_id', 'lane_id'])
 
 class ElmLogging(object):
     """

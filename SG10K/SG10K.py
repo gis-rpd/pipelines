@@ -2,17 +2,11 @@
 """{PIPELINE_NAME} pipeline (version: {PIPELINE_VERSION}): creates
 pipeline-specific config files to given output directory and runs the
 pipeline (unless otherwise requested).
-
-If multiple fastq files/pairs are given, a new read-group will be
-created per file/pair (changeable in the created conf.yaml).
 """
-# {PIPELINE_NAME} and {PIPELINE_VERSION} replaced for printing usage
+# generic useage {PIPELINE_NAME} and {PIPELINE_VERSION} replaced while
+# printing usage
 
 
-__author__ = "Andreas Wilm"
-__email__ = "wilma@gis.a-star.edu.sg"
-__copyright__ = "2016 Genome Institute of Singapore"
-__license__ = "The MIT License (MIT)"
 
 
 #--- standard library imports
@@ -28,7 +22,7 @@ import subprocess
 #import string
 import hashlib
 import getpass
-
+from collections import namedtuple
 
 #--- third-party imports
 #
@@ -36,6 +30,14 @@ import yaml
 
 #--- project specific imports
 #/
+
+__author__ = "Andreas Wilm"
+__email__ = "wilma@gis.a-star.edu.sg"
+__copyright__ = "2016 Genome Institute of Singapore"
+__license__ = "The MIT License (MIT)"
+
+
+ReadUnit = namedtuple('ReadUnit', ['fq1', 'fq2', 'run_id', 'lib_id', 'lane_id'])
 
 
 # same as folder name
@@ -153,7 +155,7 @@ def write_snakemake_init(rc_file, overwrite=False):
         #fh.write("source activate snakemake-ga622cdd-onstart\n")
         fh.write("source activate snakemake-3.5.5-onstart\n")
 
-        
+
 def write_snakemake_env(rc_file, config, overwrite=False):
     """creates file for use as bash prefix within snakemake
     """
@@ -215,7 +217,7 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
 
     assert 'ELM' not in config
     config['ELM'] = elm_data
-    
+
     # FIXME we could check presence of files here but would need to
     # iterate over config and assume structure
 
@@ -226,6 +228,38 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     return pipeline_config_out
 
 
+def get_reads_unit_from_cfgfile(cfgfile):
+    """FIXME:add-doc"""
+    read_units = []
+    with open(cfgfile) as fh_cfg:
+        for entry in yaml.safe_load(fh_cfg):
+            try:
+                ru = ReadUnit._make(entry)
+            except:
+                LOG.fatal("Couldn't parse read unit from '{}'".format(entry))
+            read_units.append(ru)
+    return read_units
+
+
+def get_reads_unit_from_args(fqs1, fqs2):
+    """FIXME:add-doc"""
+
+    read_units = []
+    print_fq_sort_warning = False
+    # sorting here should ensure R1 and R2 match
+    fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
+    fq_pairs_orig = set(zip_longest(fqs1, fqs2))
+    for (fq1, fq2) in fq_pairs:
+        if (fq1, fq2) not in fq_pairs_orig:
+            print_fq_sort_warning = True
+        run_id = lib_id = lane_id = None
+        read_units.append(ReadUnit._make([run_id, lib_id, lane_id, fq1, fq2]))
+    if print_fq_sort_warning:
+        LOG.warn("Sorted fq1 and fq2 files for you. Pairs are now processed as follow: {}".format(fq_pairs))
+    return read_units
+
+
+
 def hash_for_fastq(fq1, fq2=None):
     """return hash for one or two fastq files based on filename only
     """
@@ -234,7 +268,19 @@ def hash_for_fastq(fq1, fq2=None):
     if fq2:
         m.update(fq2.encode())
     return m.hexdigest()
-    
+
+
+def key_for_read_unit(ru):
+    """FIXME:add-doc
+    """
+
+    m = hashlib.md5()
+    if all([ru.run_id, ru.lib_id, ru.lane_id]):
+        m.update("{} {} {}".format(ru.run_id, ru.lib_id, ru.lane_id).encode())
+        return m.hexdigest
+    else:
+        return hash_for_fastq(ru.fq1, ru.fq2)
+
 
 def main():
     """main function
@@ -242,25 +288,21 @@ def main():
 
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
-    parser.add_argument('-1', "--fq1", required=True, nargs="+",
-                        help="FastQ file #1 (gzip recommended)."
-                        " Multiple input files supported (auto-sorted). NOTE: each file gets a unique read group id assigned!")
-    parser.add_argument('-2', "--fq2", required=True, nargs="+",
-                        help="FastQ file #2 (gzip recommended)."
-                        " Multiple input files supported (auto-sorted)")
+    parser.add_argument('-1', "--fq1", nargs="+",
+                        help="FastQ file/s (gzip only)."
+                        " Multiple input files supported (auto-sorted)."
+                        " Note: each file gets a unique read group id assigned!"
+                        " Collides with -c.")
+    parser.add_argument('-2', "--fq2", nargs="+",
+                        help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name")
+    # FIXME make above a group for easier testing
+    parser.add_argument('-c', "--config",
+                        help="Config file (YAML) listing fastq files and run-, sample- and lane-id for each"
+                        " Collides with -1, -2 and -c")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
-    parser.add_argument("--lib-id", nargs="+",
-                        required=True if getuser()=='userrig' else False,
-                        help="library id")
-    parser.add_argument("--run-id", nargs="+",
-                        required=True if getuser()=='userrig' else False,
-                        help="run id")
-    parser.add_argument("--lane-id", nargs="+",
-                        required=True if getuser()=='userrig' else False,
-                        help="lane id")
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
@@ -273,31 +315,23 @@ def main():
     logging.basicConfig(level=logging_level,
                         format='%(levelname)s [%(asctime)s]: %(message)s')
 
-
-    # if unit ids are given then we should get one per fastq files
-    if args.lib_id or args.run_id or args.lane_id:
-        try:
-            assert len(args.lib_id) == len(args.run_id)
-            assert len(args.lib_id) == len(args.lane_id)
-            assert len(args.lib_id) == len(args.fq1)
-        except AssertionError:
-            LOG.fatal("Number of library-, run- and lane ids must match number of fastq files if given")
+    sys.stderr.write("FIXME ELM and largely gotcloud compatible YAML config\n")
+    if args.config:
+        if any([args.fq1, args.fq2]):
+            LOG.fatal("Config file overrides fastq input arguments. Use one or the other")
             sys.exit(1)
-
-    # Check fastqs. sorting here should ensure R1 and R2 match
-    fq_pairs = list(zip_longest(sorted(args.fq1), sorted(args.fq2)))
-    for fq1, fq2 in fq_pairs:
-        # only zip_longest uses None if one is missing
-        if not fq1 or not fq2:
-            LOG.fatal("Mismatching number of fastq files for each end")
+        if not os.path.exists(args.config):
+            LOG.fatal("Config file {} does not exist".format(args.config))
             sys.exit(1)
-        for f in [fq1, fq2]:
+        read_units = get_reads_unit_from_cfgfile(args.config)
+    else:
+        read_units = get_reads_unit_from_args(args.fq1, args.fq2)
+
+    for ru in read_units:
+        for f in [ru.fq1, ru.fq2]:
             if not os.path.exists(f):
                 LOG.fatal("Non-existing input file {}".format(f))
                 sys.exit(1)
-    LOG.info("Will process FastQ pairs as follows:\n{}".format("\n".join([
-        "#{}: {} and {}".format(i, fq1, fq2) for i, (fq1, fq2) in enumerate(fq_pairs)])))
-
 
     if os.path.exists(args.outdir):
         LOG.fatal("Output directory {} already exists".format(args.outdir))
@@ -310,13 +344,9 @@ def main():
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'sample': args.sample}
     user_data['units'] = dict()
-    # keys are used for filenaming and read group assignment
-    #unit_keys = string.ascii_letters
-    #assert len(fq_pairs) < len(unit_keys)
-    for i, (fq1, fq2) in enumerate(fq_pairs):
-        #k = unit_keys[i]
-        k = hash_for_fastq(fq1, fq2)
-        user_data['units'][k] = [fq1, fq2]
+    for ru in read_units:
+        k = key_for_read_unit(ru)
+        user_data['units'][k] = ru
 
     LOG.info("Writing config and rc files")
     write_cluster_config(args.outdir)
@@ -331,7 +361,7 @@ def main():
                 'instance_id': 'SET_ON_EXEC',# dummy
                 'submitter': 'SET_ON_EXEC',# dummy
                 'log_path': os.path.abspath(os.path.join(args.outdir, MASTERLOG))}
-                
+
     pipeline_cfgfile = write_pipeline_config(args.outdir, user_data, elm_data)
     write_dk_init(os.path.join(args.outdir, RC['DK_INIT']))
     write_snakemake_init(os.path.join(args.outdir, RC['SNAKEMAKE_INIT']))
@@ -353,7 +383,7 @@ def main():
                 line = line.replace("@MASTERLOG@", MASTERLOG)
                 out_fh.write(line)
 
-                        
+
         cmd = "cd {} && qsub {} >> {}".format(os.path.dirname(run_out), run_out, SUBMISSIONLOG)
         if args.no_run:
             LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
@@ -361,7 +391,7 @@ def main():
         else:
             LOG.info("Starting pipeline: {}".format(cmd))
             os.chdir(os.path.dirname(run_out))
-            res = subprocess.check_output(cmd, shell=True)
+            _res = subprocess.check_output(cmd, shell=True)
             submission_log_abs = os.path.abspath(os.path.join(args.outdir, SUBMISSIONLOG))
             master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))
             LOG.info("For submission details see {}".format(submission_log_abs))
