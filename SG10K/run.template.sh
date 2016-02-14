@@ -4,7 +4,7 @@
 #   qsub run.sh
 # or to run locally use
 #   bash run.sh
-# for reruns on aquilause:
+# for reruns on aquila use:
 #   qsub run.sh >> log/submission.log
 #
 # The environment variable EXTRA_SNAKEMAKE_ARGS will be passed down to
@@ -13,6 +13,9 @@
 # or alternatively:
 #   export EXTRA_SNAKEMAKE_ARGS="--dryrun"
 #   bash|qsub run.sh
+# The environment variable WORK_Q will be used to specify a queue for
+# the "worker processes" (otherwise let scheduler decide)
+#
 #
 # Potentially useful arguments:
 # --keep-going : irritating. best to fail immediately
@@ -65,6 +68,9 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
     qsub="qsub -pe OpenMP {threads} -l mem_free={cluster.mem} -l h_rt={cluster.time}"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     qsub="$qsub -V -cwd -e $LOGDIR -o $LOGDIR"
+    if [ -n "$WORK_Q" ]; then
+        qsub="$qsub -q $WORK_Q"
+    fi
     CLUSTER_ARGS="--cluster-config cluster.yaml --cluster \"$qsub\""
     N_ARG="--jobs 6"
 else
