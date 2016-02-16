@@ -311,10 +311,9 @@ def main():
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name")
-    # FIXME make above a group for easier testing
     parser.add_argument('-c', "--config",
-                        help="Config file (YAML) listing fastq files and run-, sample- and lane-id for each"
-                        " Collides with -1, -2 and -c")
+                        help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
+                        " as well as fastq1 and fastq2 per line. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
     parser.add_argument('-n', '--no-run', action='store_true')
