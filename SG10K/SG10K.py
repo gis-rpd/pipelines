@@ -259,7 +259,7 @@ def get_reads_unit_from_args(fqs1, fqs2):
     for (fq1, fq2) in fq_pairs:
         if (fq1, fq2) not in fq_pairs_orig:
             print_fq_sort_warning = True
-        run_id = library_id = lane_id = rg_id = None
+        run_id = flowcell_id = library_id = lane_id = rg_id = None
         ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         read_units.append(ru)
@@ -293,7 +293,6 @@ def create_rg_id_from_ru(ru):
         return "{}.{}".format(ru.run_id, ru.lane_id)
     elif ru.fq1:
         # no source info? then use fastq file names
-        m = hashlib.md5()
         return hash_for_fastq(ru.fq1, ru.fq2)
     
 
