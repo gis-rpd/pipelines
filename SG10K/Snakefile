@@ -86,8 +86,9 @@ rule contamination_check:
     shell:
         # NOTE: defaults tuned for shallow WGS
         # See http://genome.sph.umich.edu/wiki/VerifyBamID#What_the_default_option_does
+        # Chaolong wanted specials settings (see email from 2016-02-22)
         # run for sample and read-groups, i.e. don't use --ignoreRG
-        "verifyBamID --vcf {input.vcf} --bam {input.bam} --out {params.outbase} --noPhoneHome;"
+        "verifyBamID --vcf {input.vcf} --bam {input.bam} --out {params.outbase} --noPhoneHome --precise --maxDepth 100 --minMapQ 20 --minQ 20 --maxQ 100;"
 
         
 rule bq_recal:
