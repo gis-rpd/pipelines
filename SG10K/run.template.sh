@@ -26,7 +26,7 @@
 # UGE options:
 # The #$ must be used to specify the grid engine options used by qsub. 
 # declare a name for this job to be sample_job
-#$ -N snakemake.SG10K
+#$ -N @PIPELINE_NAME@.master
 # logs
 #$ -o @MASTERLOG@
 # combine stdout/stderr
@@ -52,10 +52,11 @@ DEBUG=0
 
 SNAKEFILE=@SNAKEFILE@
 
-DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats snakemake.stats --configfile conf.yaml --latency-wait 30"
+DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats snakemake.stats --configfile conf.yaml --latency-wait 60"
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
 # --printshellcmds: also prints actual commands
+# --latency-wait: might help with FS sync problems
 
 #export SGE_ROOT=/opt/uge-8.1.7p3
 #export SGE_CELL=aquila_cell
@@ -71,7 +72,7 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
     if [ -n "$WORK_Q" ]; then
         qsub="$qsub -q $WORK_Q"
     fi
-    CLUSTER_ARGS="--cluster-config cluster.yaml --cluster \"$qsub\""
+    CLUSTER_ARGS="--cluster-config cluster.yaml --cluster \"$qsub\" --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
     N_ARG="--jobs 6"
 else
     # run locally

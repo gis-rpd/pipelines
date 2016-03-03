@@ -40,7 +40,7 @@ __license__ = "The MIT License (MIT)"
 ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id', 'lane_id', 'rg_id', 'fq1', 'fq2'])
 
 
-# same as folder name
+# same as folder name. also used for cluster job names
 PIPELINE_NAME = "SG10K"
 
 # log dir relative to outdir
@@ -395,6 +395,7 @@ def main():
                 line = line.replace("@SNAKEFILE@", snakefile)
                 line = line.replace("@LOGDIR@", LOG_DIR_REL)
                 line = line.replace("@MASTERLOG@", MASTERLOG)
+                line = line.replace("@PIPELINE_NAME@", PIPELINE_NAME)
                 out_fh.write(line)
 
 
