@@ -48,25 +48,51 @@ onerror:
 
     
 rule final:
-  input:
+    input:
+        # NOTE changes here will likely have to be reflected in the report rule as well
         os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.idxstats.txt'),
         os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.maprate.txt'),
         expand(os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.{race}.selfSM'), race=config['references']['cont_vcfs']),
         os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam'),
-        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bamstats/stats_plot.html')
-  message:
+        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bamstats/stats_plot.html'),
+        "report.html"
+    message:
         """
         Pipeline run successfully completed
-        
-        FIXME:tests missing
-        FIXME:report missing
         """
-  # if output is created here, deleting the 'input' will not result in
-  # rerun so it's best to not create any fake output files here
-  #output:  'COMPLETE'
-  #shell:   'touch {output}'
+    # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
 
 
+rule report:
+    input:
+        # NOTE should roughly match final rule
+        bam=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam'),
+        basic_map_stats=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bamstats/stats_plot.html'),
+        cont_results=expand(os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.{race}.selfSM'), race=config['references']['cont_vcfs'])
+    output: html="report.html"
+    run:
+        report("""
+        ==========================================================================================
+        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for {config[sample]}
+        ==========================================================================================
+        
+        This is the mapping pipeline for the SG10K project workflow. It is
+        specifically tailored for SG10K samples and therefore not recommended
+        to use it for anything else. Specifically, it's designed for shallow
+        WGS, uses the gotcloud reference bundles and performs contamination
+        checks against the three major ethnicities in Singapore.
+        
+        - All results can be found in the directory called {RESULT_OUTDIR}
+        - Main output is a BAM file (with base qualities recalibrated): {input.bam}
+        - Basic mapping statistics can be found in {input.basic_map_stats}
+        - Contamination results can be found in {input.cont_results}
+        - The full configfile_ containing all parameters, including program versions and settings is attached to this report
+        """, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)", configfile="conf.yaml")
+        # doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch
+        # FIXME hardcoded path to configfile
+        
 rule contamination_check:
     input:
         bam = os.path.join(RESULT_OUTDIR, '{sample}.bam'),
@@ -214,7 +240,3 @@ rule map_mdups_sort:
         " samblaster {params.mark_short_splits} |"
         " samtools view -@ {threads} -bu -o - |"
         " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
-
-# FIXME rule report:
-# write program versions
-# how it works
