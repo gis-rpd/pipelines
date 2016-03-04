@@ -31,8 +31,8 @@
 #$ -o @MASTERLOG@
 # combine stdout/stderr
 #$ -j y
-# snakemake control job run time
-#$ -l h_rt=72:00:00
+# snakemake control job run time: 175h == 1 week
+#$ -l h_rt=175:00:00
 # memory
 #$ -l mem_free=1G
 # 'parallel env'
@@ -56,7 +56,7 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
 # --printshellcmds: also prints actual commands
-# --latency-wait: might help with FS sync problems
+# --latency-wait: might help with FS sync problems. also used by broad: https://github.com/broadinstitute/viral-ngs/blob/master/pipes/Broad_LSF/run-pipe.sh
 
 #export SGE_ROOT=/opt/uge-8.1.7p3
 #export SGE_CELL=aquila_cell
