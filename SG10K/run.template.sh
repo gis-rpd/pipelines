@@ -13,8 +13,9 @@
 # or alternatively:
 #   export EXTRA_SNAKEMAKE_ARGS="--dryrun"
 #   bash|qsub run.sh
-# The environment variable WORK_Q will be used to specify a queue for
-# the "worker processes" (otherwise let scheduler decide)
+# The environment variable SLAVE_Q will be used to specify a queue for
+# the "worker processes" (otherwise DEFAULT_SLAVE_Q set here will be used
+# or scheduler decides if empty)
 #
 #
 # Potentially useful arguments:
@@ -49,7 +50,7 @@
 
 
 DEBUG=0
-
+DEFAULT_SLAVE_Q=@DEFAULT_SLAVE_Q@
 SNAKEFILE=@SNAKEFILE@
 
 DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats snakemake.stats --configfile conf.yaml --latency-wait 60"
@@ -69,8 +70,10 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
     qsub="qsub -pe OpenMP {threads} -l mem_free={cluster.mem} -l h_rt={cluster.time}"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     qsub="$qsub -V -cwd -e $LOGDIR -o $LOGDIR"
-    if [ -n "$WORK_Q" ]; then
-        qsub="$qsub -q $WORK_Q"
+    if [ -n "$SLAVE_Q" ]; then
+        qsub="$qsub -q $SLAVE_Q"
+    elif [ -n "$DEFAULT_SLAVE_Q" ]; then 
+        qsub="$qsub -q $DEFAULT_SLAVE_Q"
     fi
     CLUSTER_ARGS="--cluster-config cluster.yaml --cluster \"$qsub\" --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
     N_ARG="--jobs 6"

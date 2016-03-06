@@ -153,7 +153,8 @@ def write_snakemake_init(rc_file, overwrite=False):
         fh.write("reuse -q miniconda-3\n")
         #fh.write("source activate snakemake-3.5.4\n")
         #fh.write("source activate snakemake-ga622cdd-onstart\n")
-        fh.write("source activate snakemake-3.5.5-onstart\n")
+        #fh.write("source activate snakemake-3.5.5-onstart\n")
+        fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
 
 
 def write_snakemake_env(rc_file, config, overwrite=False):
@@ -316,6 +317,10 @@ def main():
                         " as well as fastq1 and fastq2 per line. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
+    parser.add_argument('-w', '--slave-q',
+                        help="Queue to use for slave jobs")
+    parser.add_argument('-m', '--master-q',
+                        help="Queue to use for master job")
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
@@ -396,10 +401,18 @@ def main():
                 line = line.replace("@LOGDIR@", LOG_DIR_REL)
                 line = line.replace("@MASTERLOG@", MASTERLOG)
                 line = line.replace("@PIPELINE_NAME@", PIPELINE_NAME)
+                if args.slave_q:
+                    line = line.replace("@DEFAULT_SLAVE_Q@", args.slave_q)
+                else:
+                    line = line.replace("@DEFAULT_SLAVE_Q@", "")
                 out_fh.write(line)
 
-
-        cmd = "cd {} && qsub {} >> {}".format(os.path.dirname(run_out), run_out, SUBMISSIONLOG)
+        if args.master_q:
+            master_q_arg = "-q {}".format(args.master_q)
+        else:
+            master_q_arg = ""
+        cmd = "cd {} && qsub {} {} >> {}".format(
+            os.path.dirname(run_out), master_q_arg, run_out, SUBMISSIONLOG)
         if args.no_run:
             LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
             LOG.warn("Once ready submit with: {}".format(cmd))
