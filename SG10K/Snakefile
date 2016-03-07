@@ -1,8 +1,8 @@
 import os
+import getpass
 
 from snakemake.utils import report
 from elmlogger import ElmLogging, UnitId, timestamp
-from SG10K import getuser
 
 
 RESULT_OUTDIR = './out'
@@ -10,6 +10,10 @@ RESULT_OUTDIR = './out'
 
 # FIXME to conf once downstream handling clear
 MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+
+def getuser():
+    return getpass.getuser()
 
 
 # non-login bash
