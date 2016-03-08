@@ -1,0 +1,203 @@
+import os
+import getpass
+from snakemake.utils import report
+from elmlogger import ElmLogging, UnitId, timestamp
+
+
+RESULT_OUTDIR = './out'
+
+
+# FIXME to conf once downstream handling clear
+MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+
+def getuser():
+    return getpass.getuser()
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source snakemake_env.rc;")
+
+
+include: "../rules/samtools.rules"
+
+
+onstart:# available as patched snakemake 3.5.5
+    global elm_logger
+
+    if config['ELM']['run_id'] or config['ELM']['library_id'] or config['ELM']['lane_id']:
+        unit_ids = [UnitId._make(x) for x in zip(
+            config['ELM']['run_id'], config['ELM']['library_id'], config['ELM']['lane_id'])]
+    else:
+        unit_ids = [UnitId._make(['NA', 'NA', 'NA'])]
+        
+    elm_logger = ElmLogging(workflow.snakefile,
+                            config['ELM']['pipeline_name'],
+                            config['ELM']['pipeline_version'],
+                            getuser(),#SET_ON_EXEC
+                            config['ELM']['site'],
+                            timestamp(),# crutch: master jid would be best, but site dependent. log location unknown. how to treat manual runs?
+                            config['ELM']['log_path'],#SET_ON_EXEC
+                            RESULT_OUTDIR,
+                            unit_ids)
+    elm_logger.start()
+onsuccess:
+    elm_logger.stop(True)
+onerror:
+    elm_logger.stop(False)
+
+    
+rule final:
+    input:
+        # NOTE changes here will likely have to be reflected in the report rule as well
+        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.idxstats.txt'),
+        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bam'),
+        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bamstats/stats_plot.html'),
+        "report.html"
+    message:
+        """
+        Pipeline run successfully completed
+        """
+    # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
+
+
+rule report:
+    input:
+        # NOTE should roughly match final rule
+        bam=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bam'),
+        basic_map_stats=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bamstats/stats_plot.html'),
+    output: html="report.html"
+    run:
+        report("""
+        ==========================================================================================
+        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for {config[sample]}
+        ==========================================================================================
+        
+        This is a generic BWA-MEM mapping pipeline.
+        
+        - All results can be found in the directory called {RESULT_OUTDIR}
+        - Main output is a BAM file (raw base qualities): {input.bam}
+        - Basic mapping statistics can be found in {input.basic_map_stats}
+        """, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)", configfile="conf.yaml")
+        # doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch
+        # FIXME hardcoded path to configfile
+        
+
+def mark_dups_pipe_cmd(before="", after=""):
+    """FIXME review once MARK_SHORT_SPLITS is in config
+
+    before and after are commands added before and after samblaster
+    and can be used e.g. for conversion from BAM to BAM (samblaster needs SAM)
+
+    return command will always end in pipe
+    """
+    
+    if config['mark_dups']:
+        if before:
+            cmd = "{} | ".format(before)
+        else:
+            cmd = ""
+            
+        cmd += " samblaster {MARK_SHORT_SPLITS} | "
+        if after:
+            cmd += " {} | ".format(after)
+        return cmd
+    else:
+        return ""
+
+
+rule sample_merge:
+    """
+    Merge bam files for multiple units into one for the given sample
+    (or copy if just one).
+
+    samtools sort might need control of max thread memory to not go 
+    over limit for v1.3 it's 768M. if we use 16 threads this amounts 
+    to max 12.3GB (on top of whatever else is running).
+
+    Define temporary sorting out prefix to avoid nameclashes (default
+    -.XXX.bam for stdin)
+    """
+    input:
+        expand(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.bam'), unit=config["units"])
+    threads:
+        8
+    params:
+        sort_mem='500M'
+    output:
+        bam=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bam')
+    message:
+        "Merging files"
+    benchmark:# should have same name as rule
+        'benchmark/sample_merge.txt'
+    shell:
+        # merge can also read single output. assumes read sorted input
+        # 
+        "samtools merge -n -@ {threads} - {input} | "
+        + mark_dups_pipe_cmd(before="samtools view -@ {threads} -h -", after="samtools view -@ {threads} -bS -") + 
+        "samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
+
+        
+# read group functions following
+# http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+   
+def gen_rg_lib_id(unit):
+    if unit['library_id']:
+        return unit['library_id']
+    else:
+        return "LIB-DUMMY"
+
+    
+def gen_rg_pu_id(unit):
+    """https://www.biostars.org/p/50349/"""
+    if unit['run_id'] and unit['flowcell_id'] and unit['lane_id']:
+        return "{}_{}.{}".format(unit['run_id'], unit['flowcell_id'], unit['lane_id'])
+    else:
+        return "PU-" + unit['rg_id']
+
+    
+def fastqs_fo_unit(unit):
+    """FIXME:add-doc
+    """
+    return unit['fq1'], unit['fq2']
+
+    
+# Expecting SE/PE input read length >70 (BWA-MEM limitation)
+rule map_mdups:
+    """fixmate (and samblaster) only work on name sorted files. fixmate ignores secondary 
+    alignments, i.e. safe to use with bwa mem -M:
+    http://sourceforge.net/p/samtools/mailman/message/30556922/
+         
+    Setting read groups correctly is tricky and also depends on
+    downstream programs. See
+    e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+    For example for BQSR PU takes precedence over ID. PU should contain lane
+    """
+    input:
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".pac",
+        fastqs = lambda wildcards: fastqs_fo_unit(config["units"][wildcards.unit])
+    output:
+        bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.bam'))
+    params:
+        mark_short_splits=MARK_SHORT_SPLITS,
+        bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
+        rg_id=lambda wildcards: config["units"][wildcards.unit]['rg_id'],# always set
+        lib_id=lambda wildcards: gen_rg_lib_id(config["units"][wildcards.unit]),
+        pu_id=lambda wildcards: gen_rg_pu_id(config["units"][wildcards.unit])
+    message:
+        'Aligning PE reads, fixing mate information, marking duplicates (if set) and converting to BAM'
+    threads:
+        8
+    benchmark:# should have same name as rule
+        'benchmark/map_mdups.txt'
+    shell:
+        "bwa mem {params.mark_short_splits} -t {threads}"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{config[sample]}\\tCN:GIS'"
+        " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
+        " samtools fixmate -O sam - - |"
+        + mark_dups_pipe_cmd() +
+        " samtools view -@ {threads} -bS -o {output.bam} -"

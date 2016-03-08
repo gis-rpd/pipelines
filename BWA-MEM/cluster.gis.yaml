@@ -1,0 +1,33 @@
+# Generic mapping settings and hence very forgiving to accomodate any sample
+#
+# - https://bitbucket.org/snakemake/snakemake/wiki/Documentation#markdown-header-cluster-configuration
+# - time: changing depending on cluster and input data and used during submission so best set here
+# - mem: needed for cluster submission so best set here
+# - missing threads
+# https://groups.google.com/forum/#!searchin/snakemake/cluster-config/snakemake/9NkI4KTtQcE/ZozUZnlABAAJ
+# ""cluster config is not really suited for specifying the threads used in a job.""
+# accessible using {threads} anyway and set to 1 by default
+# see also
+# - https://groups.google.com/forum/#!msg/snakemake/2UqDuWxwMEE/SBzgxAT4AwAJ
+
+{
+    # default rules applied to all rules, but overriden by rule-specific settings
+    "__default__" :
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+  
+    "sample_merge" :
+    {
+      "time" : "08:00:00",
+      "mem" : 8G,
+    },
+    
+    "map_mdups" :
+    {
+      "time" : "08:00:00",
+      "mem" : 16G,
+    },
+}    
+                                                                
