@@ -21,9 +21,7 @@ shell.executable("/bin/bash")
 shell.prefix("source snakemake_env.rc;")
 
 
-include: "rules/samtools.rules"
-#include: "rules/bwa.rules"
-#include: "rules/bedtools.rules"
+include: "../rules/samtools.rules"
 
 
 onstart:# available as patched snakemake 3.5.5
@@ -69,12 +67,13 @@ rule final:
 
 rule report:
     input:
-        # NOTE should roughly match final rule
+        # NOTE should roughly match final rule?!
         bam=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam'),
         basic_map_stats=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bamstats/stats_plot.html'),
         cont_results=expand(os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.{race}.selfSM'), race=config['references']['cont_vcfs'])
     output: html="report.html"
     run:
+    	# FIXME duplication with README
         report("""
         ==========================================================================================
         {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for {config[sample]}
@@ -163,7 +162,8 @@ rule sample_merge:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input};")
         else:
-            shell("ln -s {input} {output} && touch -h {output}")
+            # inefficient, but input might be temp file
+            shell("cp {input} {output}")
 
 
 # read group functions following
@@ -215,7 +215,7 @@ rule map_mdups_sort:
     For example for BQSR PU takes precedence over ID. PU should contain lane
 
     We don't mark duplicate again after merging because it's a PCR
-    free library to optical duplicaes matter the most
+    free library to optical duplicates matter the most
     """
     input:
         reffa = config['references']['genome'],
