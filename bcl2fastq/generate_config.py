@@ -163,18 +163,14 @@ def main():
                             index = child['barcode'].split('-')
                             sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
                             index_lens = (len((index[0])), len((index[1])))
-                            sample_dir = os.path.join(outdir, machine_id, + 'Project_' + rows['libraryId']+','+ 'Sample_' + child['libraryId'])
-                            #print ('TEST' + sample_dir)
-                            sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + 'Sample_' + child['libraryId']
+                            sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' + 'Sample_' + child['libraryId']
                             sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId'] + ',' + sample_dir
-                            print (sample_id)
            
                         else:	
                             sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                             index_lens = (len(child['barcode']), -1)
-                            sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + 'Sample_' + child['libraryId']
+                            sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' +'Sample_' + child['libraryId']
                             sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId']+ ',' + sample_dir
-                            print (sample_id)
                         
                         sample_info.append(sample_id) 
                         barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
@@ -184,7 +180,7 @@ def main():
                     sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
                     index_lens = (-1, -1)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
-                    sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + 'Sample_' + rows['libraryId']
+                    sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' +  'Sample_' + rows['libraryId']
                     sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId']+ ',' + sample_dir
                     sample_info.append(sample_id) 
                     fh_out.write(sample+ '\n') 
