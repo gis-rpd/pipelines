@@ -123,10 +123,12 @@ def main():
         
     (runIDPath,outdirbase,RunInfo) = getdirs(args)
     runid_with_flowcellid = runIDPath.split('/')[-1]
+    flowcellid = runid_with_flowcellid.split('_')[-1]
     machine_id = runid_with_flowcellid.split('-')[0]
     
     # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
     barcode_lens = {}
+    sample_info = []
     LOG.info("Generating sample sheet")
     run_num = runid_with_flowcellid.split('_')[0]
     
@@ -158,16 +160,23 @@ def main():
                         id = 'S'+str(counter)
                         if "-" in (child['barcode']):
                             # dual index  
-                            #print (child['barcode'])
                             index = child['barcode'].split('-')
-                            #print (index[0])
-                            #print (index[1])
                             sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
-                            #index_lens = (len(index[0], len(index[1]))
                             index_lens = (len((index[0])), len((index[1])))
+                            sample_dir = os.path.join(outdir, machine_id, + 'Project_' + rows['libraryId']+','+ 'Sample_' + child['libraryId'])
+                            #print ('TEST' + sample_dir)
+                            sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + 'Sample_' + child['libraryId']
+                            sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId'] + ',' + sample_dir
+                            print (sample_id)
+           
                         else:	
                             sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                             index_lens = (len(child['barcode']), -1)
+                            sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + 'Sample_' + child['libraryId']
+                            sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId']+ ',' + sample_dir
+                            print (sample_id)
+                        
+                        sample_info.append(sample_id) 
                         barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                         fh_out.write(sample+ '\n') 
                 else:
@@ -175,14 +184,23 @@ def main():
                     sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
                     index_lens = (-1, -1)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
+                    sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + 'Sample_' + rows['libraryId']
+                    sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId']+ ',' + sample_dir
+                    sample_info.append(sample_id) 
                     fh_out.write(sample+ '\n') 
     LOG.info("Generating UseBases")
     UseBases = generateUseBases(barcode_lens, RunInfo)
     UseBases_data = dict(UseBases = UseBases )
-    config = os.path.join(outdir,run_id + '_config.yml')
-    with open(config, 'w') as outfile:
-        outfile.write( yaml.dump(UseBases_data, default_flow_style=True) )
-           
+    
+    config_useBase = os.path.join(outdir,run_id + '_useBases.yaml')
+    with open(config_useBase, 'w') as outfile:
+        outfile.write( yaml.dump(UseBases_data, default_flow_style=True))
+    
+    sample_info_yaml = dict(sample_info = sample_info )
+    config_sample_info = os.path.join(outdir,run_id + '_sampleInfo.yaml')
+    with open(config_sample_info, 'w') as outfile:
+        outfile.write( yaml.dump(sample_info_yaml, default_flow_style=True))
+        
 if __name__ == "__main__":
     main()
     LOG.info("Successful program exit")
