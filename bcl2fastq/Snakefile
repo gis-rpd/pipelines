@@ -140,7 +140,7 @@ rule fastqc:
 #    params:
     message: "Running fastqc on {input}"
     benchmark: 'benchmark/fastqc.txt'
-    shell: """fastqc -t {threads} {input}"""
+    shell: """find {input} -name \*fastq.gz | xargs --no-run-if-empty fastqc -t {threads}; touch {output}"""
 
 
 
