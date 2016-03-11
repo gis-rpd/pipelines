@@ -1,0 +1,148 @@
+import os
+from math import ceil
+from snakemake.utils import report
+import getpass
+
+from elmlogger import ElmLogging, UnitId, timestamp
+
+
+def getuser():
+    return getpass.getuser()
+
+
+RESULT_OUTDIR = './out'
+
+SAMPLESHEET = os.path.join(RESULT_OUTDIR, 'samplesheet.csv')
+
+USEBASES_CFG = os.path.join(RESULT_OUTDIR, 'usesbases.yaml')
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source snakemake_env.rc;")
+
+
+onstart:# available as patched snakemake 3.5.5
+    global elm_logger
+
+    if config['ELM']['run_id'] or config['ELM']['library_id'] or config['ELM']['lane_id']:
+        unit_ids = [UnitId._make(x) for x in zip(
+            config['ELM']['run_id'], config['ELM']['library_id'], config['ELM']['lane_id'])]
+    else:
+        unit_ids = [UnitId._make(['NA', 'NA', 'NA'])]
+        
+    elm_logger = ElmLogging(workflow.snakefile,
+                            config['ELM']['pipeline_name'],
+                            config['ELM']['pipeline_version'],
+                            getuser(),#SET_ON_EXEC
+                            config['ELM']['site'],
+                            timestamp(),# crutch: master jid would be best, but site dependent. log location unknown. how to treat manual runs?
+                            config['ELM']['log_path'],#SET_ON_EXEC
+                            RESULT_OUTDIR,
+                            unit_ids)
+    elm_logger.start()
+    sys.stderr.write("onstart: FIXME mongodb initiated\n")
+onsuccess:
+    elm_logger.stop(True)
+    sys.stderr.write("onsuccess: FIXME mongodb update (success)\n")
+onerror:
+    elm_logger.stop(False)
+    sys.stderr.write("onerror: FIXME mongodb update (fail)\n")
+
+
+rule final:
+    input:
+	# here, expand creates a list of expected output folders/files based on 'units'
+	# defined in config (actually Project_Y/Sample_X)
+        expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"]),
+        expand(os.path.join(RESULT_OUTDIR, '{unit}', 'fastqc.SUCCESS'), unit=config["units"]),
+        expand(os.path.join(RESULT_OUTDIR, '{unit}', 'srasubmission.SUCCESS'), unit=config["units"]),
+        "report.html"
+    message:
+        """
+        Pipeline run successfully completed
+        """
+    # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
+
+
+rule report:
+    input:
+        expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"]),
+    output: html="report.html"
+    run:
+        # FIXME duplication with README
+        report("""
+        ==========================================================================================
+        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for FIXME:runid
+        ==========================================================================================
+
+        FIXME:text        
+        """, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)", configfile="conf.yaml")
+        # doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch
+        # FIXME hardcoded path to configfile
+
+
+
+#rule rulename:
+#     """comment"""
+#    input:
+#    output:
+#    params:
+#    message:
+#    threads:
+#    benchmark:
+#    shell:
+
+
+def bcl2fastq_threads_setting(num_threads):
+    """Divide threads meaningfully
+    """
+    demultiplex_threads_frac = 0.2
+    process_threads_frac = 0.8
+    return " -r 1 -w 1 -d {} -p {}".format(
+    	   ceil(demultiplex_threads_frac*num_threads),
+	   ceil(process_threads_frac*num_threads))
+
+
+rule bcl2fastq:
+    """Running bcl2fastq with dynamically split threads
+
+    https://support.illumina.com/content/dam/illumina-support/documents/documentation/software_documentation/bcl2fastq/bcl2fastq2-v2-17-software-guide-15051736-g.pdf
+    """
+    input: config['basecalldir']
+    output: sampledirs=expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"])
+    message: "Running bcl2fastq/Demultiplexing"
+    threads: 32
+    benchmark: "benchmark/bcl2fastq.txt"
+    run:
+        shell("mkdir {output.sampledirs}; echo 'bcl2fastq " + bcl2fastq_threads_setting(threads) + " '")
+            #"&& touch {output.successflag}"
+
+
+rule sra_submission:
+    """Submitting to SRA"""
+    input:  expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"])
+    output: expand(os.path.join(RESULT_OUTDIR, '{unit}', 'srasubmission.SUCCESS'), unit=config["units"])
+    #params: 
+    message: "Archival submission"
+    threads: 1
+    benchmark: 'benchmark/sra_submission.txt'
+    shell: """for dir in {input}; do echo 'FIXME' > $dir/srasubmission.SUCCESS; done"""
+
+
+rule fastqc:
+    """FIXME comment"""
+    input: lambda wildcards: os.path.join(RESULT_OUTDIR, wildcards.unit)
+    output: os.path.join(RESULT_OUTDIR, '{unit}', 'fastqc.SUCCESS')
+    threads: 8
+#    params:
+    message: "Running fastqc on {input}"
+    benchmark: 'benchmark/fastqc.txt'
+    shell: """fastqc -t {threads} {input}"""
+
+
+
+
+
