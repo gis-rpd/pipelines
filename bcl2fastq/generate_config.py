@@ -16,7 +16,8 @@ import requests
 import xml.etree.ElementTree as ET
 
 #--- project specific imports
-# /
+#
+from pipelines import generate_timestamp
 
 
 # global logger
@@ -30,11 +31,6 @@ SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sam
 
    
     
-def generate_timestamp():
-    """generate ISO8601 timestamp incl microsends
-    """
-    return datetime.isoformat(datetime.now())
-
 
 def cmdline_parser():
     """
