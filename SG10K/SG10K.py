@@ -27,7 +27,7 @@ import yaml
 #--- project specific imports
 #
 from pipelines import get_pipeline_version, get_site, get_init_call, get_rpd_vars, hash_for_fastq
-
+from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
@@ -46,8 +46,8 @@ PIPELINE_NAME = "SG10K"
 # log dir relative to outdir
 LOG_DIR_REL = "logs"
 # master log relative to outdir
-MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log".format(PIPELINE_NAME))
-SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log".format(PIPELINE_NAME))
+MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log")
+SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log")
 
 # RC files
 RC = {
@@ -59,62 +59,6 @@ RC = {
 # global logger
 LOG = logging.getLogger()
 
-
-def write_dk_init(rc_file, overwrite=False):
-    """creates dotkit init rc
-    """
-    if not overwrite:
-        assert not os.path.exists(rc_file), rc_file
-    with open(rc_file, 'w') as fh:
-        fh.write("eval `{}`;\n".format(' '.join(get_init_call())))
-
-
-def write_snakemake_init(rc_file, overwrite=False):
-    """creates file which loads snakemake
-    """
-    if not overwrite:
-        assert not os.path.exists(rc_file), rc_file
-    with open(rc_file, 'w') as fh:
-        fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
-        fh.write("reuse -q miniconda-3\n")
-        #fh.write("source activate snakemake-3.5.4\n")
-        #fh.write("source activate snakemake-ga622cdd-onstart\n")
-        #fh.write("source activate snakemake-3.5.5-onstart\n")
-        fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
-
-
-def write_snakemake_env(rc_file, config, overwrite=False):
-    """creates file for use as bash prefix within snakemake
-    """
-    if not overwrite:
-        assert not os.path.exists(rc_file), rc_file
-
-    with open(rc_file, 'w') as fh_rc:
-        fh_rc.write("# used as bash prefix within snakemake\n\n")
-        fh_rc.write("# init dotkit\n")
-        fh_rc.write("source dk_init.rc\n\n")
-
-        fh_rc.write("# load modules\n")
-        with open(config) as fh_cfg:
-            for k, v in yaml.safe_load(fh_cfg)["modules"].items():
-                fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
-
-        fh_rc.write("\n")
-        fh_rc.write("# unofficial bash strict has to come last\n")
-        fh_rc.write("set -euo pipefail;\n")
-
-
-def write_cluster_config(outdir, force_overwrite=False):
-    """writes site dependend cluster config
-    """
-    cluster_config_in = os.path.join(BASEDIR, "cluster.{}.yaml".format(get_site()))
-    cluster_config_out = os.path.join(outdir, "cluster.yaml")
-
-    assert os.path.exists(cluster_config_in)
-    if not force_overwrite:
-        assert not os.path.exists(cluster_config_out), cluster_config_out
-
-    shutil.copyfile(cluster_config_in, cluster_config_out)
 
 
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
@@ -280,7 +224,7 @@ def main():
     write_cluster_config(args.outdir)
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'sample': args.sample}
+    user_data = {'sample': args.sample}# needed for file naming
     user_data['units'] = OrderedDict()
     for ru in read_units:
         k = key_for_read_unit(ru)
