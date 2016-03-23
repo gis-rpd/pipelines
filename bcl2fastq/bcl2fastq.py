@@ -26,7 +26,8 @@ import yaml
 from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
 from pipelines import write_cluster_config, generate_timestamp
-
+from pipelines import get_machine_run_flowcell_id, testing_is_active
+from generate_bcl2fastq_cfg import SAMPLEINFO_CFG
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
@@ -36,14 +37,13 @@ __license__ = "The MIT License (MIT)"
 
 # based on ReadUnit (SG10K)
 SampleUnit = namedtuple('SampleUnit', ['run_id', 'flowcell_id', 'library_id',
-                                       'lane_id', 'rg_id', 'sample_dir'])
+                                       'lane_id', 'sample_dir'])
 
 BASEDIR = os.path.dirname(sys.argv[0])
 
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "bcl2fastq"
 
-SAMPLE_CONFIG = "sample_info.yaml"
 
 # log dir relative to outdir
 LOG_DIR_REL = "logs"
@@ -60,7 +60,6 @@ RC = {
 
 # global logger
 LOG = logging.getLogger()
-
 
 
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
@@ -105,16 +104,6 @@ def get_sample_unit_from_cfgfile(cfgfile):
     return sample_units
 
 
-
-def get_machine_run_flowcell_id(runid_and_flowcellid):
-    """FIXME
-    """
-
-    runid, flowcellid = runid_and_flowcellid.split("_")
-    machineid = runid.split("-")[0]
-    return machineid, runid, flowcellid
-
-
 def run_folder_for_run_id(runid_and_flowcellid, site=None):
     """runid has to contain flowcell id
 
@@ -129,6 +118,7 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None):
 
     if not site:
         site = get_site()
+
 
     if site == "gis":
         rundir = "/mnt/seq/userrig/{}/{}_{}".format(machineid, runid, flowcellid)
@@ -147,8 +137,13 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
         site = get_site()
 
     if site == "gis":
-        outdir = "/mnt/projects/userrig/{}/{}_{}/bcl2fastq_{}".format(
-            machineid, runid, flowcellid, generate_timestamp())
+        if testing_is_active():
+            # /output/bcl2fastq. currently owned by lavanya :(
+            outdir = "/mnt/projects/rpd/testing/output/bcl2fastq.tmp/{}/{}_{}/bcl2fastq_{}".format(
+                machineid, runid, flowcellid, generate_timestamp())
+        else:
+            outdir = "/mnt/projects/userrig/{}/{}_{}/bcl2fastq_{}".format(
+                machineid, runid, flowcellid, generate_timestamp())
     else:
         raise ValueError(site)
     return outdir
@@ -187,13 +182,15 @@ def main():
     logging.basicConfig(level=logging_level,
                         format='%(levelname)s [%(asctime)s]: %(message)s')
 
-    if args.mismatches > 2 or args.mismatches < 0:
-        LOG.fatal("Number of mismatches must be between 0-2")
-        sys.exit(1)
+    if args.mismatches is not None:
+        if args.mismatches > 2 or args.mismatches < 0:
+            LOG.fatal("Number of mismatches must be between 0-2")
+            sys.exit(1)
 
-    if args.lane > 8 or args.lane < 1:
-        LOG.fatal("Lane number must be between 1-8")
-        sys.exit(1)
+    if args.lane is not None:
+        if args.lane > 8 or args.lane < 1:
+            LOG.fatal("Lane number must be between 1-8")
+            sys.exit(1)
 
     if args.runid and args.rundir:
         LOG.fatal("Cannot use run-id and input directory arguments simultaneously")
@@ -205,7 +202,8 @@ def main():
     else:
         LOG.fatal("Need either run-id or input directory")
         sys.exit(1)
-    assert os.path.exists(rundir)
+    if not os.path.exists(rundir):
+        LOG.fatal("Expected run directory {} does not exist".format(rundir))    
 
     if not args.outdir:
         outdir = get_bcl2fastq_outdir(args.runid)
@@ -213,27 +211,37 @@ def main():
         outdir = args.outdir
     assert not os.path.exists(outdir)
     LOG.info("Writing to {}".format(outdir))
+    os.makedirs(outdir)# NOTE: creates dirs recursively!
 
-
-    LOG.critical("Call generate_bcl2fastq_cfg.py and pass down {} as {}".format(
-        outdir, SAMPLE_CONFIG))
-    sample_units = get_sample_unit_from_cfgfile(SAMPLE_CONFIG)
+    # FIXME ugly assumes same directory (just like import above). better to import and run main()?
+    generate_bcl2fastq = os.path.join(os.path.dirname(sys.argv[0]), "generate_bcl2fastq_cfg.py")
+    assert os.path.exists(generate_bcl2fastq)
+    cmd = [generate_bcl2fastq, '-r', rundir, '-o', outdir]
+    try:
+        _ = subprocess.check_output(cmd)
+    except:
+        LOG.fatal("The following command failed: {}".format(' '.join(cmd)))
+        raise
+    sampleinfo_cfg = os.path.join(outdir, SAMPLEINFO_CFG)
+    assert os.path.exists(sampleinfo_cfg)# just created file
+    sample_units = get_sample_unit_from_cfgfile(sampleinfo_cfg)
 
 
     LOG.info("Writing config and rc files")
-    write_cluster_config(args.outdir, BASEDIR)
+    write_cluster_config(outdir, BASEDIR)
 
 
-    LOG.critical("Handle mismatches and lanes")
-
+    LOG.critical("FIXME Handle mismatches and lanes (careful with 0 vs None values)")
+    LOG.critical("FIXME add MiSeqOutput to miseq rundirs?!")
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {}
-    user_data['units'] = OrderedDict()
+    user_data = dict()
+    #user_data['units'] = OrderedDict()
+    user_data['units'] = dict()# FIXME does it matter if ordered or not?
     for su in sample_units:
         k = su.sample_dir# unique already
-        user_data['units'][k] = su._asdict()
-
+        #user_data['units'][k] = su._asdict()
+        user_data['units'][k] = dict(su._asdict())#FIXME forcing dict rather than OrderedDict
 
     if args.runid:
         log_library_id = [su.library_id for su in sample_units]
@@ -250,18 +258,18 @@ def main():
                 'site': get_site(),
                 'instance_id': 'SET_ON_EXEC',# dummy
                 'submitter': 'SET_ON_EXEC',# dummy
-                'log_path': os.path.abspath(os.path.join(args.outdir, MASTERLOG))}
+                'log_path': os.path.abspath(os.path.join(outdir, MASTERLOG))}
 
-    pipeline_cfgfile = write_pipeline_config(args.outdir, user_data, elm_data)
-    write_dk_init(os.path.join(args.outdir, RC['DK_INIT']))
-    write_snakemake_init(os.path.join(args.outdir, RC['SNAKEMAKE_INIT']))
-    write_snakemake_env(os.path.join(args.outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
+    pipeline_cfgfile = write_pipeline_config(outdir, user_data, elm_data)
+    write_dk_init(os.path.join(outdir, RC['DK_INIT']))
+    write_snakemake_init(os.path.join(outdir, RC['SNAKEMAKE_INIT']))
+    write_snakemake_env(os.path.join(outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
 
     site = get_site()
     if site == "gis":
         LOG.info("Writing the run file for site {}".format(site))
         run_template = os.path.join(BASEDIR, "run.template.sh")
-        run_out = os.path.join(args.outdir, "run.sh")
+        run_out = os.path.join(outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
         # the rules import won't work.  so use the original file
         snakefile = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
@@ -291,8 +299,8 @@ def main():
             LOG.info("Starting pipeline: {}".format(cmd))
             os.chdir(os.path.dirname(run_out))
             _ = subprocess.check_output(cmd, shell=True)
-            submission_log_abs = os.path.abspath(os.path.join(args.outdir, SUBMISSIONLOG))
-            master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))
+            submission_log_abs = os.path.abspath(os.path.join(outdir, SUBMISSIONLOG))
+            master_log_abs = os.path.abspath(os.path.join(outdir, MASTERLOG))
             LOG.info("For submission details see {}".format(submission_log_abs))
             LOG.info("The (master) logfile is {}".format(master_log_abs))
     else:
