@@ -215,7 +215,7 @@ def main():
     LOG.info("Writing to {}".format(outdir))
 
 
-    LOG.critical("Call generate_config.py and pass down {} as {}".format(
+    LOG.critical("Call generate_bcl2fastq_cfg.py and pass down {} as {}".format(
         outdir, SAMPLE_CONFIG))
     sample_units = get_sample_unit_from_cfgfile(SAMPLE_CONFIG)
 
