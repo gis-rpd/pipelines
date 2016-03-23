@@ -149,7 +149,9 @@ def write_snakemake_env(rc_file, config, overwrite=False):
 
         fh_rc.write("# load modules\n")
         with open(config) as fh_cfg:
-            for k, v in yaml.safe_load(fh_cfg)["modules"].items():
+            yaml_data = yaml.safe_load(fh_cfg)
+            assert "modules" in yaml_data
+            for k, v in yaml_data["modules"].items():
                 fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
 
         fh_rc.write("\n")
@@ -173,7 +175,16 @@ def write_cluster_config(outdir, basedir, force_overwrite=False):
 
 
 def generate_timestamp():
-    """generate ISO8601 timestamp incl microsends
+    """generate ISO8601 timestamp incl microsends, but with colons
+    replaced to avoid problems if used as file name
     """
-    return datetime.isoformat(datetime.now())
+    return datetime.isoformat(datetime.now()).replace(":", "-")
 
+
+def get_machine_run_flowcell_id(runid_and_flowcellid):
+    """return machine-id, run-id and flowcell-id from full string
+    """
+
+    runid, flowcellid = runid_and_flowcellid.split("_")
+    machineid = runid.split("-")[0]
+    return machineid, runid, flowcellid
