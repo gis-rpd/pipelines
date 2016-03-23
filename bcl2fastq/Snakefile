@@ -111,7 +111,7 @@ rule bcl2fastq:
 
     https://support.illumina.com/content/dam/illumina-support/documents/documentation/software_documentation/bcl2fastq/bcl2fastq2-v2-17-software-guide-15051736-g.pdf
     """
-    input: config['basecalldir']
+    input: config['rundir']# FIXME add samplesheet?
     output: sampledirs=expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"])
     message: "Running bcl2fastq/Demultiplexing"
     threads: 32

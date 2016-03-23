@@ -85,6 +85,7 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
 
     config['ELM'] = elm_data
 
+    #import pdb; pdb.set_trace()
     with open(pipeline_config_out, 'w') as fh:
         # default_flow_style=None(default)|True(least readable)|False(most readable)
         yaml.dump(config, fh, default_flow_style=False)
@@ -118,7 +119,6 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None):
 
     if not site:
         site = get_site()
-
 
     if site == "gis":
         rundir = "/mnt/seq/userrig/{}/{}_{}".format(machineid, runid, flowcellid)
@@ -204,15 +204,17 @@ def main():
         sys.exit(1)
     if not os.path.exists(rundir):
         LOG.fatal("Expected run directory {} does not exist".format(rundir))    
-
+    LOG.info("Rundir is {}".format(rundir))
+        
     if not args.outdir:
         outdir = get_bcl2fastq_outdir(args.runid)
     else:
         outdir = args.outdir
     assert not os.path.exists(outdir)
     LOG.info("Writing to {}".format(outdir))
-    os.makedirs(outdir)# NOTE: creates dirs recursively!
-
+    # create log dir and hence parent dir immediately
+    os.makedirs(os.path.join(outdir, LOG_DIR_REL))
+           
     # FIXME ugly assumes same directory (just like import above). better to import and run main()?
     generate_bcl2fastq = os.path.join(os.path.dirname(sys.argv[0]), "generate_bcl2fastq_cfg.py")
     assert os.path.exists(generate_bcl2fastq)
@@ -235,13 +237,13 @@ def main():
     LOG.critical("FIXME add MiSeqOutput to miseq rundirs?!")
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = dict()
+    user_data = {'rundir': rundir}
     #user_data['units'] = OrderedDict()
     user_data['units'] = dict()# FIXME does it matter if ordered or not?
     for su in sample_units:
-        k = su.sample_dir# unique already
+        k = su.sample_dir
         #user_data['units'][k] = su._asdict()
-        user_data['units'][k] = dict(su._asdict())#FIXME forcing dict rather than OrderedDict
+        user_data['units'][k] = dict(su._asdict())#FIXME forcing dict rather than OrderedDict, otherwise yaml parsing fails later
 
     if args.runid:
         log_library_id = [su.library_id for su in sample_units]
@@ -291,7 +293,7 @@ def main():
         else:
             master_q_arg = ""
         cmd = "cd {} && qsub {} {} >> {}".format(
-            os.path.dirname(run_out), master_q_arg, run_out, SUBMISSIONLOG)
+            os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
             LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
             LOG.warn("Once ready submit with: {}".format(cmd))
