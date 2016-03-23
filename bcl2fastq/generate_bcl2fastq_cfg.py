@@ -7,7 +7,7 @@ import sys
 import os
 import logging
 import argparse
-from datetime import datetime
+#from datetime import datetime
 
 #--- third-party imports
 #
@@ -17,7 +17,13 @@ import xml.etree.ElementTree as ET
 
 #--- project specific imports
 #
-from pipelines import generate_timestamp
+from pipelines import get_machine_run_flowcell_id
+
+
+__author__ = "Lavanya Veeravalli"
+__email__ = "veeravallil@gis.a-star.edu.sg"
+__copyright__ = "2016 Genome Institute of Singapore"
+__license__ = "The MIT License (MIT)"
 
 
 # global logger
@@ -27,10 +33,12 @@ logging.basicConfig(level=logging.INFO,
                     format='%(levelname)s [%(asctime)s]: %(message)s')
 
 
+SAMPLESHEET_CSV = "samplesheet.csv"
+USEBASES_CFG = "usebases.yaml"
+SAMPLEINFO_CFG = "sampleinfo.yaml"
+
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
 
-   
-    
 
 def cmdline_parser():
     """
@@ -40,11 +48,14 @@ def cmdline_parser():
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument("-v", "--verbose",
-                        action="store_true", dest="verbose",
-                        help="be verbose")
+                        action="store_true",
+                        help="Be verbose")
     parser.add_argument("--debug",
-                        action="store_true", dest="debug",
-                        help="debugging")
+                        action="store_true",
+                        help="Enable debugging")
+    parser.add_argument("--force-overwrite",
+                        action="store_true",
+                        help="Force overwriting of output files")
     parser.add_argument("-r", "--runIDPath",
                         dest="runIDPath",
                         required=True,
@@ -52,59 +63,66 @@ def cmdline_parser():
     parser.add_argument("-o", "--outdir",
                         required=True,
                         dest="outdir",
-                        help="output directory, e.g.  /mnt/projects/rpd/testing/output/bcl2fastq ")
+                        help="Output directory")
     return parser
-   
+
+
 def getdirs(args):
-    runIDPath = args.runIDPath
-    if not os.path.exists(runIDPath):
-        LOG.fatal("runIDPath '%s' does not exist under Run directory.\n" % (runIDPath))
+    """gets directories from args and checks existance
+    """
+    runidpath = args.runIDPath
+    if not os.path.exists(runidpath):
+        LOG.fatal("runIDPath '%s' does not exist under Run directory.\n" % (runidpath))
         sys.exit(1)
-    
-    RunInfo = os.path.join(args.runIDPath + '/RunInfo.xml')
-    if not os.path.exists(RunInfo):
-        LOG.fatal("RunInfo '%s' does not exist under Run directory.\n" % (RunInfo))
-        sys.exit(1)  
-        
-    outdir = args.outdir    
+
+    runinfo = os.path.join(runidpath + '/RunInfo.xml')
+    if not os.path.exists(runinfo):
+        LOG.fatal("RunInfo '%s' does not exist under Run directory.\n" % (runinfo))
+        sys.exit(1)
+
+    outdir = args.outdir
     if not os.path.exists(outdir):
         LOG.fatal("output directory '%s' does not exist.\n" % (outdir))
         sys.exit(1)
-        
-    return(runIDPath,outdir,RunInfo)
 
-def generateUseBases(barcode_lens, RunInfo):
-    tree = ET.parse(RunInfo)
-    root = tree.getroot()   
-    UB_list = []
-    
+    return(runidpath, outdir, runinfo)
+
+
+def generate_usebases(barcode_lens, runinfo):
+    """FIXME:add-doc
+    """
+    tree = ET.parse(runinfo)
+    root = tree.getroot()
+    ub_list = []
+
     # for each lane and its barcode lengths
     for k, v in sorted(barcode_lens.items()):
         # v is list of barcode_len tuples
-        assert len(set(v))==1, ("Different barcode length in lane {}".format(k))
-        BC1, BC2 = v[0]# since all v's are the same
-        
-        UB = ""
+        assert len(set(v)) == 1, ("Different barcode length in lane {}".format(k))
+        bc1, bc2 = v[0]# since all v's are the same
+
+        ub = ""
         #if test:
-        for Read in root.iter('Read'):
-            NumCyc = int(Read.attrib['NumCycles'])-1
-            if Read.attrib['IsIndexedRead'] == 'N':
-                UB+='Y'+str(NumCyc)+'n*,'  
-            elif Read.attrib['IsIndexedRead'] == 'Y':
-                if Read.attrib['Number'] == '2':    ### BC1
-                    if BC1 > 0:
-                        UB+='I'+str(BC1)+'n*,'
+        for read in root.iter('Read'):
+            numcyc = int(read.attrib['NumCycles'])-1
+            if read.attrib['IsIndexedRead'] == 'N':
+                ub += 'Y' + str(numcyc) + 'n*,'
+            elif read.attrib['IsIndexedRead'] == 'Y':
+                if read.attrib['Number'] == '2':    ### BC1
+                    if bc1 > 0:
+                        ub += 'I'+str(bc1)+'n*,'
                     else:
-                        UB+='n*'+','
-                if Read.attrib['Number'] == '3':    ### BC2
-                    if BC2 > 0:
-                        UB+='I'+str(BC2)+'n*,'
+                        ub += 'n*'+','
+                if read.attrib['Number'] == '3':    ### BC2
+                    if bc2 > 0:
+                        ub += 'I'+str(bc2)+'n*,'
                     else:
-                        UB+='n*'+','
-        UB = UB[:-1]
-        UB_list.append(str(k+':'+UB)) 
-    return (UB_list)
- 
+                        ub += 'n*'+','
+        ub = ub[:-1]
+        ub_list.append(str(k + ':' + ub))
+    return ub_list
+
+
 def main():
     """
     The main function
@@ -116,36 +134,44 @@ def main():
         LOG.setLevel(logging.INFO)
     if args.debug:
         LOG.setLevel(logging.DEBUG)
-        
-    (runIDPath,outdirbase,RunInfo) = getdirs(args)
-    runid_with_flowcellid = runIDPath.split('/')[-1]
-    flowcellid = runid_with_flowcellid.split('_')[-1]
-    machine_id = runid_with_flowcellid.split('-')[0]
+
+    (runidpath, outdir, runinfo) = getdirs(args)
+    samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
+    usebases_cfg = os.path.join(outdir, USEBASES_CFG)
+    sampleinfo_cfg = os.path.join(outdir, SAMPLEINFO_CFG)
+    for f in [samplesheet_csv, usebases_cfg, sampleinfo_cfg]:
+        if not args.force_overwrite and os.path.exists(f):
+            LOG.fatal("Refusing to overwrite existing file {}".format(f))
+            sys.exit(1)
+
+    runid_with_flowcellid = runidpath.rstrip("/").split('/')[-1]
+    #flowcellid = runid_with_flowcellid.split('_')[-1]
+    #machine_id = runid_with_flowcellid.split('-')[0]
+    #run_num = runid_with_flowcellid.split('_')[0]
+    from bcl2fastq import get_machine_run_flowcell_id
+    machine_id, run_num, flowcellid = get_machine_run_flowcell_id(runid_with_flowcellid)
     
-    # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
-    barcode_lens = {}
-    sample_info = []
-    LOG.info("Generating sample sheet")
-    run_num = runid_with_flowcellid.split('_')[0]
-    
+    LOG.info("Querying ELM for {}".format(run_num))
     #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     rest_url = 'http://qldb01:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     response = requests.get(rest_url)
+    if response.status_code != requests.codes.ok:
+        response.raise_for_status()
     rest_data = response.json()
 
-    outdir = os.path.join(outdirbase, machine_id,
-                            runid_with_flowcellid + '_' + generate_timestamp())
-    assert not os.path.exists(outdir)
-    os.makedirs(outdir)    
     run_id = rest_data['runId']
     counter = 0
     if rest_data['runPass'] != 'Pass':
         LOG.info("Skipping non-passed run")
-        sys.exit(0)     
+        sys.exit(0)
+
     # this is the master samplesheet
-    samplesheet = os.path.join(outdir, run_id + '_sampleSheet.csv')
-    with open(samplesheet, 'w') as fh_out:
-        fh_out.write(SAMPLESHEET_HEADER + '\n') 
+    LOG.info("Writing to {}".format(samplesheet_csv))
+    # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
+    barcode_lens = {}
+    sample_info = []
+    with open(samplesheet_csv, 'w') as fh_out:
+        fh_out.write(SAMPLESHEET_HEADER + '\n')
         for rows in rest_data['lanes']:
             if rows['lanePass'] == 'Pass':
                 if "MUX" in rows['libraryId']:
@@ -153,24 +179,24 @@ def main():
                     counter = 0
                     for child in rows['Children']:
                         counter += 1
-                        id = 'S'+str(counter)
-                        if "-" in (child['barcode']):
-                            # dual index  
+                        id = 'S' + str(counter)
+                        if "-" in child['barcode']:
+                            # dual index
                             index = child['barcode'].split('-')
                             sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
                             index_lens = (len((index[0])), len((index[1])))
                             sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' + 'Sample_' + child['libraryId']
                             sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId'] + ',' + sample_dir
-           
-                        else:	
+
+                        else:
                             sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                             index_lens = (len(child['barcode']), -1)
                             sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' +'Sample_' + child['libraryId']
                             sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId']+ ',' + sample_dir
-                        
-                        sample_info.append(sample_id) 
+
+                        sample_info.append(sample_id.split(','))
                         barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
-                        fh_out.write(sample+ '\n') 
+                        fh_out.write(sample+ '\n')
                 else:
                     # non-multiplexed
                     sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
@@ -178,21 +204,20 @@ def main():
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' +  'Sample_' + rows['libraryId']
                     sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId']+ ',' + sample_dir
-                    sample_info.append(sample_id) 
-                    fh_out.write(sample+ '\n') 
-    LOG.info("Generating UseBases")
-    UseBases = generateUseBases(barcode_lens, RunInfo)
-    UseBases_data = dict(UseBases = UseBases )
-    
-    config_useBase = os.path.join(outdir,run_id + '_useBases.yaml')
-    with open(config_useBase, 'w') as outfile:
-        outfile.write( yaml.dump(UseBases_data, default_flow_style=True))
-    
-    sample_info_yaml = dict(sample_info = sample_info )
-    config_sample_info = os.path.join(outdir,run_id + '_sampleInfo.yaml')
-    with open(config_sample_info, 'w') as outfile:
-        outfile.write( yaml.dump(sample_info_yaml, default_flow_style=True))
-        
+                    sample_info.append(sample_id.split(','))
+                    fh_out.write(sample+ '\n')
+
+
+    LOG.info("Writing to {}".format(usebases_cfg))
+    usebases = generate_usebases(barcode_lens, runinfo)
+    with open(usebases_cfg, 'w') as fh:
+        fh.write(yaml.dump(dict(usebases=usebases), default_flow_style=True))
+
+    LOG.info("Writing to {}".format(sampleinfo_cfg))
+    with open(sampleinfo_cfg, 'w') as fh:
+        fh.write(yaml.dump(sample_info, default_flow_style=True))
+
+
 if __name__ == "__main__":
     main()
     LOG.info("Successful program exit")
