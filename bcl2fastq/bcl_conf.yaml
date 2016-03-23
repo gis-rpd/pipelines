@@ -1,6 +1,0 @@
-{
-    dir: {
-        output: /mnt/projects/rpd/testing/output/bcl2fastq,
-        input: /mnt/projects/rpd/testing/data/bcl2fastq,
-    }
-}
