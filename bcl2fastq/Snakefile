@@ -105,21 +105,26 @@ def bcl2fastq_threads_setting(num_threads):
     	   ceil(demultiplex_threads_frac*num_threads),
 	   ceil(process_threads_frac*num_threads))
 
-
 rule bcl2fastq:
     """Running bcl2fastq with dynamically split threads
 
     https://support.illumina.com/content/dam/illumina-support/documents/documentation/software_documentation/bcl2fastq/bcl2fastq2-v2-17-software-guide-15051736-g.pdf
     """
-    input: config['rundir']# FIXME add samplesheet?
+    input: 
+        rundir = config['rundir'],
+        samplesheet = config['samplesheet_csv'],
     output: sampledirs=expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"])
     message: "Running bcl2fastq/Demultiplexing"
     threads: 32
+    params:
+        usebases = config['usebases_arg'],
+        barcode_mismatches = config['barcode_mismatch_arg'],
+        tiles = config['lanes_arg']
+        
     benchmark: "benchmark/bcl2fastq.txt"
     run:
-        shell("mkdir {output.sampledirs}; echo 'bcl2fastq " + bcl2fastq_threads_setting(threads) + " '")
-            #"&& touch {output.successflag}"
-
+      shell("bcl2fastq --runfolder-dir  {input.rundir}  --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches}  {params.tiles}" + bcl2fastq_threads_setting(threads))
+           
 
 rule sra_submission:
     """Submitting to SRA"""
