@@ -27,7 +27,7 @@ from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
 from pipelines import write_cluster_config, generate_timestamp
 from pipelines import get_machine_run_flowcell_id, testing_is_active
-from generate_bcl2fastq_cfg import SAMPLEINFO_CFG
+from generate_bcl2fastq_cfg import SAMPLEINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
@@ -93,15 +93,25 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     return pipeline_config_out
 
 
-def get_sample_unit_from_cfgfile(cfgfile):
+def get_sample_unit_from_cfgfile(cfgfile,lane_nos):
     """FIXME:add-doc"""
     sample_units = []
+    
     with open(cfgfile) as fh_cfg:
+       
         for entry in yaml.safe_load(fh_cfg):
+            #print ( *lane_nos)
+            #print (type(lane_nos))
             assert len(entry) == 5
             [run_id, flowcell_id, library_id, lane_id, sample_dir] = entry
             su = SampleUnit._make([run_id, flowcell_id, library_id, lane_id, sample_dir])
-            sample_units.append(su)
+            lane = int(lane_id)
+            if not lane_nos:
+                sample_units.append(su)
+            else:
+                if lane in lane_nos:
+                    sample_units.append(su)
+          
     return sample_units
 
 
@@ -112,6 +122,7 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None):
 
     run_folder_for_run_id('HS004-PE-R00139_BC6A7HANXX')
     >>> "/mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX"
+    if machineid eq MS00
     """
 
     machineid, runid, flowcellid = get_machine_run_flowcell_id(
@@ -121,7 +132,10 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None):
         site = get_site()
 
     if site == "gis":
-        rundir = "/mnt/seq/userrig/{}/{}_{}".format(machineid, runid, flowcellid)
+        if machineid.startswith('MS00'):
+            rundir = "/mnt/seq/userrig/{}/MiSeqOutput/{}_{}".format(machineid, runid, flowcellid)
+        else:
+            rundir = "/mnt/seq/userrig/{}/{}_{}".format(machineid, runid, flowcellid)
     else:
         raise ValueError(site)
     return rundir
@@ -146,6 +160,7 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
                 machineid, runid, flowcellid, generate_timestamp())
     else:
         raise ValueError(site)
+    #print ("OUT" + outdir)
     return outdir
 
 
@@ -165,11 +180,11 @@ def main():
                         help="Queue to use for slave jobs")
     parser.add_argument('-m', '--master-q',
                         help="Queue to use for master job")
-    parser.add_argument('-l', '--lane', type=int,
-                        help="Limit run to this lane")
-    parser.add_argument('-i', '--mismatches', type=int,
+    parser.add_argument('-l', '--lanes', type=int, nargs="*",
+                        help="Limit run to given lane/s (multiples separated by space")
+    parser.add_argument('-i', '--mismatches', type=int, default=1,
                         help="Max. number of allowed barcode mismatches (0>=x<=2)"
-                        " (default as specified by Illumina)")
+                        " (default as specified by Illumina == 1)")
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
@@ -186,12 +201,26 @@ def main():
         if args.mismatches > 2 or args.mismatches < 0:
             LOG.fatal("Number of mismatches must be between 0-2")
             sys.exit(1)
+        else:
+            barcode_mismatch_arg = "--barcode-mismatches {}".format(args.mismatches)
+    else:
+        barcode_mismatch_arg = ""
+    
+    lane_info = ''
+    lane_nos = []
+    if args.lanes:
+        lane_info = '--tiles '
+        for lane in args.lanes:
+            if lane > 8 or lane < 1:
+                LOG.fatal("Lane number must be between 1-8")
+                sys.exit(1)
+            else:
+                lane_info += 's_{}'.format(lane)+','
+        lane_info = lane_info.rstrip()
+        lane_info = lane_info[:-1]
+        lane_nos = list(args.lanes)
 
-    if args.lane is not None:
-        if args.lane > 8 or args.lane < 1:
-            LOG.fatal("Lane number must be between 1-8")
-            sys.exit(1)
-
+        
     if args.runid and args.rundir:
         LOG.fatal("Cannot use run-id and input directory arguments simultaneously")
         sys.exit(1)
@@ -226,18 +255,43 @@ def main():
         raise
     sampleinfo_cfg = os.path.join(outdir, SAMPLEINFO_CFG)
     assert os.path.exists(sampleinfo_cfg)# just created file
-    sample_units = get_sample_unit_from_cfgfile(sampleinfo_cfg)
+    sample_units = get_sample_unit_from_cfgfile(sampleinfo_cfg,lane_nos)
+    os.unlink(sampleinfo_cfg)
 
 
     LOG.info("Writing config and rc files")
     write_cluster_config(outdir, BASEDIR)
-
-
-    LOG.critical("FIXME Handle mismatches and lanes (careful with 0 vs None values)")
-    LOG.critical("FIXME add MiSeqOutput to miseq rundirs?!")
+    
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'rundir': rundir}
+    user_data['samplesheet_csv'] = SAMPLESHEET_CSV  
+    
+    usebases_cfg = os.path.join(outdir, USEBASES_CFG)
+    usebases_arg = ''
+    with open(usebases_cfg, 'r') as stream:
+        try:
+            #print(yaml.load(stream))
+            d = yaml.load(stream)
+            assert 'usebases' in d
+            assert len(d)==1# make sure usebases is only key
+            for ub in d['usebases']:
+                print (ub)
+                usebases_arg += '--use-bases-mask {} '.format(ub)
+            #user_data = {'usebases_arg' : usebases_arg}
+        except yaml.YAMLError as exc:
+            print(exc)
+            raise
+    
+    #user_data = {'usebases_arg' : usebases_arg}
+    user_data['usebases_arg'] = usebases_arg  
+    os.unlink(usebases_cfg)
+    
+    #user_data['usebases_cfg'] = USEBASES_INFO
+    
+    user_data['lanes_arg'] = lane_info
+    user_data['barcode_mismatch_arg'] = barcode_mismatch_arg
+    
     #user_data['units'] = OrderedDict()
     user_data['units'] = dict()# FIXME does it matter if ordered or not?
     for su in sample_units:
@@ -251,7 +305,7 @@ def main():
         _, log_run_id, _ = get_machine_run_flowcell_id(args.runid)
         log_run_id = len(log_lane_id) * [log_run_id]
     else:
-        raise NotImplementedError
+        log_library_id = log_lane_id = log_run_id = None
     elm_data = {'run_id': log_run_id,
                 'library_id': log_library_id,
                 'lane_id': log_lane_id,
