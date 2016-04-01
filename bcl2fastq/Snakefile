@@ -146,6 +146,7 @@ rule sra_submission:
         import json
         time.sleep(30)
         for dir in input:
+            request = {}
             data = { }
             id = dir.split("/")[-2]+"/"+dir.split("/")[-1]
             library_id = config['units'][id]['library_id']
@@ -159,7 +160,8 @@ rule sra_submission:
             data['run_id'] = run_id
             data['path'] = path
             data['email'] = email
-            print(json.dumps(data))
+            request['Request'] = data
+            print(json.dumps(request))
             with open("{}/srasubmission.SUCCESS".format(dir), 'w') as fh:
                 fh.write("HDF5_webservice_request_for_archive SRA FIXME\n")
                
