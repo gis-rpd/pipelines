@@ -147,6 +147,7 @@ rule sra_submission:
         time.sleep(30)
         for dir in input:
             request = {}
+            req_code = {}
             data = { }
             id = dir.split("/")[-2]+"/"+dir.split("/")[-1]
             library_id = config['units'][id]['library_id']
@@ -154,13 +155,15 @@ rule sra_submission:
             run_id =  config['units'][id]['run_id']
             path = os.path.abspath(dir)
             email = "rpd@mailman.gis.a-star.edu.sg"
-            data['reqCode'] = 'SA-A002-009'
+            #data['reqCode'] = 'SA-A002-009'
             data['library_id'] = library_id
             data['muxId'] = mux_id
             data['run_id'] = run_id
             data['path'] = path
             data['email'] = email
-            request['Request'] = data
+            req_code['reqCode'] = "SA-A002-009"
+            req_code['SA-A002-009'] = data
+            request['Request'] = req_code
             print(json.dumps(request))
             with open("{}/srasubmission.SUCCESS".format(dir), 'w') as fh:
                 fh.write("HDF5_webservice_request_for_archive SRA FIXME\n")
