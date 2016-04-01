@@ -132,7 +132,7 @@ rule sra_submission:
     """Submitting to SRA"""
     input:  expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"])
     output: expand(os.path.join(RESULT_OUTDIR, '{unit}', 'srasubmission.SUCCESS'), unit=config["units"])
-   
+ 
     message: "Archival submission"
     threads: 1
     benchmark: 'benchmark/sra_submission.txt'
@@ -142,11 +142,27 @@ rule sra_submission:
         # see also https://bitbucket.org/snakemake/snakemake/issues/300/race-condition-waiting-for-files-on-nfs
         # for now, simply wait/sleep first
         import time
+        import os
+        import json
         time.sleep(30)
         for dir in input:
-           
+            data = { }
+            id = dir.split("/")[-2]+"/"+dir.split("/")[-1]
+            library_id = config['units'][id]['library_id']
+            mux_id = dir.split("/")[-2].split('_')[-1]
+            run_id =  config['units'][id]['run_id']
+            path = os.path.abspath(dir)
+            email = "rpd@mailman.gis.a-star.edu.sg"
+            data['reqCode'] = 'SA-A002-009'
+            data['library_id'] = library_id
+            data['muxId'] = mux_id
+            data['run_id'] = run_id
+            data['path'] = path
+            data['email'] = email
+            print(json.dumps(data))
             with open("{}/srasubmission.SUCCESS".format(dir), 'w') as fh:
-                fh.write("FIXME\n")
+                fh.write("HDF5_webservice_request_for_archive SRA FIXME\n")
+               
                 
 
 rule fastqc:
