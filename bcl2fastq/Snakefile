@@ -105,6 +105,7 @@ def bcl2fastq_threads_setting(num_threads):
     	   ceil(demultiplex_threads_frac*num_threads),
 	   ceil(process_threads_frac*num_threads))
 
+       
 rule bcl2fastq:
     """Running bcl2fastq with dynamically split threads
 
@@ -122,20 +123,31 @@ rule bcl2fastq:
         tiles = config['lanes_arg']
         
     benchmark: "benchmark/bcl2fastq.txt"
-    run:
-      shell("bcl2fastq --runfolder-dir  {input.rundir}  --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches}  {params.tiles}" + bcl2fastq_threads_setting(threads))
-           
-
+    run: 
+      shell("bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} {params.tiles}" + bcl2fastq_threads_setting(threads))
+       # FIXME future: run per mux, tiles listing corresponding lanes with mm according to mux
+       
+       
 rule sra_submission:
     """Submitting to SRA"""
     input:  expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"])
     output: expand(os.path.join(RESULT_OUTDIR, '{unit}', 'srasubmission.SUCCESS'), unit=config["units"])
-    #params: 
+   
     message: "Archival submission"
     threads: 1
     benchmark: 'benchmark/sra_submission.txt'
-    shell: """for dir in {input}; do echo 'FIXME' > $dir/srasubmission.SUCCESS; done"""
-
+    run:
+        # Avoid snakemake.exceptions.RuleException: Output files are older than input files
+        # which is likely an NFS issue.
+        # see also https://bitbucket.org/snakemake/snakemake/issues/300/race-condition-waiting-for-files-on-nfs
+        # for now, simply wait/sleep first
+        import time
+        time.sleep(30)
+        for dir in input:
+           
+            with open("{}/srasubmission.SUCCESS".format(dir), 'w') as fh:
+                fh.write("FIXME\n")
+                
 
 rule fastqc:
     """FIXME comment"""
@@ -145,7 +157,10 @@ rule fastqc:
 #    params:
     message: "Running fastqc on {input}"
     benchmark: 'benchmark/fastqc.txt'
-    shell: """find {input} -name \*fastq.gz | xargs --no-run-if-empty fastqc -t {threads}; touch {output}"""
+    shell:
+        "for f in $(find {input} -name \*fastq.gz); do"
+        "   fastqc -t {threads} $f && touch {output};"
+        "done"
 
 
 
