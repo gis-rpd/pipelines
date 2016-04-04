@@ -15,7 +15,7 @@ import argparse
 import logging
 import subprocess
 #import string
-from collections import namedtuple, OrderedDict
+#from collections import namedtuple, OrderedDict
 
 #--- third-party imports
 #
@@ -27,7 +27,7 @@ from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
 from pipelines import write_cluster_config, generate_timestamp
 from pipelines import get_machine_run_flowcell_id, testing_is_active
-from generate_bcl2fastq_cfg import SAMPLEINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG
+from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
@@ -35,9 +35,9 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-# based on ReadUnit (SG10K)
-SampleUnit = namedtuple('SampleUnit', ['run_id', 'flowcell_id', 'library_id',
-                                       'lane_id', 'sample_dir'])
+# Different from the analysis pipelines
+# WARN copied in generate_bcl2fastq_cfg.py because import fails
+MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_id', 'mux_dir', 'barcode_mismatches'])
 
 BASEDIR = os.path.dirname(sys.argv[0])
 
@@ -93,26 +93,23 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     return pipeline_config_out
 
 
-def get_sample_unit_from_cfgfile(cfgfile,lane_nos):
+def get_mux_units_from_cfgfile(cfgfile, lane_nos):
     """FIXME:add-doc"""
-    sample_units = []
-    
+
+    mux_units = []
+
     with open(cfgfile) as fh_cfg:
-       
+
         for entry in yaml.safe_load(fh_cfg):
-            #print ( *lane_nos)
-            #print (type(lane_nos))
-            assert len(entry) == 5
-            [run_id, flowcell_id, library_id, lane_id, sample_dir] = entry
-            su = SampleUnit._make([run_id, flowcell_id, library_id, lane_id, sample_dir])
-            lane = int(lane_id)
+            mu = MuxUnit(**entry)
+            # restrict to certain lanes
+            lane = int(mu.lane_id)
             if not lane_nos:
-                sample_units.append(su)
+                mux_units.append(mu)
             else:
                 if lane in lane_nos:
-                    sample_units.append(su)
-          
-    return sample_units
+                    mux_units.append(mu)
+    return mux_units
 
 
 def run_folder_for_run_id(runid_and_flowcellid, site=None):
@@ -184,7 +181,7 @@ def main():
                         help="Limit run to given lane/s (multiples separated by space")
     parser.add_argument('-i', '--mismatches', type=int, default=1,
                         help="Max. number of allowed barcode mismatches (0>=x<=2)"
-                        " (default as specified by Illumina == 1)")
+                        " setting a value here overrides the default settings read from ELM)")
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
@@ -201,11 +198,7 @@ def main():
         if args.mismatches > 2 or args.mismatches < 0:
             LOG.fatal("Number of mismatches must be between 0-2")
             sys.exit(1)
-        else:
-            barcode_mismatch_arg = "--barcode-mismatches {}".format(args.mismatches)
-    else:
-        barcode_mismatch_arg = ""
-    
+
     lane_info = ''
     lane_nos = []
     if args.lanes:
@@ -220,21 +213,21 @@ def main():
         lane_info = lane_info[:-1]
         lane_nos = list(args.lanes)
 
-        
+
     if args.runid and args.rundir:
         LOG.fatal("Cannot use run-id and input directory arguments simultaneously")
         sys.exit(1)
     elif args.runid:
         rundir = run_folder_for_run_id(args.runid)
     elif args.rundir:
-        rundir = args.rundir
+        rundir = os.path.abspath(args.rundir)
     else:
         LOG.fatal("Need either run-id or input directory")
         sys.exit(1)
     if not os.path.exists(rundir):
-        LOG.fatal("Expected run directory {} does not exist".format(rundir))    
+        LOG.fatal("Expected run directory {} does not exist".format(rundir))
     LOG.info("Rundir is {}".format(rundir))
-        
+
     if not args.outdir:
         outdir = get_bcl2fastq_outdir(args.runid)
     else:
@@ -243,7 +236,7 @@ def main():
     LOG.info("Writing to {}".format(outdir))
     # create log dir and hence parent dir immediately
     os.makedirs(os.path.join(outdir, LOG_DIR_REL))
-           
+
     # FIXME ugly assumes same directory (just like import above). better to import and run main()?
     generate_bcl2fastq = os.path.join(os.path.dirname(sys.argv[0]), "generate_bcl2fastq_cfg.py")
     assert os.path.exists(generate_bcl2fastq)
@@ -253,20 +246,22 @@ def main():
     except:
         LOG.fatal("The following command failed: {}".format(' '.join(cmd)))
         raise
-    sampleinfo_cfg = os.path.join(outdir, SAMPLEINFO_CFG)
-    assert os.path.exists(sampleinfo_cfg)# just created file
-    sample_units = get_sample_unit_from_cfgfile(sampleinfo_cfg,lane_nos)
-    os.unlink(sampleinfo_cfg)
+    muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
+    assert os.path.exists(muxinfo_cfg)# just created file
+    mux_units = get_mux_units_from_cfgfile(muxinfo_cfg, lane_nos)
+    if args.mismatches is not None:
+        mux_units = [mu._replace(barcode_mismatches=args.mismatches) for mu in mux_units]
+    os.unlink(muxinfo_cfg)
 
 
     LOG.info("Writing config and rc files")
     write_cluster_config(outdir, BASEDIR)
-    
+
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'rundir': rundir}
-    user_data['samplesheet_csv'] = SAMPLESHEET_CSV  
-    
+    user_data['samplesheet_csv'] = SAMPLESHEET_CSV
+
     usebases_cfg = os.path.join(outdir, USEBASES_CFG)
     usebases_arg = ''
     with open(usebases_cfg, 'r') as stream:
@@ -276,32 +271,31 @@ def main():
             assert 'usebases' in d
             assert len(d)==1# make sure usebases is only key
             for ub in d['usebases']:
-                print (ub)
+                #print (ub)
                 usebases_arg += '--use-bases-mask {} '.format(ub)
             #user_data = {'usebases_arg' : usebases_arg}
         except yaml.YAMLError as exc:
             print(exc)
             raise
-    
+
     #user_data = {'usebases_arg' : usebases_arg}
-    user_data['usebases_arg'] = usebases_arg  
+    user_data['usebases_arg'] = usebases_arg
     os.unlink(usebases_cfg)
-    
+
     #user_data['usebases_cfg'] = USEBASES_INFO
-    
+
     user_data['lanes_arg'] = lane_info
-    user_data['barcode_mismatch_arg'] = barcode_mismatch_arg
-    
+
     #user_data['units'] = OrderedDict()
     user_data['units'] = dict()# FIXME does it matter if ordered or not?
-    for su in sample_units:
-        k = su.sample_dir
+    for mu in mux_units:
+        k = mu.mux_dir
         #user_data['units'][k] = su._asdict()
-        user_data['units'][k] = dict(su._asdict())#FIXME forcing dict rather than OrderedDict, otherwise yaml parsing fails later
+        user_data['units'][k] = dict(mu._asdict())#FIXME forcing dict rather than OrderedDict, otherwise yaml parsing fails later
 
     if args.runid:
-        log_library_id = [su.library_id for su in sample_units]
-        log_lane_id = [su.lane_id for su in sample_units]
+        log_library_id = [mu.mux_id for mu in mux_units]# logger allows mux_id and lib_id switching
+        log_lane_id = [mu.lane_id for mu in mux_units]
         _, log_run_id, _ = get_machine_run_flowcell_id(args.runid)
         log_run_id = len(log_lane_id) * [log_run_id]
     else:

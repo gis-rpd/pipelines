@@ -7,7 +7,7 @@ import sys
 import os
 import logging
 import argparse
-#from datetime import datetime
+from collections import namedtuple
 
 #--- third-party imports
 #
@@ -18,6 +18,8 @@ import xml.etree.ElementTree as ET
 #--- project specific imports
 #
 from pipelines import get_machine_run_flowcell_id
+# cannot be imported? from bcl2fastq import MuxUnit
+MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_id', 'mux_dir', 'barcode_mismatches'])
 
 
 __author__ = "Lavanya Veeravalli"
@@ -35,7 +37,7 @@ logging.basicConfig(level=logging.INFO,
 
 SAMPLESHEET_CSV = "samplesheet.csv"
 USEBASES_CFG = "usebases.yaml"
-SAMPLEINFO_CFG = "sampleinfo.yaml"
+MUXINFO_CFG = "muxinfo.yaml"
 
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
 
@@ -138,19 +140,15 @@ def main():
     (runidpath, outdir, runinfo) = getdirs(args)
     samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
     usebases_cfg = os.path.join(outdir, USEBASES_CFG)
-    sampleinfo_cfg = os.path.join(outdir, SAMPLEINFO_CFG)
-    for f in [samplesheet_csv, usebases_cfg, sampleinfo_cfg]:
+    muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
+    for f in [samplesheet_csv, usebases_cfg, muxinfo_cfg]:
         if not args.force_overwrite and os.path.exists(f):
             LOG.fatal("Refusing to overwrite existing file {}".format(f))
             sys.exit(1)
 
     runid_with_flowcellid = runidpath.rstrip("/").split('/')[-1]
-    #flowcellid = runid_with_flowcellid.split('_')[-1]
-    #machine_id = runid_with_flowcellid.split('-')[0]
-    #run_num = runid_with_flowcellid.split('_')[0]
-    from bcl2fastq import get_machine_run_flowcell_id
-    machine_id, run_num, flowcellid = get_machine_run_flowcell_id(runid_with_flowcellid)
-    
+    _machine_id, run_num, flowcellid = get_machine_run_flowcell_id(runid_with_flowcellid)
+
     LOG.info("Querying ELM for {}".format(run_num))
     #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     rest_url = 'http://qldb01:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
@@ -169,7 +167,7 @@ def main():
     LOG.info("Writing to {}".format(samplesheet_csv))
     # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
     barcode_lens = {}
-    sample_info = []
+    mux_units = []
     with open(samplesheet_csv, 'w') as fh_out:
         fh_out.write(SAMPLESHEET_HEADER + '\n')
         for rows in rest_data['lanes']:
@@ -185,40 +183,31 @@ def main():
                             index = child['barcode'].split('-')
                             sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
                             index_lens = (len((index[0])), len((index[1])))
-                            #sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' + 'Sample_' + child['libraryId']
-                            sample_dir = 'Project_' + rows['libraryId'] + '/' + 'Sample_' + child['libraryId']
-                            sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId'] + ',' + sample_dir
-
                         else:
                             sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                             index_lens = (len(child['barcode']), -1)
-                            #sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' +'Sample_' + child['libraryId']
-                            sample_dir = 'Project_' + rows['libraryId'] + '/' +'Sample_' + child['libraryId']
-                            sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId']+ ',' + sample_dir
-
-                        sample_info.append(sample_id.split(','))
                         barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
-                        fh_out.write(sample+ '\n')
-                else:
-                    # non-multiplexed
+
+                else:# non-multiplexed
                     sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
                     index_lens = (-1, -1)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
-                    #sample_dir = outdir + '/' + machine_id + '/' + 'Project_' + rows['libraryId'] + '/' +  'Sample_' + rows['libraryId']
-                    sample_dir = 'Project_' + rows['libraryId'] + '/' +  'Sample_' + rows['libraryId']
-                    sample_id = run_id + ',' + flowcellid + ',' + child['libraryId'] + ',' + rows['laneId']+ ',' + sample_dir
-                    sample_info.append(sample_id.split(','))
-                    fh_out.write(sample+ '\n')
 
+                barcode_mismatches = 1
+                muxunit = MuxUnit._make([run_id, flowcellid, rows['libraryId'], rows['laneId'], 'Project_' + rows['libraryId'], barcode_mismatches])
+                mux_units.append(muxunit)
+                fh_out.write(sample + '\n')
+    LOG.warn("get barcode_mismatches from ELM (see above)")
 
+    LOG.warn("What if MUX is spread across multiple lanes? lanes need to be merged into list for this MUX")
     LOG.info("Writing to {}".format(usebases_cfg))
     usebases = generate_usebases(barcode_lens, runinfo)
     with open(usebases_cfg, 'w') as fh:
         fh.write(yaml.dump(dict(usebases=usebases), default_flow_style=True))
 
-    LOG.info("Writing to {}".format(sampleinfo_cfg))
-    with open(sampleinfo_cfg, 'w') as fh:
-        fh.write(yaml.dump(sample_info, default_flow_style=True))
+    LOG.info("Writing to {}".format(muxinfo_cfg))
+    with open(muxinfo_cfg, 'w') as fh:
+        fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units], default_flow_style=True))
 
 
 if __name__ == "__main__":

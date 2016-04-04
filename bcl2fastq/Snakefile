@@ -6,10 +6,6 @@ import getpass
 from elmlogger import ElmLogging, UnitId, timestamp
 
 
-def getuser():
-    return getpass.getuser()
-
-
 RESULT_OUTDIR = './out'
 
 SAMPLESHEET = os.path.join(RESULT_OUTDIR, 'samplesheet.csv')
@@ -20,6 +16,25 @@ USEBASES_CFG = os.path.join(RESULT_OUTDIR, 'usesbases.yaml')
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source snakemake_env.rc;")
+
+
+def getuser():
+    return getpass.getuser()
+
+
+def bcl2fastq_threads_setting(num_threads):
+    """Divide threads meaningfully to the different bcl2fastq 
+    """
+    demultiplex_threads_frac = 0.2
+    process_threads_frac = 0.8
+    return " -r 1 -w 1 -d {} -p {}".format(
+    	   ceil(demultiplex_threads_frac*num_threads),
+	   ceil(process_threads_frac*num_threads))
+
+
+def get_mux_dirs():
+    """returns mux_dir per unit listed in config"""
+    return [v['mux_dir'] for k, v in config["units"].items()]
 
 
 onstart:# available as patched snakemake 3.5.5
@@ -42,6 +57,8 @@ onstart:# available as patched snakemake 3.5.5
                             unit_ids)
     elm_logger.start()
     sys.stderr.write("onstart: FIXME mongodb initiated\n")
+    sys.stderr.write("WARN/FIXME what if MUX across several lines? lane_ids needs to be list in muxunits\n")
+
 onsuccess:
     elm_logger.stop(True)
     sys.stderr.write("onsuccess: FIXME mongodb update (success)\n")
@@ -54,9 +71,14 @@ rule final:
     input:
 	# here, expand creates a list of expected output folders/files based on 'units'
 	# defined in config (actually Project_Y/Sample_X)
-        expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"]),
-        expand(os.path.join(RESULT_OUTDIR, '{unit}', 'fastqc.SUCCESS'), unit=config["units"]),
-        expand(os.path.join(RESULT_OUTDIR, '{unit}', 'srasubmission.SUCCESS'), unit=config["units"]),
+        #
+        # dependency per mux on bcl2fastq, so that it runs per mux
+        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'bcl2fastq.SUCCESS'),
+               muxdir=get_mux_dirs()),
+        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'fastqc.SUCCESS'),
+               muxdir=get_mux_dirs()),
+        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'srasubmission.SUCCESS'),
+               muxdir=get_mux_dirs()),
         "report.html"
     message:
         """
@@ -67,7 +89,9 @@ rule final:
 
 rule report:
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"]),
+        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'bcl2fastq.SUCCESS'),
+               muxdir=get_mux_dirs()),
+
     output: html="report.html"
     run:
         # FIXME duplication with README
@@ -84,28 +108,6 @@ rule report:
         # FIXME hardcoded path to configfile
 
 
-
-#rule rulename:
-#     """comment"""
-#    input:
-#    output:
-#    params:
-#    message:
-#    threads:
-#    benchmark:
-#    shell:
-
-
-def bcl2fastq_threads_setting(num_threads):
-    """Divide threads meaningfully
-    """
-    demultiplex_threads_frac = 0.2
-    process_threads_frac = 0.8
-    return " -r 1 -w 1 -d {} -p {}".format(
-    	   ceil(demultiplex_threads_frac*num_threads),
-	   ceil(process_threads_frac*num_threads))
-
-       
 rule bcl2fastq:
     """Running bcl2fastq with dynamically split threads
 
@@ -114,29 +116,35 @@ rule bcl2fastq:
     input: 
         rundir = config['rundir'],
         samplesheet = config['samplesheet_csv'],
-    output: sampledirs=expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"])
+    output:
+        flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
     message: "Running bcl2fastq/Demultiplexing"
     threads: 32
     params:
         usebases = config['usebases_arg'],
-        barcode_mismatches = config['barcode_mismatch_arg'],
-        tiles = config['lanes_arg']
-        
+        barcode_mismatches = lambda wildcards: '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches']),
+        tiles = lambda wildcards: ' '.join(["--tiles {}".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_id']])
     benchmark: "benchmark/bcl2fastq.txt"
-    run: 
-      shell("bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} {params.tiles}" + bcl2fastq_threads_setting(threads))
-       # FIXME future: run per mux, tiles listing corresponding lanes with mm according to mux
-       
+    run:
+        cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} {params.tiles}" + bcl2fastq_threads_setting(threads)
+        #shell(cmd)
+        shell('echo {} > {}'.format(cmd, output))
+      
        
 rule sra_submission:
     """Submitting to SRA"""
-    input:  expand(os.path.join(RESULT_OUTDIR, '{unit}'), unit=config["units"])
-    output: expand(os.path.join(RESULT_OUTDIR, '{unit}', 'srasubmission.SUCCESS'), unit=config["units"])
- 
+    input: '{prefix}/bcl2fastq.SUCCESS'
+    output: '{prefix}/srasubmission.SUCCESS'
     message: "Archival submission"
     threads: 1
     benchmark: 'benchmark/sra_submission.txt'
     run:
+        sys.stderr.write("FIXME temp hack making sra_submission to appear to work\n")
+        for f in output:
+            with open(f, 'w') as fh:
+                fh.write("FIXME temp hack making sra_submission to appear to work\n")
+        return
+    
         # Avoid snakemake.exceptions.RuleException: Output files are older than input files
         # which is likely an NFS issue.
         # see also https://bitbucket.org/snakemake/snakemake/issues/300/race-condition-waiting-for-files-on-nfs
@@ -167,20 +175,24 @@ rule sra_submission:
             print(json.dumps(request))
             with open("{}/srasubmission.SUCCESS".format(dir), 'w') as fh:
                 fh.write("HDF5_webservice_request_for_archive SRA FIXME\n")
-               
-                
+
 
 rule fastqc:
-    """FIXME comment"""
-    input: lambda wildcards: os.path.join(RESULT_OUTDIR, wildcards.unit)
-    output: os.path.join(RESULT_OUTDIR, '{unit}', 'fastqc.SUCCESS')
-    threads: 8
-#    params:
+    """fastqc per muxdir. note: this will not make full use of
+    parallelization of many subdirs exist simply because we don't keep
+    sample information
+    """
+    input: '{muxdir}/bcl2fastq.SUCCESS'
+    output: '{muxdir}/fastqc.SUCCESS'
+    threads: 16
     message: "Running fastqc on {input}"
     benchmark: 'benchmark/fastqc.txt'
     shell:
-        "for f in $(find {input} -name \*fastq.gz); do"
-        "   fastqc -t {threads} $f && touch {output};"
+        # need to be able to deal with empty directories
+        # assume success and delete success flag on failure
+        "touch {output};"
+        "for f in $(find $(dirname {input}) -name \*fastq.gz); do"
+        "    fastqc -t {threads} $f || rm {output};"
         "done"
 
 
