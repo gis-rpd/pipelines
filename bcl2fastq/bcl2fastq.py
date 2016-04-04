@@ -94,7 +94,7 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
 
 
 def get_mux_units_from_cfgfile(cfgfile, lane_nos):
-    """FIXME:add-doc"""
+    """if lane_nos is not None, restrict to these lanes only"""
 
     mux_units = []
 
@@ -104,6 +104,7 @@ def get_mux_units_from_cfgfile(cfgfile, lane_nos):
             mu = MuxUnit(**entry)
             # restrict to certain lanes
             lane = int(mu.lane_id)
+
             if not lane_nos:
                 mux_units.append(mu)
             else:
@@ -157,7 +158,6 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
                 machineid, runid, flowcellid, generate_timestamp())
     else:
         raise ValueError(site)
-    #print ("OUT" + outdir)
     return outdir
 
 
@@ -266,7 +266,6 @@ def main():
     usebases_arg = ''
     with open(usebases_cfg, 'r') as stream:
         try:
-            #print(yaml.load(stream))
             d = yaml.load(stream)
             assert 'usebases' in d
             assert len(d)==1# make sure usebases is only key
