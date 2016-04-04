@@ -143,10 +143,12 @@ rule sra_submission:
         # for now, simply wait/sleep first
         import time
         import os
+        import requests
         import json
+        
         time.sleep(30)
         for dir in input:
-            request = {}
+            req = {}
             req_code = {}
             data = { }
             id = dir.split("/")[-2]+"/"+dir.split("/")[-1]
@@ -155,7 +157,6 @@ rule sra_submission:
             run_id =  config['units'][id]['run_id']
             path = os.path.abspath(dir)
             email = "rpd@mailman.gis.a-star.edu.sg"
-            #data['reqCode'] = 'SA-A002-009'
             data['library_id'] = library_id
             data['muxId'] = mux_id
             data['run_id'] = run_id
@@ -163,13 +164,16 @@ rule sra_submission:
             data['email'] = email
             req_code['reqCode'] = "SA-A002-009"
             req_code['SA-A002-009'] = data
-            request['Request'] = req_code
-            print(json.dumps(request))
+            req['Request'] = req_code
+            data_json = json.dumps(req)
+            #rest_url =  "http://plap12v:9002/gismart/search/"  ### PRODUCTION
+            #rest_url = "http://klap12v:9002/gismart/search/"   ### DEVELOPMENT
+            #response = requests.post(rest_url, data=json.dumps(data))
+            #if response.status_code != requests.codes.ok:
+            #    response.raise_for_status()
             with open("{}/srasubmission.SUCCESS".format(dir), 'w') as fh:
-                fh.write("HDF5_webservice_request_for_archive SRA FIXME\n")
+                fh.write(json.dumps(req))
                
-                
-
 rule fastqc:
     """FIXME comment"""
     input: lambda wildcards: os.path.join(RESULT_OUTDIR, wildcards.unit)
