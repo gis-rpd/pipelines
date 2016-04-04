@@ -100,8 +100,6 @@ def get_sample_unit_from_cfgfile(cfgfile,lane_nos):
     with open(cfgfile) as fh_cfg:
        
         for entry in yaml.safe_load(fh_cfg):
-            #print ( *lane_nos)
-            #print (type(lane_nos))
             assert len(entry) == 5
             [run_id, flowcell_id, library_id, lane_id, sample_dir] = entry
             su = SampleUnit._make([run_id, flowcell_id, library_id, lane_id, sample_dir])
@@ -160,7 +158,6 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
                 machineid, runid, flowcellid, generate_timestamp())
     else:
         raise ValueError(site)
-    #print ("OUT" + outdir)
     return outdir
 
 
@@ -271,12 +268,10 @@ def main():
     usebases_arg = ''
     with open(usebases_cfg, 'r') as stream:
         try:
-            #print(yaml.load(stream))
             d = yaml.load(stream)
             assert 'usebases' in d
             assert len(d)==1# make sure usebases is only key
             for ub in d['usebases']:
-                print (ub)
                 usebases_arg += '--use-bases-mask {} '.format(ub)
             #user_data = {'usebases_arg' : usebases_arg}
         except yaml.YAMLError as exc:
