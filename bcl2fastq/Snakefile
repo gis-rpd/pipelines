@@ -57,7 +57,6 @@ onstart:# available as patched snakemake 3.5.5
                             unit_ids)
     elm_logger.start()
     sys.stderr.write("onstart: FIXME mongodb initiated\n")
-    sys.stderr.write("WARN/FIXME what if MUX across several lines? lane_ids needs to be list in muxunits\n")
 
 onsuccess:
     elm_logger.stop(True)
@@ -123,7 +122,7 @@ rule bcl2fastq:
     params:
         usebases = config['usebases_arg'],
         barcode_mismatches = lambda wildcards: '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches']),
-        tiles = lambda wildcards: ' '.join(["--tiles {}".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_id']])
+        tiles = lambda wildcards: ' '.join(["--tiles {}".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])
     benchmark: "benchmark/bcl2fastq.txt"
     run:
         cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} {params.tiles}" + bcl2fastq_threads_setting(threads)

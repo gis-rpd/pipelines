@@ -19,7 +19,7 @@ import xml.etree.ElementTree as ET
 #
 from pipelines import get_machine_run_flowcell_id
 # cannot be imported? from bcl2fastq import MuxUnit
-MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_id', 'mux_dir', 'barcode_mismatches'])
+MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids', 'mux_dir', 'barcode_mismatches'])
 
 
 __author__ = "Lavanya Veeravalli"
@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO,
 SAMPLESHEET_CSV = "samplesheet.csv"
 USEBASES_CFG = "usebases.yaml"
 MUXINFO_CFG = "muxinfo.yaml"
-
+DEFAULT_BARCODE_MISMATCHES = 1
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
 
 
@@ -167,39 +167,49 @@ def main():
     LOG.info("Writing to {}".format(samplesheet_csv))
     # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
     barcode_lens = {}
-    mux_units = []
+    mux_units = dict()
     with open(samplesheet_csv, 'w') as fh_out:
         fh_out.write(SAMPLESHEET_HEADER + '\n')
         for rows in rest_data['lanes']:
-            if rows['lanePass'] == 'Pass':
-                if "MUX" in rows['libraryId']:
-                    # multiplexed
-                    counter = 0
-                    for child in rows['Children']:
-                        counter += 1
-                        id = 'S' + str(counter)
-                        if "-" in child['barcode']:
-                            # dual index
-                            index = child['barcode'].split('-')
-                            sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
-                            index_lens = (len((index[0])), len((index[1])))
-                        else:
-                            sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
-                            index_lens = (len(child['barcode']), -1)
-                        barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
-
-                else:# non-multiplexed
-                    sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
-                    index_lens = (-1, -1)
+            if rows['lanePass'] != 'Pass':
+                continue
+            
+            if "MUX" in rows['libraryId']:
+                # multiplexed
+                counter = 0
+                for child in rows['Children']:
+                    counter += 1
+                    id = 'S' + str(counter)
+                    if "-" in child['barcode']:
+                        # dual index
+                        index = child['barcode'].split('-')
+                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
+                        index_lens = (len((index[0])), len((index[1])))
+                    else:
+                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
+                        index_lens = (len(child['barcode']), -1)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
 
-                barcode_mismatches = 1
-                muxunit = MuxUnit._make([run_id, flowcellid, rows['libraryId'], rows['laneId'], 'Project_' + rows['libraryId'], barcode_mismatches])
-                mux_units.append(muxunit)
-                fh_out.write(sample + '\n')
-    LOG.warn("get barcode_mismatches from ELM (see above)")
+            else:# non-multiplexed
+                sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
+                index_lens = (-1, -1)
+                barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
 
-    LOG.warn("What if MUX is spread across multiple lanes? lanes need to be merged into list for this MUX")
+            barcode_mismatches = DEFAULT_BARCODE_MISMATCHES# FIXME get from ELM
+            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])
+            
+            # merge lane into existing mux if needed
+            if mu.mux_id in mux_units:
+                mu_orig = mux_units[mu.mux_id]
+                assert mu.barcode_mismatches == mu_orig.barcode_mismatches
+                assert len(mu.lane_ids)==1# is a list by design but just one element. otherwise below fails
+                lane_ids = mu_orig.lane_ids.extend(mu.lane_ids)
+                mu_orig = mu_orig._replace(lane_ids=lane_ids)
+            else:
+                mux_units[mu.mux_id] = mu
+            fh_out.write(sample + '\n')
+    LOG.warn("get barcode_mismatches from ELM (see above)")
+    
     LOG.info("Writing to {}".format(usebases_cfg))
     usebases = generate_usebases(barcode_lens, runinfo)
     with open(usebases_cfg, 'w') as fh:
@@ -207,7 +217,7 @@ def main():
 
     LOG.info("Writing to {}".format(muxinfo_cfg))
     with open(muxinfo_cfg, 'w') as fh:
-        fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units], default_flow_style=True))
+        fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], default_flow_style=True))
 
 
 if __name__ == "__main__":

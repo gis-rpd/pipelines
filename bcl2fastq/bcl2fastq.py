@@ -15,7 +15,7 @@ import argparse
 import logging
 import subprocess
 #import string
-#from collections import namedtuple, OrderedDict
+from collections import namedtuple
 
 #--- third-party imports
 #
@@ -37,7 +37,7 @@ __license__ = "The MIT License (MIT)"
 
 # Different from the analysis pipelines
 # WARN copied in generate_bcl2fastq_cfg.py because import fails
-MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_id', 'mux_dir', 'barcode_mismatches'])
+MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids', 'mux_dir', 'barcode_mismatches'])
 
 BASEDIR = os.path.dirname(sys.argv[0])
 
@@ -93,23 +93,30 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     return pipeline_config_out
 
 
-def get_mux_units_from_cfgfile(cfgfile, lane_nos):
-    """if lane_nos is not None, restrict to these lanes only"""
+def get_mux_units_from_cfgfile(cfgfile, restrict_to_lanes=None):
+    """if restrict_to_lanes is not None, restrict to these lanes only
+
+    note: mux_units are a list. if there is a case with a mux split
+    across multiple lanes the info will be preserved, but might get
+    swallowed late if the mux dir should be used as key
+
+    """
 
     mux_units = []
-
     with open(cfgfile) as fh_cfg:
-
         for entry in yaml.safe_load(fh_cfg):
             mu = MuxUnit(**entry)
-            # restrict to certain lanes
-            lane = int(mu.lane_id)
-
-            if not lane_nos:
-                mux_units.append(mu)
-            else:
-                if lane in lane_nos:
-                    mux_units.append(mu)
+            
+            if restrict_to_lanes:
+                passed_lanes = []
+                for lane in mu.lane_ids:
+                    if int(lane) in restrict_to_lanes:
+                        passed_lanes.append(lane)
+                if not passed_lanes:
+                    continue# doesn't contain lanes or interest
+                elif passed_lanes != mu.lane_ids:
+                    mu = mu._replace(lane_ids=passed_lanes)# trim
+            mux_units.append(mu)
     return mux_units
 
 
@@ -251,7 +258,7 @@ def main():
     mux_units = get_mux_units_from_cfgfile(muxinfo_cfg, lane_nos)
     if args.mismatches is not None:
         mux_units = [mu._replace(barcode_mismatches=args.mismatches) for mu in mux_units]
-    os.unlink(muxinfo_cfg)
+    # FIXME os.unlink(muxinfo_cfg)
 
 
     LOG.info("Writing config and rc files")
@@ -288,13 +295,14 @@ def main():
     #user_data['units'] = OrderedDict()
     user_data['units'] = dict()# FIXME does it matter if ordered or not?
     for mu in mux_units:
+        # special case: mux split across multiple lanes. make lanes a list and add in extra lanes if needed.        
         k = mu.mux_dir
-        #user_data['units'][k] = su._asdict()
-        user_data['units'][k] = dict(mu._asdict())#FIXME forcing dict rather than OrderedDict, otherwise yaml parsing fails later
+        mu_dict = dict(mu._asdict())
+        user_data['units'][k] = mu_dict
 
     if args.runid:
         log_library_id = [mu.mux_id for mu in mux_units]# logger allows mux_id and lib_id switching
-        log_lane_id = [mu.lane_id for mu in mux_units]
+        log_lane_id = [mu.lane_ids for mu in mux_units]
         _, log_run_id, _ = get_machine_run_flowcell_id(args.runid)
         log_run_id = len(log_lane_id) * [log_run_id]
     else:
