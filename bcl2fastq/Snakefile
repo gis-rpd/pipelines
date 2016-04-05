@@ -122,12 +122,16 @@ rule bcl2fastq:
     params:
         usebases = config['usebases_arg'],
         barcode_mismatches = lambda wildcards: '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches']),
-        tiles = lambda wildcards: ' '.join(["--tiles {}".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])
+        tiles = lambda wildcards: ''.join(["{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
+        
     benchmark: "benchmark/bcl2fastq.txt"
     run:
-        cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} {params.tiles}" + bcl2fastq_threads_setting(threads)
+        #cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
         #shell(cmd)
-        shell('echo {} > {}'.format(cmd, output))
+        #shell('echo {} > {}'.format(cmd, output))
+        cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
+        shell(cmd)
+        shell("touch {output}")
       
        
 rule sra_submission:
