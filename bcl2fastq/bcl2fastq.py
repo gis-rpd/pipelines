@@ -20,6 +20,8 @@ from collections import namedtuple
 #--- third-party imports
 #
 import yaml
+# only dump() and following do not automatically create aliases
+yaml.Dumper.ignore_aliases = lambda *args : True
 
 #--- project specific imports
 #
@@ -99,7 +101,6 @@ def get_mux_units_from_cfgfile(cfgfile, restrict_to_lanes=None):
     note: mux_units are a list. if there is a case with a mux split
     across multiple lanes the info will be preserved, but might get
     swallowed late if the mux dir should be used as key
-
     """
 
     mux_units = []
@@ -298,6 +299,8 @@ def main():
         # special case: mux split across multiple lanes. make lanes a list and add in extra lanes if needed.        
         k = mu.mux_dir
         mu_dict = dict(mu._asdict())
+        #print ("TESTING {}".format(mu_dict))
+
         user_data['units'][k] = mu_dict
 
     if args.runid:
