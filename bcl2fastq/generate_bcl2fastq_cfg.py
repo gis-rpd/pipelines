@@ -189,11 +189,13 @@ def main():
                         sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                         index_lens = (len(child['barcode']), -1)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
+                    fh_out.write(sample+ '\n')
 
             else:# non-multiplexed
                 sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
                 index_lens = (-1, -1)
                 barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
+                fh_out.write(sample + '\n')
 
             barcode_mismatches = DEFAULT_BARCODE_MISMATCHES# FIXME get from ELM
             mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])
@@ -207,7 +209,6 @@ def main():
                 mu_orig = mu_orig._replace(lane_ids=lane_ids)
             else:
                 mux_units[mu.mux_id] = mu
-            fh_out.write(sample + '\n')
     LOG.warn("get barcode_mismatches from ELM (see above)")
     
     LOG.info("Writing to {}".format(usebases_cfg))
