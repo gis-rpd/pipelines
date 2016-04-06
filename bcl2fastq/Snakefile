@@ -5,7 +5,6 @@ import getpass
 
 from elmlogger import ElmLogging, UnitId, timestamp
 
-
 RESULT_OUTDIR = './out'
 
 SAMPLESHEET = os.path.join(RESULT_OUTDIR, 'samplesheet.csv')
@@ -56,6 +55,8 @@ onstart:# available as patched snakemake 3.5.5
                             RESULT_OUTDIR,
                             unit_ids)
     elm_logger.start()
+
+        
     sys.stderr.write("onstart: FIXME mongodb initiated\n")
 
 onsuccess:
@@ -142,50 +143,53 @@ rule sra_submission:
     threads: 1
     benchmark: 'benchmark/sra_submission.txt'
     run:
+        import os,sys
+        import requests
+        import requests
+        import json
+        import time
+        
         sys.stderr.write("FIXME temp hack making sra_submission to appear to work\n")
-        for f in output:
-            with open(f, 'w') as fh:
-                fh.write("FIXME temp hack making sra_submission to appear to work\n")
-        return
-    
         # Avoid snakemake.exceptions.RuleException: Output files are older than input files
         # which is likely an NFS issue.
         # see also https://bitbucket.org/snakemake/snakemake/issues/300/race-condition-waiting-for-files-on-nfs
         # for now, simply wait/sleep first
-        import time
-        import os
-        import requests
-        import json
+        #time.sleep(30)
         
-        time.sleep(30)
-        for dir in input:
+        for f in output:
             req = {}
             req_code = {}
-            data = { }
-            id = dir.split("/")[-2]+"/"+dir.split("/")[-1]
-            library_id = config['units'][id]['library_id']
-            mux_id = dir.split("/")[-2].split('_')[-1]
-            run_id =  config['units'][id]['run_id']
-            path = os.path.abspath(dir)
-            email = "rpd@mailman.gis.a-star.edu.sg"
-            data['library_id'] = library_id
-            data['muxId'] = mux_id
-            data['run_id'] = run_id
-            data['path'] = path
-            data['email'] = email
-            req_code['reqCode'] = "SA-A002-009"
-            req_code['SA-A002-009'] = data
-            req['Request'] = req_code
-            data_json = json.dumps(req)
-            #rest_url =  "http://plap12v:9002/gismart/search/"  ### PRODUCTION
-            #rest_url = "http://klap12v:9002/gismart/search/"   ### DEVELOPMENT
-            #response = requests.post(rest_url, data=json.dumps(data))
-            #if response.status_code != requests.codes.ok:
-            #    response.raise_for_status()
-            with open("{}/srasubmission.SUCCESS".format(dir), 'w') as fh:
-                #fh.write("HDF5_webservice_request_for_archive SRA FIXME\n")
-                fh.write(json.dumps(req))
-               
+            data = {}
+            project_path = os.path.dirname(f)
+            project_id = project_path.split("/")[-1].split('_')[-1]
+            run_id =  config['units'][project_path.split("/")[-1]]['run_id']
+            email = "veeravallil@.gis.a-star.edu.sg"        
+            for child in os.listdir(project_path):
+                sample_path = os.path.join(project_path, child)
+                if os.path.isdir(sample_path):
+                    abs_sample_path = os.path.abspath(sample_path)
+                    sample_id = sample_path.split("/")[-1].split('_')[-1]
+                    data['libraryId'] = sample_id
+                    data['muxId'] = project_id
+                    data['runId'] = run_id
+                    data['path'] = [abs_sample_path]
+                    data['email'] = [email]
+                    req_code['reqCode'] = "SA-A002-009"
+                    req_code['SA-A002-009'] = data
+                    req['Request'] = req_code
+                    test_json = json.dumps(req)
+                    data_json = test_json.replace("\\", "");
+                    print(data_json)
+                    rest_url =  "http://dlap30v:9002/gismart/search"
+                    response = requests.post(rest_url, data=data_json)
+                    print (response.status_code)
+                    if response.status_code != requests.codes.ok:
+                        response.raise_for_status()
+            with open(f, 'a') as fh:
+                fh.write("FIXME temp hack making sra_submission to appear to work\n")
+        return
+    
+    
 rule fastqc:
     """fastqc per muxdir. note: this will not make full use of
     parallelization of many subdirs exist simply because we don't keep
