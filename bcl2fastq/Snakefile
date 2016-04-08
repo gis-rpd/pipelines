@@ -8,9 +8,9 @@ from elmlogger import ElmLogging, UnitId, timestamp
 RESULT_OUTDIR = './out'
 
 SAMPLESHEET = os.path.join(RESULT_OUTDIR, 'samplesheet.csv')
-
 USEBASES_CFG = os.path.join(RESULT_OUTDIR, 'usesbases.yaml')
-
+ANALYSIS_ID = timestamp()
+RUNNUM = config['runNum']
 
 # non-login bash
 shell.executable("/bin/bash")
@@ -55,16 +55,18 @@ onstart:# available as patched snakemake 3.5.5
                             RESULT_OUTDIR,
                             unit_ids)
     elm_logger.start()
-
-        
+    shell("/mnt/projects/rpd/devs/lavanya/pipelines/bcl2fastq/mongo_status.py -r {RUNNUM} -s START -id {ANALYSIS_ID} -t")
     sys.stderr.write("onstart: FIXME mongodb initiated\n")
 
 onsuccess:
     elm_logger.stop(True)
     sys.stderr.write("onsuccess: FIXME mongodb update (success)\n")
+    shell("/mnt/projects/rpd/devs/lavanya/pipelines/bcl2fastq/mongo_status.py -r {RUNNUM} -s SUCCESS -id {ANALYSIS_ID} -t")
+
 onerror:
     elm_logger.stop(False)
     sys.stderr.write("onerror: FIXME mongodb update (fail)\n")
+    shell("/mnt/projects/rpd/devs/lavanya/pipelines/bcl2fastq/mongo_status.py -r {RUNNUM} -s FAILED -id {ANALYSIS_ID} -t")
 
 
 rule final:
@@ -123,7 +125,7 @@ rule bcl2fastq:
     params:
         usebases = config['usebases_arg'],
         barcode_mismatches = lambda wildcards: '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches']),
-        tiles = lambda wildcards: ''.join(["{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
+        tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
         
     benchmark: "benchmark/bcl2fastq.txt"
     run:
@@ -154,7 +156,7 @@ rule sra_submission:
         # which is likely an NFS issue.
         # see also https://bitbucket.org/snakemake/snakemake/issues/300/race-condition-waiting-for-files-on-nfs
         # for now, simply wait/sleep first
-        #time.sleep(30)
+        time.sleep(30)
         
         for f in output:
             req = {}
@@ -203,9 +205,10 @@ rule fastqc:
     shell:
         # need to be able to deal with empty directories
         # assume success and delete success flag on failure
+        # fastqc will fail on corrupted files but return proper error code
         "touch {output};"
         "for f in $(find $(dirname {input}) -name \*fastq.gz); do"
-        "    fastqc -t {threads} $f || rm {output};"
+        "    gzip -t $f && fastqc -t {threads} $f || rm {output};"
         "done"
 
 
