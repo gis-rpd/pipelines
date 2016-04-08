@@ -268,6 +268,9 @@ def main():
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'rundir': rundir}
+    machineid, runid, flowcellid = get_machine_run_flowcell_id(args.runid)       
+    runNum = runid + "_" + flowcellid
+    user_data['runNum'] = runNum
     user_data['samplesheet_csv'] = SAMPLESHEET_CSV
 
     usebases_cfg = os.path.join(outdir, USEBASES_CFG)
