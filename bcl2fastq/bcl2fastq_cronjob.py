@@ -91,24 +91,25 @@ def main():
     results = db.find({"analysis": { "$exists" : 0 },
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
 
+    bcl2fastq_wrapper = os.path.join(os.path.dirname(sys.argv[0]), "bcl2fastq.py")
+    
     # display documents from collection
     #LOG.info("Looping over {} results".format(len(results)))
     #LOG.debug(epoch_present, epoch_back)
     for record in results:
         run_number = record['run']
+
+        # FIXME testing -t is on
+        cmd = [bcl2fastq_wrapper, "-t", "-r", run_number]        
         if args.dry_run:
-            LOG.critical("Should call bcl_wrapper.py for {}".format(run_number))
+            LOG.warn("Didn't run {}".format(' '.join(cmd))); continue            
         else:
-            raise NotImplementedError("Calling bcl2fastq wrapper not implemented yet")
-        
-        #Update the analysis field
-        # FIXME see above
-        #db.update({"run": run_number},{"$set": {"analysis": {
-        #    "_id.uid": 0,
-        #    "Initiated" : epoch_present,
-        #    "Ended" : 00000,
-        #    "Status" : "check"
-        #}}})
+            try:
+                res = subprocess.check_output(cmd)
+                LOG.info("bcl2fastq wrapper returned: {}".format(res))
+            except CalledProcessError:
+                LOG.critical("The following failed: {}. Will keep going".format(' '.join(cmd)))
+                
         if args.break_after_first:
             LOG.warn("Stopping after first sequencing run")
             break
