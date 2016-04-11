@@ -10,7 +10,6 @@ RESULT_OUTDIR = './out'
 SAMPLESHEET = os.path.join(RESULT_OUTDIR, 'samplesheet.csv')
 USEBASES_CFG = os.path.join(RESULT_OUTDIR, 'usesbases.yaml')
 ANALYSIS_ID = timestamp()
-RUNNUM = config['runNum']
 
 # non-login bash
 shell.executable("/bin/bash")
@@ -35,7 +34,29 @@ def get_mux_dirs():
     """returns mux_dir per unit listed in config"""
     return [v['mux_dir'] for k, v in config["units"].items()]
 
+    
+def testing_on():
+    if 'testing' in config and config['testing']:
+        return True
+    else:
+        return False
 
+    
+def mongodb_test_arg():
+    if testing_on():
+        test_arg="-t"
+    else:
+        test_arg = ""
+    return test_arg
+
+def sra_test_arg():
+    if testing_on():
+        test_arg="-t"
+    else:
+        test_arg = ""
+    return test_arg
+    
+    
 onstart:# available as patched snakemake 3.5.5
     global elm_logger
 
@@ -55,18 +76,22 @@ onstart:# available as patched snakemake 3.5.5
                             RESULT_OUTDIR,
                             unit_ids)
     elm_logger.start()
-    shell("/mnt/projects/rpd/devs/lavanya/pipelines/bcl2fastq/mongo_status.py -r {RUNNUM} -s START -id {ANALYSIS_ID} -t")
+    # FIXME infer path here and elsewhere automatically
+    shell("{} -r {} -s START -id {} {}".format(
+        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
     sys.stderr.write("onstart: FIXME mongodb initiated\n")
 
 onsuccess:
     elm_logger.stop(True)
     sys.stderr.write("onsuccess: FIXME mongodb update (success)\n")
-    shell("/mnt/projects/rpd/devs/lavanya/pipelines/bcl2fastq/mongo_status.py -r {RUNNUM} -s SUCCESS -id {ANALYSIS_ID} -t")
+    shell("{} -r {} -s SUCCESS -id {} {}".format(
+        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
 
 onerror:
     elm_logger.stop(False)
     sys.stderr.write("onerror: FIXME mongodb update (fail)\n")
-    shell("/mnt/projects/rpd/devs/lavanya/pipelines/bcl2fastq/mongo_status.py -r {RUNNUM} -s FAILED -id {ANALYSIS_ID} -t")
+    shell("{} -r {} -s FAILED -id {} {}".format(
+        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
 
 
 rule final:
@@ -182,7 +207,10 @@ rule sra_submission:
                     test_json = json.dumps(req)
                     data_json = test_json.replace("\\", "");
                     print(data_json)
-                    rest_url =  "http://dlap30v:9002/gismart/search"
+                    if testing_on():
+                        rest_url =  "http://dlap30v:9002/gismart/search"
+                    else:
+                        raise NotImplementedError
                     response = requests.post(rest_url, data=data_json)
                     print (response.status_code)
                     if response.status_code != requests.codes.ok:
