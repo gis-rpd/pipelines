@@ -42,7 +42,7 @@ def mongodb_conn(test_server=False):
         
     else:
         LOG.warning("Using Productionserver connection")
-        #conn_str = "qldb01:27017,qlap37:27017,qlap38:27017,qlap39:27017"
+        conn_str = "qldb01:27017,qlap37:27017,qlap38:27017,qlap39:27017"
 
     try:
         connection = pymongo.MongoClient(conn_str)
@@ -68,56 +68,60 @@ def main():
     
     connection = mongodb_conn(args.test_server)
     LOG.info("Database connection established")
-    db = connection.gisds.test_runcomplete
-    results = db.find()
-    for record in results:
-        # print out the document
-        print("test")
-        print(record)
-    run_number = args.runid
-    start_time = args.id
-    print (start_time)
+    db = connection.gisds.runcomplete
+    print ("DB {}".format(db))
     
+    run_number = args.runid
+    start_time = args.id  
     user_name = getpass.getuser()
     
+    LOG.info("Database connection established {}".format(run_number))
     if args.status == "START":
-        LOG.info("Send START message")
-        db.update({"run": run_number},
-        {"$push": 
-            {"analysis": {
-                "analysis_id" : start_time,
-                "startTime" : start_time,
-                "userName" : user_name
-        }}})
-        LOG.info("START message sent")
-    elif args.status == "SUCCESS":
-        LOG.info("Send SUCCESS message")
-        end_time = generate_timestamp()
-        print (end_time)
-        db.update({"run": run_number, 'analysis.analysis_id' : start_time},
-            {"$set": 
-                {"analysis.$": {
+        try:
+            db.update({"run": run_number},
+            {"$push": 
+                {"analysis": {
                     "analysis_id" : start_time,
                     "startTime" : start_time,
-                    "EndTimes" : end_time,
-                    "userName" : user_name,
-                    "Status" :  "SUCCESS"
-        }}})
-        LOG.info("SUCCESS message sent")
+                    "userName" : user_name
+            }}})
+                
+        except pymongo.errors.OperationFailure:
+            LOG.fatal("mongoDB OperationFailure")
+            sys.exit(0)
+    elif args.status == "SUCCESS":
+        end_time = generate_timestamp()
+        try:
+            db.update({"run": run_number, 'analysis.analysis_id' : start_time},
+                {"$set": 
+                    {"analysis.$": {
+                        "analysis_id" : start_time,
+                        "startTime" : start_time,
+                        "EndTimes" : end_time,
+                        "userName" : user_name,
+                        "Status" :  "SUCCESS"
+            }}})
+        except pymongo.errors.OperationFailure:
+            LOG.fatal("mongoDB OperationFailure")
+            sys.exit(0)
+        
     elif args.status == "FAILED":
         LOG.info("Send FAILEURE message")
         end_time = generate_timestamp()
         print (end_time)
-        db.update({"run": run_number, 'analysis.analysis_id' : start_time},
-            {"$set": 
-                {"analysis.$": {
-                    "analysis_id" : start_time,
-                    "startTime" : start_time,
-                    "Ended" : end_time,
-                    "userName" : user_name,
-                    "Status" :  "FAILED"
-        }}})
-        LOG.info("FAILEURE message sent")
+        try:
+            db.update({"run": run_number, 'analysis.analysis_id' : start_time},
+                {"$set": 
+                    {"analysis.$": {
+                        "analysis_id" : start_time,
+                        "startTime" : start_time,
+                        "Ended" : end_time,
+                        "userName" : user_name,
+                        "Status" :  "FAILED"
+            }}})
+        except pymongo.errors.OperationFailure:
+            LOG.fatal("mongoDB OperationFailure")
+            sys.exit(0)
         
     # close the connection to MongoDB
     connection.close()
