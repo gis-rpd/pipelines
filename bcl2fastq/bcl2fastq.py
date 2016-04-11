@@ -159,7 +159,7 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
     if site == "gis":
         if testing_is_active():
             # /output/bcl2fastq. currently owned by lavanya :(
-            outdir = "/mnt/projects/rpd/testing/output/bcl2fastq.tmp/{}/{}_{}/bcl2fastq_{}".format(
+            outdir = "/mnt/projects/rpd/testing/output/bcl2fastq/{}/{}_{}/bcl2fastq_{}".format(
                 machineid, runid, flowcellid, generate_timestamp())
         else:
             outdir = "/mnt/projects/userrig/{}/{}_{}/bcl2fastq_{}".format(
@@ -181,6 +181,9 @@ def main():
                         help="BCL input directory (clashes with -r)")
     parser.add_argument('-o', "--outdir",
                         help="Output directory (may not exist; required if called by user)")
+    parser.add_argument('-t', "--testing",action='store_true',
+                        help="Disable MongoDB updates and SRA submission")
+                        # FIXME default if called by user
     parser.add_argument('-w', '--slave-q',
                         help="Queue to use for slave jobs")
     parser.add_argument('-m', '--master-q',
@@ -268,11 +271,18 @@ def main():
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'rundir': rundir}
+    if args.testing:
+        user_data['testing'] = True
+    else:
+        user_data['testing'] = False
+    
     machineid, runid, flowcellid = get_machine_run_flowcell_id(args.runid)       
     runNum = runid + "_" + flowcellid
     user_data['runNum'] = runNum
     user_data['samplesheet_csv'] = SAMPLESHEET_CSV
-
+    user_data['mongo_status'] = os.path.abspath(os.path.join(
+        os.path.dirname(sys.argv[0]), "mongo_status.py"))
+    
     usebases_cfg = os.path.join(outdir, USEBASES_CFG)
     usebases_arg = ''
     with open(usebases_cfg, 'r') as stream:
