@@ -159,7 +159,7 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
     if site == "gis":
         if testing_is_active():
             # /output/bcl2fastq. currently owned by lavanya :(
-            outdir = "/mnt/projects/rpd/testing/output/bcl2fastq/{}/{}_{}/bcl2fastq_{}".format(
+            outdir = "/mnt/projects/rpd/testing/output/bcl2fastq.tmp/{}/{}_{}/bcl2fastq_{}".format(
                 machineid, runid, flowcellid, generate_timestamp())
         else:
             outdir = "/mnt/projects/userrig/{}/{}_{}/bcl2fastq_{}".format(
