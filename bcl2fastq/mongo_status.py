@@ -35,7 +35,6 @@ def usage():
 
 def mongodb_conn(test_server=False):
     """start connection to server and return conncetion"""
-    LOG.warning("TESTING")
     if test_server:
         LOG.warning("Using test server connection")
         conn_str = "qlap33:27017"
@@ -69,7 +68,7 @@ def main():
     connection = mongodb_conn(args.test_server)
     LOG.info("Database connection established")
     db = connection.gisds.runcomplete
-    print ("DB {}".format(db))
+    LOG.debug("DB {}".format(db))
     
     run_number = args.runid
     start_time = args.id  
