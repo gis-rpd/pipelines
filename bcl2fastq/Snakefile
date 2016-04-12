@@ -1,7 +1,7 @@
 import os
 from math import ceil
 from snakemake.utils import report
-import getpass
+from getpass import getuser
 
 from elmlogger import ElmLogging, UnitId, timestamp
 
@@ -15,9 +15,6 @@ ANALYSIS_ID = timestamp()
 shell.executable("/bin/bash")
 shell.prefix("source snakemake_env.rc;")
 
-
-def getuser():
-    return getpass.getuser()
 
 
 def bcl2fastq_threads_setting(num_threads):
