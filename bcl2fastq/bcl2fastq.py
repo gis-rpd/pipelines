@@ -172,7 +172,11 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
 def main():
     """main function
     """
-
+    
+    mongo_status_script = os.path.abspath(os.path.join(
+        os.path.dirname(sys.argv[0]), "mongo_status.py"))
+    assert os.path.exists(mongo_status_script)
+    
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
     parser.add_argument('-r', "--runid",
@@ -275,13 +279,16 @@ def main():
         user_data['testing'] = True
     else:
         user_data['testing'] = False
+
+    # catch cases where rundir was user provided and looks weird
+    try:
+        _, runid, flowcellid = get_machine_run_flowcell_id(rundir.split("/")[-1])
+        user_data['run_num'] = runid + "_" + flowcellid
+    except:
+        user_data['run_num'] = "UNKNOWN-" + rundir.split("/")[-1]
     
-    machineid, runid, flowcellid = get_machine_run_flowcell_id(args.runid)       
-    runNum = runid + "_" + flowcellid
-    user_data['runNum'] = runNum
     user_data['samplesheet_csv'] = SAMPLESHEET_CSV
-    user_data['mongo_status'] = os.path.abspath(os.path.join(
-        os.path.dirname(sys.argv[0]), "mongo_status.py"))
+    user_data['mongo_status'] = mongo_status_script
     
     usebases_cfg = os.path.join(outdir, USEBASES_CFG)
     usebases_arg = ''
@@ -338,6 +345,15 @@ def main():
     write_snakemake_init(os.path.join(outdir, RC['SNAKEMAKE_INIT']))
     write_snakemake_env(os.path.join(outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
 
+    # things would be easier if we could run this command from within snakemake
+    # need to be run in run.sh though directly after submission
+    # to prevent reruns if queuing takes longer
+    mongo_update_cmd = "{} -r {} -s START".format(mongo_status_script, user_data['run_num'])
+    mongo_update_cmd += " -id $ANALYSIS_ID"# set in run.sh
+    if testing_is_active:
+        mongo_update_cmd += " -t"
+
+
     site = get_site()
     if site == "gis":
         LOG.info("Writing the run file for site {}".format(site))
@@ -357,6 +373,8 @@ def main():
                     line = line.replace("@DEFAULT_SLAVE_Q@", args.slave_q)
                 else:
                     line = line.replace("@DEFAULT_SLAVE_Q@", "")
+
+                line = line.replace("@MONGO_UPDATE_CMD@", mongo_update_cmd)
                 out_fh.write(line)
 
         if args.master_q:

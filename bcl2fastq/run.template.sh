@@ -112,6 +112,12 @@ fi
 # now okay to add CLUSTER_ARGS (allows repeated -l)
 args="$args $CLUSTER_ARGS"
 
+# ANALYSIS_ID created here so that each run gets its own Id
+# iso8601ms timestamp as corresponding python function
+iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+iso8601ms=${iso8601ns:0:26}
+ANALYSIS_ID=$iso8601ms
+args="$args --config ANALYSIS_ID=$ANALYSIS_ID"
 
 # dotkit setup
 source dk_init.rc || exit 1
@@ -124,8 +130,19 @@ source snakemake_init.rc || exit 1
 test -d $LOGDIR || mkdir $LOGDIR
 
 
-#cat<<EOF
-eval snakemake $args
-#EOF
+eval snakemake $args || exit 1
+
+# mongodb update has to happen here because at this stage we know the
+# job has been submitted. at the same time we avoid cases where a job
+# stuck in queue will be rerun. but don't update if running in dryrun
+# mode
+args_tokenized=$(echo "$args" | tr ' ' '\n' | grep '^-' | sort)
+for arg in $args_tokenized; do
+    if [ $arg == "-n" ] || [ $arg == "--dryrun" ]; then
+        exit 0
+    fi
+done
+echo "DEBUG don't forget to remove EOF" 1>&2
+@MONGO_UPDATE_CMD@
 
 

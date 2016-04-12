@@ -9,7 +9,10 @@ RESULT_OUTDIR = './out'
 
 SAMPLESHEET = os.path.join(RESULT_OUTDIR, 'samplesheet.csv')
 USEBASES_CFG = os.path.join(RESULT_OUTDIR, 'usesbases.yaml')
-ANALYSIS_ID = timestamp()
+
+# ANALYSIS_ID not necessarily part of config file and if not
+# needs to be passed to snakemake
+assert 'ANALYSIS_ID' in config
 
 # non-login bash
 shell.executable("/bin/bash")
@@ -49,6 +52,7 @@ def mongodb_test_arg():
         test_arg = ""
     return test_arg
 
+
 def sra_test_arg():
     if testing_on():
         test_arg="-t"
@@ -76,22 +80,17 @@ onstart:# available as patched snakemake 3.5.5
                             RESULT_OUTDIR,
                             unit_ids)
     elm_logger.start()
-    # FIXME infer path here and elsewhere automatically
-    shell("{} -r {} -s START -id {} {}".format(
-        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
-    sys.stderr.write("onstart: FIXME mongodb initiated\n")
-
+    
 onsuccess:
     elm_logger.stop(True)
-    sys.stderr.write("onsuccess: FIXME mongodb update (success)\n")
     shell("{} -r {} -s SUCCESS -id {} {}".format(
-        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
+        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], mongodb_test_arg()))
 
+    
 onerror:
     elm_logger.stop(False)
-    sys.stderr.write("onerror: FIXME mongodb update (fail)\n")
     shell("{} -r {} -s FAILED -id {} {}".format(
-        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
+        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], mongodb_test_arg()))
 
 
 rule final:
@@ -111,8 +110,6 @@ rule final:
         """
         Pipeline run successfully completed
         """
-    # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
-
 
 rule report:
     input:
