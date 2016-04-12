@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import sys
 import os
 import argparse
+import subprocess
 
 # third party imports
 import pymongo
@@ -27,11 +28,10 @@ __license__ = "The MIT License (MIT)"
 # global logger
 # http://docs.python.org/library/logging.html
 LOG = logging.getLogger("")
-logging.basicConfig(level=logging.INFO,
-                    format='%(levelname)s [%(asctime)s]: %(message)s')
 
 
-def generate_timestamp(days=14):
+
+def generate_window(days=14):
     """returns tuple representing epoch window (int:present, int:past)"""
     date_time = time.strftime('%Y-%m-%d %H:%M:%S')
     #print(date_time)
@@ -70,13 +70,22 @@ def main():
 
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-1', "--break-after-first", action='store_true')
-    parser.add_argument('-n', "--dry-run", action='store_true')
-    parser.add_argument('-t', "--test-server", action='store_true')
+    parser.add_argument('-1', "--break-after-first", action='store_true', help="Only process first run returned")
+    parser.add_argument('-n', "--dry-run", action='store_true', help="Don't run anything")
+    parser.add_argument('-t', "--testing", action='store_true', help="Use mongoDB test-server here and in wrapper and disable SRA upload in wrapper")
+    parser.add_argument('-e', "--wrapper-args", help="Extra arguments for bcl2fastq wrapper (prefix leading dashes with X)")
+    parser.add_argument('-q', '--quiet', action='store_true', help="Be quiet (only print warnings)")
     args = parser.parse_args()
-    
 
-    connection = mongodb_conn(args.test_server)
+    # FIXME broken    
+    if args.quiet:
+        logging.basicConfig(level=logging.WARN,
+            format='%(levelname)s [%(asctime)s]: %(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO,
+            format='%(levelname)s [%(asctime)s]: %(message)s')
+            
+    connection = mongodb_conn(args.testing)
     db = connection.gisds.runcomplete
     LOG.info("Database connection established")
     #DB Query for Jobs that are yet to be analysed in the epoch window
@@ -87,7 +96,7 @@ def main():
     # exactly one failed. send email for two fail) Analysis object:
     # initiated:timestamp, ended:timestamp,
     # status:"completed"|"troubleshooting"
-    epoch_present, epoch_back = generate_timestamp()
+    epoch_present, epoch_back = generate_window()
     results = db.find({"analysis": { "$exists" : 0 },
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
 
@@ -99,15 +108,18 @@ def main():
     for record in results:
         run_number = record['run']
 
-        # FIXME testing -t is on
-        cmd = [bcl2fastq_wrapper, "-t", "-r", run_number]        
+        cmd = [bcl2fastq_wrapper, "-r", run_number]
+        if args.testing:
+            cmd.append("-t")
+        if args.wrapper_args:
+            cmd.extend([x.lstrip('X') for x in args.wrapper_args.split()])
         if args.dry_run:
             LOG.warn("Didn't run {}".format(' '.join(cmd))); continue            
         else:
             try:
                 res = subprocess.check_output(cmd)
-                LOG.info("bcl2fastq wrapper returned: {}".format(res))
-            except CalledProcessError:
+                LOG.info("bcl2fastq wrapper returned: {}".format(res.decode()))
+            except subprocess.CalledProcessError:
                 LOG.critical("The following failed: {}. Will keep going".format(' '.join(cmd)))
                 
         if args.break_after_first:
