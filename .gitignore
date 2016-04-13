@@ -2,6 +2,8 @@
 snakejob*.sh.[eo][0-9]*
 .snakemake/
 
+*_flymake.py
+
 # backup files
 *~
 \#*

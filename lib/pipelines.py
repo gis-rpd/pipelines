@@ -10,6 +10,8 @@ import subprocess
 import logging
 import shutil
 from datetime import datetime
+import smtplib
+from getpass import getuser
 
 #--- third-party imports
 #
@@ -25,6 +27,8 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
+SERVER = "localhost"
+
 # global logger
 LOG = logging.getLogger()
 
@@ -35,8 +39,11 @@ INIT = {
 
 # FIXME hack: assuming importer is just one dir down of pipeline base dir
 PIPELINE_BASEDIR = os.path.join(os.path.dirname(sys.argv[0]), "..")
-assert os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION")), (PIPELINE_BASEDIR)
-
+# assert os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION")), (PIPELINE_BASEDIR)
+# we need functions from here in Snakefile as well, where the above breaks
+if not os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION")):
+    # FIXME imported from wrong directory. Make sure everyone using PIPELINE_BASEDIR fails
+    del PIPELINE_BASEDIR
 
 
 def get_pipeline_version():
@@ -188,3 +195,45 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
     runid, flowcellid = runid_and_flowcellid.split("_")
     machineid = runid.split("-")[0]
     return machineid, runid, flowcellid
+
+    
+def send_status_mail(pipeline_name, status, id):
+    """main function"""        
+    print (pipeline_name + status + id)
+    user_name = getuser()
+    
+    FROM = "localhost"
+    
+    if user_name == "userrig":
+        # FIXME rpd@mailmain in future
+        TO = ["veeravallil@gis.a-star.edu.sg"] # must be a list
+    else:
+        # testing at NSCC
+        TO = ["{}@gis.a-star.edu.sg".format(user_name)]
+
+    SUBJECT = "Pipeline {} completed with status {} for {}".format(
+        pipeline_name, status, id)
+        
+    body = "Pipeline {} completed with status {} for {}".format(
+        pipeline_name, status, id)     
+    body += "\nPlease check {}".format(os.getcwd())
+    
+    # FIXME add later: - send questions to rpd@mailman
+    #                  - attach report on success etc
+    message = """\
+    From: %s
+    To: %s
+    Subject: %s
+
+    %s
+    """ % (FROM, ", ".join(TO), SUBJECT, body)
+
+    # Send the mail
+    try:
+        server = smtplib.SMTP(SERVER)
+        server.sendmail(FROM, TO, message)
+        server.quit()
+    except Exception:
+        LOG.fatal("Sending mail failed")
+        # FIXME consider exit 0 if pipeline breaks
+        sys.exit(1)
