@@ -33,6 +33,7 @@ def usage():
     sys.stderr.write("useage: {} [-1]".format(
         os.path.basename(sys.argv[0])))
 
+    
 def mongodb_conn(test_server=False):
     """start connection to server and return conncetion"""
     if test_server:
@@ -61,19 +62,24 @@ def main():
                         choices=['START', 'SUCCESS', 'FAILED'])
     parser.add_argument('-id', "--id",
                         help="Analysis id",required=True)                   
-    parser.add_argument('-n', "--dry-run", action='store_true')
+    #parser.add_argument('-n', "--dry-run", action='store_true')
     parser.add_argument('-t', "--test_server", action='store_true')
     args = parser.parse_args()
+
     
+    user_name = getpass.getuser()
+    if user_name != "userrig":
+        LOG.warn("Not a production user. Exiting here")
+        sys.exit(0)
+
+        
+    run_number = args.runid
     connection = mongodb_conn(args.test_server)
     LOG.info("Database connection established")
     db = connection.gisds.runcomplete
     LOG.debug("DB {}".format(db))
     
-    run_number = args.runid
-    start_time = args.id  
-    user_name = getpass.getuser()
-    
+    start_time = args.id    
     LOG.info("Database connection established {}".format(run_number))
     if args.status == "START":
         try:
