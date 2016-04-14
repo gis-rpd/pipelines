@@ -243,7 +243,7 @@ def main():
 
     LOG.info("Writing config and rc files")
 
-    write_cluster_config(args.outdir)
+    write_cluster_config(args.outdir, BASEDIR)
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'sample': args.sample}# needed for file naming
@@ -296,13 +296,13 @@ def main():
         else:
             master_q_arg = ""
         cmd = "cd {} && qsub {} {} >> {}".format(
-            os.path.dirname(run_out), master_q_arg, run_out, SUBMISSIONLOG)
+            os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
             LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
             LOG.warn("Once ready submit with: {}".format(cmd))
         else:
             LOG.info("Starting pipeline: {}".format(cmd))
-            os.chdir(os.path.dirname(run_out))
+            #os.chdir(os.path.dirname(run_out))
             _ = subprocess.check_output(cmd, shell=True)
             submission_log_abs = os.path.abspath(os.path.join(args.outdir, SUBMISSIONLOG))
             master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))

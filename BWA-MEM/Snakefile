@@ -1,6 +1,7 @@
 import os
 import getpass
 from snakemake.utils import report
+from pipelines import send_status_mail
 from elmlogger import ElmLogging, UnitId, timestamp
 
 
@@ -13,6 +14,53 @@ MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 def getuser():
     return getpass.getuser()
+
+
+def mark_dups_pipe_cmd(before="", after=""):
+    """FIXME review once MARK_SHORT_SPLITS is in config
+
+    before and after are commands added before and after samblaster
+    and can be used e.g. for conversion from BAM to BAM (samblaster needs SAM)
+
+    return command will always end in pipe
+    """
+    
+    if config['mark_dups']:
+        if before:
+            cmd = "{} | ".format(before)
+        else:
+            cmd = ""
+            
+        cmd += " samblaster {MARK_SHORT_SPLITS} | "
+        if after:
+            cmd += " {} | ".format(after)
+        return cmd
+    else:
+        return ""
+
+    
+# read group functions following
+# http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+   
+def gen_rg_lib_id(unit):
+    if unit['library_id']:
+        return unit['library_id']
+    else:
+        return "LIB-DUMMY"
+
+    
+def gen_rg_pu_id(unit):
+    """https://www.biostars.org/p/50349/"""
+    if unit['run_id'] and unit['flowcell_id'] and unit['lane_id']:
+        return "{}_{}.{}".format(unit['run_id'], unit['flowcell_id'], unit['lane_id'])
+    else:
+        return "PU-" + unit['rg_id']
+
+    
+def fastqs_fo_unit(unit):
+    """FIXME:add-doc
+    """
+    return unit['fq1'], unit['fq2']
 
 
 # non-login bash
@@ -44,10 +92,14 @@ onstart:# available as patched snakemake 3.5.5
     elm_logger.start()
 onsuccess:
     elm_logger.stop(True)
+    send_status_mail(config['ELM']['pipeline_name'], True,
+                     config['sample'], os.path.abspath(RESULT_OUTDIR))
 onerror:
     elm_logger.stop(False)
+    send_status_mail(config['ELM']['pipeline_name'], False,
+                     config['sample'], os.path.abspath(RESULT_OUTDIR))
 
-    
+                    
 rule final:
     input:
         # NOTE changes here will likely have to be reflected in the report rule as well
@@ -86,29 +138,6 @@ rule report:
         # FIXME hardcoded path to configfile
         
 
-def mark_dups_pipe_cmd(before="", after=""):
-    """FIXME review once MARK_SHORT_SPLITS is in config
-
-    before and after are commands added before and after samblaster
-    and can be used e.g. for conversion from BAM to BAM (samblaster needs SAM)
-
-    return command will always end in pipe
-    """
-    
-    if config['mark_dups']:
-        if before:
-            cmd = "{} | ".format(before)
-        else:
-            cmd = ""
-            
-        cmd += " samblaster {MARK_SHORT_SPLITS} | "
-        if after:
-            cmd += " {} | ".format(after)
-        return cmd
-    else:
-        return ""
-
-
 rule sample_merge:
     """
     Merge bam files for multiple units into one for the given sample
@@ -122,48 +151,22 @@ rule sample_merge:
     -.XXX.bam for stdin)
     """
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.bam'), unit=config["units"])
+        expand(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.srt.bam'), unit=config["units"])
     threads:
         8
-    params:
-        sort_mem='500M'
     output:
         bam=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bam')
     message:
         "Merging files"
     benchmark:# should have same name as rule
         'benchmark/sample_merge.txt'
-    shell:
-        # merge can also read single output. assumes read sorted input
-        # 
-        "samtools merge -n -@ {threads} - {input} | "
-        + mark_dups_pipe_cmd(before="samtools view -@ {threads} -h -", after="samtools view -@ {threads} -bS -") + 
-        "samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
-
+    run:
+        # not running mark_dups_pipe_cmd again since not read name sorted anymore
+        if len(input) > 1:
+            shell("samtools merge -@ {threads} {output} {input};")
+        else:
+            shell("ln {input} {output}")
         
-# read group functions following
-# http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
-   
-def gen_rg_lib_id(unit):
-    if unit['library_id']:
-        return unit['library_id']
-    else:
-        return "LIB-DUMMY"
-
-    
-def gen_rg_pu_id(unit):
-    """https://www.biostars.org/p/50349/"""
-    if unit['run_id'] and unit['flowcell_id'] and unit['lane_id']:
-        return "{}_{}.{}".format(unit['run_id'], unit['flowcell_id'], unit['lane_id'])
-    else:
-        return "PU-" + unit['rg_id']
-
-    
-def fastqs_fo_unit(unit):
-    """FIXME:add-doc
-    """
-    return unit['fq1'], unit['fq2']
-
     
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
 rule map_mdups:
@@ -175,16 +178,19 @@ rule map_mdups:
     downstream programs. See
     e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
     For example for BQSR PU takes precedence over ID. PU should contain lane
+
+    See notes for SG10K. More threads means more memory because of sorting
     """
     input:
         reffa = config['references']['genome'],
         reffai = config['references']['genome'] + ".pac",
         fastqs = lambda wildcards: fastqs_fo_unit(config["units"][wildcards.unit])
     output:
-        bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.bam'))
+        bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.srt.bam'))
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
+        sort_mem='500M',
         rg_id=lambda wildcards: config["units"][wildcards.unit]['rg_id'],# always set
         lib_id=lambda wildcards: gen_rg_lib_id(config["units"][wildcards.unit]),
         pu_id=lambda wildcards: gen_rg_pu_id(config["units"][wildcards.unit])
@@ -200,4 +206,5 @@ rule map_mdups:
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         + mark_dups_pipe_cmd() +
-        " samtools view -@ {threads} -bS -o {output.bam} -"
+        " samtools view -@ {threads} -bu -o - |"
+        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
