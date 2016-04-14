@@ -9,7 +9,10 @@ RESULT_OUTDIR = './out'
 
 SAMPLESHEET = os.path.join(RESULT_OUTDIR, 'samplesheet.csv')
 USEBASES_CFG = os.path.join(RESULT_OUTDIR, 'usesbases.yaml')
-ANALYSIS_ID = timestamp()
+# ANALYSIS_ID not necessarily part of config file and if not
+# needs to be passed to snakemake
+assert 'ANALYSIS_ID' in config
+
 
 # non-login bash
 shell.executable("/bin/bash")
@@ -78,14 +81,14 @@ onstart:# available as patched snakemake 3.5.5
 onsuccess:
     elm_logger.stop(True)
     shell("{} -r {} -s SUCCESS -id {} {}".format(
-        config['mongo_status'], config['run_num'], ANALYSIS_ID, mongodb_test_arg()))
+        config['mongo_status'], config['run_num'], conf['ANALYSIS_ID'], mongodb_test_arg()))
     send_status_mail(config['ELM']['pipeline_name'], True, os.path.abspath(RESULT_DIR)) 
 
     
 onerror:
     elm_logger.stop(False)
     shell("{} -r {} -s FAILED -id {} {}".format(
-        config['mongo_status'], config['run_num'], ANALYSIS_ID, mongodb_test_arg()))
+        config['mongo_status'], config['run_num'], conf['ANALYSIS_ID'], mongodb_test_arg()))
     send_status_mail(config['ELM']['pipeline_name'], False, os.path.abspath(RESULT_DIR))
 
     
