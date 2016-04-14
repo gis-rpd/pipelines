@@ -78,15 +78,15 @@ onstart:# available as patched snakemake 3.5.5
 onsuccess:
     elm_logger.stop(True)
     shell("{} -r {} -s SUCCESS -id {} {}".format(
-        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
-    send_status_mail(config['ELM']['pipeline_name'],'SUCCESS',config['runNum']) 
+        config['mongo_status'], config['run_num'], ANALYSIS_ID, mongodb_test_arg()))
+    send_status_mail(config['ELM']['pipeline_name'], True, os.path.abspath(RESULT_DIR)) 
 
     
 onerror:
     elm_logger.stop(False)
     shell("{} -r {} -s FAILED -id {} {}".format(
-        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
-    send_status_mail(config['ELM']['pipeline_name'],'FAILED',config['runNum'])
+        config['mongo_status'], config['run_num'], ANALYSIS_ID, mongodb_test_arg()))
+    send_status_mail(config['ELM']['pipeline_name'], False, os.path.abspath(RESULT_DIR))
 
     
 rule final:

@@ -388,7 +388,7 @@ def main():
             LOG.warn("Once ready submit with: {}".format(cmd))
         else:
             LOG.info("Starting pipeline: {}".format(cmd))
-            os.chdir(os.path.dirname(run_out))
+            #os.chdir(os.path.dirname(run_out))
             _ = subprocess.check_output(cmd, shell=True)
             submission_log_abs = os.path.abspath(os.path.join(outdir, SUBMISSIONLOG))
             master_log_abs = os.path.abspath(os.path.join(outdir, MASTERLOG))

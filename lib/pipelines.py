@@ -12,6 +12,7 @@ import shutil
 from datetime import datetime
 import smtplib
 from getpass import getuser
+import socket
 
 #--- third-party imports
 #
@@ -66,9 +67,11 @@ def testing_is_active():
 def get_site():
     """Determine site where we're running. Throws ValueError if unknown
     """
-    # this is a bit naive... but socket.getfqdn() is also useless
+    # gis detection is a bit naive... but socket.getfqdn() doesn't help here
     if os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
         return "gis"
+    elif 'nscc' in socket.getfqdn():
+        return "nscc"
     else:
         raise ValueError("unknown site")
 
@@ -196,14 +199,13 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
     machineid = runid.split("-")[0]
     return machineid, runid, flowcellid
 
-    
-def send_status_mail(pipeline_name, status, id):
-    """main function"""        
-    print (pipeline_name + status + id)
+
+def send_status_mail(pipeline_name, success, id, outdir):
+    """id should be unique identifier for this analysis
+    """
+
     user_name = getuser()
-    
     FROM = "localhost"
-    
     if user_name == "userrig":
         # FIXME rpd@mailmain in future
         TO = ["veeravallil@gis.a-star.edu.sg"] # must be a list
@@ -211,13 +213,14 @@ def send_status_mail(pipeline_name, status, id):
         # testing at NSCC
         TO = ["{}@gis.a-star.edu.sg".format(user_name)]
 
-    SUBJECT = "Pipeline {} completed with status {} for {}".format(
-        pipeline_name, status, id)
-        
-    body = "Pipeline {} completed with status {} for {}".format(
-        pipeline_name, status, id)     
-    body += "\nPlease check {}".format(os.getcwd())
-    
+    SUBJECT = "Pipeline {} {} for {}".format(
+        pipeline_name, "completed" if success else "failed", id)
+
+    body = "Pipeline {} {} for {}".format(
+        pipeline_name, "completed" if success else "failed", id)
+
+    body += "\nPlease check logs in {}".format(outdir)
+
     # FIXME add later: - send questions to rpd@mailman
     #                  - attach report on success etc
     message = """\
