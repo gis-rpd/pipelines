@@ -73,25 +73,22 @@ onstart:# available as patched snakemake 3.5.5
                             RESULT_OUTDIR,
                             unit_ids)
     elm_logger.start()
-    # FIXME infer path here and elsewhere automatically
-    shell("{} -r {} -s START -id {} {}".format(
-        config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
-    sys.stderr.write("onstart: FIXME mongodb initiated\n")
 
+    
 onsuccess:
     elm_logger.stop(True)
-    sys.stderr.write("onsuccess: FIXME mongodb update (success)\n")
     shell("{} -r {} -s SUCCESS -id {} {}".format(
         config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
     send_status_mail(config['ELM']['pipeline_name'],'SUCCESS',config['runNum']) 
 
+    
 onerror:
     elm_logger.stop(False)
-    sys.stderr.write("onerror: FIXME mongodb update (fail)\n")
     shell("{} -r {} -s FAILED -id {} {}".format(
         config['mongo_status'], config['runNum'], ANALYSIS_ID, mongodb_test_arg()))
     send_status_mail(config['ELM']['pipeline_name'],'FAILED',config['runNum'])
 
+    
 rule final:
     input:
 	# here, expand creates a list of expected output folders/files based on 'units'
@@ -168,54 +165,68 @@ rule sra_submission:
     threads: 1
     benchmark: 'benchmark/sra_submission.txt'
     run:
-        import os,sys
-        import requests
+        import os
+        import sys
         import requests
         import json
         import time
-        
-        sys.stderr.write("FIXME temp hack making sra_submission to appear to work\n")
+        from getpass import getuser
+
+        if getuser() != "userrig":
+            LOG.warn("Not a production user. Archiving skipped")
+            with open(output, 'w') as fh:
+                fh.write("Not a production user. Archiving skipped\n")
+            return
+
         # Avoid snakemake.exceptions.RuleException: Output files are older than input files
         # which is likely an NFS issue.
         # see also https://bitbucket.org/snakemake/snakemake/issues/300/race-condition-waiting-for-files-on-nfs
         # for now, simply wait/sleep first
         time.sleep(30)
         
-        for f in output:
-            req = {}
-            req_code = {}
-            data = {}
-            project_path = os.path.dirname(f)
-            project_id = project_path.split("/")[-1].split('_')[-1]
-            run_id =  config['units'][project_path.split("/")[-1]]['run_id']
-            email = "veeravallil@.gis.a-star.edu.sg"        
-            for child in os.listdir(project_path):
-                sample_path = os.path.join(project_path, child)
-                if os.path.isdir(sample_path):
-                    abs_sample_path = os.path.abspath(sample_path)
-                    sample_id = sample_path.split("/")[-1].split('_')[-1]
-                    data['libraryId'] = sample_id
-                    data['muxId'] = project_id
-                    data['runId'] = run_id
-                    data['path'] = [abs_sample_path]
-                    data['email'] = [email]
-                    req_code['reqCode'] = "SA-A002-009"
-                    req_code['SA-A002-009'] = data
-                    req['Request'] = req_code
-                    test_json = json.dumps(req)
-                    data_json = test_json.replace("\\", "");
-                    print(data_json)
-                    if testing_on():
-                        rest_url =  "http://dlap30v:9002/gismart/search"
-                    else:
-                        raise NotImplementedError
-                    response = requests.post(rest_url, data=data_json)
-                    print (response.status_code)
-                    if response.status_code != requests.codes.ok:
-                        response.raise_for_status()
-            with open(f, 'a') as fh:
-                fh.write("FIXME temp hack making sra_submission to appear to work\n")
-        return
+        req = {}
+        req_code = {}
+        project_path = os.path.dirname(f)
+        project_id = project_path.split("/")[-1].split('_')[-1]
+        run_id =  config['units'][project_path.split("/")[-1]]['run_id']
+        email = "veeravallil@.gis.a-star.edu.sg"# FIXME
+        success = dict()
+        for child in os.listdir(project_path):
+            sample_path = os.path.join(project_path, child)
+            if os.path.isdir(sample_path):
+                data = {}
+                abs_sample_path = os.path.abspath(sample_path)
+                sample_id = sample_path.split("/")[-1].split('_')[-1]
+                data['libraryId'] = sample_id
+                data['muxId'] = project_id
+                data['runId'] = run_id
+                data['path'] = [abs_sample_path]
+                data['email'] = [email]
+                # FIXME what's this? needs doc
+                req_code['reqCode'] = "SA-A002-009"
+                req_code['SA-A002-009'] = data
+                req['Request'] = req_code
+                test_json = json.dumps(req)
+                data_json = test_json.replace("\\", "");
+                #print(data_json)
+                if testing_on():
+                    rest_url =  "http://dlap30v:9002/gismart/search"
+                else:
+                    raise NotImplementedError
+                response = requests.post(rest_url, data=data_json)
+                #print (response.status_code)
+                if response.status_code != requests.codes.ok:
+                    success[sample_path] = False
+                    LOG.error("Uploading {} failed".format(sample_path))
+                    LOG.error("JSON request was {}".format(data_json))
+                    LOG.error("Response was {}".format(response.status_code))
+                else:
+                    success[sample_path] = True
+        # FIXME should we fail if any SRA request fails?
+        with open(output, 'w') as fh:
+            for k, v in success.items():
+                fh.write("{} : {}\n".format(k, v))
+
     
     
 rule fastqc:
