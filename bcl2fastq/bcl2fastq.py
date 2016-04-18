@@ -357,7 +357,7 @@ def main():
     site = get_site()
     if site == "gis":
         LOG.info("Writing the run file for site {}".format(site))
-        run_template = os.path.join(BASEDIR, "run.template.sh")
+        run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
         run_out = os.path.join(outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
         # the rules import won't work.  so use the original file

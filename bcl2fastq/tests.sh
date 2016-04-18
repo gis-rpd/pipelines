@@ -28,11 +28,12 @@ while getopts "dr" opt; do
 done
 
 
-TEST_SEQ_RUN_DIRS="../../../../testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS ../../../../testing/data/bcl2fastq/NS001-SR-R00139_HKWHTBGXX"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS ../../../../testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS ../../../../testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS ../../../../testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
+test -z "$RPD_ROOT" && exit 1
+TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
+TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/NS001-SR-R00139_HKWHTBGXX"
+TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
+TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 for d in $TEST_SEQ_RUN_DIRS; do
     if [ ! -d $d ]; then
         echo "FATAL: Run directory $d missing" 1>&2
@@ -47,7 +48,9 @@ test -e Snakefile || exit 1
 
 test_outdir_base=/mnt/projects/rpd/testing/output/
 log=$(mktemp)
-echo "Logging to $log. Check if exit status if non 0"
+COMPLETE_MSG="*** All tests completed ***"
+echo "Logging to $log"
+echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
 
 # dryruns
@@ -58,7 +61,8 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     for d in $TEST_SEQ_RUN_DIRS; do
         echo "Dryrun: bcl2fastq.py dryrun for $d" | tee -a $log
-        odir=$(mktemp -d) && rmdir $odir
+        odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+
         ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
         pushd $odir >> $log
         EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -76,7 +80,6 @@ if [ $skip_real_runs -ne 1 ]; then
     for d in $TEST_SEQ_RUN_DIRS; do
         echo "Real run: bcl2fastq.py for $d" | tee -a $log
         odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
-        echo "FIXME odir=$odir" 1>&2
         
         ./bcl2fastq.py -d $d -o $odir -t >> $log 2>&1
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
@@ -89,3 +92,7 @@ if [ $skip_real_runs -ne 1 ]; then
 else
     echo "Real-run test skipped"
 fi
+
+
+echo
+echo "$COMPLETE_MSG"
