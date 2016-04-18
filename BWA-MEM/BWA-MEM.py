@@ -131,6 +131,8 @@ def get_reads_unit_from_args(fqs1, fqs2):
     """FIXME:add-doc"""
 
     read_units = []
+    if not fqs2:
+        fqs2 = len(fqs1)*[None]
     print_fq_sort_warning = False
     # sorting here should ensure R1 and R2 match
     fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
@@ -197,7 +199,8 @@ def main():
     parser.add_argument('-d', '--mark-dups', action='store_true')
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
-                        " as well as fastq1 and fastq2 per line. Collides with -1, -2")
+                        " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
+                        " unless read groups is set in last column. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
     parser.add_argument('-w', '--slave-q',
@@ -237,7 +240,7 @@ def main():
     for ru in read_units:
         LOG.debug("Checking read unit: {}".format(ru))
         for f in [ru.fq1, ru.fq2]:
-            if not os.path.exists(f):
+            if f and not os.path.exists(f):
                 LOG.fatal("Non-existing input file {}".format(f))
                 sys.exit(1)
 

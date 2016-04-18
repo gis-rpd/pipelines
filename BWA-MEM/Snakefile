@@ -57,11 +57,14 @@ def gen_rg_pu_id(unit):
         return "PU-" + unit['rg_id']
 
     
-def fastqs_fo_unit(unit):
+def fastqs_from_unit(unit):
     """FIXME:add-doc
     """
-    return unit['fq1'], unit['fq2']
-
+    if unit['fq2']:
+        return unit['fq1'], unit['fq2']
+    else:
+        return unit['fq1']
+        
 
 # non-login bash
 shell.executable("/bin/bash")
@@ -184,7 +187,7 @@ rule map_mdups:
     input:
         reffa = config['references']['genome'],
         reffai = config['references']['genome'] + ".pac",
-        fastqs = lambda wildcards: fastqs_fo_unit(config["units"][wildcards.unit])
+        fastqs = lambda wildcards: fastqs_from_unit(config["units"][wildcards.unit])
     output:
         bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.srt.bam'))
     params:
