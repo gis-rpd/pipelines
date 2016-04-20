@@ -107,14 +107,22 @@ def get_reads_unit_from_cfgfile(cfgfile):
             if len(entry) == 6:
                 rg_id = None
                 [run_id, flowcell_id, library_id, lane_id, fq1, fq2] = entry
-                ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
-                ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
             elif len(entry) == 7:
                 [run_id, flowcell_id, library_id, lane_id, fq1, fq2, rg_id] = entry
-                ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
             else:
                 LOG.fatal("Couldn't parse read unit from '{}'".format(entry))
                 raise ValueError(entry)
+            
+            # if we have relative paths, make them abs relative to cfgfile
+            if fq1 and not os.path.isabs(fq1):
+                fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
+            if fq2 and not os.path.isabs(fq2):
+                fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
+                
+            ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id,
+                                 rg_id, fq1, fq2])
+            if rg_id == 'None':
+                ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
             read_units.append(ru)
     return read_units
 
@@ -123,6 +131,8 @@ def get_reads_unit_from_args(fqs1, fqs2):
     """FIXME:add-doc"""
 
     read_units = []
+    if not fqs2:
+        fqs2 = len(fqs1)*[None]
     print_fq_sort_warning = False
     # sorting here should ensure R1 and R2 match
     fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
@@ -189,7 +199,8 @@ def main():
     parser.add_argument('-d', '--mark-dups', action='store_true')
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
-                        " as well as fastq1 and fastq2 per line. Collides with -1, -2")
+                        " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
+                        " unless read groups is set in last column. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
     parser.add_argument('-w', '--slave-q',
@@ -229,7 +240,7 @@ def main():
     for ru in read_units:
         LOG.debug("Checking read unit: {}".format(ru))
         for f in [ru.fq1, ru.fq2]:
-            if not os.path.exists(f):
+            if f and not os.path.exists(f):
                 LOG.fatal("Non-existing input file {}".format(f))
                 sys.exit(1)
 
@@ -271,9 +282,9 @@ def main():
     write_snakemake_env(os.path.join(args.outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
 
     site = get_site()
-    if site == "gis":
+    if site == "gis" or site == "nscc":
         LOG.info("Writing the run file for site {}".format(site))
-        run_template = os.path.join(BASEDIR, "run.template.sh")
+        run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
         run_out = os.path.join(args.outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
         # the rules import won't work.  so use the original file

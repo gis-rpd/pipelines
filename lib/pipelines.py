@@ -34,7 +34,9 @@ SERVER = "localhost"
 LOG = logging.getLogger()
 
 INIT = {
-    'gis': "/mnt/projects/rpd/init"
+    'gis': "/mnt/projects/rpd/init",
+    # FIXME for NSCC alpha
+    'nscc': "/home/astar/gis/wilma/rpd/init"
 }
 
 
