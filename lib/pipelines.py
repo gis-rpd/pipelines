@@ -58,7 +58,7 @@ def get_pipeline_version():
     return version
 
 
-def testing_is_active():
+def is_devel_version():
     """checks whether this is a developers version of production
     """
     check_file = os.path.abspath(os.path.join(PIPELINE_BASEDIR, "DEVELOPERS_VERSION"))
@@ -87,7 +87,7 @@ def get_init_call():
     except KeyError:
         raise ValueError("unknown or unconfigured or site {}".format(site))
 
-    if testing_is_active():
+    if is_devel_version():
         cmd.append('-d')
 
     return cmd
@@ -194,8 +194,10 @@ def generate_timestamp():
 
 
 def get_machine_run_flowcell_id(runid_and_flowcellid):
-    """return machine-id, run-id and flowcell-id from full string
+    """return machine-id, run-id and flowcell-id from full string. Expected string format is machine-runid_flowcellid
     """
+    # be lenient and allow full path
+    runid_and_flowcellid = runid_and_flowcellid.rstrip("/").split('/')[-1]
 
     runid, flowcellid = runid_and_flowcellid.split("_")
     machineid = runid.split("-")[0]

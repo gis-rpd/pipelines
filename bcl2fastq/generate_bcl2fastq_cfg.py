@@ -19,6 +19,7 @@ import xml.etree.ElementTree as ET
 #
 from pipelines import get_machine_run_flowcell_id
 # cannot be imported? from bcl2fastq import MuxUnit
+# WARNING changes here, must be reflected in bcl2fastq.py as well
 MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids', 'mux_dir', 'barcode_mismatches'])
 
 
@@ -38,7 +39,7 @@ logging.basicConfig(level=logging.INFO,
 SAMPLESHEET_CSV = "samplesheet.csv"
 USEBASES_CFG = "usebases.yaml"
 MUXINFO_CFG = "muxinfo.yaml"
-DEFAULT_BARCODE_MISMATCHES = 1
+DEFAULT_BARCODE_MISMATCHES = None
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
 
 
@@ -58,10 +59,10 @@ def cmdline_parser():
     parser.add_argument("--force-overwrite",
                         action="store_true",
                         help="Force overwriting of output files")
-    parser.add_argument("-r", "--runIDPath",
-                        dest="runIDPath",
+    parser.add_argument("-r", "--rundir",
+                        dest="rundir",
                         required=True,
-                        help="runIDPath, e.g. /mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX")
+                        help="rundir, e.g. /mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX")
     parser.add_argument("-o", "--outdir",
                         required=True,
                         dest="outdir",
@@ -72,12 +73,12 @@ def cmdline_parser():
 def getdirs(args):
     """gets directories from args and checks existance
     """
-    runidpath = args.runIDPath
-    if not os.path.exists(runidpath):
-        LOG.fatal("runIDPath '%s' does not exist under Run directory.\n" % (runidpath))
+    rundir = args.rundir
+    if not os.path.exists(rundir):
+        LOG.fatal("rundir '%s' does not exist under Run directory.\n" % (rundir))
         sys.exit(1)
 
-    runinfo = os.path.join(runidpath + '/RunInfo.xml')
+    runinfo = os.path.join(rundir + '/RunInfo.xml')
     if not os.path.exists(runinfo):
         LOG.fatal("RunInfo '%s' does not exist under Run directory.\n" % (runinfo))
         sys.exit(1)
@@ -87,7 +88,7 @@ def getdirs(args):
         LOG.fatal("output directory '%s' does not exist.\n" % (outdir))
         sys.exit(1)
 
-    return(runidpath, outdir, runinfo)
+    return(rundir, outdir, runinfo)
 
 
 def generate_usebases(barcode_lens, runinfo):
@@ -137,7 +138,7 @@ def main():
     if args.debug:
         LOG.setLevel(logging.DEBUG)
 
-    (runidpath, outdir, runinfo) = getdirs(args)
+    (rundir, outdir, runinfo) = getdirs(args)
     samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
     usebases_cfg = os.path.join(outdir, USEBASES_CFG)
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
@@ -146,8 +147,7 @@ def main():
             LOG.fatal("Refusing to overwrite existing file {}".format(f))
             sys.exit(1)
 
-    runid_with_flowcellid = runidpath.rstrip("/").split('/')[-1]
-    _machine_id, run_num, flowcellid = get_machine_run_flowcell_id(runid_with_flowcellid)
+    _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
 
     LOG.info("Querying ELM for {}".format(run_num))
     #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
@@ -209,7 +209,6 @@ def main():
                 mu_orig = mu_orig._replace(lane_ids=lane_ids)
             else:
                 mux_units[mu.mux_id] = mu
-    LOG.warn("get barcode_mismatches from ELM (see above)")
     
     LOG.info("Writing to {}".format(usebases_cfg))
     usebases = generate_usebases(barcode_lens, runinfo)

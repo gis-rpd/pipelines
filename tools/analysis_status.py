@@ -90,7 +90,7 @@ def main():
 
     submissionlog = os.path.join(args.logdir, SUBMISSIONLOG)
     if not os.path.exists(submissionlog):
-        LOG.warn("Submission logfile {} not found".format(submissionlog))
+        LOG.warn("Submission logfile {} not found: job not submitted".format(submissionlog))
     else:
         with open(submissionlog) as fh:
             for line in fh:
@@ -105,7 +105,7 @@ def main():
 
     masterlog = os.path.join(args.logdir, MASTERLOG)
     if not os.path.exists(masterlog):
-        LOG.warn("Master logfile {} not found".format(masterlog))
+        LOG.warn("Master logfile {} not found: job not (yet) running (might be in queue)".format(masterlog))
     else:
         workflow_done = False
         with open(masterlog) as fh:

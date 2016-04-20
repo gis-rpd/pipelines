@@ -21,14 +21,14 @@ from collections import namedtuple
 #
 import yaml
 # only dump() and following do not automatically create aliases
-yaml.Dumper.ignore_aliases = lambda *args : True
+yaml.Dumper.ignore_aliases = lambda *args: True
 
 #--- project specific imports
 #
 from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
 from pipelines import write_cluster_config, generate_timestamp
-from pipelines import get_machine_run_flowcell_id, testing_is_active
+from pipelines import get_machine_run_flowcell_id, is_devel_version
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG
 
 __author__ = "Andreas Wilm"
@@ -39,6 +39,7 @@ __license__ = "The MIT License (MIT)"
 
 # Different from the analysis pipelines
 # WARN copied in generate_bcl2fastq_cfg.py because import fails
+# WARNING changes here, must be reflected in generate_bcl2fastq_cfg.py as well
 MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids', 'mux_dir', 'barcode_mismatches'])
 
 BASEDIR = os.path.dirname(sys.argv[0])
@@ -65,9 +66,7 @@ LOG = logging.getLogger()
 
 
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
-    """writes config file for use in snakemake becaused on default config
-
-    FIXME is there a way to retain comments from the template
+    """writes config file for use in snakemake based on default config, user data and elm data to outdir.
     """
 
     rpd_vars = get_rpd_vars()
@@ -157,7 +156,7 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
         site = get_site()
 
     if site == "gis":
-        if testing_is_active():
+        if is_devel_version():
             # /output/bcl2fastq. currently owned by lavanya :(
             outdir = "/mnt/projects/rpd/testing/output/bcl2fastq.tmp/{}/{}_{}/bcl2fastq_{}".format(
                 machineid, runid, flowcellid, generate_timestamp())
@@ -185,8 +184,8 @@ def main():
                         help="BCL input directory (clashes with -r)")
     parser.add_argument('-o', "--outdir",
                         help="Output directory (may not exist; required if called by user)")
-    parser.add_argument('-t', "--testing",action='store_true',
-                        help="Disable MongoDB updates and SRA submission")
+    parser.add_argument('-t', "--testing", action='store_true',
+                        help="Disable MongoDB updates")
                         # FIXME default if called by user
     parser.add_argument('-w', '--slave-q',
                         help="Queue to use for slave jobs")
@@ -194,7 +193,7 @@ def main():
                         help="Queue to use for master job")
     parser.add_argument('-l', '--lanes', type=int, nargs="*",
                         help="Limit run to given lane/s (multiples separated by space")
-    parser.add_argument('-i', '--mismatches', type=int, default=1,
+    parser.add_argument('-i', '--mismatches', type=int,
                         help="Max. number of allowed barcode mismatches (0>=x<=2)"
                         " setting a value here overrides the default settings read from ELM)")
     parser.add_argument('-n', '--no-run', action='store_true')
@@ -252,8 +251,11 @@ def main():
     # create log dir and hence parent dir immediately
     os.makedirs(os.path.join(outdir, LOG_DIR_REL))
 
+    # call generate_bcl2fastq_cfg
+    #
     # FIXME ugly assumes same directory (just like import above). better to import and run main()?
-    generate_bcl2fastq = os.path.join(os.path.dirname(sys.argv[0]), "generate_bcl2fastq_cfg.py")
+    generate_bcl2fastq = os.path.join(
+        os.path.dirname(sys.argv[0]), "generate_bcl2fastq_cfg.py")
     assert os.path.exists(generate_bcl2fastq)
     cmd = [generate_bcl2fastq, '-r', rundir, '-o', outdir]
     try:
@@ -266,7 +268,7 @@ def main():
     mux_units = get_mux_units_from_cfgfile(muxinfo_cfg, lane_nos)
     if args.mismatches is not None:
         mux_units = [mu._replace(barcode_mismatches=args.mismatches) for mu in mux_units]
-    # FIXME os.unlink(muxinfo_cfg)
+    os.unlink(muxinfo_cfg)
 
 
     LOG.info("Writing config and rc files")
@@ -282,7 +284,7 @@ def main():
 
     # catch cases where rundir was user provided and looks weird
     try:
-        _, runid, flowcellid = get_machine_run_flowcell_id(rundir.split("/")[-1])
+        _, runid, flowcellid = get_machine_run_flowcell_id(rundir)
         user_data['run_num'] = runid + "_" + flowcellid
     except:
         user_data['run_num'] = "UNKNOWN-" + rundir.split("/")[-1]
@@ -296,7 +298,7 @@ def main():
         try:
             d = yaml.load(stream)
             assert 'usebases' in d
-            assert len(d)==1# make sure usebases is only key
+            assert len(d) == 1# make sure usebases is only key
             for ub in d['usebases']:
                 #print (ub)
                 usebases_arg += '--use-bases-mask {} '.format(ub)
@@ -345,12 +347,10 @@ def main():
     write_snakemake_init(os.path.join(outdir, RC['SNAKEMAKE_INIT']))
     write_snakemake_env(os.path.join(outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
 
-    # things would be easier if we could run this command from within snakemake
-    # need to be run in run.sh though directly after submission
-    # to prevent reruns if queuing takes longer
+    # create mongodb update command, used later, after queueing
     mongo_update_cmd = "{} -r {} -s START".format(mongo_status_script, user_data['run_num'])
     mongo_update_cmd += " -id $ANALYSIS_ID"# set in run.sh
-    if testing_is_active:
+    if args.testing:
         mongo_update_cmd += " -t"
 
 

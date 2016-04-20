@@ -75,14 +75,14 @@ onsuccess:
     elm_logger.stop(True)
     shell("{} -r {} -s SUCCESS -id {} {}".format(
         config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], mongodb_test_arg()))
-    send_status_mail(config['ELM']['pipeline_name'], True,config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR)) 
+    send_status_mail(config['ELM']['pipeline_name'], True, config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR)) 
 
     
 onerror:
     elm_logger.stop(False)
     shell("{} -r {} -s FAILED -id {} {}".format(
         config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], mongodb_test_arg()))
-    send_status_mail(config['ELM']['pipeline_name'], False,config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
+    send_status_mail(config['ELM']['pipeline_name'], False, config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
 
     
 rule final:
@@ -126,6 +126,14 @@ rule report:
         # FIXME hardcoded path to configfile
 
 
+def barcode_mismatch_arg_for_mux(wildcards):
+    if config['units'][wildcards.muxdir]['barcode_mismatches'] is not None:
+        arg = '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches'])
+    else:
+        arg = ""
+    return ""
+
+
 rule bcl2fastq:
     """Running bcl2fastq with dynamically split threads
 
@@ -137,14 +145,12 @@ rule bcl2fastq:
     output:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
         results = os.path.join(RESULT_OUTDIR, "{muxdir}"),
-        
     message: "Running bcl2fastq/Demultiplexing"
     threads: 32
     params:
         usebases = config['usebases_arg'],
-        barcode_mismatches = lambda wildcards: '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches']),
+        barcode_mismatches = barcode_mismatch_arg_for_mux,
         tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
-        
     benchmark: "benchmark/bcl2fastq.txt"
     run:
         #cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
