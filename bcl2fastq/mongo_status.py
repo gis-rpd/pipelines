@@ -82,6 +82,7 @@ def main():
     start_time = args.id    
     LOG.info("Database connection established {}".format(run_number))
     if args.status == "START":
+        LOG.info("Status updte is START {}".format(start_time))
         try:
             db.update({"run": run_number},
             {"$push": 
@@ -96,6 +97,7 @@ def main():
             sys.exit(0)
     elif args.status == "SUCCESS":
         end_time = generate_timestamp()
+        LOG.info("Status updte is END and timestamp {}".format(end_time))
         try:
             db.update({"run": run_number, 'analysis.analysis_id' : start_time},
                 {"$set": 
@@ -113,6 +115,7 @@ def main():
     elif args.status == "FAILED":
         LOG.info("Send FAILEURE message")
         end_time = generate_timestamp()
+        LOG.info("Status updte is FAILED and timestamp {}".format(end_time))
         print (end_time)
         try:
             db.update({"run": run_number, 'analysis.analysis_id' : start_time},
