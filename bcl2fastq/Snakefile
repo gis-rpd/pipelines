@@ -48,13 +48,6 @@ def mongodb_test_arg():
     else:
         test_arg = ""
     return test_arg
-
-def sra_test_arg():
-    if testing_on():
-        test_arg="-t"
-    else:
-        test_arg = ""
-    return test_arg
     
     
 onstart:# available as patched snakemake 3.5.5
@@ -81,15 +74,15 @@ onstart:# available as patched snakemake 3.5.5
 onsuccess:
     elm_logger.stop(True)
     shell("{} -r {} -s SUCCESS -id {} {}".format(
-        config['mongo_status'], config['run_num'], conf['ANALYSIS_ID'], mongodb_test_arg()))
-    send_status_mail(config['ELM']['pipeline_name'], True, os.path.abspath(RESULT_DIR)) 
+        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], mongodb_test_arg()))
+    send_status_mail(config['ELM']['pipeline_name'], True,config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR)) 
 
     
 onerror:
     elm_logger.stop(False)
     shell("{} -r {} -s FAILED -id {} {}".format(
-        config['mongo_status'], config['run_num'], conf['ANALYSIS_ID'], mongodb_test_arg()))
-    send_status_mail(config['ELM']['pipeline_name'], False, os.path.abspath(RESULT_DIR))
+        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], mongodb_test_arg()))
+    send_status_mail(config['ELM']['pipeline_name'], False,config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
 
     
 rule final:
@@ -102,8 +95,8 @@ rule final:
                muxdir=get_mux_dirs()),
         expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'fastqc.SUCCESS'),
                muxdir=get_mux_dirs()),
-        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'srasubmission.SUCCESS'),
-               muxdir=get_mux_dirs()),
+        #expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'srasubmission.SUCCESS'),
+               #muxdir=get_mux_dirs()),
         "report.html"
     message:
         """
@@ -143,6 +136,8 @@ rule bcl2fastq:
         samplesheet = config['samplesheet_csv'],
     output:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
+        results = os.path.join(RESULT_OUTDIR, "{muxdir}"),
+        
     message: "Running bcl2fastq/Demultiplexing"
     threads: 32
     params:
@@ -155,83 +150,10 @@ rule bcl2fastq:
         #cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
         #shell(cmd)
         #shell('echo {} > {}'.format(cmd, output))
-        cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
+        cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --stats-dir {output.results} --reports-dir {output.results} --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
         shell(cmd)
-        shell("touch {output}")
-      
-       
-rule sra_submission:
-    """Submitting to SRA"""
-    input: '{prefix}/bcl2fastq.SUCCESS'
-    output: '{prefix}/srasubmission.SUCCESS'
-    message: "Archival submission"
-    threads: 1
-    benchmark: 'benchmark/sra_submission.txt'
-    run:
-        import os
-        import sys
-        import requests
-        import json
-        import time
-        from getpass import getuser
-
-        if getuser() != "userrig":
-            LOG.warn("Not a production user. Archiving skipped")
-            with open(output, 'w') as fh:
-                fh.write("Not a production user. Archiving skipped\n")
-            return
-
-        # Avoid snakemake.exceptions.RuleException: Output files are older than input files
-        # which is likely an NFS issue.
-        # see also https://bitbucket.org/snakemake/snakemake/issues/300/race-condition-waiting-for-files-on-nfs
-        # for now, simply wait/sleep first
-        time.sleep(30)
-        
-        req = {}
-        req_code = {}
-        project_path = os.path.dirname(f)
-        project_id = project_path.split("/")[-1].split('_')[-1]
-        run_id =  config['units'][project_path.split("/")[-1]]['run_id']
-        email = "veeravallil@.gis.a-star.edu.sg"# FIXME
-        success = dict()
-        for child in os.listdir(project_path):
-            sample_path = os.path.join(project_path, child)
-            if os.path.isdir(sample_path):
-                data = {}
-                abs_sample_path = os.path.abspath(sample_path)
-                sample_id = sample_path.split("/")[-1].split('_')[-1]
-                data['libraryId'] = sample_id
-                data['muxId'] = project_id
-                data['runId'] = run_id
-                data['path'] = [abs_sample_path]
-                data['email'] = [email]
-                # FIXME what's this? needs doc
-                req_code['reqCode'] = "SA-A002-009"
-                req_code['SA-A002-009'] = data
-                req['Request'] = req_code
-                test_json = json.dumps(req)
-                data_json = test_json.replace("\\", "");
-                #print(data_json)
-                if testing_on():
-                    rest_url =  "http://dlap30v:9002/gismart/search"
-                else:
-                    raise NotImplementedError
-                response = requests.post(rest_url, data=data_json)
-                #print (response.status_code)
-                if response.status_code != requests.codes.ok:
-                    success[sample_path] = False
-                    LOG.error("Uploading {} failed".format(sample_path))
-                    LOG.error("JSON request was {}".format(data_json))
-                    LOG.error("Response was {}".format(response.status_code))
-                else:
-                    success[sample_path] = True
-        # FIXME should we fail if any SRA request fails?
-        with open(output, 'w') as fh:
-            for k, v in success.items():
-                fh.write("{} : {}\n".format(k, v))
-
-    
-    
+        shell("touch {output.flag}")
+          
 rule fastqc:
     """fastqc per muxdir. note: this will not make full use of
     parallelization of many subdirs exist simply because we don't keep
