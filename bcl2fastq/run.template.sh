@@ -130,19 +130,24 @@ source snakemake_init.rc || exit 1
 test -d $LOGDIR || mkdir $LOGDIR
 
 
-eval snakemake $args || exit 1
 
 # mongodb update has to happen here because at this stage we know the
 # job has been submitted. at the same time we avoid cases where a job
 # stuck in queue will be rerun. but don't update if running in dryrun
 # mode
+is_dryrun=0
 args_tokenized=$(echo "$args" | tr ' ' '\n' | grep '^-' | sort)
 for arg in $args_tokenized; do
     if [ $arg == "-n" ] || [ $arg == "--dryrun" ]; then
-        exit 0
+        is_dryrun=1
+        break
     fi
 done
-echo "DEBUG don't forget to remove EOF" 1>&2
-@MONGO_UPDATE_CMD@
 
+if [ $is_dryrun != 1 ]; then
+    @MONGO_UPDATE_CMD@
+else
+    echo "Mongodb update skipping (dryrun)"
+fi
 
+eval snakemake $args
