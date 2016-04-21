@@ -21,13 +21,27 @@ shell.prefix("source snakemake_env.rc;")
 
 
 def bcl2fastq_threads_setting(num_threads):
-    """Divide threads meaningfully to the different bcl2fastq 
+    """Set up threads for the four bcl2fastq stages
+
+    Illumina defaults:
+    - 4 threads for reading the data:    -r, --loading-thread
+    - 4 threads for writing the data:    -d, --demultiplexing-threads
+    - 20% for demultiplexing data:       -w, --writing-threads
+    - 100% for processing demultiplexed: -p, --processing-threads
+    
+    Percent here given as percent of total CPU on system which in our
+    case should be the number of threads.
+
+    Processes seem to be mutually exclusive (hard to tell though) and
+    IO bound
+
     """
-    demultiplex_threads_frac = 0.2
-    process_threads_frac = 0.8
-    return " -r 1 -w 1 -d {} -p {}".format(
-    	   ceil(demultiplex_threads_frac*num_threads),
-	   ceil(process_threads_frac*num_threads))
+
+    r = min([4, num_threads])
+    d = min([4, num_threads])
+    w = ceil(0.2 * num_threads)
+    p = ceil(1.0 * num_threads)
+    return " -r {} -d {} -w {} -p {}".format(r, d, w, p)
 
 
 def get_mux_dirs():
@@ -146,7 +160,7 @@ rule bcl2fastq:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
         results = os.path.join(RESULT_OUTDIR, "{muxdir}"),
     message: "Running bcl2fastq/Demultiplexing"
-    threads: 32
+    threads: 16
     params:
         usebases = config['usebases_arg'],
         barcode_mismatches = barcode_mismatch_arg_for_mux,
