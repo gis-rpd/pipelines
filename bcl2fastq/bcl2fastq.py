@@ -355,7 +355,7 @@ def main():
 
 
     site = get_site()
-    if site == "gis":
+    if site == "gis" or site == "nscc":
         LOG.info("Writing the run file for site {}".format(site))
         run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
         run_out = os.path.join(outdir, "run.sh")

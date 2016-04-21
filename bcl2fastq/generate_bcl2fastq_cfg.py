@@ -151,7 +151,7 @@ def main():
 
     LOG.info("Querying ELM for {}".format(run_num))
     #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
-    rest_url = 'http://qldb01:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
+    rest_url = 'http://qldb01.gis.a-star.edu.sg:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     response = requests.get(rest_url)
     if response.status_code != requests.codes.ok:
         response.raise_for_status()

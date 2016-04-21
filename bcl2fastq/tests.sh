@@ -32,8 +32,11 @@ test -z "$RPD_ROOT" && exit 1
 TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
 TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/NS001-SR-R00139_HKWHTBGXX"
 TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
+echo "FIXME only MS, NS, HS001 for now (files still transferring at this time)" 1>&2
+#TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+#TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
+
+
 for d in $TEST_SEQ_RUN_DIRS; do
     if [ ! -d $d ]; then
         echo "FATAL: Run directory $d missing" 1>&2
@@ -46,7 +49,7 @@ commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
 
-test_outdir_base=/mnt/projects/rpd/testing/output/
+test_outdir_base=$RPD_ROOT/testing/output/
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
@@ -88,10 +91,14 @@ if [ $skip_real_runs -ne 1 ]; then
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
         echo "Started $jid writing to $odir"
 
-        exp=$(ls /mnt/projects/rpd/testing/data/bcl2fastq/*exp.txt | grep $(basename $d))
+        exp=$(ls $RPD_ROOT/testing/data/bcl2fastq/*exp.txt | grep $(basename $d))
         jobname="${pipeline}.${MYNAME}.check.$(basename $d)"
-        qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -V -b y -cwd -m bea  -N $jobname -hold_jid $jid"
-        echo $qsub "bash test_cmp_in_and_out.sh $exp $odir"
+        if [ -d "/mnt/software" ] && [ -d "/mnt/projects/rpd" ]; then
+            qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -V -b y -cwd -m bea  -N $jobname -hold_jid $jid"
+        else
+            qsub="qsub -q production -l select=1:ncpus=1 -l select=1:mem=1g -l walltime=175:00:00 -j oe  -V  -m bea -N $jobname -W depend=afterok:$jid --"
+        fi
+        echo "FIXME check job: $qsub \"bash $(pwd)/test_cmp_in_and_out.sh $exp $odir\"" 1>&2
     done
     echo "Real-runs tests started. Checking will be performed later"
 else

@@ -24,25 +24,25 @@
 # --forceall : for debug only
 # --dryrun : just print what would happen
 
-# UGE options:
-# The #$ must be used to specify the grid engine options used by qsub. 
+# PBS Pro options:
+# The #PBS must be used to specify PBS Pro options
 # declare a name for this job to be sample_job
-#$ -N @PIPELINE_NAME@.master
+#PBS -N @PIPELINE_NAME@.master
 # logs
-#$ -o @MASTERLOG@
+#PBS -o @MASTERLOG@
 # combine stdout/stderr
-#$ -j y
+#PBS -j oe
 # snakemake control job run time: 175h == 1 week
-#$ -l h_rt=175:00:00
+#PBS -l walltime=175:00:00
 # memory
-# shoots up for heavily multiplexed libraries
-#$ -l mem_free=16G
-# 'parallel env'
-#$ -pe OpenMP 1
-# run the job in the current working directory (where qsub is called)
-#$ -cwd
+#PBS -l select=1:mem=1g
+# cpu
+#PBS -l select=1:ncpus=1
 # keep env so that qsub works
-#$ -V
+#PBS -V
+# need to specify production queue here otherwise we get: 'qsub: Job violates queue and/or server resource limits'
+#PBS -q production
+# Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
 
 # email would require @USER@ replacement.
 ## specify your email address: otherwise no email send
@@ -69,9 +69,11 @@ LOGDIR="@LOGDIR@";# should be same as defined above for UGE
 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
-    qsub="qsub -pe OpenMP {threads} -l mem_free={cluster.mem} -l h_rt={cluster.time}"
+    qsub="qsub -l select=1:ncpus={threads} -l select=1:mem={cluster.mem} -l walltime={cluster.time}"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
-    qsub="$qsub -V -cwd -e $LOGDIR -o $LOGDIR"
+    qsub="$qsub -V -e $LOGDIR -o $LOGDIR"
+    # PBS: cwd (workaround for missing SGE option "-cwd")
+    cd $PBS_O_WORKDIR
     if [ -n "$SLAVE_Q" ]; then
         qsub="$qsub -q $SLAVE_Q"
     elif [ -n "$DEFAULT_SLAVE_Q" ]; then 

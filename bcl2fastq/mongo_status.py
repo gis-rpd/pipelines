@@ -42,7 +42,7 @@ def mongodb_conn(test_server=False):
         
     else:
         LOG.warning("Using Productionserver connection")
-        conn_str = "qldb01:27017,qlap37:27017,qlap38:27017,qlap39:27017"
+        conn_str = "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
 
     try:
         connection = pymongo.MongoClient(conn_str)
@@ -69,7 +69,7 @@ def main():
     
     user_name = getpass.getuser()
     if user_name != "userrig":
-        LOG.warn("Not a production user. Exiting here")
+        LOG.warn("Not a production user. Skipping MongoDb update")
         sys.exit(0)
 
         

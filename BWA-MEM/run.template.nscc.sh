@@ -40,10 +40,8 @@
 #PBS -l select=1:ncpus=1
 # keep env so that qsub works
 #PBS -V
-# Change to current working directory (directory where qsub was executed)
-# within PBS job (workaround for SGE option "-cwd")
-cd $PBS_O_WORKDIR
-
+# Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
+#
 
 DEBUG=0
 DEFAULT_SLAVE_Q=@DEFAULT_SLAVE_Q@
@@ -64,11 +62,10 @@ LOGDIR="@LOGDIR@";# should be same as defined above for UGE
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
     qsub="qsub -l select=1:ncpus={threads} -l select=1:mem={cluster.mem} -l walltime={cluster.time}"
-    # FIXME same for PBS pro? qsub -o|-e: "If path is a directory, the standard error stream of
-    # the job will be put in this directory under the default file name
-    # FIXME no -cwd in PBSpro?
-    #qsub="$qsub -V -cwd -e $LOGDIR -o $LOGDIR"
+    # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     qsub="$qsub -V -e $LOGDIR -o $LOGDIR"
+    # PBS: cwd (workaround for missing SGE option "-cwd")
+    cd $PBS_O_WORKDIR
     if [ -n "$SLAVE_Q" ]; then
         qsub="$qsub -q $SLAVE_Q"
     elif [ -n "$DEFAULT_SLAVE_Q" ]; then 
