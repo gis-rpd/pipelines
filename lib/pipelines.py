@@ -11,6 +11,7 @@ import logging
 import shutil
 from datetime import datetime
 import smtplib
+from email.mime.text import MIMEText
 from getpass import getuser
 import socket
 
@@ -28,7 +29,6 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-SERVER = "localhost"
 
 # global logger
 LOG = logging.getLogger()
@@ -72,7 +72,7 @@ def get_site():
     # gis detection is a bit naive... but socket.getfqdn() doesn't help here
     if os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
         return "gis"
-    elif 'nscc' in socket.getfqdn():
+    elif 'nscc' in socket.getfqdn() or socket.getfqdn().startswith('gis01'):
         return "nscc"
     else:
         raise ValueError("unknown site")
@@ -209,36 +209,25 @@ def send_status_mail(pipeline_name, success, id, outdir):
     """
 
     user_name = getuser()
-    FROM = "localhost"
     if user_name == "userrig":
-        # FIXME rpd@mailmain in future
-        TO = ["veeravallil@gis.a-star.edu.sg"] # must be a list
+        # FIXME rpd@mailman.gis.a-star.edu.sg in future
+        toaddr = "veeravallil@gis.a-star.edu.sg"
     else:
-        # testing at NSCC
-        TO = ["{}@gis.a-star.edu.sg".format(user_name)]
+        toaddr = "{}@gis.a-star.edu.sg".format(user_name)
 
-    SUBJECT = "Pipeline {} {} for {}".format(
+    subject = "Pipeline {} {} for {}".format(
         pipeline_name, "completed" if success else "failed", id)
 
-    body = "Pipeline {} {} for {}".format(
-        pipeline_name, "completed" if success else "failed", id)
-
-    body += "\nPlease check logs in {}".format(outdir)
-
-    # FIXME add later: - send questions to rpd@mailman
-    #                  - attach report on success etc
-    message = """\
-    From: %s
-    To: %s
-    Subject: %s
-
-    %s
-    """ % (FROM, ", ".join(TO), SUBJECT, body)
+    body = "Please check logs in {}".format(outdir)
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = "rpd@mailman.gis.a-star.edu.sg"
+    msg['To'] = toaddr
 
     # Send the mail
     try:
-        server = smtplib.SMTP(SERVER)
-        server.sendmail(FROM, TO, message)
+        server = smtplib.SMTP('localhost')
+        server.send_message(msg)
         server.quit()
     except Exception:
         LOG.fatal("Sending mail failed")
