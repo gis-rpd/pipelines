@@ -3,9 +3,9 @@
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 set -euo pipefail
 
+MYNAME=$(basename $(readlink -f $0))
 
 usage() {
-    MYNAME=$(basename $(readlink -f $0))
     echo "$MYNAME: run pipeline tests"
     echo " -d: Run dry-run tests"
     echo " -r: Run real-run tests"
@@ -78,15 +78,20 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then
     for d in $TEST_SEQ_RUN_DIRS; do
+    	if echo $d | grep -q HS007-PE-R00020_BH5THFBBXX; then
+    	    echo "FIXME skipping HS007-PE-R00020_BH5THFBBXX" 1>&2
+    	    continue
+    	fi
         echo "Real run: bcl2fastq.py for $d" | tee -a $log
         odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
-        
         ./bcl2fastq.py -d $d -o $odir -t >> $log 2>&1
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
         echo "Started $jid writing to $odir"
-        echo "FIXME NotImplementedError: check output once jid is completed (check job using hold id?) successfully and clean up" 1>&2;
-        echo "FIXME NotImplementedError: Use bash test_cmp_in_and_out.sh, e.g. with /mnt/projects/rpd/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX.exp.txt  /mnt/projects/rpd/testing/output/bcl2fastq-commit-97af0ba.3YKYp5owDW/out" 1>&2;
-        echo "FIXME break" 1>&2; break
+
+        exp=$(ls /mnt/projects/rpd/testing/data/bcl2fastq/*exp.txt | grep $(basename $d))
+        jobname="${pipeline}.${MYNAME}.check.$(basename $d)"
+        qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -V -b y -cwd -m bea  -N $jobname -hold_jid $jid"
+        echo $qsub "bash test_cmp_in_and_out.sh $exp $odir"
     done
     echo "Real-runs tests started. Checking will be performed later"
 else
