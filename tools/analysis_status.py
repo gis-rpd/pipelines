@@ -58,9 +58,8 @@ def main():
     """
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-d', "--logdir",
-                        help="Log directory in run folder (usually runfolder/logs/)",
-                        required=True)
+    parser.add_argument('dir', nargs=1,
+                        help="Analysis directory (output dir of pipeline wrapper)")
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
 
@@ -73,12 +72,16 @@ def main():
                         format='%(levelname)s [%(asctime)s]: %(message)s')
 
 
-    if not os.path.exists(args.logdir):
-        LOG.fatal("Log directory {} doesn't exist".format(args.logdir))
+    if not os.path.exists(args.dir[0]):
+        LOG.fatal("Log directory {} doesn't exist".format(args.dir[0]))
         sys.exit(1)
+    logdir = os.path.join(args.dir[0], 'logs')
+    if not os.path.exists(logdir):
+        LOG.fatal("Couldn't find expected log directory in {}".format(args.dir[0]))
+        sys.exit(1)
+    
 
-
-    cluster_logfiles = glob.glob(os.path.join(args.logdir, "*.sh.o*[0-9]"))
+    cluster_logfiles = glob.glob(os.path.join(logdir, "*.sh.o*[0-9]"))
     print("Found {} slaves (cluster log files)".format(len(cluster_logfiles)))
     slave_jids = [jid_from_cluster_logfile(f) for f in cluster_logfiles]
     for jid in slave_jids:
@@ -88,7 +91,7 @@ def main():
             print("Slave jid {} not running (anymore).".format(jid))
 
 
-    submissionlog = os.path.join(args.logdir, SUBMISSIONLOG)
+    submissionlog = os.path.join(logdir, SUBMISSIONLOG)
     if not os.path.exists(submissionlog):
         LOG.warn("Submission logfile {} not found: job not submitted".format(submissionlog))
     else:
@@ -103,7 +106,7 @@ def main():
                         print("Master jid {} not running (anymore).".format(jid))
 
 
-    masterlog = os.path.join(args.logdir, MASTERLOG)
+    masterlog = os.path.join(logdir, MASTERLOG)
     if not os.path.exists(masterlog):
         LOG.warn("Master logfile {} not found: job not (yet) running (might be in queue)".format(masterlog))
     else:
