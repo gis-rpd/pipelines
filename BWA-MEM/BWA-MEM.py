@@ -195,7 +195,7 @@ def main():
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name")
     parser.add_argument('-r', "--reffa", required=True,
-                        help="Referenc Fasta file to use (needs to be indexed)")
+                        help="Reference fasta file to use. Needs to be indexed already (bwa index)")
     parser.add_argument('-d', '--mark-dups', action='store_true')
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
