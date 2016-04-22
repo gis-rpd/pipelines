@@ -47,7 +47,6 @@ BASEDIR = os.path.dirname(sys.argv[0])
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "bcl2fastq"
 
-
 # log dir relative to outdir
 LOG_DIR_REL = "logs"
 # master log relative to outdir
@@ -61,6 +60,11 @@ RC = {
     'SNAKEMAKE_ENV' : 'snakemake_env.rc',# used as bash prefix within snakemakejobs
 }
 
+DEFAULT_SLAVE_Q = {'gis': None,
+                   'nscc': 'production'}
+DEFAULT_MASTER_Q = {'gis': None,
+                    'nscc': 'production'}
+        
 # global logger
 LOG = logging.getLogger()
 
@@ -188,9 +192,9 @@ def main():
                         help="Disable MongoDB updates")
                         # FIXME default if called by user
     parser.add_argument('-w', '--slave-q',
-                        help="Queue to use for slave jobs")
+                        help="Queue to use for slave jobs (defaults: {})".format(DEFAULT_SLAVE_Q))
     parser.add_argument('-m', '--master-q',
-                        help="Queue to use for master job")
+                        help="Queue to use for master job (defaults: {})".format(DEFAULT_MASTER_Q))
     parser.add_argument('-l', '--lanes', type=int, nargs="*",
                         help="Limit run to given lane/s (multiples separated by space")
     parser.add_argument('-i', '--mismatches', type=int,
@@ -372,15 +376,20 @@ def main():
                 if args.slave_q:
                     line = line.replace("@DEFAULT_SLAVE_Q@", args.slave_q)
                 else:
-                    line = line.replace("@DEFAULT_SLAVE_Q@", "")
-
+                    if DEFAULT_SLAVE_Q[site] is not None:
+                        line = line.replace("@DEFAULT_SLAVE_Q@", DEFAULT_SLAVE_Q[site])
+                    else:
+                        line = line.replace("@DEFAULT_SLAVE_Q@", "")
+                
                 line = line.replace("@MONGO_UPDATE_CMD@", mongo_update_cmd)
                 out_fh.write(line)
 
         if args.master_q:
             master_q_arg = "-q {}".format(args.master_q)
-        else:
-            master_q_arg = ""
+        elif site == "nscc":
+            if DEFAULT_MASTER_Q[site] is not None:
+                master_q_arg = "-q {}".format(DEFAULT_MASTER_Q[site])
+
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:

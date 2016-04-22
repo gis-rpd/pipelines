@@ -40,8 +40,6 @@
 #PBS -l select=1:ncpus=1
 # keep env so that qsub works
 #PBS -V
-# need to specify production queue here otherwise we get: 'qsub: Job violates queue and/or server resource limits'
-#PBS -q production
 # Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
 
 # email would require @USER@ replacement.

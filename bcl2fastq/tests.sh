@@ -32,8 +32,9 @@ test -z "$RPD_ROOT" && exit 1
 TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
 TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/NS001-SR-R00139_HKWHTBGXX"
 TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
-echo "FIXME only MS, NS, HS001 for now (files still transferring at this time)" 1>&2
-#TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+echo "FIXME Ignoring HS007 for now" 1>&2
 #TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 
 
@@ -93,12 +94,12 @@ if [ $skip_real_runs -ne 1 ]; then
 
         exp=$(ls $RPD_ROOT/testing/data/bcl2fastq/*exp.txt | grep $(basename $d))
         jobname="${pipeline}.${MYNAME}.check.$(basename $d)"
-        if [ -d "/mnt/software" ] && [ -d "/mnt/projects/rpd" ]; then
-            qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -V -b y -cwd -m bea  -N $jobname -hold_jid $jid"
-        else
+        if qstat --version 2>&1 | grep -q PBSPro; then 
             qsub="qsub -q production -l select=1:ncpus=1 -l select=1:mem=1g -l walltime=175:00:00 -j oe  -V  -m bea -N $jobname -W depend=afterok:$jid --"
+        else
+            qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -V -b y -cwd -m bea  -N $jobname -hold_jid $jid"
         fi
-        echo "FIXME check job: $qsub \"bash $(pwd)/test_cmp_in_and_out.sh $exp $odir\"" 1>&2
+        $qsub "bash $(pwd)/test_cmp_in_and_out.sh $exp $odir"
     done
     echo "Real-runs tests started. Checking will be performed later"
 else
