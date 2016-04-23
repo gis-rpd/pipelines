@@ -90,6 +90,7 @@ if [ $skip_real_runs -ne 1 ]; then
         echo "Real run: bcl2fastq.py for $d" | tee -a $log
         odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
         ./bcl2fastq.py -d $d -o $odir -t >> $log 2>&1
+        # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
         echo "Started $jid writing to $odir"
 

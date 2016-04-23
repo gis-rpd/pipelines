@@ -13,8 +13,6 @@ import sys
 import os
 import argparse
 import logging
-from itertools import zip_longest
-import shutil
 import json
 import subprocess
 #import string
@@ -26,8 +24,9 @@ import yaml
 
 #--- project specific imports
 #
-from pipelines import get_pipeline_version, get_site, get_init_call, get_rpd_vars, hash_for_fastq
+from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config
+from pipelines import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
@@ -99,64 +98,6 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     return pipeline_config_out
 
 
-def get_reads_unit_from_cfgfile(cfgfile):
-    """FIXME:add-doc"""
-    read_units = []
-    with open(cfgfile) as fh_cfg:
-        for entry in yaml.safe_load(fh_cfg):
-            if len(entry) == 6:
-                rg_id = None
-                [run_id, flowcell_id, library_id, lane_id, fq1, fq2] = entry
-                ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
-                ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-            elif len(entry) == 7:
-                [run_id, flowcell_id, library_id, lane_id, fq1, fq2, rg_id] = entry
-                ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
-            else:
-                LOG.fatal("Couldn't parse read unit from '{}'".format(entry))
-                raise ValueError(entry)
-            read_units.append(ru)
-    return read_units
-
-
-def get_reads_unit_from_args(fqs1, fqs2):
-    """FIXME:add-doc"""
-
-    read_units = []
-    print_fq_sort_warning = False
-    # sorting here should ensure R1 and R2 match
-    fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
-    fq_pairs_orig = set(zip_longest(fqs1, fqs2))
-    for (fq1, fq2) in fq_pairs:
-        if (fq1, fq2) not in fq_pairs_orig:
-            print_fq_sort_warning = True
-        run_id = flowcell_id = library_id = lane_id = rg_id = None
-        ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
-        ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-        read_units.append(ru)
-    if print_fq_sort_warning:
-        LOG.warn("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
-            ' \n'.join(["{} and {}".format(fq1, fq2) for fq1, fq2 in fq_pairs])))
-    return read_units
-
-
-def key_for_read_unit(ru):
-    """used for file nameing hence made unique based on fastq file names
-    """
-    return hash_for_fastq(ru.fq1, ru.fq2)
-
-
-def create_rg_id_from_ru(ru):
-    """Same RG for files coming from same source. If no source info is
-    given use fastq files names
-    """
-    if all([ru.run_id, ru.library_id, ru.lane_id]):
-        return "{}.{}".format(ru.run_id, ru.lane_id)
-    elif ru.fq1:
-        # no source info? then use fastq file names
-        return hash_for_fastq(ru.fq1, ru.fq2)
-
-
 def main():
     """main function
     """
@@ -221,7 +162,7 @@ def main():
 
     LOG.info("Writing config and rc files")
 
-    write_cluster_config(args.outdir)
+    write_cluster_config(args.outdir, BASEDIR)
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'sample': args.sample}# needed for file naming
@@ -247,9 +188,9 @@ def main():
     write_snakemake_env(os.path.join(args.outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
 
     site = get_site()
-    if site == "gis":
+    if site == "gis" or site=="nscc":
         LOG.info("Writing the run file for site {}".format(site))
-        run_template = os.path.join(BASEDIR, "run.template.sh")
+        run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
         run_out = os.path.join(args.outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
         # the rules import won't work.  so use the original file
@@ -274,8 +215,8 @@ def main():
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
-            LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
-            LOG.warn("Once ready submit with: {}".format(cmd))
+            LOG.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
+            LOG.warning("Once ready submit with: {}".format(cmd))
         else:
             LOG.info("Starting pipeline: {}".format(cmd))
             os.chdir(os.path.dirname(run_out))
