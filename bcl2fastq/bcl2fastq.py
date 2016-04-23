@@ -386,10 +386,12 @@ def main():
 
         if args.master_q:
             master_q_arg = "-q {}".format(args.master_q)
-        elif site == "nscc":
+        else:
             if DEFAULT_MASTER_Q[site] is not None:
                 master_q_arg = "-q {}".format(DEFAULT_MASTER_Q[site])
-
+            else:
+                master_q_arg = ""
+                
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
