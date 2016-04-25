@@ -25,8 +25,8 @@ def bcl2fastq_threads_setting(num_threads):
 
     Illumina defaults:
     - 4 threads for reading the data:    -r, --loading-thread
-    - 4 threads for writing the data:    -d, --demultiplexing-threads
-    - 20% for demultiplexing data:       -w, --writing-threads
+    - 4 threads for writing the data:    -w, --writing-threads
+    - 20% for demultiplexing data:       -d, --demultiplexing-threads
     - 100% for processing demultiplexed: -p, --processing-threads
     
     Percent here given as percent of total CPU on system which in our
@@ -38,10 +38,10 @@ def bcl2fastq_threads_setting(num_threads):
     """
 
     r = min([4, num_threads])
-    d = min([4, num_threads])
-    w = ceil(0.2 * num_threads)
+    w = min([4, num_threads])
+    d = ceil(0.2 * num_threads)
     p = ceil(1.0 * num_threads)
-    return " -r {} -d {} -w {} -p {}".format(r, d, w, p)
+    return " -r {} -w {} -d {} -p {}".format(r, w, d, p)
 
 
 def get_mux_dirs():
