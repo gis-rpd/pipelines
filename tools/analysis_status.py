@@ -35,13 +35,15 @@ def jid_is_running(jid, is_pbspro):
     else:
         cmd = ['qstat', '-j', jid]
     try:
-        _res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         return True
     except subprocess.CalledProcessError as e:
         if is_pbspro:
-            assert 'has finished' in e.output.decode(), (e.output.decode())
+            # Unknown Job Id happens on log rotation.
+            if not any(['Unknown Job Id' in x for x in [e.output.decode(), e.output.decode()]]):
+                assert any(['has finished' in x for x in [e.output.decode(), e.output.decode()]])
         else:
-            assert "Following jobs do not exist" in e.output.decode(), (e.output.decode())
+            assert any(["Following jobs do not exist" in x for x in [e.output.decode(), e.output.decode()]])
             # otherwise communication error?
             return False
 
@@ -71,7 +73,7 @@ def jid_from_cluster_logfile(logfile):
 def main():
     """main function
     """
-    
+
     # should atually check first if we run qstat at all
     try:
         res = subprocess.check_output(['qstat', '--version'], stderr=subprocess.STDOUT)
@@ -82,7 +84,7 @@ def main():
             is_pbspro = True
         else:
             raise ValueError(res.decode())
-        
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('dir', nargs=1,
                         help="Analysis directory (output dir of pipeline wrapper)")
@@ -105,7 +107,7 @@ def main():
     if not os.path.exists(logdir):
         LOG.fatal("Couldn't find expected log directory in {}".format(args.dir[0]))
         sys.exit(1)
-    
+
 
     cluster_logfiles = []
     # LFS
@@ -123,7 +125,7 @@ def main():
 
     submissionlog = os.path.join(logdir, SUBMISSIONLOG)
     if not os.path.exists(submissionlog):
-        LOG.warn("Submission logfile {} not found: job not submitted".format(submissionlog))
+        LOG.warning("Submission logfile {} not found: job not submitted".format(submissionlog))
     else:
         with open(submissionlog) as fh:
             for line in fh:
@@ -134,7 +136,7 @@ def main():
                         print("Master jid {} still running (status?)".format(jid))# FIXME
                     else:
                         print("Master jid {} not running (anymore).".format(jid))
-                    
+
                 elif line.startswith("Your job") and line.endswith("has been submitted"):
                     jid = line.split()[2]
                     if jid_is_running(jid, is_pbspro):
@@ -144,10 +146,10 @@ def main():
                 else:
                     raise ValueError(line)
 
-                
+
     masterlog = os.path.join(logdir, MASTERLOG)
     if not os.path.exists(masterlog):
-        LOG.warn("Master logfile {} not found: job not (yet) running (might be in queue)".format(masterlog))
+        LOG.warning("Master logfile {} not found: job not (yet) running (might be in queue)".format(masterlog))
     else:
         workflow_done = False
         with open(masterlog) as fh:
