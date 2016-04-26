@@ -158,7 +158,7 @@ def main():
     rest_data = response.json()
 
     run_id = rest_data['runId']
-    counter = 0
+    #counter = 0
     if rest_data['runPass'] != 'Pass':
         LOG.info("Skipping non-passed run")
         sys.exit(0)
@@ -176,17 +176,17 @@ def main():
             
             if "MUX" in rows['libraryId']:
                 # multiplexed
-                counter = 0
+                #counter = 0
                 for child in rows['Children']:
-                    counter += 1
-                    id = 'S' + str(counter)
+                    #counter += 1
+                    #id = 'S' + str(counter)
                     if "-" in child['barcode']:
                         # dual index
                         index = child['barcode'].split('-')
-                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
+                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,,'+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
                         index_lens = (len((index[0])), len((index[1])))
                     else:
-                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,'+id+','+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
+                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,,'+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                         index_lens = (len(child['barcode']), -1)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     fh_out.write(sample+ '\n')
