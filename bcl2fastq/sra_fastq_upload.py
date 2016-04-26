@@ -8,9 +8,7 @@ import logging
 import argparse
 import requests
 import json
-import time
 import yaml
-from getpass import getuser
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -62,15 +60,15 @@ def main():
             data = {}
             req = {}
             req_code = {}
-            mux_dir= v.get('mux_dir')
-            mux_id=v.get('mux_id')
+            mux_dir = v.get('mux_dir')
+            mux_id = v.get('mux_id')
             bcl_success = os.path.join(args.bclpath, "out", mux_dir, "bcl2fastq.SUCCESS")
 
             if os.path.exists(bcl_success):
                 LOG.info("Bcl2fastq completed for {} hence Upload the STATs".format(mux_dir))
-                for child in os.listdir(os.path.join(args.bclpath,"out",mux_dir)):
+                for child in os.listdir(os.path.join(args.bclpath, "out", mux_dir)):
                     if child.startswith('Sample'):
-                        sample_path = os.path.join(args.bclpath,"out",mux_dir, child)
+                        sample_path = os.path.join(args.bclpath, "out", mux_dir, child)
                         libraryId = child.split('_')[-1]
                         data['libraryId'] = libraryId
                         data['muxId'] = mux_id
@@ -99,6 +97,8 @@ def main():
                             LOG.info("Response was {}".format(response.status_code))
                         else:
                             LOG.error("Uploading {} completed failed".format(sample_path))
+            else:
+                LOG.info("Bcl2fastq is not completed for {}".format(mux_dir))
 
 if __name__ == "__main__":
     LOG.info("STATS update starting")
