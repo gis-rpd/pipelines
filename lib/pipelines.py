@@ -11,8 +11,11 @@ import logging
 import shutil
 from datetime import datetime
 import smtplib
+from email.mime.text import MIMEText
 from getpass import getuser
+from itertools import zip_longest
 import socket
+from collections import namedtuple
 
 #--- third-party imports
 #
@@ -28,7 +31,10 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-SERVER = "localhost"
+ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
+                                   'lane_id', 'rg_id', 'fq1', 'fq2'])
+
+
 
 # global logger
 LOG = logging.getLogger()
@@ -72,7 +78,7 @@ def get_site():
     # gis detection is a bit naive... but socket.getfqdn() doesn't help here
     if os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
         return "gis"
-    elif 'nscc' in socket.getfqdn():
+    elif 'nscc' in socket.getfqdn() or socket.getfqdn().startswith('gis01'):
         return "nscc"
     else:
         raise ValueError("unknown site")
@@ -209,38 +215,107 @@ def send_status_mail(pipeline_name, success, id, outdir):
     """
 
     user_name = getuser()
-    FROM = "localhost"
     if user_name == "userrig":
-        # FIXME rpd@mailmain in future
-        TO = ["veeravallil@gis.a-star.edu.sg"] # must be a list
+        # FIXME rpd@mailman.gis.a-star.edu.sg in future
+        toaddr = "veeravallil@gis.a-star.edu.sg"
     else:
-        # testing at NSCC
-        TO = ["{}@gis.a-star.edu.sg".format(user_name)]
+        toaddr = "{}@gis.a-star.edu.sg".format(user_name)
 
-    SUBJECT = "Pipeline {} {} for {}".format(
+    subject = "Pipeline {} {} for {}".format(
         pipeline_name, "completed" if success else "failed", id)
 
-    body = "Pipeline {} {} for {}".format(
-        pipeline_name, "completed" if success else "failed", id)
-
-    body += "\nPlease check logs in {}".format(outdir)
-
-    # FIXME add later: - send questions to rpd@mailman
-    #                  - attach report on success etc
-    message = """\
-    From: %s
-    To: %s
-    Subject: %s
-
-    %s
-    """ % (FROM, ", ".join(TO), SUBJECT, body)
+    body = "Please check logs in {}".format(outdir)
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = "rpd@mailman.gis.a-star.edu.sg"
+    msg['To'] = toaddr
 
     # Send the mail
     try:
-        server = smtplib.SMTP(SERVER)
-        server.sendmail(FROM, TO, message)
+        server = smtplib.SMTP('localhost')
+        server.send_message(msg)
         server.quit()
     except Exception:
         LOG.fatal("Sending mail failed")
         # FIXME consider exit 0 if pipeline breaks
         sys.exit(1)
+
+
+def get_reads_unit_from_cfgfile(cfgfile):
+    """FIXME:add-doc"""
+    read_units = []
+    with open(cfgfile) as fh_cfg:
+        for entry in yaml.safe_load(fh_cfg):
+            if len(entry) == 6:
+                rg_id = None
+                [run_id, flowcell_id, library_id, lane_id, fq1, fq2] = entry
+            elif len(entry) == 7:
+                [run_id, flowcell_id, library_id, lane_id, fq1, fq2, rg_id] = entry
+            else:
+                LOG.fatal("Couldn't parse read unit from '{}'".format(entry))
+                raise ValueError(entry)
+
+            # if we have relative paths, make them abs relative to cfgfile
+            if fq1 and not os.path.isabs(fq1):
+                fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
+            if fq2 and not os.path.isabs(fq2):
+                fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
+
+            ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id,
+                                 rg_id, fq1, fq2])
+            if rg_id == 'None':
+                ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
+            read_units.append(ru)
+    return read_units
+
+
+def get_reads_unit_from_args(fqs1, fqs2):
+    """FIXME:add-doc"""
+
+    read_units = []
+    if not fqs2:
+        fqs2 = len(fqs1)*[None]
+    print_fq_sort_warning = False
+    # sorting here should ensure R1 and R2 match
+    fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
+    fq_pairs_orig = set(zip_longest(fqs1, fqs2))
+    for (fq1, fq2) in fq_pairs:
+        if (fq1, fq2) not in fq_pairs_orig:
+            print_fq_sort_warning = True
+        run_id = flowcell_id = library_id = lane_id = rg_id = None
+        ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
+        ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
+        read_units.append(ru)
+    if print_fq_sort_warning:
+        LOG.warn("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
+            ' \n'.join(["{} and {}".format(fq1, fq2) for fq1, fq2 in fq_pairs])))
+    return read_units
+
+
+def key_for_read_unit(ru):
+    """used for file nameing hence made unique based on fastq file names
+    """
+    return hash_for_fastq(ru.fq1, ru.fq2)
+
+
+def create_rg_id_from_ru(ru):
+    """Same RG for files coming from same source. If no source info is
+    given use fastq files names
+    """
+    if all([ru.run_id, ru.library_id, ru.lane_id]):
+        return "{}.{}".format(ru.run_id, ru.lane_id)
+    elif ru.fq1:
+        # no source info? then use fastq file names
+        return hash_for_fastq(ru.fq1, ru.fq2)
+
+
+def ref_is_indexed(ref, prog="bwa"):
+    """checks whether a reference was already indexed by given program"""
+
+    if prog == "bwa":
+        return all([os.path.exists(ref + ext)
+                    for ext in [".pac", ".ann", ".amb", ".sa"]])
+    elif prog == "samtools":
+        return os.path.exists(ref + ".fai")
+    else:
+        raise ValueError

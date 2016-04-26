@@ -14,12 +14,10 @@ import sys
 import os
 import argparse
 import logging
-from itertools import zip_longest
-import shutil
 import json
 import subprocess
 #import string
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict
 
 #--- third-party imports
 #
@@ -27,17 +25,16 @@ import yaml
 
 #--- project specific imports
 #
-from pipelines import get_pipeline_version, get_site, get_init_call, get_rpd_vars, hash_for_fastq
+from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config
+from pipelines import ref_is_indexed
+from pipelines import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
-
-ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
-                                   'lane_id', 'rg_id', 'fq1', 'fq2'])
 
 BASEDIR = os.path.dirname(sys.argv[0])
 
@@ -99,86 +96,6 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     return pipeline_config_out
 
 
-def get_reads_unit_from_cfgfile(cfgfile):
-    """FIXME:add-doc"""
-    read_units = []
-    with open(cfgfile) as fh_cfg:
-        for entry in yaml.safe_load(fh_cfg):
-            if len(entry) == 6:
-                rg_id = None
-                [run_id, flowcell_id, library_id, lane_id, fq1, fq2] = entry
-            elif len(entry) == 7:
-                [run_id, flowcell_id, library_id, lane_id, fq1, fq2, rg_id] = entry
-            else:
-                LOG.fatal("Couldn't parse read unit from '{}'".format(entry))
-                raise ValueError(entry)
-            
-            # if we have relative paths, make them abs relative to cfgfile
-            if fq1 and not os.path.isabs(fq1):
-                fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
-            if fq2 and not os.path.isabs(fq2):
-                fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
-                
-            ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id,
-                                 rg_id, fq1, fq2])
-            if rg_id == 'None':
-                ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-            read_units.append(ru)
-    return read_units
-
-
-def get_reads_unit_from_args(fqs1, fqs2):
-    """FIXME:add-doc"""
-
-    read_units = []
-    if not fqs2:
-        fqs2 = len(fqs1)*[None]
-    print_fq_sort_warning = False
-    # sorting here should ensure R1 and R2 match
-    fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
-    fq_pairs_orig = set(zip_longest(fqs1, fqs2))
-    for (fq1, fq2) in fq_pairs:
-        if (fq1, fq2) not in fq_pairs_orig:
-            print_fq_sort_warning = True
-        run_id = flowcell_id = library_id = lane_id = rg_id = None
-        ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
-        ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-        read_units.append(ru)
-    if print_fq_sort_warning:
-        LOG.warn("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
-            ' \n'.join(["{} and {}".format(fq1, fq2) for fq1, fq2 in fq_pairs])))
-    return read_units
-
-
-def key_for_read_unit(ru):
-    """used for file nameing hence made unique based on fastq file names
-    """
-    return hash_for_fastq(ru.fq1, ru.fq2)
-
-
-def create_rg_id_from_ru(ru):
-    """Same RG for files coming from same source. If no source info is
-    given use fastq files names
-    """
-    if all([ru.run_id, ru.library_id, ru.lane_id]):
-        return "{}.{}".format(ru.run_id, ru.lane_id)
-    elif ru.fq1:
-        # no source info? then use fastq file names
-        return hash_for_fastq(ru.fq1, ru.fq2)
-
-
-def ref_is_indexed(ref, prog="bwa"):
-    """checks whether a reference was already indexed by given program"""
-
-    if prog == "bwa":
-        return all([os.path.exists(ref + ext)
-                    for ext in [".pac", ".ann", ".amb", ".sa"]])
-    elif prog == "samtools":
-        return os.path.exists(ref + ".fai")
-    else:
-        raise ValueError
-
-    
 def main():
     """main function
     """
@@ -195,7 +112,7 @@ def main():
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name")
     parser.add_argument('-r', "--reffa", required=True,
-                        help="Referenc Fasta file to use (needs to be indexed)")
+                        help="Reference fasta file to use. Needs to be indexed already (bwa index)")
     parser.add_argument('-d', '--mark-dups', action='store_true')
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
@@ -225,7 +142,7 @@ def main():
     if not ref_is_indexed(args.reffa, "bwa"):
         LOG.fatal("Reference '{}' doesn't appear to be indexed".format(args.reffa))
         sys.exit(1)
-    
+
     if args.config:
         if any([args.fq1, args.fq2]):
             LOG.fatal("Config file overrides fastq input arguments. Use one or the other")
@@ -264,7 +181,7 @@ def main():
         user_data['units'][k] = ru._asdict()
     user_data['references'] = {'genome' : args.reffa}
     user_data['mark_dups'] = args.mark_dups
-    
+
     # FIXME could be lists
     elm_data = {'run_id': [ru.run_id for ru in read_units],
                 'library_id': [ru.library_id for ru in read_units],
@@ -309,8 +226,8 @@ def main():
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
-            LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
-            LOG.warn("Once ready submit with: {}".format(cmd))
+            LOG.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
+            LOG.warning("Once ready submit with: {}".format(cmd))
         else:
             LOG.info("Starting pipeline: {}".format(cmd))
             #os.chdir(os.path.dirname(run_out))

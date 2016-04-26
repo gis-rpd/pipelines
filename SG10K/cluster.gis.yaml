@@ -17,10 +17,11 @@
       "time" : "02:00:00",
       "mem" : 1G,
     },
-  
+
+    # longest we've seen on MUX3275@GIS: 28h
     "bq_recal" :
     {
-      "time" : "16:00:00",
+      "time" : "30:00:00",
       "mem" : 8G,
     },
     

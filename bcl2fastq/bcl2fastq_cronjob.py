@@ -13,9 +13,10 @@ import argparse
 import subprocess
 
 # third party imports
+# WARN: need in conda root and snakemake env
 import pymongo
 
-# project specificy imports
+# project specific imports
 # /
 
 
@@ -49,7 +50,7 @@ def mongodb_conn(use_test_server=False):
         LOG.warning("Using test server connection")
         conn_str = "qlap33:27017"
     else:
-        conn_str = "qldb01:27017,qlap37:27017,qlap38:27017,qlap39:27017"
+        conn_str = "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
 
     try:
         connection = pymongo.MongoClient(conn_str)

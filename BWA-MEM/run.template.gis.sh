@@ -43,10 +43,10 @@
 # keep env so that qsub works
 #$ -V
 
-## specify your email address: otherwise no email send
+## email would require @USER@ replacement
 ##$ -M wilma@gis.a-star.edu.sg
 ## mail is sent to you when the job starts and when it terminates or aborts
-##$ -m bea
+##$ -m as
 
 
 DEBUG=0
