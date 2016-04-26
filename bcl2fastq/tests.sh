@@ -54,8 +54,10 @@ test -e Snakefile || exit 1
 test_outdir_base=$RPD_ROOT/testing/output/
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
+echo "Starting tests"
 echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
+echo "Also check log if the check against expected output hold jobs fail"
 
 
 # dryruns
@@ -99,14 +101,16 @@ if [ $skip_real_runs -ne 1 ]; then
         mailopt="-M $(whoami)@gis.a-star.edu.sg -m bea"
         if qstat --version 2>&1 | grep -q PBSPro; then
             # -cwd not available but all paths are absolute so no need
+            # using bash after -- doesn't work: binary expected
             qsub="qsub -q production -l select=1:ncpus=1 -l select=1:mem=1g -l walltime=175:00:00 -j oe -V $mailopt -N $jobname -W depend=afterok:$jid --"
         else
             qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -b y -cwd -V $mailopt -N $jobname -hold_jid $jid"
         fi
-        echo "Starting hold job" | tee -a $log
-        $qsub "bash $(pwd)/test_cmp_in_and_out.sh $exp $odir" >> $log 2>&1
+        echo "Starting comparison against expected output" | tee -a $log
+        echo "Will run (hold job)$(pwd)/test_cmp_in_and_out.sh $exp $odir" | tee -a $log
+        $qsub "$(pwd)/test_cmp_in_and_out.sh $exp $odir" >> $log 2>&1
     done
-    echo "Real-runs tests started. Checking will be performed later"
+    echo "Real-runs tests started. Checking will be performed later."
 else
     echo "Real-run test skipped"
 fi
