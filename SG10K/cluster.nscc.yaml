@@ -1,0 +1,34 @@
+# FIXME needs tweaking
+{
+    # default rules applied to all rules, but overriden by rule-specific settings
+    "__default__" :
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+  
+    "bq_recal" :
+    {
+      "time" : "16:00:00",
+      "mem" : 8G,
+    },
+    
+    "sample_merge" :
+    {
+      "time" : "04:00:00",
+      "mem" : 4G,
+    },
+    
+    "map_mdups_sort" :
+    {
+      "time" : "04:00:00",
+      "mem" : 18G,
+    },
+    
+    "contamination_check" :
+    {
+      "time" : "03:00:00",
+      "mem" : 2G,
+    }
+}    
+                                                                
