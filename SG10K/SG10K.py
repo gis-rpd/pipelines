@@ -171,11 +171,7 @@ def main():
         k = key_for_read_unit(ru)
         user_data['units'][k] = ru._asdict()
 
-    # FIXME could be lists
-    elm_data = {'run_id': [ru.run_id for ru in read_units],
-                'library_id': [ru.library_id for ru in read_units],
-                'lane_id': [ru.lane_id for ru in read_units],
-                'pipeline_name': PIPELINE_NAME,
+    elm_data = {'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),
                 'site': get_site(),
                 'instance_id': 'SET_ON_EXEC',# dummy

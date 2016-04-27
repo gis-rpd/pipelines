@@ -329,23 +329,22 @@ def main():
 
         user_data['units'][k] = mu_dict
 
-    if args.runid:
-        log_library_id = [mu.mux_id for mu in mux_units]# logger allows mux_id and lib_id switching
-        log_lane_id = [mu.lane_ids for mu in mux_units]
-        _, log_run_id, _ = get_machine_run_flowcell_id(args.runid)
-        log_run_id = len(log_lane_id) * [log_run_id]
-    else:
-        log_library_id = log_lane_id = log_run_id = None
-    elm_data = {'run_id': log_run_id,
-                'library_id': log_library_id,
-                'lane_id': log_lane_id,
-                'pipeline_name': PIPELINE_NAME,
+    log_library_id = []
+    log_lane_id = []
+    log_run_id = []
+    # one entry per mux and lane
+    for mu in mux_units:
+        for lane in mu.lane_ids:# can have multiple lanes per mux
+            log_library_id.append(mu.mux_id)# logger allows mux_id and lib_id switching
+            log_lane_id.append(lane)
+            log_run_id.append(mu.run_id)
+        
+    elm_data = {'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),
                 'site': get_site(),
                 'instance_id': 'SET_ON_EXEC',# dummy
                 'submitter': 'SET_ON_EXEC',# dummy
                 'log_path': os.path.abspath(os.path.join(outdir, MASTERLOG))}
-
     pipeline_cfgfile = write_pipeline_config(outdir, user_data, elm_data)
     write_dk_init(os.path.join(outdir, RC['DK_INIT']))
     write_snakemake_init(os.path.join(outdir, RC['SNAKEMAKE_INIT']))

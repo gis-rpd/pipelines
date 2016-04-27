@@ -9,14 +9,15 @@ import json
 from collections import OrderedDict
 from collections import namedtuple
 
-# run_id is without flowcell id
-UnitId = namedtuple('UnitId', ['run_id', 'library_id', 'lane_id'])
+from pipelines import generate_timestamp
 
 
-def timestamp():
-    """returns iso timestamp down to ms"""
-    return datetime.now().isoformat()
-
+ElmUnit = namedtuple('ElmUnit', [
+    'run_id', # without flowcell id
+    'library_id',# MUX for bcl2fastq, otherwise (component-)lib
+    'lane_id',
+    'outdir',
+    'library_file_size'])
 
 
 class ElmLogging(object):
@@ -34,8 +35,11 @@ class ElmLogging(object):
 
     @staticmethod
     def disk_usage(path):
-        """disk usage via du"""
-        return int(subprocess.check_output(['du', '-s', path]).split()[0])
+        """disk usage via du. return -1 if not existant"""
+        if not os.path.exists(path):
+            return -1
+        else:
+            return int(subprocess.check_output(['du', '-s', path]).split()[0])
 
 
     def __init__(self,
@@ -46,11 +50,10 @@ class ElmLogging(object):
                  site,
                  instance_id,
                  log_path,# main logging file
-                 result_outdir,# where results are stored
-                 unit_ids):# list of namedtuples
+                 elm_units):
         """FIXME:add-doc"""
 
-        assert isinstance(unit_ids, list)
+        assert isinstance(elm_units, list)
 
         elmlogdir = os.getenv('RPD_ELMLOGDIR')
         assert elmlogdir, ("RPD_ELMLOGDIR undefined")
@@ -60,14 +63,12 @@ class ElmLogging(object):
             "pipeline log dir {} doesn't exist".format(pipelogdir))
 
         # timestamp just a way to make it unique
-        logfile = os.path.join(pipelogdir, timestamp() + ".log")
+        logfile = os.path.join(pipelogdir, generate_timestamp() + ".log")
         assert not os.path.exists(logfile)
         self.logfile = logfile
 
         # only used as logging prefix (not even parsed by ELM)
         self.script_name = script_name
-        # required for computing library_file_size
-        self.result_outdir = result_outdir
 
         # json-like values
         self.fields = OrderedDict()
@@ -79,10 +80,9 @@ class ElmLogging(object):
         self.fields['submitter'] = submitter
         self.fields['log_path'] = log_path
         # internally computed
-        self.fields['library_file_size'] = None
         self.fields['status_id'] = None
 
-        self.unit_ids = unit_ids
+        self.elm_units = elm_units
 
 
     def write_event(self):
@@ -91,9 +91,10 @@ class ElmLogging(object):
 
         with open(self.logfile, 'a') as fh:
             timestr = datetime.now().strftime('%c')
-            for unit_id in self.unit_ids:
-                # convert None to 'NA' and all to str
-                dump = unit_id._asdict()
+            for eu in self.elm_units:
+                # convert None to 'NA' and all to str, except outdir which was only needed for library_file_size
+                dump = eu._asdict()
+                del dump['outdir']
                 for (k, v) in self.fields.items():
                     assert k not in dump
                     dump[k] = str(v) if v else "NA"
@@ -119,6 +120,7 @@ class ElmLogging(object):
         else:
             # troubleshooting
             self.fields['status_id'] = 7
-        self.fields['library_file_size'] = self.disk_usage(
-            self.result_outdir)
+        # update library_file_size per elm unit based on outdir
+        self.elm_units = [eu._replace(library_file_size=self.disk_usage(eu.outdir))
+                          for eu in self.elm_units]
         self.write_event()
