@@ -71,11 +71,16 @@ def main():
 
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-1', "--break-after-first", action='store_true', help="Only process first run returned")
-    parser.add_argument('-n', "--dry-run", action='store_true', help="Don't run anything")
-    parser.add_argument('-t', "--testing", action='store_true', help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
-    parser.add_argument('-e', "--wrapper-args", help="Extra arguments for bcl2fastq wrapper (prefix leading dashes with X)")
-    parser.add_argument('-q', '--quiet', action='store_true', help="Be quiet (only print warnings)")
+    parser.add_argument('-1', "--break-after-first", action='store_true',
+                        help="Only process first run returned")
+    parser.add_argument('-n', "--dry-run", action='store_true',
+                        help="Don't run anything")
+    parser.add_argument('-t', "--testing", action='store_true',
+                        help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
+    parser.add_argument('-e', "--wrapper-args", nargs="*",
+                        help="Extra arguments for bcl2fastq wrapper (prefix leading dashes with X, e.g. X-n for -n)")
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help="Be quiet (only print warnings)")
     args = parser.parse_args()
 
     if args.quiet:
@@ -112,7 +117,7 @@ def main():
         if args.testing:
             cmd.append("-t")
         if args.wrapper_args:
-            cmd.extend([x.lstrip('X') for x in args.wrapper_args.split()])
+            cmd.extend([x.lstrip('X') for x in args.wrapper_args])
         if args.dry_run:
             LOG.warn("Didn't run {}".format(' '.join(cmd)))
             continue            
