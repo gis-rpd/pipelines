@@ -68,7 +68,6 @@ def main():
                 LOG.info("Bcl2fastq completed for {} hence Upload the STATs".format(mux_dir))
                 index_html_path = glob.glob(os.path.join(args.bclpath, "out", mux_dir, "html/*/all/all/all/lane.html"))
                 index_html = index_html_path[0]
-                print(index_html_path)
                 if os.path.exists(index_html):
                     LOG.info("Bcl2fastq completed for {} hence Upload the STATs".format(mux_dir))
                     data['path'] = index_html
