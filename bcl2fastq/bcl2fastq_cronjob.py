@@ -28,7 +28,7 @@ __license__ = "The MIT License (MIT)"
 
 # global logger
 # http://docs.python.org/library/logging.html
-LOG = logging.getLogger("")
+LOG = logging.getLogger(__name__)
 
 
 
@@ -80,10 +80,10 @@ def main():
 
     if args.quiet:
         logging.basicConfig(level=logging.WARN,
-            format='%(levelname)s [%(asctime)s]: %(message)s')
+            format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
     else:
         logging.basicConfig(level=logging.INFO,
-            format='%(levelname)s [%(asctime)s]: %(message)s')
+            format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
             
     connection = mongodb_conn(args.testing)
     db = connection.gisds.runcomplete

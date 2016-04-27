@@ -66,7 +66,7 @@ DEFAULT_MASTER_Q = {'gis': None,
                     'nscc': 'production'}
         
 # global logger
-LOG = logging.getLogger()
+LOG = logging.getLogger(__name__)
 
 
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
@@ -210,7 +210,7 @@ def main():
     # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
     logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
     logging.basicConfig(level=logging_level,
-                        format='%(levelname)s [%(asctime)s]: %(message)s')
+                        format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
 
     if args.mismatches is not None:
         if args.mismatches > 2 or args.mismatches < 0:
