@@ -42,7 +42,7 @@ R2S3=$NA12878_DIR/ERR091571_2_split000003_1konly.fastq.gz
 SPLIT1KONLY_PE_CFG=$NA12878_DIR/split1konly_pe.yaml
 SPLIT1KONLY_SR_CFG=$NA12878_DIR/split1konly_sr.yaml
 
-REFFA=$(readlink -f ../../../../genomes.testing/human_g1k_v37/human_g1k_v37.fasta)
+REFFA=$RPD_ROOT/genomes.testing/human_g1k_v37/human_g1k_v37.fasta
 
 for f in $R1S1 $R1S2 $R1S3 $R2S1 $R2S2 $R2S3 $REFFA; do
     if [ ! -e $f ]; then

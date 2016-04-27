@@ -182,11 +182,7 @@ def main():
     user_data['references'] = {'genome' : args.reffa}
     user_data['mark_dups'] = args.mark_dups
 
-    # FIXME could be lists
-    elm_data = {'run_id': [ru.run_id for ru in read_units],
-                'library_id': [ru.library_id for ru in read_units],
-                'lane_id': [ru.lane_id for ru in read_units],
-                'pipeline_name': PIPELINE_NAME,
+    elm_data = {'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),
                 'site': get_site(),
                 'instance_id': 'SET_ON_EXEC',# dummy

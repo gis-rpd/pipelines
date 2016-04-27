@@ -69,7 +69,6 @@ onstart:# available as patched snakemake 3.5.5
 
     elm_units = []
     for unit in config['units'].values():
-        sys.stderr.write("TMP DEBUG unit={}\n".format(unit))
         for lane in unit['lane_ids']:
             eu = ElmUnit._make([unit['run_id'], unit['mux_id'], lane, os.path.join(RESULT_OUTDIR, unit['mux_dir']), None])
             elm_units.append(eu)
