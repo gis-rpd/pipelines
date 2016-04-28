@@ -22,10 +22,11 @@ __license__ = "The MIT License (MIT)"
 
 
 # global logger
-# http://docs.python.org/library/logging.html
-LOG = logging.getLogger("")
-logging.basicConfig(level=logging.INFO,
-                    format='%(levelname)s [%(asctime)s]: %(message)s')
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
+logger.addHandler(handler)
 
 
 def usage():
@@ -37,17 +38,17 @@ def usage():
 def mongodb_conn(test_server=False):
     """start connection to server and return conncetion"""
     if test_server:
-        LOG.warning("Using test server connection")
+        logger.warning("Using test server connection")
         conn_str = "qlap33:27017"
         
     else:
-        LOG.warning("Using Productionserver connection")
+        logger.warning("Using Productionserver connection")
         conn_str = "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
 
     try:
         connection = pymongo.MongoClient(conn_str)
     except pymongo.errors.ConnectionFailure:
-        LOG.fatal("Could not connect to the mongoDB server")
+        logger.fatal("Could not connect to the mongoDB server")
         sys.exit(1)
     return connection
     
@@ -64,25 +65,39 @@ def main():
                         help="Analysis id",required=True)                   
     #parser.add_argument('-n', "--dry-run", action='store_true')
     parser.add_argument('-t', "--test_server", action='store_true')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                            help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                            help="Decrease verbosity")
     args = parser.parse_args()
 
+    # Repeateable -v and -q for setting logging level.
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no logging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
     
     user_name = getpass.getuser()
     if user_name != "userrig":
-        LOG.warn("Not a production user. Skipping MongoDb update")
+        logger.warn("Not a production user. Skipping MongoDb update")
         sys.exit(0)
 
         
     run_number = args.runid
     connection = mongodb_conn(args.test_server)
-    LOG.info("Database connection established")
+    logger.info("Database connection established")
     db = connection.gisds.runcomplete
-    LOG.debug("DB {}".format(db))
+    logger.debug("DB {}".format(db))
     
     start_time = args.id    
-    LOG.info("Database connection established {}".format(run_number))
+    logger.info("Database connection established {}".format(run_number))
     if args.status == "START":
-        LOG.info("Status updte is START {}".format(start_time))
+        logger.info("Status updte is START {}".format(start_time))
         try:
             db.update({"run": run_number},
             {"$push": 
@@ -93,11 +108,11 @@ def main():
             }}})
                 
         except pymongo.errors.OperationFailure:
-            LOG.fatal("mongoDB OperationFailure")
+            logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
     elif args.status == "SUCCESS":
         end_time = generate_timestamp()
-        LOG.info("Status updte is END and timestamp {}".format(end_time))
+        logger.info("Status updte is END and timestamp {}".format(end_time))
         try:
             db.update({"run": run_number, 'analysis.analysis_id' : start_time},
                 {"$set": 
@@ -109,13 +124,13 @@ def main():
                         "Status" :  "SUCCESS"
             }}})
         except pymongo.errors.OperationFailure:
-            LOG.fatal("mongoDB OperationFailure")
+            logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
         
     elif args.status == "FAILED":
-        LOG.info("Send FAILEURE message")
+        logger.info("Send FAILEURE message")
         end_time = generate_timestamp()
-        LOG.info("Status updte is FAILED and timestamp {}".format(end_time))
+        logger.info("Status updte is FAILED and timestamp {}".format(end_time))
         print (end_time)
         try:
             db.update({"run": run_number, 'analysis.analysis_id' : start_time},
@@ -128,7 +143,7 @@ def main():
                         "Status" :  "FAILED"
             }}})
         except pymongo.errors.OperationFailure:
-            LOG.fatal("mongoDB OperationFailure")
+            logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
         
     # close the connection to MongoDB
@@ -137,6 +152,6 @@ def main():
     
 
 if __name__ == "__main__":
-    LOG.info("MongoDB status update starting")
+    logger.info("MongoDB status update starting")
     main()
-    LOG.info("Successful program exit")
+    logger.info("Successful program exit")

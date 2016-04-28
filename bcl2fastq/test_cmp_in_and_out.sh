@@ -19,11 +19,15 @@ ls -d $outd/out/Project_* || exit 1
 
 testf=$outd/out/fq_test_vs_exp.txt
 # reference to Project and sample is a bit paranoid. Would work on parent directory a well
+# see README in the $expf folder for more info on how to run this
 for fqc in $(find $outd/out/Project_*/Sample_*/ -name \*fastqc.zip); do
-    fq=${fqc%_fastqc.zip}.fastq.gz;
-    nreads=$(unzip -p $fqc \*fastqc_data.txt | awk '/Total Sequences/ {print $NF}');
+    tmp=$(mktemp)
+    unzip -p $fqc \*fastqc_data.txt > $tmp
+    fq=$(dirname $fqc)/$(awk '/Filename/ {print $NF}' $tmp)
+    nreads=$(awk '/Total Sequences/ {print $NF}' $tmp)
+    rm $tmp
     echo $(echo $fq | sed -e 's,.*Project_,Project_,') $nreads;
-done | sed 's,.*Proj,Proj,' | sort -k 1 > $testf
+done | sed -e 's,.*Proj,Proj,' -e 's,_S[0-9]\+_,_SX_,' | sort -k 1 > $testf
 
 if ! diff -u $testf $expf >/dev/null; then
     echo "ERROR Entries differ (compare $testf with expected $expf)" 1>&2

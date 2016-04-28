@@ -35,9 +35,13 @@ ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
                                    'lane_id', 'rg_id', 'fq1', 'fq2'])
 
 
-
 # global logger
-LOG = logging.getLogger()
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
+logger.addHandler(handler)
+
 
 INIT = {
     'gis': "/mnt/projects/rpd/init",
@@ -68,7 +72,7 @@ def is_devel_version():
     """checks whether this is a developers version of production
     """
     check_file = os.path.abspath(os.path.join(PIPELINE_BASEDIR, "DEVELOPERS_VERSION"))
-    #LOG.debug("check_file = {}".format(check_file))
+    #logger.debug("check_file = {}".format(check_file))
     return os.path.exists(check_file)
 
 
@@ -107,7 +111,7 @@ def get_rpd_vars():
     try:
         res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
-        LOG.fatal("Couldn't call init as '{}'".format(' '.join(cmd)))
+        logger.fatal("Couldn't call init as '{}'".format(' '.join(cmd)))
         raise
 
     rpd_vars = dict()
@@ -115,7 +119,7 @@ def get_rpd_vars():
         if line.startswith('export '):
             line = line.replace("export ", "")
             line = ''.join([c for c in line if c not in '";\''])
-            #LOG.debug("line = {}".format(line))
+            #logger.debug("line = {}".format(line))
             k, v = line.split('=')
             rpd_vars[k.strip()] = v.strip()
     return rpd_vars
@@ -236,7 +240,7 @@ def send_status_mail(pipeline_name, success, id, outdir):
         server.send_message(msg)
         server.quit()
     except Exception:
-        LOG.fatal("Sending mail failed")
+        logger.fatal("Sending mail failed")
         # FIXME consider exit 0 if pipeline breaks
         sys.exit(1)
 
@@ -252,7 +256,7 @@ def get_reads_unit_from_cfgfile(cfgfile):
             elif len(entry) == 7:
                 [run_id, flowcell_id, library_id, lane_id, fq1, fq2, rg_id] = entry
             else:
-                LOG.fatal("Couldn't parse read unit from '{}'".format(entry))
+                logger.fatal("Couldn't parse read unit from '{}'".format(entry))
                 raise ValueError(entry)
 
             # if we have relative paths, make them abs relative to cfgfile
@@ -287,7 +291,7 @@ def get_reads_unit_from_args(fqs1, fqs2):
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         read_units.append(ru)
     if print_fq_sort_warning:
-        LOG.warn("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
+        logger.warn("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
             ' \n'.join(["{} and {}".format(fq1, fq2) for fq1, fq2 in fq_pairs])))
     return read_units
 

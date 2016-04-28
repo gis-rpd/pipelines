@@ -25,8 +25,11 @@ MASTERLOG = "snakemake.log"
 SUBMISSIONLOG = "submission.log"
 
 # global logger
-LOG = logging.getLogger()
-
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
+logger.addHandler(handler)
 
 
 def jid_is_running(jid, is_pbspro):
@@ -91,24 +94,30 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('dir', nargs=1,
                         help="Analysis directory (output dir of pipeline wrapper)")
-    parser.add_argument('-v', '--verbose', action='count', default=0)
-    parser.add_argument('-q', '--quiet', action='count', default=0)
-
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                            help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                            help="Decrease verbosity")
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
-    # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
-    logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
-    logging.basicConfig(level=logging_level,
-                        format='%(levelname)s [%(asctime)s]: %(message)s')
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no logging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
 
     if not os.path.exists(args.dir[0]):
-        LOG.fatal("Log directory {} doesn't exist".format(args.dir[0]))
+        logger.fatal("Log directory {} doesn't exist".format(args.dir[0]))
         sys.exit(1)
     logdir = os.path.join(args.dir[0], 'logs')
     if not os.path.exists(logdir):
-        LOG.fatal("Couldn't find expected log directory in {}".format(args.dir[0]))
+        logger.fatal("Couldn't find expected log directory in {}".format(args.dir[0]))
         sys.exit(1)
 
 
@@ -128,7 +137,7 @@ def main():
 
     submissionlog = os.path.join(logdir, SUBMISSIONLOG)
     if not os.path.exists(submissionlog):
-        LOG.warning("Submission logfile {} not found: job not submitted".format(submissionlog))
+        logger.warning("Submission logfile {} not found: job not submitted".format(submissionlog))
     else:
         with open(submissionlog) as fh:
             for line in fh:
@@ -152,7 +161,7 @@ def main():
 
     masterlog = os.path.join(logdir, MASTERLOG)
     if not os.path.exists(masterlog):
-        LOG.warning("Master logfile {} not found: job not (yet) running (might be in queue)".format(masterlog))
+        logger.warning("Master logfile {} not found: job not (yet) running (might be in queue)".format(masterlog))
     else:
         workflow_done = False
         with open(masterlog) as fh:

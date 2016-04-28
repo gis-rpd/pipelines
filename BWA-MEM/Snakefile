@@ -1,8 +1,8 @@
 import os
 import getpass
 from snakemake.utils import report
-from pipelines import send_status_mail
-from elmlogger import ElmLogging, UnitId, timestamp
+from pipelines import send_status_mail, generate_timestamp
+from elmlogger import ElmLogging, ElmUnit
 
 
 RESULT_OUTDIR = './out'
@@ -77,21 +77,23 @@ include: "../rules/samtools.rules"
 onstart:# available as patched snakemake 3.5.5
     global elm_logger
 
-    if config['ELM']['run_id'] or config['ELM']['library_id'] or config['ELM']['lane_id']:
-        unit_ids = [UnitId._make(x) for x in zip(
-            config['ELM']['run_id'], config['ELM']['library_id'], config['ELM']['lane_id'])]
-    else:
-        unit_ids = [UnitId._make(['NA', 'NA', 'NA'])]
-        
+    elm_units = []
+    for unit in config['units'].values():
+        # For non-bcl2fastq pipelines use the input as library_files
+        library_files = [unit['fq1']]
+        if 'fq2' in unit and unit['fq2'] is not None:
+            library_files.append(unit['fq2'])
+        eu = ElmUnit._make([unit['run_id'], unit['library_id'], unit['lane_id'], library_files, None])
+        elm_units.append(eu)
+            
     elm_logger = ElmLogging(workflow.snakefile,
                             config['ELM']['pipeline_name'],
                             config['ELM']['pipeline_version'],
                             getuser(),#SET_ON_EXEC
                             config['ELM']['site'],
-                            timestamp(),# crutch: master jid would be best, but site dependent. log location unknown. how to treat manual runs?
+                            generate_timestamp(),# crutch: master jid would be best, but impossible to get here
                             config['ELM']['log_path'],#SET_ON_EXEC
-                            RESULT_OUTDIR,
-                            unit_ids)
+                            elm_units)
     elm_logger.start()
 onsuccess:
     elm_logger.stop(True)

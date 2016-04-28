@@ -2,8 +2,8 @@ import os
 from math import ceil
 from snakemake.utils import report
 from getpass import getuser
-from pipelines import send_status_mail
-from elmlogger import ElmLogging, UnitId, timestamp
+from pipelines import send_status_mail, generate_timestamp
+from elmlogger import ElmLogging, ElmUnit
 
 RESULT_OUTDIR = './out'
 
@@ -67,21 +67,20 @@ def mongodb_test_arg():
 onstart:# available as patched snakemake 3.5.5
     global elm_logger
 
-    if config['ELM']['run_id'] or config['ELM']['library_id'] or config['ELM']['lane_id']:
-        unit_ids = [UnitId._make(x) for x in zip(
-            config['ELM']['run_id'], config['ELM']['library_id'], config['ELM']['lane_id'])]
-    else:
-        unit_ids = [UnitId._make(['NA', 'NA', 'NA'])]
-        
+    elm_units = []
+    for unit in config['units'].values():
+        for lane in unit['lane_ids']:
+            eu = ElmUnit._make([unit['run_id'], unit['mux_id'], lane, os.path.join(RESULT_OUTDIR, unit['mux_dir']), None])
+            elm_units.append(eu)
+            
     elm_logger = ElmLogging(workflow.snakefile,
                             config['ELM']['pipeline_name'],
                             config['ELM']['pipeline_version'],
                             getuser(),#SET_ON_EXEC
                             config['ELM']['site'],
-                            timestamp(),# crutch: master jid would be best, but site dependent. log location unknown. how to treat manual runs?
+                            generate_timestamp(),# crutch: master jid would be best, but impossible to get here
                             config['ELM']['log_path'],#SET_ON_EXEC
-                            RESULT_OUTDIR,
-                            unit_ids)
+                            elm_units)
     elm_logger.start()
 
     
@@ -145,7 +144,7 @@ def barcode_mismatch_arg_for_mux(wildcards):
         arg = '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches'])
     else:
         arg = ""
-    return ""
+    return arg
 
 
 rule bcl2fastq:
