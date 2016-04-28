@@ -16,7 +16,7 @@ ElmUnit = namedtuple('ElmUnit', [
     'run_id', # without flowcell id
     'library_id',# MUX for bcl2fastq, otherwise (component-)lib
     'lane_id',
-    'outdir',
+    'library_files',# Should be list of files or directories
     'library_file_size'])
 
 
@@ -34,12 +34,23 @@ class ElmLogging(object):
 
 
     @staticmethod
-    def disk_usage(path):
-        """disk usage via du. return -1 if not existant"""
-        if not os.path.exists(path):
+    def disk_usage(paths):
+        """disk usage via du. return -1 if not existant. works on files as well"""
+        if not paths:
             return -1
-        else:
-            return int(subprocess.check_output(['du', '-s', path]).split()[0])
+        
+        cmd = ['du', '-sc']
+        cmd.extend(paths)
+        try:
+            res = subprocess.check_output(cmd)
+        except subprocess.CalledProcessError:
+            return -1
+        
+        total_line = res.decode().splitlines()[-1]
+        if not total_line.endswith("total"):
+            return -1
+        size = int(total_line.split()[0])
+        return size
 
 
     def __init__(self,
@@ -92,9 +103,9 @@ class ElmLogging(object):
         with open(self.logfile, 'a') as fh:
             timestr = datetime.now().strftime('%c')
             for eu in self.elm_units:
-                # convert None to 'NA' and all to str, except outdir which was only needed for library_file_size
+                # convert None to 'NA' and all to str, except library_files which was only needed for library_file_size
                 dump = eu._asdict()
-                del dump['outdir']
+                del dump['library_files']
                 for (k, v) in self.fields.items():
                     assert k not in dump
                     dump[k] = str(v) if v else "NA"
@@ -120,7 +131,7 @@ class ElmLogging(object):
         else:
             # troubleshooting
             self.fields['status_id'] = 7
-        # update library_file_size per elm unit based on outdir
-        self.elm_units = [eu._replace(library_file_size=self.disk_usage(eu.outdir))
+        # update library_file_size per elm unit based on library_file_size
+        self.elm_units = [eu._replace(library_file_size=self.disk_usage(eu.library_files))
                           for eu in self.elm_units]
         self.write_event()

@@ -54,8 +54,13 @@ RC = {
     'SNAKEMAKE_ENV' : 'snakemake_env.rc',# used as bash prefix within snakemakejobs
 }
 
+
 # global logger
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[{asctime}] {filename} {levelname:8s} {message}', style='{'))
+logger.addHandler(handler)
 
 
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
@@ -66,7 +71,7 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
 
     rpd_vars = get_rpd_vars()
     for k, v in rpd_vars.items():
-        LOG.debug("{} : {}".format(k, v))
+        logger.debug("{} : {}".format(k, v))
 
     pipeline_config_in = os.path.join(BASEDIR, "conf.default.yaml".format())
     pipeline_config_out = os.path.join(outdir, "conf.yaml".format())
@@ -131,45 +136,50 @@ def main():
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
-    # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
-    logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
-    logging.basicConfig(level=logging_level,
-                        format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no logging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     if not os.path.exists(args.reffa):
-        LOG.fatal("Reference '{}' doesn't appear to be indexed".format(args.reffa))
+        logger.fatal("Reference '{}' doesn't appear to be indexed".format(args.reffa))
         sys.exit(1)
     if not ref_is_indexed(args.reffa, "bwa"):
-        LOG.fatal("Reference '{}' doesn't appear to be indexed".format(args.reffa))
+        logger.fatal("Reference '{}' doesn't appear to be indexed".format(args.reffa))
         sys.exit(1)
 
     if args.config:
         if any([args.fq1, args.fq2]):
-            LOG.fatal("Config file overrides fastq input arguments. Use one or the other")
+            logger.fatal("Config file overrides fastq input arguments. Use one or the other")
             sys.exit(1)
         if not os.path.exists(args.config):
-            LOG.fatal("Config file {} does not exist".format(args.config))
+            logger.fatal("Config file {} does not exist".format(args.config))
             sys.exit(1)
         read_units = get_reads_unit_from_cfgfile(args.config)
     else:
         read_units = get_reads_unit_from_args(args.fq1, args.fq2)
 
     for ru in read_units:
-        LOG.debug("Checking read unit: {}".format(ru))
+        logger.debug("Checking read unit: {}".format(ru))
         for f in [ru.fq1, ru.fq2]:
             if f and not os.path.exists(f):
-                LOG.fatal("Non-existing input file {}".format(f))
+                logger.fatal("Non-existing input file {}".format(f))
                 sys.exit(1)
 
     if os.path.exists(args.outdir):
-        LOG.fatal("Output directory {} already exists".format(args.outdir))
+        logger.fatal("Output directory {} already exists".format(args.outdir))
         sys.exit(1)
     # also create log dir immediately
     os.makedirs(os.path.join(args.outdir, LOG_DIR_REL))
-    LOG.info("Writing to {}".format(args.outdir))
+    logger.info("Writing to {}".format(args.outdir))
 
 
-    LOG.info("Writing config and rc files")
+    logger.info("Writing config and rc files")
 
     write_cluster_config(args.outdir, BASEDIR)
 
@@ -196,7 +206,7 @@ def main():
 
     site = get_site()
     if site == "gis" or site == "nscc":
-        LOG.info("Writing the run file for site {}".format(site))
+        logger.info("Writing the run file for site {}".format(site))
         run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
         run_out = os.path.join(args.outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
@@ -222,16 +232,16 @@ def main():
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
-            LOG.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
-            LOG.warning("Once ready submit with: {}".format(cmd))
+            logger.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
+            logger.warning("Once ready submit with: {}".format(cmd))
         else:
-            LOG.info("Starting pipeline: {}".format(cmd))
+            logger.info("Starting pipeline: {}".format(cmd))
             #os.chdir(os.path.dirname(run_out))
             _ = subprocess.check_output(cmd, shell=True)
             submission_log_abs = os.path.abspath(os.path.join(args.outdir, SUBMISSIONLOG))
             master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))
-            LOG.info("For submission details see {}".format(submission_log_abs))
-            LOG.info("The (master) logfile is {}".format(master_log_abs))
+            logger.info("For submission details see {}".format(submission_log_abs))
+            logger.info("The (master) logfile is {}".format(master_log_abs))
     else:
         raise ValueError(site)
 
