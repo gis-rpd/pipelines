@@ -81,14 +81,12 @@ def main():
                         test_json = json.dumps(req)
                         data_json = test_json.replace("\\", "")
                         headers = {'content-type': 'application/json'}
-                        print(data_json)
                         if args.test_server == True:
                             rest_url = "http://dlap30v:9002/gismart/search"
                             LOG.info("send status to development server")
                         elif args.test_server == False:
                             LOG.info("FIXME implement the production url")
                             LOG.info("send status to production server")
-
                         response = requests.post(rest_url, data=data_json, headers=headers)
                         print(response.status_code)
                         if response.status_code == requests.codes.ok:

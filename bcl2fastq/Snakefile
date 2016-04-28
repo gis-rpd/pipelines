@@ -144,7 +144,7 @@ def barcode_mismatch_arg_for_mux(wildcards):
         arg = '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches'])
     else:
         arg = ""
-    return ""
+    return arg
 
 
 rule bcl2fastq:
