@@ -30,10 +30,11 @@ __license__ = "The MIT License (MIT)"
 
 
 # global logger
-# http://docs.python.org/library/logging.html
-LOG = logging.getLogger(__name__)
-logging.basicConfig(level=logging.WARNING,
-                    format='[%(asctime)s] %(levelname)s %(filename)s: %(message)s')
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[{asctime}] {filename} {levelname:8s} {message}', style='{'))
+logger.addHandler(handler)
 
 
 SAMPLESHEET_CSV = "samplesheet.csv"
@@ -43,49 +44,23 @@ DEFAULT_BARCODE_MISMATCHES = None
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
 
 
-def cmdline_parser():
-    """
-    creates a argparse instance
-    """
-
-    parser = argparse.ArgumentParser(description=__doc__)
-
-    parser.add_argument("-v", "--verbose",
-                        action="store_true",
-                        help="Be verbose")
-    parser.add_argument("--debug",
-                        action="store_true",
-                        help="Enable debugging")
-    parser.add_argument("--force-overwrite",
-                        action="store_true",
-                        help="Force overwriting of output files")
-    parser.add_argument("-r", "--rundir",
-                        dest="rundir",
-                        required=True,
-                        help="rundir, e.g. /mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX")
-    parser.add_argument("-o", "--outdir",
-                        required=True,
-                        dest="outdir",
-                        help="Output directory")
-    return parser
-
 
 def getdirs(args):
     """gets directories from args and checks existance
     """
     rundir = args.rundir
     if not os.path.exists(rundir):
-        LOG.fatal("rundir '%s' does not exist under Run directory.\n" % (rundir))
+        logger.fatal("rundir '%s' does not exist under Run directory.\n" % (rundir))
         sys.exit(1)
 
     runinfo = os.path.join(rundir + '/RunInfo.xml')
     if not os.path.exists(runinfo):
-        LOG.fatal("RunInfo '%s' does not exist under Run directory.\n" % (runinfo))
+        logger.fatal("RunInfo '%s' does not exist under Run directory.\n" % (runinfo))
         sys.exit(1)
 
     outdir = args.outdir
     if not os.path.exists(outdir):
-        LOG.fatal("output directory '%s' does not exist.\n" % (outdir))
+        logger.fatal("output directory '%s' does not exist.\n" % (outdir))
         sys.exit(1)
 
     return(rundir, outdir, runinfo)
@@ -130,13 +105,36 @@ def main():
     """
     The main function
     """
-    parser = cmdline_parser()
+
+    parser = argparse.ArgumentParser(description=__doc__)
+
+    parser.add_argument("--force-overwrite",
+                        action="store_true",
+                        help="Force overwriting of output files")
+    parser.add_argument("-r", "--rundir",
+                        dest="rundir",
+                        required=True,
+                        help="rundir, e.g. /mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX")
+    parser.add_argument("-o", "--outdir",
+                        required=True,
+                        dest="outdir",
+                        help="Output directory")
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                            help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                            help="Decrease verbosity")
     args = parser.parse_args()
 
-    if args.verbose:
-        LOG.setLevel(logging.INFO)
-    if args.debug:
-        LOG.setLevel(logging.DEBUG)
+    # Repeateable -v and -q for setting logging level.
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no logging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     (rundir, outdir, runinfo) = getdirs(args)
     samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
@@ -144,12 +142,12 @@ def main():
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
     for f in [samplesheet_csv, usebases_cfg, muxinfo_cfg]:
         if not args.force_overwrite and os.path.exists(f):
-            LOG.fatal("Refusing to overwrite existing file {}".format(f))
+            logger.fatal("Refusing to overwrite existing file {}".format(f))
             sys.exit(1)
 
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
 
-    LOG.info("Querying ELM for {}".format(run_num))
+    logger.info("Querying ELM for {}".format(run_num))
     #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     rest_url = 'http://qldb01.gis.a-star.edu.sg:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     response = requests.get(rest_url)
@@ -160,11 +158,11 @@ def main():
     run_id = rest_data['runId']
     #counter = 0
     if rest_data['runPass'] != 'Pass':
-        LOG.info("Skipping non-passed run")
+        logger.info("Skipping non-passed run")
         sys.exit(0)
 
     # this is the master samplesheet
-    LOG.info("Writing to {}".format(samplesheet_csv))
+    logger.info("Writing to {}".format(samplesheet_csv))
     # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
     barcode_lens = {}
     mux_units = dict()
@@ -210,16 +208,16 @@ def main():
             else:
                 mux_units[mu.mux_id] = mu
     
-    LOG.info("Writing to {}".format(usebases_cfg))
+    logger.info("Writing to {}".format(usebases_cfg))
     usebases = generate_usebases(barcode_lens, runinfo)
     with open(usebases_cfg, 'w') as fh:
         fh.write(yaml.dump(dict(usebases=usebases), default_flow_style=True))
 
-    LOG.info("Writing to {}".format(muxinfo_cfg))
+    logger.info("Writing to {}".format(muxinfo_cfg))
     with open(muxinfo_cfg, 'w') as fh:
         fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], default_flow_style=True))
 
 
 if __name__ == "__main__":
     main()
-    LOG.info("Successful program exit")
+    logger.info("Successful program exit")

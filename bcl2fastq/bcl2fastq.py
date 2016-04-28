@@ -66,7 +66,11 @@ DEFAULT_MASTER_Q = {'gis': None,
                     'nscc': 'production'}
         
 # global logger
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[{asctime}] {filename} {levelname:8s} {message}', style='{'))
+logger.addHandler(handler)
 
 
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
@@ -75,7 +79,7 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
 
     rpd_vars = get_rpd_vars()
     for k, v in rpd_vars.items():
-        LOG.debug("{} : {}".format(k, v))
+        logger.debug("{} : {}".format(k, v))
 
     pipeline_config_in = os.path.join(BASEDIR, "conf.default.yaml".format())
     pipeline_config_out = os.path.join(outdir, "conf.yaml".format())
@@ -201,20 +205,28 @@ def main():
                         help="Max. number of allowed barcode mismatches (0>=x<=2)"
                         " setting a value here overrides the default settings read from ELM)")
     parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=0)
-    parser.add_argument('-q', '--quiet', action='count', default=0)
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                        help="Decrease verbosity")
+
 
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
-    # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
-    logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
-    logging.basicConfig(level=logging_level,
-                        format='[%(asctime)s] %(levelname)s %(filename)s: %(message)s')
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no logging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     if args.mismatches is not None:
         if args.mismatches > 2 or args.mismatches < 0:
-            LOG.fatal("Number of mismatches must be between 0-2")
+            logger.fatal("Number of mismatches must be between 0-2")
             sys.exit(1)
 
     lane_info = ''
@@ -223,7 +235,7 @@ def main():
         lane_info = '--tiles '
         for lane in args.lanes:
             if lane > 8 or lane < 1:
-                LOG.fatal("Lane number must be between 1-8")
+                logger.fatal("Lane number must be between 1-8")
                 sys.exit(1)
             else:
                 lane_info += 's_{}'.format(lane)+','
@@ -233,25 +245,25 @@ def main():
 
 
     if args.runid and args.rundir:
-        LOG.fatal("Cannot use run-id and input directory arguments simultaneously")
+        logger.fatal("Cannot use run-id and input directory arguments simultaneously")
         sys.exit(1)
     elif args.runid:
         rundir = run_folder_for_run_id(args.runid)
     elif args.rundir:
         rundir = os.path.abspath(args.rundir)
     else:
-        LOG.fatal("Need either run-id or input directory")
+        logger.fatal("Need either run-id or input directory")
         sys.exit(1)
     if not os.path.exists(rundir):
-        LOG.fatal("Expected run directory {} does not exist".format(rundir))
-    LOG.info("Rundir is {}".format(rundir))
+        logger.fatal("Expected run directory {} does not exist".format(rundir))
+    logger.info("Rundir is {}".format(rundir))
 
     if not args.outdir:
         outdir = get_bcl2fastq_outdir(args.runid)
     else:
         outdir = args.outdir
     assert not os.path.exists(outdir)
-    LOG.info("Writing to {}".format(outdir))
+    logger.info("Writing to {}".format(outdir))
     # create log dir and hence parent dir immediately
     os.makedirs(os.path.join(outdir, LOG_DIR_REL))
 
@@ -265,7 +277,7 @@ def main():
     try:
         _ = subprocess.check_output(cmd)
     except:
-        LOG.fatal("The following command failed: {}".format(' '.join(cmd)))
+        logger.fatal("The following command failed: {}".format(' '.join(cmd)))
         raise
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
     assert os.path.exists(muxinfo_cfg)# just created file
@@ -275,7 +287,7 @@ def main():
     os.unlink(muxinfo_cfg)
 
 
-    LOG.debug("Writing config and rc files")
+    logger.debug("Writing config and rc files")
     write_cluster_config(outdir, BASEDIR)
 
 
@@ -359,7 +371,7 @@ def main():
 
     site = get_site()
     if site == "gis" or site == "nscc":
-        LOG.debug("Writing the run file for site {}".format(site))
+        logger.debug("Writing the run file for site {}".format(site))
         run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
         run_out = os.path.join(outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
@@ -394,16 +406,16 @@ def main():
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
-            LOG.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
-            LOG.warn("Once ready submit with: {}".format(cmd))
+            logger.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
+            logger.warn("Once ready submit with: {}".format(cmd))
         else:
-            LOG.info("Starting pipeline: {}".format(cmd))
+            logger.info("Starting pipeline: {}".format(cmd))
             #os.chdir(os.path.dirname(run_out))
             _ = subprocess.check_output(cmd, shell=True)
             submission_log_abs = os.path.abspath(os.path.join(outdir, SUBMISSIONLOG))
             master_log_abs = os.path.abspath(os.path.join(outdir, MASTERLOG))
-            LOG.info("For submission details see {}".format(submission_log_abs))
-            LOG.info("The (master) logfile is {}".format(master_log_abs))
+            logger.info("For submission details see {}".format(submission_log_abs))
+            logger.info("The (master) logfile is {}".format(master_log_abs))
     else:
         raise ValueError(site)
 
