@@ -69,7 +69,7 @@ DEFAULT_MASTER_Q = {'gis': None,
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
-    '[{asctime}] {filename} {levelname:8s} {message}', style='{'))
+    '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
 
