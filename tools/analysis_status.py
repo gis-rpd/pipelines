@@ -23,7 +23,11 @@ MASTERLOG = "snakemake.log"
 SUBMISSIONLOG = "submission.log"
 
 # global logger
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[{asctime}] {filename} {levelname:8s} {message}', style='{'))
+logger.addHandler(handler)
 
 
 def jid_is_running(jid, is_pbspro):
