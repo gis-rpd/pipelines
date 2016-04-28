@@ -32,8 +32,8 @@ __license__ = "The MIT License (MIT)"
 # global logger
 # http://docs.python.org/library/logging.html
 LOG = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.WARNING,
+                    format='[%(asctime)s] %(levelname)s %(filename)s: %(message)s')
 
 
 SAMPLESHEET_CSV = "samplesheet.csv"
