@@ -150,8 +150,12 @@ def main():
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
 
     LOG.info("Querying ELM for {}".format(run_num))
+    #DEVELOPMENT URL
     #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
+    #PRODUCTION url
     rest_url = 'http://qldb01.gis.a-star.edu.sg:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
+    #NEW DEVELOPMENT url
+    #rest_url = 'http://qldb01:8180/rest/seqrun/illumina/'+ run_num + '/detailanalysis/json'
     response = requests.get(rest_url)
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
@@ -168,18 +172,24 @@ def main():
     # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
     barcode_lens = {}
     mux_units = dict()
+    
     with open(samplesheet_csv, 'w') as fh_out:
         fh_out.write(SAMPLESHEET_HEADER + '\n')
         for rows in rest_data['lanes']:
             if rows['lanePass'] != 'Pass':
                 continue
-            
+            BCL_Mismatch = []
             if "MUX" in rows['libraryId']:
                 # multiplexed
                 #counter = 0
                 for child in rows['Children']:
                     #counter += 1
                     #id = 'S' + str(counter)
+                    try: 
+                        mismatch = (child['BCL_Mismatch'])
+                        BCL_Mismatch.append(mismatch)
+                    except:
+                        continue
                     if "-" in child['barcode']:
                         # dual index
                         index = child['barcode'].split('-')
@@ -190,36 +200,33 @@ def main():
                         index_lens = (len(child['barcode']), -1)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     fh_out.write(sample+ '\n')
-
             else:# non-multiplexed
                 sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
                 index_lens = (-1, -1)
                 barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                 fh_out.write(sample + '\n')
-
-            barcode_mismatches = DEFAULT_BARCODE_MISMATCHES# FIXME get from ELM
-            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])
-            
+            #Barcode mismatch has to be the same for all the libraries in one MUX. Otherwise default software mismatch value to be used
+            if len(set(BCL_Mismatch)) == 1:
+                barcode_mismatches = BCL_Mismatch[0]
+            else:
+                barcode_mismatches = DEFAULT_BARCODE_MISMATCHES# FIXME get from ELM
+            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])          
             # merge lane into existing mux if needed
             if mu.mux_id in mux_units:
                 mu_orig = mux_units[mu.mux_id]
                 assert mu.barcode_mismatches == mu_orig.barcode_mismatches
-                assert len(mu.lane_ids)==1# is a list by design but just one element. otherwise below fails
+                assert len(mu.lane_ids) == 1# is a list by design but just one element. otherwise below fails
                 lane_ids = mu_orig.lane_ids.extend(mu.lane_ids)
                 mu_orig = mu_orig._replace(lane_ids=lane_ids)
             else:
-                mux_units[mu.mux_id] = mu
-    
+                mux_units[mu.mux_id] = mu    
     LOG.info("Writing to {}".format(usebases_cfg))
     usebases = generate_usebases(barcode_lens, runinfo)
     with open(usebases_cfg, 'w') as fh:
         fh.write(yaml.dump(dict(usebases=usebases), default_flow_style=True))
-
     LOG.info("Writing to {}".format(muxinfo_cfg))
     with open(muxinfo_cfg, 'w') as fh:
         fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], default_flow_style=True))
-
-
 if __name__ == "__main__":
     main()
     LOG.info("Successful program exit")
