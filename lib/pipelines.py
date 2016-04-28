@@ -37,7 +37,7 @@ ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
 
 
 # global logger
-LOG = logging.getLogger()
+LOG = logging.getLogger(__name__)
 
 INIT = {
     'gis': "/mnt/projects/rpd/init",

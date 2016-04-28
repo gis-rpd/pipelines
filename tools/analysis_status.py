@@ -23,7 +23,7 @@ MASTERLOG = "snakemake.log"
 SUBMISSIONLOG = "submission.log"
 
 # global logger
-LOG = logging.getLogger()
+LOG = logging.getLogger(__name__)
 
 
 
@@ -97,7 +97,7 @@ def main():
     # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
     logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
     logging.basicConfig(level=logging_level,
-                        format='%(levelname)s [%(asctime)s]: %(message)s')
+                        format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
 
 
     if not os.path.exists(args.dir[0]):
