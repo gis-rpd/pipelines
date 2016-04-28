@@ -275,10 +275,13 @@ def main():
     assert os.path.exists(generate_bcl2fastq)
     cmd = [generate_bcl2fastq, '-r', rundir, '-o', outdir]
     try:
-        _ = subprocess.check_output(cmd)
-    except:
-        logger.fatal("The following command failed: {}".format(' '.join(cmd)))
-        raise
+        _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        logger.fatal("The following command failed with return code {}: {}".format(
+            e.returncode, ' '.join(cmd)))
+        logger.fatal("Output: {}".format(e.output.decode()))
+        logger.fatal("Exiting")
+        sys.exit(1)
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
     assert os.path.exists(muxinfo_cfg)# just created file
     mux_units = get_mux_units_from_cfgfile(muxinfo_cfg, lane_nos)

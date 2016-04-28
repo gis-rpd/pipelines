@@ -134,11 +134,6 @@ def main():
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
-    if args.verbose:
-        logger.setLevel(logging.INFO)
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
-
     (rundir, outdir, runinfo) = getdirs(args)
     samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
     usebases_cfg = os.path.join(outdir, USEBASES_CFG)
