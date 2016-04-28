@@ -34,7 +34,7 @@ onstart:# available as patched snakemake 3.5.5
         library_files = [unit['fq1']]
         if 'fq2' in unit and unit['fq2'] is not None:
             library_files.append(unit['fq2'])
-        eu = ElmUnit._make([unit['run_id'], unit['library_id'], unit['lane_id'], RESULT_OUTDIR, None])
+        eu = ElmUnit._make([unit['run_id'], unit['library_id'], unit['lane_id'], library_files, None])
         elm_units.append(eu)
         
     elm_logger = ElmLogging(workflow.snakefile,

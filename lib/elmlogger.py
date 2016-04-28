@@ -36,16 +36,17 @@ class ElmLogging(object):
     @staticmethod
     def disk_usage(paths):
         """disk usage via du. return -1 if not existant. works on files as well"""
+        assert isinstance(paths, list)
         if not paths:
             return -1
-        
         cmd = ['du', '-sc']
         cmd.extend(paths)
+
         try:
             res = subprocess.check_output(cmd)
         except subprocess.CalledProcessError:
             return -1
-        
+
         total_line = res.decode().splitlines()[-1]
         if not total_line.endswith("total"):
             return -1
