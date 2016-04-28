@@ -31,8 +31,7 @@ __license__ = "The MIT License (MIT)"
 LOG = logging.getLogger(__name__)
 
 
-
-def generate_window(days=14):
+def generate_window(days=7):
     """returns tuple representing epoch window (int:present, int:past)"""
     date_time = time.strftime('%Y-%m-%d %H:%M:%S')
     #print(date_time)
@@ -47,16 +46,18 @@ def generate_window(days=14):
 def mongodb_conn(use_test_server=False):
     """start connection to server and return conncetion"""
     if use_test_server:
-        LOG.warning("Using test server connection")
-        conn_str = "qlap33:27017"
+        LOG.info("Using test MongoDB server")
+        conn_str = "qlap33.gis.a-star.edu.sg:27017"
     else:
+        LOG.info("Using production MongoDB server")
         conn_str = "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
 
     try:
         connection = pymongo.MongoClient(conn_str)
     except pymongo.errors.ConnectionFailure:
-        LOG.fatal("Could not connect to the mongoDB server")
+        LOG.fatal("Could not connect to the MongoDB server")
         sys.exit(1)
+    LOG.debug("Database connection established")
     return connection
 
 
@@ -85,14 +86,13 @@ def main():
 
     if args.quiet:
         logging.basicConfig(level=logging.WARN,
-            format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+            format='[%(asctime)s] %(levelname)s %(filename)s: %(message)s')
     else:
         logging.basicConfig(level=logging.INFO,
-            format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+            format='[%(asctime)s] %(levelname)s %(filename)s: %(message)s')
             
     connection = mongodb_conn(args.testing)
     db = connection.gisds.runcomplete
-    LOG.info("Database connection established")
     #DB Query for Jobs that are yet to be analysed in the epoch window
 
     # FIXME each run object ideally can have 0 or multiple analysis
@@ -119,12 +119,13 @@ def main():
         if args.wrapper_args:
             cmd.extend([x.lstrip('X') for x in args.wrapper_args])
         if args.dry_run:
-            LOG.warn("Didn't run {}".format(' '.join(cmd)))
+            LOG.warn("Skipped following run: {}".format(' '.join(cmd)))
             continue            
         else:
             try:
-                res = subprocess.check_output(cmd)
-                LOG.info("bcl2fastq wrapper returned: {}".format(res.decode()))
+                res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+                if res:
+                    LOG.info("bcl2fastq wrapper returned: {}".format(res.decode()))
             except subprocess.CalledProcessError:
                 LOG.critical("The following failed: {}. Will keep going".format(' '.join(cmd)))
                 
@@ -134,11 +135,10 @@ def main():
 
     # close the connection to MongoDB
     connection.close()
+    LOG.info("Successful program exit")
 
     
 if __name__ == "__main__":
-    LOG.info("Cronjob starting")
     main()
-    LOG.info("Successful program exit")
 
     

@@ -210,7 +210,7 @@ def main():
     # See https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
     logging_level = logging.WARN + 10*args.quiet - 10*args.verbose
     logging.basicConfig(level=logging_level,
-                        format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+                        format='[%(asctime)s] %(levelname)s %(filename)s: %(message)s')
 
     if args.mismatches is not None:
         if args.mismatches > 2 or args.mismatches < 0:
@@ -275,7 +275,7 @@ def main():
     os.unlink(muxinfo_cfg)
 
 
-    LOG.info("Writing config and rc files")
+    LOG.debug("Writing config and rc files")
     write_cluster_config(outdir, BASEDIR)
 
 
@@ -359,7 +359,7 @@ def main():
 
     site = get_site()
     if site == "gis" or site == "nscc":
-        LOG.info("Writing the run file for site {}".format(site))
+        LOG.debug("Writing the run file for site {}".format(site))
         run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
         run_out = os.path.join(outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
