@@ -79,10 +79,11 @@ onstart:# available as patched snakemake 3.5.5
 
     elm_units = []
     for unit in config['units'].values():
-        # WARN using RESULT_OUTDIR here means that it will appear
-        # duplicated if multiple units are present since they all
-        # go to the same output directory
-        eu = ElmUnit._make([unit['run_id'], unit['library_id'], unit['lane_id'], RESULT_OUTDIR, None])
+        # For non-bcl2fastq pipelines use the input as library_files
+        library_files = [unit['fq1']]
+        if 'fq2' in unit and unit['fq2'] is not None:
+            library_files.append(unit['fq2'])
+        eu = ElmUnit._make([unit['run_id'], unit['library_id'], unit['lane_id'], library_files, None])
         elm_units.append(eu)
             
     elm_logger = ElmLogging(workflow.snakefile,
