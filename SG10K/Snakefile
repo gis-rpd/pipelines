@@ -169,8 +169,8 @@ rule sample_merge:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input};")
         else:
-            # inefficient, but input might be temp file
-            shell("cp {input} {output}")
+            # hard link should work even if input is temp and later deleted
+            shell("ln {input} {output}")
 
 
 # read group functions following
