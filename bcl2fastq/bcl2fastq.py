@@ -343,6 +343,25 @@ def main():
         #print ("TESTING {}".format(mu_dict))
 
         user_data['units'][k] = mu_dict
+    
+    #Handle Failed runs 
+    #FIXME (Testing to be completed)
+    SAMPLESHEET_CSV_PATH = os.path.join(outdir,SAMPLESHEET_CSV)
+    if not os.path.exists(SAMPLESHEET_CSV_PATH):
+        ANALYSIS_ID = generate_timestamp()
+        mongo_update_cmd = "{} -r {} -s SEQRUNFAILED".format(mongo_status_script, user_data['run_num'])
+        mongo_update_cmd += " -id {} -o {}".format(ANALYSIS_ID, outdir)
+        if args.testing:
+            mongo_update_cmd += " -t"
+        try:
+            _ = subprocess.check_output(mongo_update_cmd, stderr=subprocess.STDOUT)
+            sys.exit(0)
+        except subprocess.CalledProcessError as e:
+            logger.fatal("The following command failed with return code {}: {}".format(
+                e.returncode, ' '.join(mongo_update_cmd)))
+            logger.fatal("Output: {}".format(e.output.decode()))
+            logger.fatal("Exiting")
+            sys.exit(1)
 
     log_library_id = []
     log_lane_id = []
@@ -367,7 +386,7 @@ def main():
 
     # create mongodb update command, used later, after queueing
     mongo_update_cmd = "{} -r {} -s START".format(mongo_status_script, user_data['run_num'])
-    mongo_update_cmd += " -id $ANALYSIS_ID"# set in run.sh
+    mongo_update_cmd += " -id $ANALYSIS_ID -o {}".format(outdir)# set in run.sh
     if args.testing:
         mongo_update_cmd += " -t"
 
