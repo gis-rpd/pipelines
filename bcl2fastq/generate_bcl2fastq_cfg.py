@@ -179,13 +179,13 @@ def main():
                 # multiplexed
                 #counter = 0
                 for child in rows['Children']:
+                    #print(child)
                     #counter += 1
                     #id = 'S' + str(counter)
-                    try: 
-                        mismatch = (child['BCL_Mismatch'])
-                        BCL_Mismatch.append(mismatch)
-                    except:
-                        continue
+                    if 'BCL_Mismatch' in child: 
+                        BCL_Mismatch.append(child['BCL_Mismatch'])
+                        # older samples have no values and that's okay
+
                     if "-" in child['barcode']:
                         # dual index
                         index = child['barcode'].split('-')
@@ -194,14 +194,17 @@ def main():
                     else:
                         sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,,'+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                         index_lens = (len(child['barcode']), -1)
+                        print(sample)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     fh_out.write(sample+ '\n')
+
             else:# non-multiplexed
                 sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
                 index_lens = (-1, -1)
                 barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                 fh_out.write(sample + '\n')
-            #Barcode mismatch has to be the same for all the libraries in one MUX. Otherwise default software mismatch value to be used
+
+            #Barcode mismatch has to be the same for all the libraries in one MUX. Otherwise default mismatch value to be used
             if len(set(BCL_Mismatch)) == 1:
                 barcode_mismatches = BCL_Mismatch[0]
             else:
@@ -216,6 +219,7 @@ def main():
                 mu_orig = mu_orig._replace(lane_ids=lane_ids)
             else:
                 mux_units[mu.mux_id] = mu    
+
     logger.info("Writing to {}".format(usebases_cfg))
     usebases = generate_usebases(barcode_lens, runinfo)
     with open(usebases_cfg, 'w') as fh:
