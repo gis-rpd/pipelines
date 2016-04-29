@@ -83,10 +83,13 @@ def main():
                         help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
     parser.add_argument('-e', "--wrapper-args", nargs="*",
                         help="Extra arguments for bcl2fastq wrapper (prefix leading dashes with X, e.g. X-n for -n)")
+    default = 7
+    parser.add_argument('-w', '--win', type=int, default=default,
+                        help="Number of days to look back (default {})".format(default))
     parser.add_argument('-v', '--verbose', action='count', default=0,
-                            help="Increase verbosity")
+                        help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
-                            help="Decrease verbosity")
+                        help="Decrease verbosity")
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -99,7 +102,9 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
-            
+
+    bcl2fastq_wrapper = os.path.join(os.path.dirname(sys.argv[0]), "bcl2fastq.py")
+
     connection = mongodb_conn(args.testing)
     db = connection.gisds.runcomplete
     #DB Query for Jobs that are yet to be analysed in the epoch window
@@ -110,15 +115,11 @@ def main():
     # exactly one failed. send email for two fail) Analysis object:
     # initiated:timestamp, ended:timestamp,
     # status:"completed"|"troubleshooting"
-    epoch_present, epoch_back = generate_window()
-    results = db.find({"analysis": { "$exists" : 0 },
+    epoch_present, epoch_back = generate_window(args.win)
+    results = db.find({"analysis": {"$exists" : 0},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
-
-    bcl2fastq_wrapper = os.path.join(os.path.dirname(sys.argv[0]), "bcl2fastq.py")
-    
-    # display documents from collection
-    #logger.info("Looping over {} results".format(len(results)))
-    #logger.debug(epoch_present, epoch_back)
+    # results is a pymongo.cursor.Cursor which works like an iterator i.e. dont use len()
+    logger.info("Found {} runs".format(results.count()))
     for record in results:
         run_number = record['run']
 
@@ -128,8 +129,8 @@ def main():
         if args.wrapper_args:
             cmd.extend([x.lstrip('X') for x in args.wrapper_args])
         if args.dry_run:
-            logger.warn("Skipped following run: {}".format(' '.join(cmd)))
-            continue            
+            logger.warning("Skipped following run: {}".format(' '.join(cmd)))
+            continue
         else:
             try:
                 logger.info("Executing: {}".format(' '.join(cmd)))
@@ -138,17 +139,15 @@ def main():
                     logger.info("bcl2fastq wrapper returned: {}".format(res.decode()))
             except subprocess.CalledProcessError:
                 logger.critical("The following failed: {}. Will keep going".format(' '.join(cmd)))
-                
+
         if args.break_after_first:
-            logger.warn("Stopping after first sequencing run")
+            logger.warning("Stopping after first sequencing run")
             break
 
     # close the connection to MongoDB
     connection.close()
     logger.info("Successful program exit")
 
-    
+
 if __name__ == "__main__":
     main()
-
-    
