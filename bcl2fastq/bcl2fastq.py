@@ -29,6 +29,7 @@ from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
 from pipelines import write_cluster_config, generate_timestamp
 from pipelines import get_machine_run_flowcell_id, is_devel_version
+from pipelines import email_for_user
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG
 
 __author__ = "Andreas Wilm"
@@ -401,11 +402,16 @@ def main():
         snakefile = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
         assert not os.path.exists(run_out)
         with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
+            # we don't know for sure who's going to actually exectute
+            # but it's very likely the current user, who needs to be notified
+            # on qsub kills etc
+            toaddr =  email_for_user()
             for line in templ_fh:
                 line = line.replace("@SNAKEFILE@", snakefile)
                 line = line.replace("@LOGDIR@", LOG_DIR_REL)
                 line = line.replace("@MASTERLOG@", MASTERLOG)
                 line = line.replace("@PIPELINE_NAME@", PIPELINE_NAME)
+                line = line.replace("@MAILTO@", toaddr)
                 if args.slave_q:
                     line = line.replace("@DEFAULT_SLAVE_Q@", args.slave_q)
                 else:

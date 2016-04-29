@@ -42,11 +42,10 @@
 #$ -cwd
 # keep env so that qsub works
 #$ -V
+# email address (for abort and kills only, everything else handled by snakemake)
+#$ -M @MAILTO@
+#$ -m a
 
-## email would require @USER@ replacement
-##$ -M wilma@gis.a-star.edu.sg
-## mail is sent to you when the job starts and when it terminates or aborts
-##$ -m as
 
 
 DEBUG=0
