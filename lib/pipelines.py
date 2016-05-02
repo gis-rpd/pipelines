@@ -44,10 +44,9 @@ logger.addHandler(handler)
 
 
 INIT = {
-    'gis': "/mnt/projects/rpd/init",
-    # FIXME for NSCC alpha.
     # FIXME make env instead? because caller knows right?
-    'nscc': "/home/astar/gis/wilma/rpd/init"
+    'gis': "/mnt/projects/rpd/init",
+    'nscc': "/seq/astar/gis/rpd/init"
 }
 
 RPD_MAIL = "rpd@mailman.gis.a-star.edu.sg"
