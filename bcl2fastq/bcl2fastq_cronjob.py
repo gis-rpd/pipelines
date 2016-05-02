@@ -137,9 +137,14 @@ def main():
                 res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
                 if res:
                     logger.info("bcl2fastq wrapper returned: {}".format(res.decode()))
-            except subprocess.CalledProcessError:
-                logger.critical("The following failed: {}. Will keep going".format(' '.join(cmd)))
-
+            except subprocess.CalledProcessError as e:
+                logger.critical("The following command failed with '': {}".format(
+                    e.stdout, ' '.join(cmd)))
+                logger.critical("Will keep going")
+                # continue so that a failed run doesn't count,
+                # i.e. args.break_after_first shouldn't be trigger
+                continue
+            
         if args.break_after_first:
             logger.warning("Stopping after first sequencing run")
             break
