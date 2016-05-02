@@ -18,9 +18,10 @@ import xml.etree.ElementTree as ET
 #--- project specific imports
 #
 from pipelines import get_machine_run_flowcell_id
-# cannot be imported? from bcl2fastq import MuxUnit
+#from bcl2fastq import MuxUnit
 # WARNING changes here, must be reflected in bcl2fastq.py as well
-MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids', 'mux_dir', 'barcode_mismatches'])
+MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids',
+                                 'mux_dir', 'barcode_mismatches'])
 
 
 __author__ = "Lavanya Veeravalli"
@@ -104,7 +105,7 @@ def main():
     """
     The main function
     """
-    
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--force-overwrite",
                         action="store_true",
@@ -160,7 +161,8 @@ def main():
     run_id = rest_data['runId']
     #counter = 0
     if rest_data['runPass'] != 'Pass':
-        logger.info("Skipping non-passed run")
+        logger.warning("Skipping non-passed run")
+        # NOTE: exit 0 and missing output files is the upstream signal for a failed run
         sys.exit(0)
 
     # this is the master samplesheet
@@ -168,7 +170,7 @@ def main():
     # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
     barcode_lens = {}
     mux_units = dict()
-    
+
     with open(samplesheet_csv, 'w') as fh_out:
         fh_out.write(SAMPLESHEET_HEADER + '\n')
         for rows in rest_data['lanes']:
@@ -182,7 +184,7 @@ def main():
                     #print(child)
                     #counter += 1
                     #id = 'S' + str(counter)
-                    if 'BCL_Mismatch' in child: 
+                    if 'BCL_Mismatch' in child:
                         BCL_Mismatch.append(child['BCL_Mismatch'])
                         # older samples have no values and that's okay
 
@@ -209,7 +211,7 @@ def main():
                 barcode_mismatches = BCL_Mismatch[0]
             else:
                 barcode_mismatches = DEFAULT_BARCODE_MISMATCHES# FIXME get from ELM
-            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])          
+            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])
             # merge lane into existing mux if needed
             if mu.mux_id in mux_units:
                 mu_orig = mux_units[mu.mux_id]
@@ -218,17 +220,18 @@ def main():
                 lane_ids = mu_orig.lane_ids.extend(mu.lane_ids)
                 mu_orig = mu_orig._replace(lane_ids=lane_ids)
             else:
-                mux_units[mu.mux_id] = mu    
+                mux_units[mu.mux_id] = mu
 
     logger.info("Writing to {}".format(usebases_cfg))
     usebases = generate_usebases(barcode_lens, runinfo)
     with open(usebases_cfg, 'w') as fh:
         fh.write(yaml.dump(dict(usebases=usebases), default_flow_style=True))
+
     logger.info("Writing to {}".format(muxinfo_cfg))
     with open(muxinfo_cfg, 'w') as fh:
         fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], default_flow_style=True))
 
-        
+
 if __name__ == "__main__":
     main()
     logger.info("Successful program exit")

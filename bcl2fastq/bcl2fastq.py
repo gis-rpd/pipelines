@@ -14,8 +14,6 @@ import os
 import argparse
 import logging
 import subprocess
-#import string
-from collections import namedtuple
 
 #--- third-party imports
 #
@@ -30,18 +28,14 @@ from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
 from pipelines import write_cluster_config, generate_timestamp
 from pipelines import get_machine_run_flowcell_id, is_devel_version
 from pipelines import email_for_user
-from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG
+from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
+
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
-
-# Different from the analysis pipelines
-# WARN copied in generate_bcl2fastq_cfg.py because import fails
-# WARNING changes here, must be reflected in generate_bcl2fastq_cfg.py as well
-MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids', 'mux_dir', 'barcode_mismatches'])
 
 BASEDIR = os.path.dirname(sys.argv[0])
 
@@ -65,7 +59,7 @@ DEFAULT_SLAVE_Q = {'gis': None,
                    'nscc': 'production'}
 DEFAULT_MASTER_Q = {'gis': None,
                     'nscc': 'production'}
-        
+
 # global logger
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -75,7 +69,8 @@ logger.addHandler(handler)
 
 
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
-    """writes config file for use in snakemake based on default config, user data and elm data to outdir.
+    """writes config file for use in snakemake based on default config, 
+    user data and elm data to outdir.
     """
 
     rpd_vars = get_rpd_vars()
@@ -115,7 +110,7 @@ def get_mux_units_from_cfgfile(cfgfile, restrict_to_lanes=None):
     with open(cfgfile) as fh_cfg:
         for entry in yaml.safe_load(fh_cfg):
             mu = MuxUnit(**entry)
-            
+
             if restrict_to_lanes:
                 passed_lanes = []
                 for lane in mu.lane_ids:
@@ -177,14 +172,39 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
     return outdir
 
 
+def seqrunfailed(mongo_status_script, run_num, outdir, testing):
+    """FIXME:add-doc
+    """
+    logger.info("Setting analysis for {} to {}".format(run_num, "SEQRUNFAILED"))
+    analysis_id = generate_timestamp()
+    mongo_update_cmd = [mongo_status_script, "-r", run_num, "-s", "SEQRUNFAILED"]
+    mongo_update_cmd.extend(["-id", analysis_id, "-o", outdir])
+    if testing:
+        mongo_update_cmd.append("-t")
+    try:
+        _ = subprocess.check_output(mongo_update_cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        logger.fatal("The following command failed with return code {}: {}".format(
+            e.returncode, ' '.join(mongo_update_cmd)))
+        logger.fatal("Output: {}".format(e.output.decode()))
+        logger.fatal("Exiting")
+        sys.exit(1)
+
+    flagfile = os.path.join(outdir, "SEQRUNFAILED")
+    logger.info("Creating flag file {}".format(flagfile))
+    with open(flagfile, 'w') as fh:
+        pass
+    
+
+
 def main():
     """main function
     """
-    
+
     mongo_status_script = os.path.abspath(os.path.join(
         os.path.dirname(sys.argv[0]), "mongo_status.py"))
     assert os.path.exists(mongo_status_script)
-    
+
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
     parser.add_argument('-r', "--runid",
@@ -195,7 +215,6 @@ def main():
                         help="Output directory (may not exist; required if called by user)")
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Disable MongoDB updates")
-                        # FIXME default if called by user
     parser.add_argument('-w', '--slave-q',
                         help="Queue to use for slave jobs (defaults: {})".format(DEFAULT_SLAVE_Q))
     parser.add_argument('-m', '--master-q',
@@ -268,6 +287,15 @@ def main():
     # create log dir and hence parent dir immediately
     os.makedirs(os.path.join(outdir, LOG_DIR_REL))
 
+
+    # catch cases where rundir was user provided and looks weird
+    try:
+        _, runid, flowcellid = get_machine_run_flowcell_id(rundir)
+        run_num = runid + "_" + flowcellid
+    except:
+        run_num = "UNKNOWN-" + rundir.split("/")[-1]
+
+
     # call generate_bcl2fastq_cfg
     #
     # FIXME ugly assumes same directory (just like import above). better to import and run main()?
@@ -275,44 +303,43 @@ def main():
         os.path.dirname(sys.argv[0]), "generate_bcl2fastq_cfg.py")
     assert os.path.exists(generate_bcl2fastq)
     cmd = [generate_bcl2fastq, '-r', rundir, '-o', outdir]
+    logger.debug("Executing {}".format(' ' .join(cmd)))
     try:
-        _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         logger.fatal("The following command failed with return code {}: {}".format(
             e.returncode, ' '.join(cmd)))
         logger.fatal("Output: {}".format(e.output.decode()))
         logger.fatal("Exiting")
         sys.exit(1)
+    # generate_bcl2fastq is normally quiet. if there's output, make caller aware of it
+    # use sys instead of logger to avoid double logging
+    if res:
+        sys.stderr.write(res.decode())
+
+    # just created files
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
-    assert os.path.exists(muxinfo_cfg)# just created file
-    mux_units = get_mux_units_from_cfgfile(muxinfo_cfg, lane_nos)
-    if args.mismatches is not None:
-        mux_units = [mu._replace(barcode_mismatches=args.mismatches) for mu in mux_units]
-    os.unlink(muxinfo_cfg)
+    samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
+    usebases_cfg = os.path.join(outdir, USEBASES_CFG)
 
-
-    logger.debug("Writing config and rc files")
-    write_cluster_config(outdir, BASEDIR)
+    # NOTE: signal for failed runs is exit 0 from generate_bcl2fastq and missing output files
+    #
+    if any([not os.path.exists(x) for x in [muxinfo_cfg, samplesheet_csv, usebases_cfg]]):
+        # one missing means all should be missing
+        assert all([not os.path.exists(x) for x in [muxinfo_cfg, samplesheet_csv, usebases_cfg]])
+        seqrunfailed(mongo_status_script, run_num, outdir, args.testing)
+        sys.exit(0)
 
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'rundir': rundir}
-    if args.testing:
-        user_data['testing'] = True
-    else:
-        user_data['testing'] = False
+    user_data = {'rundir': rundir,
+                 'lanes_arg': lane_info,
+                 'samplesheet_csv': samplesheet_csv,
+                 'mongo_status': mongo_status_script,
+                 'run_num': run_num,
+                 'testing': args.testing}
 
-    # catch cases where rundir was user provided and looks weird
-    try:
-        _, runid, flowcellid = get_machine_run_flowcell_id(rundir)
-        user_data['run_num'] = runid + "_" + flowcellid
-    except:
-        user_data['run_num'] = "UNKNOWN-" + rundir.split("/")[-1]
-    
-    user_data['samplesheet_csv'] = SAMPLESHEET_CSV
-    user_data['mongo_status'] = mongo_status_script
-    
-    usebases_cfg = os.path.join(outdir, USEBASES_CFG)
+
     usebases_arg = ''
     with open(usebases_cfg, 'r') as stream:
         try:
@@ -324,45 +351,28 @@ def main():
                 usebases_arg += '--use-bases-mask {} '.format(ub)
             #user_data = {'usebases_arg' : usebases_arg}
         except yaml.YAMLError as exc:
-            print(exc)
+            logger.fatal(exc)
             raise
-
-    #user_data = {'usebases_arg' : usebases_arg}
     user_data['usebases_arg'] = usebases_arg
     os.unlink(usebases_cfg)
 
-    #user_data['usebases_cfg'] = USEBASES_INFO
 
-    user_data['lanes_arg'] = lane_info
+    mux_units = get_mux_units_from_cfgfile(muxinfo_cfg, lane_nos)
+    if args.mismatches is not None:
+        mux_units = [mu._replace(barcode_mismatches=args.mismatches)
+                     for mu in mux_units]
+    os.unlink(muxinfo_cfg)
+
 
     #user_data['units'] = OrderedDict()
     user_data['units'] = dict()# FIXME does it matter if ordered or not?
     for mu in mux_units:
-        # special case: mux split across multiple lanes. make lanes a list and add in extra lanes if needed.        
+        # special case: mux split across multiple lanes. make lanes a list and add in extra lanes if needed.
         k = mu.mux_dir
         mu_dict = dict(mu._asdict())
         #print ("TESTING {}".format(mu_dict))
-
         user_data['units'][k] = mu_dict
-    
-    #Handle Failed runs 
-    #FIXME (Testing to be completed)
-    SAMPLESHEET_CSV_PATH = os.path.join(outdir,SAMPLESHEET_CSV)
-    if not os.path.exists(SAMPLESHEET_CSV_PATH):
-        ANALYSIS_ID = generate_timestamp()
-        mongo_update_cmd = "{} -r {} -s SEQRUNFAILED".format(mongo_status_script, user_data['run_num'])
-        mongo_update_cmd += " -id {} -o {}".format(ANALYSIS_ID, outdir)
-        if args.testing:
-            mongo_update_cmd += " -t"
-        try:
-            _ = subprocess.check_output(mongo_update_cmd, stderr=subprocess.STDOUT)
-            sys.exit(0)
-        except subprocess.CalledProcessError as e:
-            logger.fatal("The following command failed with return code {}: {}".format(
-                e.returncode, ' '.join(mongo_update_cmd)))
-            logger.fatal("Output: {}".format(e.output.decode()))
-            logger.fatal("Exiting")
-            sys.exit(1)
+
 
     log_library_id = []
     log_lane_id = []
@@ -373,17 +383,21 @@ def main():
             log_library_id.append(mu.mux_id)# logger allows mux_id and lib_id switching
             log_lane_id.append(lane)
             log_run_id.append(mu.run_id)
-        
+
     elm_data = {'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),
                 'site': get_site(),
                 'instance_id': 'SET_ON_EXEC',# dummy
                 'submitter': 'SET_ON_EXEC',# dummy
                 'log_path': os.path.abspath(os.path.join(outdir, MASTERLOG))}
+
+    logger.debug("Writing config and rc files")
     pipeline_cfgfile = write_pipeline_config(outdir, user_data, elm_data)
+    write_cluster_config(outdir, BASEDIR)
     write_dk_init(os.path.join(outdir, RC['DK_INIT']))
     write_snakemake_init(os.path.join(outdir, RC['SNAKEMAKE_INIT']))
     write_snakemake_env(os.path.join(outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
+
 
     # create mongodb update command, used later, after queueing
     mongo_update_cmd = "{} -r {} -s START".format(mongo_status_script, user_data['run_num'])
@@ -405,7 +419,7 @@ def main():
             # we don't know for sure who's going to actually exectute
             # but it's very likely the current user, who needs to be notified
             # on qsub kills etc
-            toaddr =  email_for_user()
+            toaddr = email_for_user()
             for line in templ_fh:
                 line = line.replace("@SNAKEFILE@", snakefile)
                 line = line.replace("@LOGDIR@", LOG_DIR_REL)
@@ -419,7 +433,7 @@ def main():
                         line = line.replace("@DEFAULT_SLAVE_Q@", DEFAULT_SLAVE_Q[site])
                     else:
                         line = line.replace("@DEFAULT_SLAVE_Q@", "")
-                
+
                 line = line.replace("@MONGO_UPDATE_CMD@", mongo_update_cmd)
                 out_fh.write(line)
 
@@ -430,12 +444,12 @@ def main():
                 master_q_arg = "-q {}".format(DEFAULT_MASTER_Q[site])
             else:
                 master_q_arg = ""
-                
+
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
-            logger.warn("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
-            logger.warn("Once ready submit with: {}".format(cmd))
+            logger.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
+            logger.warning("Once ready submit with: {}".format(cmd))
         else:
             logger.info("Starting pipeline: {}".format(cmd))
             #os.chdir(os.path.dirname(run_out))
