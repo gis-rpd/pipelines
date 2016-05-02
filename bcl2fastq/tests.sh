@@ -38,6 +38,9 @@ TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-
 echo "FIXME Ignoring HS007 for now" 1>&2
 #TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 
+#echo "HS1 only" 1>&2
+#TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
+
 
 for d in $TEST_SEQ_RUN_DIRS; do
     if [ ! -d $d ]; then
@@ -66,6 +69,15 @@ if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: bcl2fastq_cronjob.py" | tee -a $log
     ./bcl2fastq_cronjob.py -n -1 >> $log 2>&1 
 
+    r="MS001-PE-R00315_000000000-ANBGU"
+    echo "Dryrun: Testing failed seq run $r"  | tee -a $log
+    odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $r | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+    ./bcl2fastq.py -r $r -o $odir --no-run -t >> $log 2>&1
+    if [ ! -e "$odir"/SEQRUNFAILED ]; then
+        echo "ERROR: $r should have failed but flag file missing in $odir" | tee -a $log
+        exit 1
+    fi
+
     for d in $TEST_SEQ_RUN_DIRS; do
         echo "Dryrun: bcl2fastq.py dryrun for $d" | tee -a $log
         odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
@@ -83,7 +95,7 @@ fi
 
 # real runs
 #
-if [ $skip_real_runs -ne 1 ]; then
+if [ $skip_real_runs -ne 1 ]; then   
     for d in $TEST_SEQ_RUN_DIRS; do
     	if echo $d | grep -q HS007-PE-R00020_BH5THFBBXX; then
     	    echo "FIXME skipping HS007-PE-R00020_BH5THFBBXX" 1>&2

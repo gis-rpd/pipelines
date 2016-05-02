@@ -45,9 +45,18 @@ logger.addHandler(handler)
 
 INIT = {
     'gis': "/mnt/projects/rpd/init",
-    # FIXME for NSCC alpha
+    # FIXME for NSCC alpha.
+    # FIXME make env instead? because caller knows right?
     'nscc': "/home/astar/gis/wilma/rpd/init"
 }
+
+RPD_MAIL = "rpd@mailman.gis.a-star.edu.sg"
+RPD_SIGNATURE = """
+-- 
+Research Pipeline Development Team
+Scientific & Research Computing
+<rpd@mailman.gis.a-star.edu.sg>
+"""
 
 
 # FIXME hack: assuming importer is just one dir down of pipeline base dir
@@ -204,7 +213,8 @@ def generate_timestamp():
 
 
 def get_machine_run_flowcell_id(runid_and_flowcellid):
-    """return machine-id, run-id and flowcell-id from full string. Expected string format is machine-runid_flowcellid
+    """return machine-id, run-id and flowcell-id from full string.
+    Expected string format is machine-runid_flowcellid
     """
     # be lenient and allow full path
     runid_and_flowcellid = runid_and_flowcellid.rstrip("/").split('/')[-1]
@@ -214,25 +224,46 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
     return machineid, runid, flowcellid
 
 
-def send_status_mail(pipeline_name, success, id, outdir):
-    """id should be unique identifier for this analysis
+def email_for_user():
+    """FIXME:add-doc
     """
-
+    
     user_name = getuser()
     if user_name == "userrig":
-        # FIXME rpd@mailman.gis.a-star.edu.sg in future
-        toaddr = "veeravallil@gis.a-star.edu.sg"
+        toaddr = "rpd@mailman.gis.a-star.edu.sg"
     else:
         toaddr = "{}@gis.a-star.edu.sg".format(user_name)
+    return toaddr
+
+
+def send_status_mail(pipeline_name, success, analysis_id, outdir):
+    """analysis_id should be unique identifier for this analysis
+
+    - success: bool
+    - analysis_id: analysis run id
+    - outdir: directory where results are found
+    """
+
+    
+    if success:
+        status_str = "completed"
+        body = "Pipeline {} {} for {}".format(pipeline_name, status_str, analysis_id)
+        body += "\nThe results can be found in {}".format(outdir)
+    else:
+        status_str = "failed"
+        body = "Pipeline {} {} for {}".format(pipeline_name, status_str, analysis_id)
+        # FIXME ugly inference of log folder
+        logdir = os.path.normpath(os.path.join(outdir, "..", 'logs'))
+        body += "\nSorry about this. Please check log files in {}".format(logdir)
+    body += RPD_SIGNATURE
 
     subject = "Pipeline {} {} for {}".format(
-        pipeline_name, "completed" if success else "failed", id)
+        pipeline_name, status_str, analysis_id)
 
-    body = "Please check logs in {}".format(outdir)
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = "rpd@mailman.gis.a-star.edu.sg"
-    msg['To'] = toaddr
+    msg['From'] = RPD_MAIL
+    msg['To'] = email_for_user()
 
     # Send the mail
     try:
@@ -246,7 +277,7 @@ def send_status_mail(pipeline_name, success, id, outdir):
 
 
 def get_reads_unit_from_cfgfile(cfgfile):
-    """FIXME:add-doc"""
+    """Parse each ReadUnit in cfgfile and return as list"""
     read_units = []
     with open(cfgfile) as fh_cfg:
         for entry in yaml.safe_load(fh_cfg):
@@ -274,7 +305,7 @@ def get_reads_unit_from_cfgfile(cfgfile):
 
 
 def get_reads_unit_from_args(fqs1, fqs2):
-    """FIXME:add-doc"""
+    """Turn fastq arguments into fake ReadUnits"""
 
     read_units = []
     if not fqs2:
@@ -291,7 +322,7 @@ def get_reads_unit_from_args(fqs1, fqs2):
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         read_units.append(ru)
     if print_fq_sort_warning:
-        logger.warn("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
+        logger.warning("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
             ' \n'.join(["{} and {}".format(fq1, fq2) for fq1, fq2 in fq_pairs])))
     return read_units
 

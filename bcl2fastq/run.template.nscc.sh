@@ -41,12 +41,10 @@
 # keep env so that qsub works
 #PBS -V
 # Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
+# Email address (for abort and kills only, everything else handled by snakemake)
+#PBS -M @MAILTO@
+#PBS -m a
 
-# email would require @USER@ replacement.
-## specify your email address: otherwise no email send
-##$ -M wilma@gis.a-star.edu.sg
-## mail is sent to you when the job starts and when it terminates or aborts
-##$ -m as
 
 
 DEBUG=0

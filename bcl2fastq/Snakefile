@@ -70,7 +70,7 @@ onstart:# available as patched snakemake 3.5.5
     elm_units = []
     for unit in config['units'].values():
         for lane in unit['lane_ids']:
-            eu = ElmUnit._make([unit['run_id'], unit['mux_id'], lane, os.path.join(RESULT_OUTDIR, unit['mux_dir']), None])
+            eu = ElmUnit._make([unit['run_id'], unit['mux_id'], lane, [os.path.join(RESULT_OUTDIR, unit['mux_dir'])], None])
             elm_units.append(eu)
             
     elm_logger = ElmLogging(workflow.snakefile,
@@ -86,15 +86,15 @@ onstart:# available as patched snakemake 3.5.5
     
 onsuccess:
     elm_logger.stop(True)
-    shell("{} -r {} -s SUCCESS -id {} {}".format(
-        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], mongodb_test_arg()))
+    shell("{} -r {} -s SUCCESS -id {} -o {} {}".format(
+        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR), mongodb_test_arg()))
     send_status_mail(config['ELM']['pipeline_name'], True, config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR)) 
 
     
 onerror:
     elm_logger.stop(False)
-    shell("{} -r {} -s FAILED -id {} {}".format(
-        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], mongodb_test_arg()))
+    shell("{} -r {} -s FAILED -id {} -o {} {}".format(
+        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR), mongodb_test_arg()))
     send_status_mail(config['ELM']['pipeline_name'], False, config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
 
     

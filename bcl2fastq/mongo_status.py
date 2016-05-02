@@ -60,10 +60,11 @@ def main():
                         help="Run ID plus flowcell ID",required=True,)
     parser.add_argument('-s', "--status",
                         help="Analysis status",required=True,
-                        choices=['START', 'SUCCESS', 'FAILED'])
+                        choices=['START', 'SUCCESS', 'FAILED', 'SEQRUNFAILED'])
     parser.add_argument('-id', "--id",
                         help="Analysis id",required=True)                   
-    #parser.add_argument('-n', "--dry-run", action='store_true')
+    parser.add_argument('-o', "--out",
+                        help="Analysis output directory") 
     parser.add_argument('-t', "--test_server", action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                             help="Increase verbosity")
@@ -104,7 +105,8 @@ def main():
                 {"analysis": {
                     "analysis_id" : start_time,
                     "startTime" : start_time,
-                    "userName" : user_name
+                    "userName" : user_name,
+                    "out_dir" : args.out
             }}})
                 
         except pymongo.errors.OperationFailure:
@@ -121,7 +123,8 @@ def main():
                         "startTime" : start_time,
                         "EndTimes" : end_time,
                         "userName" : user_name,
-                        "Status" :  "SUCCESS"
+                        "Status" :  "SUCCESS",
+                        "out_dir" : args.out
             }}})
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")
@@ -140,7 +143,8 @@ def main():
                         "startTime" : start_time,
                         "Ended" : end_time,
                         "userName" : user_name,
-                        "Status" :  "FAILED"
+                        "Status" :  "FAILED",
+                        "out_dir" : args.out
             }}})
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")

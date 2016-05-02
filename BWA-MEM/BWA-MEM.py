@@ -27,7 +27,7 @@ import yaml
 #
 from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config
-from pipelines import ref_is_indexed
+from pipelines import ref_is_indexed, email_for_user
 from pipelines import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 __author__ = "Andreas Wilm"
@@ -207,18 +207,23 @@ def main():
     site = get_site()
     if site == "gis" or site == "nscc":
         logger.info("Writing the run file for site {}".format(site))
-        run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
+        run_template = os.path.join(BASEDIR, "..", "lib", "run.template.{}.sh".format(site))
         run_out = os.path.join(args.outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
         # the rules import won't work.  so use the original file
         snakefile = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
         assert not os.path.exists(run_out)
         with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
+            # we don't know for sure who's going to actually exectute
+            # but it's very likely the current user, who needs to be notified
+            # on qsub kills etc
+            toaddr =  email_for_user()
             for line in templ_fh:
                 line = line.replace("@SNAKEFILE@", snakefile)
                 line = line.replace("@LOGDIR@", LOG_DIR_REL)
                 line = line.replace("@MASTERLOG@", MASTERLOG)
                 line = line.replace("@PIPELINE_NAME@", PIPELINE_NAME)
+                line = line.replace("@MAILTO@", toaddr)
                 if args.slave_q:
                     line = line.replace("@DEFAULT_SLAVE_Q@", args.slave_q)
                 else:

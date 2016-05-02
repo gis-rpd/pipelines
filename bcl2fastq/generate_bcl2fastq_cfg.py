@@ -18,9 +18,10 @@ import xml.etree.ElementTree as ET
 #--- project specific imports
 #
 from pipelines import get_machine_run_flowcell_id
-# cannot be imported? from bcl2fastq import MuxUnit
+#from bcl2fastq import MuxUnit
 # WARNING changes here, must be reflected in bcl2fastq.py as well
-MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids', 'mux_dir', 'barcode_mismatches'])
+MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids',
+                                 'mux_dir', 'barcode_mismatches'])
 
 
 __author__ = "Lavanya Veeravalli"
@@ -44,49 +45,22 @@ DEFAULT_BARCODE_MISMATCHES = None
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
 
 
-def cmdline_parser():
-    """
-    creates a argparse instance
-    """
-
-    parser = argparse.ArgumentParser(description=__doc__)
-
-    parser.add_argument("-v", "--verbose",
-                        action="store_true",
-                        help="Be verbose")
-    parser.add_argument("--debug",
-                        action="store_true",
-                        help="Enable debugging")
-    parser.add_argument("--force-overwrite",
-                        action="store_true",
-                        help="Force overwriting of output files")
-    parser.add_argument("-r", "--rundir",
-                        dest="rundir",
-                        required=True,
-                        help="rundir, e.g. /mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX")
-    parser.add_argument("-o", "--outdir",
-                        required=True,
-                        dest="outdir",
-                        help="Output directory")
-    return parser
-
-
 def getdirs(args):
     """gets directories from args and checks existance
     """
     rundir = args.rundir
     if not os.path.exists(rundir):
-        LOG.fatal("rundir '%s' does not exist under Run directory.\n" % (rundir))
+        logger.fatal("rundir '%s' does not exist under Run directory.\n" % (rundir))
         sys.exit(1)
 
     runinfo = os.path.join(rundir + '/RunInfo.xml')
     if not os.path.exists(runinfo):
-        LOG.fatal("RunInfo '%s' does not exist under Run directory.\n" % (runinfo))
+        logger.fatal("RunInfo '%s' does not exist under Run directory.\n" % (runinfo))
         sys.exit(1)
 
     outdir = args.outdir
     if not os.path.exists(outdir):
-        LOG.fatal("output directory '%s' does not exist.\n" % (outdir))
+        logger.fatal("output directory '%s' does not exist.\n" % (outdir))
         sys.exit(1)
 
     return(rundir, outdir, runinfo)
@@ -131,13 +105,35 @@ def main():
     """
     The main function
     """
-    parser = cmdline_parser()
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--force-overwrite",
+                        action="store_true",
+                        help="Force overwriting of output files")
+    parser.add_argument("-r", "--rundir",
+                        dest="rundir",
+                        required=True,
+                        help="rundir, e.g. /mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX")
+    parser.add_argument("-o", "--outdir",
+                        required=True,
+                        dest="outdir",
+                        help="Output directory")
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                        help="Decrease verbosity")
     args = parser.parse_args()
 
-    if args.verbose:
-        LOG.setLevel(logging.INFO)
-    if args.debug:
-        LOG.setLevel(logging.DEBUG)
+    # Repeateable -v and -q for setting logging level.
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no logging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     (rundir, outdir, runinfo) = getdirs(args)
     samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
@@ -145,12 +141,12 @@ def main():
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
     for f in [samplesheet_csv, usebases_cfg, muxinfo_cfg]:
         if not args.force_overwrite and os.path.exists(f):
-            LOG.fatal("Refusing to overwrite existing file {}".format(f))
+            logger.fatal("Refusing to overwrite existing file {}".format(f))
             sys.exit(1)
 
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
 
-    LOG.info("Querying ELM for {}".format(run_num))
+    logger.info("Querying ELM for {}".format(run_num))
     #DEVELOPMENT URL
     #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     #PRODUCTION url
@@ -165,15 +161,16 @@ def main():
     run_id = rest_data['runId']
     #counter = 0
     if rest_data['runPass'] != 'Pass':
-        LOG.info("Skipping non-passed run")
+        logger.warning("Skipping non-passed run")
+        # NOTE: exit 0 and missing output files is the upstream signal for a failed run
         sys.exit(0)
 
     # this is the master samplesheet
-    LOG.info("Writing to {}".format(samplesheet_csv))
+    logger.info("Writing to {}".format(samplesheet_csv))
     # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
     barcode_lens = {}
     mux_units = dict()
-    
+
     with open(samplesheet_csv, 'w') as fh_out:
         fh_out.write(SAMPLESHEET_HEADER + '\n')
         for rows in rest_data['lanes']:
@@ -184,13 +181,13 @@ def main():
                 # multiplexed
                 #counter = 0
                 for child in rows['Children']:
+                    #print(child)
                     #counter += 1
                     #id = 'S' + str(counter)
-                    try: 
-                        mismatch = (child['BCL_Mismatch'])
-                        BCL_Mismatch.append(mismatch)
-                    except:
-                        continue
+                    if 'BCL_Mismatch' in child:
+                        BCL_Mismatch.append(child['BCL_Mismatch'])
+                        # older samples have no values and that's okay
+
                     if "-" in child['barcode']:
                         # dual index
                         index = child['barcode'].split('-')
@@ -199,19 +196,22 @@ def main():
                     else:
                         sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,,'+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                         index_lens = (len(child['barcode']), -1)
+                        print(sample)
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     fh_out.write(sample+ '\n')
+
             else:# non-multiplexed
                 sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
                 index_lens = (-1, -1)
                 barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                 fh_out.write(sample + '\n')
-            #Barcode mismatch has to be the same for all the libraries in one MUX. Otherwise default software mismatch value to be used
+
+            #Barcode mismatch has to be the same for all the libraries in one MUX. Otherwise default mismatch value to be used
             if len(set(BCL_Mismatch)) == 1:
                 barcode_mismatches = BCL_Mismatch[0]
             else:
                 barcode_mismatches = DEFAULT_BARCODE_MISMATCHES# FIXME get from ELM
-            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])          
+            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])
             # merge lane into existing mux if needed
             if mu.mux_id in mux_units:
                 mu_orig = mux_units[mu.mux_id]
@@ -220,14 +220,18 @@ def main():
                 lane_ids = mu_orig.lane_ids.extend(mu.lane_ids)
                 mu_orig = mu_orig._replace(lane_ids=lane_ids)
             else:
-                mux_units[mu.mux_id] = mu    
-    LOG.info("Writing to {}".format(usebases_cfg))
+                mux_units[mu.mux_id] = mu
+
+    logger.info("Writing to {}".format(usebases_cfg))
     usebases = generate_usebases(barcode_lens, runinfo)
     with open(usebases_cfg, 'w') as fh:
         fh.write(yaml.dump(dict(usebases=usebases), default_flow_style=True))
-    LOG.info("Writing to {}".format(muxinfo_cfg))
+
+    logger.info("Writing to {}".format(muxinfo_cfg))
     with open(muxinfo_cfg, 'w') as fh:
         fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], default_flow_style=True))
+
+
 if __name__ == "__main__":
     main()
-    LOG.info("Successful program exit")
+    logger.info("Successful program exit")
