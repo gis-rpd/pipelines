@@ -7,6 +7,14 @@ set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
 
+toaddr() {
+    if [ $(whoami) == 'userrig' ]; then
+        echo "rpd@mailman.gis.a-star.edu.sg";
+    else
+        echo "$(whoami)@gis.a-star.edu.sg";
+    fi
+}
+
 usage() {
     echo "$MYNAME: run pipeline tests"
     echo " -d: Run dry-run tests"
@@ -110,7 +118,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
         exp=$(ls $RPD_ROOT/testing/data/bcl2fastq/*exp.txt | grep $(basename $d))
         jobname="${pipeline}.${MYNAME}.check.$(basename $d)"
-        mailopt="-M $(whoami)@gis.a-star.edu.sg -m bea"
+        mailopt="-M $(toaddr) -m bea"
         if qstat --version 2>&1 | grep -q PBSPro; then
             # -cwd not available but all paths are absolute so no need
             # using bash after -- doesn't work: binary expected
