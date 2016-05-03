@@ -229,7 +229,7 @@ def main():
             master_q_arg = ""
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out),
-            os.path.relpath(submissionlog, os.path.basename(run_out)))
+            os.path.relpath(submissionlog, os.path.dirname(run_out)))
         if args.no_run:
             logger.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
             logger.warning("Once ready submit with: {}".format(cmd))
