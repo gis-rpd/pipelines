@@ -112,6 +112,22 @@ def main():
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
+    elif args.status == "SEQRUNFAILED":
+        logger.info("Status updte is START {}".format(start_time))
+        try:
+            db.update({"run": run_number},
+            {"$push": 
+                {"analysis": {
+                    "analysis_id" : start_time,
+                    "startTime" : start_time,
+                    "userName" : user_name,
+                    "out_dir" : args.out,
+                    "Status" :  "SEQRUNFAILED",
+            }}})
+                
+        except pymongo.errors.OperationFailure:
+            logger.fatal("mongoDB OperationFailure")
+            sys.exit(0)
     elif args.status == "SUCCESS":
         end_time = generate_timestamp()
         logger.info("Status updte is END and timestamp {}".format(end_time))
