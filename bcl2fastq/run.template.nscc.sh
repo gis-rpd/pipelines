@@ -146,7 +146,7 @@ done
 if [ $is_dryrun != 1 ]; then
     @MONGO_UPDATE_CMD@
 else
-    echo "Mongodb update skipping (dryrun)"
+    echo "Skipping MongoDB update (dryrun)"
 fi
 
 eval snakemake $args >@MASTERLOG@ 2>&1

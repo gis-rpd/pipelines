@@ -127,7 +127,7 @@ if [ $skip_real_runs -ne 1 ]; then
             qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -b y -cwd -V $mailopt -N $jobname -hold_jid $jid"
         fi
         echo "Starting comparison against expected output" | tee -a $log
-        echo "Will run (hold job)$(pwd)/test_cmp_in_and_out.sh $exp $odir" | tee -a $log
+        echo "Will run (hold job) $(pwd)/test_cmp_in_and_out.sh $exp $odir" | tee -a $log
         $qsub "$(pwd)/test_cmp_in_and_out.sh $exp $odir" >> $log 2>&1
     done
     echo "Real-runs tests started. Checking will be performed later."

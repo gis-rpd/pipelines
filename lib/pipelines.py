@@ -51,6 +51,7 @@ INIT = {
 
 RPD_MAIL = "rpd@mailman.gis.a-star.edu.sg"
 RPD_SIGNATURE = """
+
 -- 
 Research Pipeline Development Team
 Scientific & Research Computing
