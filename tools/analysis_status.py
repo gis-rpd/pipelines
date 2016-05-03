@@ -2,6 +2,8 @@
 """Check snakemake's slave cluster jobs for a certain run
 """
 
+# FIXME rewrite
+# Have job class with jobid and stdout, stderr logs as attribute
 
 #--- standard library imports
 #
@@ -43,6 +45,7 @@ def jid_is_running(jid, is_pbspro):
     except subprocess.CalledProcessError as e:
         if is_pbspro:
             # Unknown Job Id happens on log rotation.
+            # NOTE (possible workaround): accouting info actually part of OU
             if not any(['Unknown Job Id' in x for x in [e.output.decode(), e.output.decode()]]):
                 assert any(['has finished' in x for x in [e.output.decode(), e.output.decode()]])
         else:
