@@ -195,10 +195,6 @@ def main():
                     else:
                         sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,,'+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
                         index_lens = (len(child['barcode']), -1)
-<<<<<<< HEAD
-=======
-                        #print(sample)
->>>>>>> 0a8aaea3833bc35455090509b1e3082d2d694618
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     fh_out.write(sample+ '\n')
 
