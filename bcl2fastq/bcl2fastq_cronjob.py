@@ -14,10 +14,11 @@ import subprocess
 
 # third party imports
 # WARN: need in conda root and snakemake env
-import pymongo
+#import pymongo
 
 # project specific imports
-# /
+#
+from mongo_status import mongodb_conn
 
 
 __author__ = "Lavanya Veeravalli"
@@ -46,24 +47,6 @@ def generate_window(days=7):
     return (epoch_present, epoch_back)
 
 
-def mongodb_conn(use_test_server=False):
-    """start connection to server and return conncetion"""
-    if use_test_server:
-        logger.info("Using test MongoDB server")
-        conn_str = "qlap33.gis.a-star.edu.sg:27017"
-    else:
-        logger.info("Using production MongoDB server")
-        conn_str = "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
-
-    try:
-        connection = pymongo.MongoClient(conn_str)
-    except pymongo.errors.ConnectionFailure:
-        logger.fatal("Could not connect to the MongoDB server")
-        sys.exit(1)
-    logger.debug("Database connection established")
-    return connection
-
-
 def usage():
     """print usage info"""
     sys.stderr.write("useage: {} [-1]".format(
@@ -72,7 +55,6 @@ def usage():
 
 def main():
     """main function"""
-
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-1', "--break-after-first", action='store_true',
@@ -106,6 +88,8 @@ def main():
     bcl2fastq_wrapper = os.path.join(os.path.dirname(sys.argv[0]), "bcl2fastq.py")
 
     connection = mongodb_conn(args.testing)
+    if connection is None:
+        sys.exit(1)
     db = connection.gisds.runcomplete
     #DB Query for Jobs that are yet to be analysed in the epoch window
 

@@ -1,0 +1,3 @@
+is_devel_version
+barcode_mismatch_arg_for_mux in bcl2fastq Snakefile in theory allowing None as barcode mismatch
+New barcode mismatch default: None (!)
