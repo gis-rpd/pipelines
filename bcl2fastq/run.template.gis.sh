@@ -29,7 +29,7 @@
 # declare a name for this job to be sample_job
 #$ -N @PIPELINE_NAME@.master
 # logs
-#$ -o @MASTERLOG@
+#$ -o @LOGDIR@
 # combine stdout/stderr
 #$ -j y
 # snakemake control job run time: 175h == 1 week
@@ -62,7 +62,7 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 #export SGE_CELL=aquila_cell
 #source $SGE_ROOT/$SGE_CELL/common/settings.sh
 
-LOGDIR="@LOGDIR@";# should be same as defined above for UGE
+LOGDIR="@LOGDIR@";# should be same as defined above
 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
@@ -148,4 +148,5 @@ else
     echo "Mongodb update skipping (dryrun)"
 fi
 
-eval snakemake $args
+eval snakemake $args >@MASTERLOG@ 2>&1
+

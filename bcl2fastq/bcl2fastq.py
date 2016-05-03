@@ -44,8 +44,9 @@ PIPELINE_NAME = "bcl2fastq"
 
 # log dir relative to outdir
 LOG_DIR_REL = "logs"
-MASTERLOG = "snakemake.log"
-SUBMISSIONLOG = "submission.log"
+# master log relative to outdir
+MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log")
+SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log")
 
 # RC files
 RC = {
@@ -286,9 +287,6 @@ def main():
     # create log dir and hence parent dir immediately
     os.makedirs(os.path.join(outdir, LOG_DIR_REL))
 
-    # master log has to be abs to work with PBS where we can't cwd with directives
-    masterlog = os.path.abspath(os.path.join(outdir, LOG_DIR_REL, MASTERLOG))
-    submissionlog = os.path.abspath(os.path.join(outdir, LOG_DIR_REL, SUBMISSIONLOG))
 
     # catch cases where rundir was user provided and looks weird
     try:
@@ -391,7 +389,7 @@ def main():
                 'site': get_site(),
                 'instance_id': 'SET_ON_EXEC',# dummy
                 'submitter': 'SET_ON_EXEC',# dummy
-                'log_path': masterlog}
+                'log_path': os.path.abspath(os.path.join(outdir, MASTERLOG))}
 
     logger.debug("Writing config and rc files")
     pipeline_cfgfile = write_pipeline_config(outdir, user_data, elm_data)
@@ -425,7 +423,7 @@ def main():
             for line in templ_fh:
                 line = line.replace("@SNAKEFILE@", snakefile)
                 line = line.replace("@LOGDIR@", LOG_DIR_REL)
-                line = line.replace("@MASTERLOG@", masterlog)
+                line = line.replace("@MASTERLOG@", MASTERLOG)
                 line = line.replace("@PIPELINE_NAME@", PIPELINE_NAME)
                 line = line.replace("@MAILTO@", toaddr)
                 if args.slave_q:
@@ -448,8 +446,8 @@ def main():
                 master_q_arg = ""
 
         cmd = "cd {} && qsub {} {} >> {}".format(
-            os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), 
-            os.path.relpath(submissionlog, os.path.dirname(run_out)))
+            os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
+
         if args.no_run:
             logger.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
             logger.warning("Once ready submit with: {}".format(cmd))
@@ -457,8 +455,10 @@ def main():
             logger.info("Starting pipeline: {}".format(cmd))
             #os.chdir(os.path.dirname(run_out))
             _ = subprocess.check_output(cmd, shell=True)
-            logger.info("For submission details see {}".format(submissionlog))
-            logger.info("The (master) logfile is {}".format(masterlog))
+            submission_log_abs = os.path.abspath(os.path.join(outdir, SUBMISSIONLOG))
+            master_log_abs = os.path.abspath(os.path.join(outdir, MASTERLOG))
+            logger.info("For submission details see {}".format(submission_log_abs))
+            logger.info("The (master) logfile is {}".format(master_log_abs))
     else:
         raise ValueError(site)
 
