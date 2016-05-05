@@ -39,6 +39,7 @@ done
 
 
 test -z "$RPD_ROOT" && exit 1
+
 TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
 #TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/NS001-SR-R00139_HKWHTBGXX"
 #TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
@@ -46,6 +47,8 @@ TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH
 #echo "FIXME Ignoring HS007 for now" 1>&2
 #TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 
+echo "FIXME only HS007" 1>&2
+TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 #echo "HS1 only" 1>&2
 #TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
 
@@ -105,10 +108,6 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then   
     for d in $TEST_SEQ_RUN_DIRS; do
-    	if echo $d | grep -q HS007-PE-R00020_BH5THFBBXX; then
-    	    echo "FIXME skipping HS007-PE-R00020_BH5THFBBXX" 1>&2
-    	    continue
-    	fi
         echo "Real run: bcl2fastq.py for $d" | tee -a $log
         odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
         ./bcl2fastq.py -d $d -o $odir -t >> $log 2>&1
