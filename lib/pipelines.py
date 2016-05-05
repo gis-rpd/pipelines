@@ -90,10 +90,10 @@ def get_site():
     # gis detection is a bit naive... but socket.getfqdn() doesn't help here
     if os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
         return "gis"
-    elif 'nscc' in socket.getfqdn() or socket.getfqdn().startswith('gis01'):
+    elif os.path.exists('/seq/astar/gis/') or 'nscc' in socket.getfqdn():
         return "nscc"
     else:
-        raise ValueError("unknown site")
+        raise ValueError("unknown site (fqdn was {})".format(socket.getfqdn()))
 
 
 def get_init_call():
