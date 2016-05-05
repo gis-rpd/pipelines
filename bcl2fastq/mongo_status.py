@@ -40,7 +40,7 @@ CONMAP = {
     'nscc': {
         # using reverse proxy @LMN
         'test': "192.168.190.1:27020",
-        'production': "192.168.190.1:27017"
+        'production': "192.168.190.1:27016,192.168.190.1:27017,192.168.190.1:27018,192.168.190.1:27019"
         }
     }
 
@@ -62,6 +62,7 @@ def mongodb_conn(use_test_server=False):
         logger.info("Using production MongoDB server")
         constr = CONMAP[site]['production']
 
+    logger.debug("Using {}".format(constr))
     try:
         connection = pymongo.MongoClient(constr)
     except pymongo.errors.ConnectionFailure:
