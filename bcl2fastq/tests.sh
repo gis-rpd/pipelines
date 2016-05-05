@@ -9,7 +9,7 @@ MYNAME=$(basename $(readlink -f $0))
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
-        echo "rpd@mailman.gis.a-star.edu.sg";
+        echo "rpd@gis.a-star.edu.sg";
     else
         echo "$(whoami)@gis.a-star.edu.sg";
     fi
@@ -40,10 +40,10 @@ done
 
 test -z "$RPD_ROOT" && exit 1
 TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/NS001-SR-R00139_HKWHTBGXX"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
-TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
-echo "FIXME Ignoring HS007 for now" 1>&2
+#TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/NS001-SR-R00139_HKWHTBGXX"
+#TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
+#TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+#echo "FIXME Ignoring HS007 for now" 1>&2
 #TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 
 #echo "HS1 only" 1>&2
