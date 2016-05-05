@@ -15,6 +15,7 @@ import pymongo
 #--- project specific imports
 #
 from pipelines import generate_timestamp
+from pipelines import get_site
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -30,6 +31,19 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
+# first level key must match output of get_site()
+CONMAP = {
+    'gis': {
+        'test': "qlap33.gis.a-star.edu.sg:27017",
+        'production': "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
+        },
+    'nscc': {
+        # using reverse proxy @LMN
+        'test': "192.168.190.1:27020",
+        'production': "192.168.190.1:27017"
+        }
+    }
+
 def usage():
     """print usage info"""
     sys.stderr.write("useage: {} [-1]".format(
@@ -38,16 +52,18 @@ def usage():
 
 
 def mongodb_conn(use_test_server=False):
-    """Connect to MongoDB server and return connection"""
+    """Return connection to MongoDB server"""
+    site = get_site()
+    assert site in CONMAP
     if use_test_server:
         logger.info("Using test MongoDB server")
-        conn_str = "qlap33.gis.a-star.edu.sg:27017"
+        constr = CONMAP[site]['test']
     else:
         logger.info("Using production MongoDB server")
-        conn_str = "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
+        constr = CONMAP[site]['production']
 
     try:
-        connection = pymongo.MongoClient(conn_str)
+        connection = pymongo.MongoClient(constr)
     except pymongo.errors.ConnectionFailure:
         logger.fatal("Could not connect to the MongoDB server")
         return None
