@@ -30,7 +30,8 @@ LOG_DIR_REL = "logs"
 SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "mapping_submission.log")
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "Mapping"
-
+#CONFIG
+CONFIG = "/home/userrig/Solexa/bcl2fastq2-v2.17/generateBCL2FASTQ2.17config.sh"
 #BWA mapping pipeline
 BWA = "/home/userrig/pipelines/NewBwaMappingPipelineMem/generateBwa0.7.5aconfigurationV217V2.sh"
 #RNA mapping pipeline
@@ -48,6 +49,11 @@ def usage():
     """print usage info"""
     sys.stderr.write("useage: {} [-1]".format(
         os.path.basename(sys.argv[0])))
+
+def check_break_status(break_after_first):
+    if break_after_first:
+        logger.warning("Stopping after first sequencing run")
+        sys.exit(0)    
 
 def main():
     """main function"""
@@ -103,7 +109,7 @@ def main():
                     logger.info("Start the downstream analysis at {}".format(outdir))
                     os.makedirs(os.path.join(outdir, LOG_DIR_REL), exist_ok=True)
                     #generate config file
-                    config_cmd = ['/home/userrig/Solexa/bcl2fastq2-v2.17/generateBCL2FASTQ2.17config.sh', '-r', run_number]
+                    config_cmd = [CONFIG, '-r', run_number]
                     try:
                         f = open(os.path.join(downstream_dir, "config_casava-1.8.2.txt".format()), "w")
                         _ = subprocess.call(config_cmd, stderr=subprocess.STDOUT, stdout=f)
@@ -121,7 +127,8 @@ def main():
                             logger.warning("Skipped following run: {}".format(cmd))
                             #Remove config txt
                             os.remove(os.path.join(downstream_dir, "config_casava-1.8.2.txt".format()))
-                            continue
+                            pass
+                            check_break_status(args.break_after_first)
                         else:
                             try:
                                 _ = subprocess.check_output(cmd, shell=True)
@@ -133,9 +140,7 @@ def main():
                                 #send_status_mail
                                 send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(outdir))
                                 sys.exit(1)
-                        if args.break_after_first:
-                            logger.warning("Stopping after first sequencing run")
-                            sys.exit(0)
+                        check_break_status(args.break_after_first)
                     else:
                         #send_status_mail
                         logger.info("samplesheet.csv missing for {} under {}".format(run_number, downstream_dir))
