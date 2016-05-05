@@ -110,7 +110,7 @@ def main():
     parser.add_argument('-1', "--fq1", nargs="+",
                         help="FastQ file/s (gzip only)."
                         " Multiple input files supported (auto-sorted)."
-                        " Note: each file gets a unique read group id assigned!"
+                        " Note: each file gets a unique read group id assigned."
                         " Collides with -c.")
     parser.add_argument('-2', "--fq2", nargs="+",
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
@@ -118,13 +118,16 @@ def main():
                         help="Sample name")
     parser.add_argument('-r', "--reffa", required=True,
                         help="Reference fasta file to use. Needs to be indexed already (bwa index)")
-    parser.add_argument('-d', '--mark-dups', action='store_true')
+    parser.add_argument('-d', '--mark-dups', action='store_true',
+                        help="Mark duplicate reads")
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
                         " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
                         " unless read groups is set in last column. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
+    parser.add_argument('--no-mail', action='store_true',
+                        help="Don't send mail on completion")
     parser.add_argument('-w', '--slave-q',
                         help="Queue to use for slave jobs")
     parser.add_argument('-m', '--master-q',
@@ -164,6 +167,9 @@ def main():
     else:
         read_units = get_reads_unit_from_args(args.fq1, args.fq2)
 
+    for i, ru in enumerate(read_units):
+        logger.debug("read unit #{}: {}".format(i, ru))
+    
     for ru in read_units:
         logger.debug("Checking read unit: {}".format(ru))
         for f in [ru.fq1, ru.fq2]:
@@ -184,7 +190,8 @@ def main():
     write_cluster_config(args.outdir, BASEDIR)
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'sample': args.sample}# needed for file naming
+    user_data = {'sample': args.sample,
+                 'mail_on_completion': not args.no_mail}# needed for file naming
     user_data['units'] = OrderedDict()
     for ru in read_units:
         k = key_for_read_unit(ru)
@@ -217,7 +224,7 @@ def main():
             # we don't know for sure who's going to actually exectute
             # but it's very likely the current user, who needs to be notified
             # on qsub kills etc
-            toaddr =  email_for_user()
+            toaddr = email_for_user()
             for line in templ_fh:
                 line = line.replace("@SNAKEFILE@", snakefile)
                 line = line.replace("@LOGDIR@", LOG_DIR_REL)

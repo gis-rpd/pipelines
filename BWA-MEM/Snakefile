@@ -97,12 +97,14 @@ onstart:# available as patched snakemake 3.5.5
     elm_logger.start()
 onsuccess:
     elm_logger.stop(True)
-    send_status_mail(config['ELM']['pipeline_name'], True,
-                     config['sample'], os.path.abspath(RESULT_OUTDIR))
+    if config['mail_on_completion']:
+        send_status_mail(config['ELM']['pipeline_name'], True,
+                         config['sample'], os.path.abspath(RESULT_OUTDIR))
 onerror:
     elm_logger.stop(False)
-    send_status_mail(config['ELM']['pipeline_name'], False,
-                     config['sample'], os.path.abspath(RESULT_OUTDIR))
+    if config['mail_on_completion']:
+        send_status_mail(config['ELM']['pipeline_name'], False,
+                         config['sample'], os.path.abspath(RESULT_OUTDIR))
 
                     
 rule final:
