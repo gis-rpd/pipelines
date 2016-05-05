@@ -229,7 +229,7 @@ def email_for_user():
     
     user_name = getuser()
     if user_name == "userrig":
-        toaddr = "rpd@mailman.gis.a-star.edu.sg"
+        toaddr = "rpd@gis.a-star.edu.sg"
     else:
         toaddr = "{}@gis.a-star.edu.sg".format(user_name)
     return toaddr
