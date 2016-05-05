@@ -5,8 +5,6 @@
 
 # standard library imports
 import logging
-import time
-from datetime import datetime, timedelta
 import sys
 import os
 import argparse
@@ -19,6 +17,7 @@ import subprocess
 # project specific imports
 #
 from mongo_status import mongodb_conn
+from pipelines import generate_window
 
 
 __author__ = "Lavanya Veeravalli"
@@ -33,19 +32,6 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
-
-
-def generate_window(days=7):
-    """returns tuple representing epoch window (int:present, int:past)"""
-    date_time = time.strftime('%Y-%m-%d %H:%M:%S')
-    #print(date_time)
-    pattern = '%Y-%m-%d %H:%M:%S'
-    epoch_present = int(time.mktime(time.strptime(date_time, pattern)))*1000
-    d = datetime.now() - timedelta(days=days)
-    f = d.strftime("%Y-%m-%d %H:%m:%S")
-    epoch_back = int(time.mktime(time.strptime(f, pattern)))*1000
-    return (epoch_present, epoch_back)
-
 
 def usage():
     """print usage info"""

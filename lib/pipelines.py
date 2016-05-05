@@ -16,6 +16,8 @@ from getpass import getuser
 from itertools import zip_longest
 import socket
 from collections import namedtuple
+import time
+from datetime import datetime, timedelta
 
 #--- third-party imports
 #
@@ -353,3 +355,14 @@ def ref_is_indexed(ref, prog="bwa"):
         return os.path.exists(ref + ".fai")
     else:
         raise ValueError
+
+#window for cronJob
+def generate_window(days=7):
+    """returns tuple representing epoch window (int:present, int:past)"""
+    date_time = time.strftime('%Y-%m-%d %H:%M:%S')
+    pattern = '%Y-%m-%d %H:%M:%S'
+    epoch_present = int(time.mktime(time.strptime(date_time, pattern)))*1000
+    d = datetime.now() - timedelta(days=days)
+    f = d.strftime("%Y-%m-%d %H:%m:%S")
+    epoch_back = int(time.mktime(time.strptime(f, pattern)))*1000
+    return (epoch_present, epoch_back)
