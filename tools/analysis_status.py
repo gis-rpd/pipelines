@@ -130,7 +130,7 @@ def main():
     slave_jids = [jid_from_cluster_logfile(f) for f in cluster_logfiles]
     for jid in slave_jids:
         if jid_is_running(jid, is_pbspro):
-            print("Slave jid {} still running (status?)".format(jid))# FIXME
+            print("Slave jid {} still running".format(jid))
         else:
             print("Slave jid {} not running (anymore).".format(jid))
 
@@ -145,14 +145,14 @@ def main():
                 if is_pbspro:
                     jid = line.strip()
                     if jid_is_running(jid, is_pbspro):
-                        print("Master jid {} still running (status?)".format(jid))# FIXME
+                        print("Master jid {} still running".format(jid))
                     else:
                         print("Master jid {} not running (anymore).".format(jid))
 
                 elif line.startswith("Your job") and line.endswith("has been submitted"):
                     jid = line.split()[2]
                     if jid_is_running(jid, is_pbspro):
-                        print("Master jid {} still running (status?)".format(jid))# FIXME
+                        print("Master jid {} still running".format(jid))
                     else:
                         print("Master jid {} not running (anymore).".format(jid))
                 else:
