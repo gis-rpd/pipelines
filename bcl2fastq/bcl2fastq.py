@@ -69,7 +69,7 @@ logger.addHandler(handler)
 
 
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
-    """writes config file for use in snakemake based on default config, 
+    """writes config file for use in snakemake based on default config,
     user data and elm data to outdir.
     """
 
@@ -134,42 +134,60 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None):
     if machineid eq MS00
     """
 
-    machineid, runid, flowcellid = get_machine_run_flowcell_id(
-        runid_and_flowcellid)
+    basedir_map = {
+        'gis': '/mnt/seq/userrig/',
+        'nscc': '/seq/astar/gis/userrig/'
+        }
 
     if not site:
         site = get_site()
-
-    if site == "gis":
-        if machineid.startswith('MS00'):
-            rundir = "/mnt/seq/userrig/{}/MiSeqOutput/{}_{}".format(machineid, runid, flowcellid)
-        else:
-            rundir = "/mnt/seq/userrig/{}/{}_{}".format(machineid, runid, flowcellid)
-    else:
+    if site not in basedir_map:
         raise ValueError(site)
+    basedir = basedir_map[site]
+
+    machineid, runid, flowcellid = get_machine_run_flowcell_id(
+        runid_and_flowcellid)
+
+    if machineid.startswith('MS00'):
+        # FIXME untested and unclear for NSCC
+        rundir = "{}/{}/MiSeqOutput/{}_{}".format(basedir, machineid, runid, flowcellid)
+    else:
+        rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
+
     return rundir
 
 
 def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
     """
     """
-    machineid, runid, flowcellid = get_machine_run_flowcell_id(
-        runid_and_flowcellid)
+
+    basedir_map = {
+        'gis': {
+            'devel': '/mnt/projects/rpd/testing/output/bcl2fastq',
+            'production': '/mnt/projects/userrig/'},
+        'nscc': {
+            'devel': '/seq/astar/gis/rpd/testing/output/bcl2fastq/',
+            'production': '/seq/astar/gis/userrig/'}
+        }
 
     if not site:
         site = get_site()
-
-    if site == "gis":
-        if is_devel_version():
-            # /output/bcl2fastq. currently owned by lavanya :(
-            outdir = "/mnt/projects/rpd/testing/output/bcl2fastq.tmp/{}/{}_{}/bcl2fastq_{}".format(
-                machineid, runid, flowcellid, generate_timestamp())
-        else:
-            outdir = "/mnt/projects/userrig/{}/{}_{}/bcl2fastq_{}".format(
-                machineid, runid, flowcellid, generate_timestamp())
-    else:
+    if site not in basedir_map:
         raise ValueError(site)
+
+    if is_devel_version():
+        basedir = basedir_map[site]['devel']
+    else:
+        basedir = basedir_map[site]['production']
+
+    machineid, runid, flowcellid = get_machine_run_flowcell_id(
+        runid_and_flowcellid)
+
+    outdir = "{basedir}/{mid}/{rid}_{fid}/bcl2fastq_{ts}".format(
+        basedir=basedir, mid=machineid, rid=runid, fid=flowcellid,
+        ts=generate_timestamp())
     return outdir
+
 
 
 def seqrunfailed(mongo_status_script, run_num, outdir, testing):
@@ -192,9 +210,9 @@ def seqrunfailed(mongo_status_script, run_num, outdir, testing):
 
     flagfile = os.path.join(outdir, "SEQRUNFAILED")
     logger.info("Creating flag file {}".format(flagfile))
-    with open(flagfile, 'w') as fh:
+    with open(flagfile, 'w') as _:
         pass
-    
+
 
 
 def main():
