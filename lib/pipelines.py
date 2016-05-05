@@ -143,7 +143,7 @@ def hash_for_fastq(fq1, fq2=None):
     m.update(fq1.encode())
     if fq2:
         m.update(fq2.encode())
-    return m.hexdigest()
+    return m.hexdigest()[:8]
 
 
 def write_dk_init(rc_file, overwrite=False):
@@ -245,7 +245,6 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir):
     - analysis_id: analysis run id
     - outdir: directory where results are found
     """
-
     
     if success:
         status_str = "completed"
