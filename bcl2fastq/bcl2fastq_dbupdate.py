@@ -72,8 +72,7 @@ def get_outdirs_from_db(testing=True, win=14):
         #run_number = record['run']
         # we might have several analysis runs:
         for analysis in record['analysis']:
-            if analysis.get("Status", None) == "SUCCESS":#STARTED FIXME
-                yield analysis["out_dir"]
+            yield analysis["out_dir"]
 
 
 def mux_dir_complete(muxdir):
