@@ -31,11 +31,14 @@ SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "mapping_submission.log")
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "Mapping"
 #CONFIG
-CONFIG = "/home/userrig/Solexa/bcl2fastq2-v2.17/generateBCL2FASTQ2.17config.sh"
+CONFIG = "/home/userrig/Solexa/bcl2fastq2-v2.17/"
+CONFIG += "generateBCL2FASTQ2.17config.sh"
 #BWA mapping pipeline
-BWA = "/home/userrig/pipelines/NewBwaMappingPipelineMem/generateBwa0.7.5aconfigurationV217V2.sh"
+BWA = "/home/userrig/pipelines/NewBwaMappingPipelineMem/"
+BWA += "generateBwa0.7.5aconfigurationV217V2.sh"
 #RNA mapping pipeline
-RNA = "/home/userrig/pipelines/NewRNAseqTophatCufflinksPipeline/generateTophatCufflinksconfigurationV217V2.sh"
+RNA = "/home/userrig/pipelines/NewRNAseqTophatCufflinksPipeline/"
+RNA += "generateTophatCufflinksconfigurationV217V2.sh"
 #ANALYSIS_ID
 analysis_id = generate_timestamp()
 # global logger
@@ -49,15 +52,12 @@ def usage():
     """print usage info"""
     sys.stderr.write("useage: {} [-1]".format(
         os.path.basename(sys.argv[0])))
-
 def check_break_status(break_after_first):
     if break_after_first:
         logger.warning("Stopping after first sequencing run")
         sys.exit(0)    
-
 def main():
     """main function"""
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-1', "--break-after-first", action='store_true',
                         help="Only process first run returned")
