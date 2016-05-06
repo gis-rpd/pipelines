@@ -1,14 +1,18 @@
 import os
 from math import ceil
-from snakemake.utils import report
 from getpass import getuser
+
+import yaml
+# only dump() and following do not automatically create aliases
+yaml.Dumper.ignore_aliases = lambda *args: True
+from snakemake.utils import report
+
 from pipelines import send_status_mail, generate_timestamp
 from elmlogger import ElmLogging, ElmUnit
+from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE
 
 RESULT_OUTDIR = './out'
 
-SAMPLESHEET = os.path.join(RESULT_OUTDIR, 'samplesheet.csv')
-USEBASES_CFG = os.path.join(RESULT_OUTDIR, 'usesbases.yaml')
 # ANALYSIS_ID not necessarily part of config file and if not
 # needs to be passed to snakemake
 assert 'ANALYSIS_ID' in config
@@ -17,7 +21,6 @@ assert 'ANALYSIS_ID' in config
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source snakemake_env.rc;")
-
 
 
 def bcl2fastq_threads_setting(num_threads):
@@ -56,21 +59,29 @@ def testing_on():
         return False
 
     
-def mongodb_test_arg():
-    if testing_on():
-        test_arg="-t"
+
+def write_db_update_trigger(success):
+    if success:
+        status = 'SUCCESS'
     else:
-        test_arg = ""
-    return test_arg
-    
-    
+        status = 'FAILED'
+    update_info = {'run_num': config['run_num'],
+                   'analysis_id': config['ANALYSIS_ID'],
+                   'status': status}
+    with open(DBUPDATE_TRIGGER_FILE, 'w') as fh:
+        # default_flow_style=None(default)|True(least readable)|False(most readable)
+        yaml.dump(update_info, fh, default_flow_style=False)
+
+        
 onstart:# available as patched snakemake 3.5.5
     global elm_logger
 
     elm_units = []
     for unit in config['units'].values():
         for lane in unit['lane_ids']:
-            eu = ElmUnit._make([unit['run_id'], unit['mux_id'], lane, [os.path.join(RESULT_OUTDIR, unit['mux_dir'])], None])
+            eu = ElmUnit._make([unit['run_id'], unit['mux_id'], lane,
+                                [os.path.join(RESULT_OUTDIR, unit['mux_dir'])],
+                                None])
             elm_units.append(eu)
             
     elm_logger = ElmLogging(workflow.snakefile,
@@ -86,16 +97,18 @@ onstart:# available as patched snakemake 3.5.5
     
 onsuccess:
     elm_logger.stop(True)
-    shell("{} -r {} -s SUCCESS -id {} -o {} {}".format(
-        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR), mongodb_test_arg()))
-    send_status_mail(config['ELM']['pipeline_name'], True, config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR)) 
+    send_status_mail(config['ELM']['pipeline_name'], True,
+                     config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
+    # cannot talk to mongodb from compute. use trigger file
+    write_db_update_trigger(True)
 
     
 onerror:
     elm_logger.stop(False)
-    shell("{} -r {} -s FAILED -id {} -o {} {}".format(
-        config['mongo_status'], config['run_num'], config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR), mongodb_test_arg()))
-    send_status_mail(config['ELM']['pipeline_name'], False, config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
+    send_status_mail(config['ELM']['pipeline_name'], False,
+                     config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
+    # cannot talk to mongodb from compute. use trigger file
+    write_db_update_trigger(False)
 
     
 rule final:

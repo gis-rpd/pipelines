@@ -53,7 +53,10 @@ fi
 #TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 #echo "HS1 only" 1>&2
 #TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
-
+#if [ 1 ]; then
+#    echo "MS001 only" 1>&2
+#    TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
+#fi
 
 for d in $TEST_SEQ_RUN_DIRS; do
     if [ ! -d $d ]; then
@@ -79,8 +82,21 @@ echo "Also check log if the check against expected output hold jobs fail"
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
-    echo "Dryrun: bcl2fastq_cronjob.py" | tee -a $log
-    ./bcl2fastq_cronjob.py -n -1 >> $log 2>&1 
+
+    echo "Dryrun: Running static code checks with pylint"
+    # only warn
+    set +e
+    for f in $(find . -name \*py); do
+        pylint -E --rcfile ../pylintrc $f
+    done
+    set -e
+    
+    echo "Dryrun: bcl2fastq_starter.py" | tee -a $log
+    ./bcl2fastq_starter.py -n -1 -v >> $log 2>&1 
+
+    echo "Dryrun: bcl2fastq_dbupdate.py" | tee -a $log
+    ./bcl2fastq_dbupdate.py -n -t -v >> $log 2>&1
+
 
     r="MS001-PE-R00315_000000000-ANBGU"
     echo "Dryrun: Testing failed seq run $r"  | tee -a $log

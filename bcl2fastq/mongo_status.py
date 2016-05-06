@@ -79,8 +79,8 @@ def main():
                         help="Run ID plus flowcell ID", required=True,)
     parser.add_argument('-s', "--status",
                         help="Analysis status", required=True,
-                        choices=['START', 'SUCCESS', 'FAILED', 'SEQRUNFAILED'])
-    parser.add_argument('-id', "--id",
+                        choices=['STARTED', 'SUCCESS', 'FAILED', 'SEQRUNFAILED'])
+    parser.add_argument('-a', "--analysis-id",
                         help="Analysis id", required=True)
     parser.add_argument('-o', "--out",
                         help="Analysis output directory")
@@ -118,8 +118,8 @@ def main():
 
     start_time = args.id
     logger.info("Database connection established {}".format(run_number))
-    if args.status == "START":
-        logger.info("Status updte is START {}".format(start_time))
+    if args.status == "STARTED":
+        logger.info("Status update is STARTED {}".format(start_time))
         try:
             db.update({"run": run_number},
                       {"$push":
@@ -134,7 +134,7 @@ def main():
             logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
     elif args.status == "SEQRUNFAILED":
-        logger.info("Status updte is START {}".format(start_time))
+        logger.info("Status updte is STARTED {}".format(start_time))
         try:
             db.update({"run": run_number},
                       {"$push":

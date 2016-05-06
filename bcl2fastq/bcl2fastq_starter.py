@@ -51,7 +51,7 @@ def main():
                         help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
     parser.add_argument('-e', "--wrapper-args", nargs="*",
                         help="Extra arguments for bcl2fastq wrapper (prefix leading dashes with X, e.g. X-n for -n)")
-    default = 7
+    default = 14
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -111,7 +111,7 @@ def main():
                     logger.info("bcl2fastq wrapper returned:\n{}".format(
                         res.decode().rstrip()))
             except subprocess.CalledProcessError as e:
-                logger.critical("The following command failed with '': {}".format(
+                logger.critical("The following command failed with return code {}: {}".format(
                     e.stdout, ' '.join(cmd)))
                 logger.critical("Will keep going")
                 # continue so that a failed run doesn't count,

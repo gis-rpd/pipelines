@@ -196,7 +196,7 @@ def seqrunfailed(mongo_status_script, run_num, outdir, testing):
     logger.info("Setting analysis for {} to {}".format(run_num, "SEQRUNFAILED"))
     analysis_id = generate_timestamp()
     mongo_update_cmd = [mongo_status_script, "-r", run_num, "-s", "SEQRUNFAILED"]
-    mongo_update_cmd.extend(["-id", analysis_id, "-o", outdir])
+    mongo_update_cmd.extend(["-a", analysis_id, "-o", outdir])
     if testing:
         mongo_update_cmd.append("-t")
     try:
@@ -219,6 +219,7 @@ def main():
     """main function
     """
 
+    # FIXME ugly and code duplication in bcl2fastq_dbupdate.py
     mongo_status_script = os.path.abspath(os.path.join(
         os.path.dirname(sys.argv[0]), "mongo_status.py"))
     assert os.path.exists(mongo_status_script)
@@ -353,7 +354,6 @@ def main():
     user_data = {'rundir': rundir,
                  'lanes_arg': lane_info,
                  'samplesheet_csv': samplesheet_csv,
-                 'mongo_status': mongo_status_script,
                  'run_num': run_num,
                  'testing': args.testing}
 
@@ -418,8 +418,8 @@ def main():
 
 
     # create mongodb update command, used later, after queueing
-    mongo_update_cmd = "{} -r {} -s START".format(mongo_status_script, user_data['run_num'])
-    mongo_update_cmd += " -id $ANALYSIS_ID -o {}".format(outdir)# set in run.sh
+    mongo_update_cmd = "{} -r {} -s STARTED".format(mongo_status_script, user_data['run_num'])
+    mongo_update_cmd += " -a $ANALYSIS_ID -o {}".format(outdir)# set in run.sh
     if args.testing:
         mongo_update_cmd += " -t"
 
