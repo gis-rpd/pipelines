@@ -81,7 +81,7 @@ def main():
                         help="Analysis status", required=True,
                         choices=['STARTED', 'SUCCESS', 'FAILED', 'SEQRUNFAILED'])
     parser.add_argument('-a', "--analysis-id",
-                        help="Analysis id", required=True)
+                        help="Analysis id / start time", required=True)
     parser.add_argument('-o', "--out",
                         help="Analysis output directory")
     parser.add_argument('-t', "--test_server", action='store_true')
@@ -116,7 +116,7 @@ def main():
     db = connection.gisds.runcomplete
     logger.debug("DB {}".format(db))
 
-    start_time = args.id
+    start_time = args.analysis_id
     logger.info("Database connection established {}".format(run_number))
     if args.status == "STARTED":
         logger.info("Status update is STARTED {}".format(start_time))

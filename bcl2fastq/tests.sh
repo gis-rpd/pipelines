@@ -83,6 +83,8 @@ echo "Also check log if the check against expected output hold jobs fail"
 #
 if [ $skip_dry_runs -ne 1 ]; then
 
+    echo "FIXME: mongo_status.py test missing" 1>&2
+    
     echo "Dryrun: Running static code checks with pylint"
     # only warn
     set +e

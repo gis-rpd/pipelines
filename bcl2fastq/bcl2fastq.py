@@ -233,7 +233,7 @@ def main():
     parser.add_argument('-o', "--outdir",
                         help="Output directory (may not exist; required if called by user)")
     parser.add_argument('-t', "--testing", action='store_true',
-                        help="Disable MongoDB updates")
+                        help="Use MongoDB test server")
     parser.add_argument('-w', '--slave-q',
                         help="Queue to use for slave jobs (defaults: {})".format(DEFAULT_SLAVE_Q))
     parser.add_argument('-m', '--master-q',
@@ -354,8 +354,7 @@ def main():
     user_data = {'rundir': rundir,
                  'lanes_arg': lane_info,
                  'samplesheet_csv': samplesheet_csv,
-                 'run_num': run_num,
-                 'testing': args.testing}
+                 'run_num': run_num}
 
 
     usebases_arg = ''

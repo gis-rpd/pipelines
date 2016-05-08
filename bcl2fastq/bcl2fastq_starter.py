@@ -87,14 +87,13 @@ def main():
     # status:"completed"|"troubleshooting"
     epoch_present, epoch_back = generate_window(args.win)
 
-    
     results = db.find({"analysis": {"$exists" : 0},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     # results is a pymongo.cursor.Cursor which works like an iterator i.e. dont use len()
     logger.info("Found {} runs".format(results.count()))
     for record in results:
         run_number = record['run']
-
+        logger.debug(record)
         cmd = [bcl2fastq_wrapper, "-r", run_number, "-v"]
         if args.testing:
             cmd.append("-t")

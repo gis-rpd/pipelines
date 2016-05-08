@@ -52,14 +52,6 @@ def get_mux_dirs():
     return [v['mux_dir'] for k, v in config["units"].items()]
 
     
-def testing_on():
-    if 'testing' in config and config['testing']:
-        return True
-    else:
-        return False
-
-    
-
 def write_db_update_trigger(success):
     if success:
         status = 'SUCCESS'
