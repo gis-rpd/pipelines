@@ -85,6 +85,8 @@ def main():
     parser.add_argument('-o', "--out",
                         help="Analysis output directory")
     parser.add_argument('-t', "--test_server", action='store_true')
+    parser.add_argument('-n', "--dry-run", action='store_true',
+                        help="Dry run")
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
@@ -107,85 +109,55 @@ def main():
         logger.warning("Not a production user. Skipping MongoDb update")
         sys.exit(0)
 
-
     run_number = args.runid
     connection = mongodb_conn(args.test_server)
     if connection is None:
         sys.exit(1)
     logger.info("Database connection established")
     db = connection.gisds.runcomplete
-    logger.debug("DB {}".format(db))
+    logger.debug("DB %s", db)
 
     start_time = args.analysis_id
-    logger.info("Database connection established {}".format(run_number))
-    if args.status == "STARTED":
-        logger.info("Status update is STARTED {}".format(start_time))
+    logger.info("Status for %s is %s", run_number, args.status)
+
+    if args.status in ["STARTED", "SEQRUNFAILED"]:
         try:
-            db.update({"run": run_number},
-                      {"$push":
-                       {"analysis": {
-                           "analysis_id" : start_time,
-                           "startTime" : start_time,
-                           "userName" : user_name,
-                           "out_dir" : args.out
-                       }}})
+            if not args.dry_run:
+                db.update({"run": run_number},
+                          {"$push":
+                           {"analysis": {
+                               "analysis_id" : start_time,
+                               "startTime" : start_time,
+                               "userName" : user_name,
+                               "out_dir" : args.out,
+                               "Status" :  args.status,
+                           }}})
 
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
-    elif args.status == "SEQRUNFAILED":
-        logger.info("Status updte is STARTED {}".format(start_time))
-        try:
-            db.update({"run": run_number},
-                      {"$push":
-                       {"analysis": {
-                           "analysis_id" : start_time,
-                           "startTime" : start_time,
-                           "userName" : user_name,
-                           "out_dir" : args.out,
-                           "Status" :  "SEQRUNFAILED",
-                       }}})
 
-        except pymongo.errors.OperationFailure:
-            logger.fatal("mongoDB OperationFailure")
-            sys.exit(0)
-    elif args.status == "SUCCESS":
+    elif args.status in ["SUCCESS", "FAILED"]:
         end_time = generate_timestamp()
-        logger.info("Status updte is END and timestamp {}".format(end_time))
+        logger.info("Setting timestamp to %s", end_time)
         try:
-            db.update({"run": run_number, 'analysis.analysis_id' : start_time},
-                      {"$set":
-                       {"analysis.$": {
-                           "analysis_id" : start_time,
-                           "startTime" : start_time,
-                           "EndTimes" : end_time,
-                           "userName" : user_name,
-                           "Status" :  "SUCCESS",
-                           "out_dir" : args.out
-                       }}})
+            if not args.dry_run:
+                db.update({"run": run_number, 'analysis.analysis_id' : start_time},
+                          {"$set":
+                           {"analysis.$": {
+                               "analysis_id" : start_time,
+                               "startTime" : start_time,
+                               "EndTimes" : end_time,
+                               "userName" : user_name,
+                               "out_dir" : args.out,
+                               "Status" :  args.status,
+                           }}})
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
 
-    elif args.status == "FAILED":
-        logger.info("Send FAILEURE message")
-        end_time = generate_timestamp()
-        logger.info("Status updte is FAILED and timestamp {}".format(end_time))
-        #print (end_time)
-        try:
-            db.update({"run": run_number, 'analysis.analysis_id' : start_time},
-                      {"$set":
-                       {"analysis.$": {
-                           "analysis_id" : start_time,
-                           "startTime" : start_time,
-                           "Ended" : end_time,
-                           "userName" : user_name,
-                           "Status" :  "FAILED",
-                           "out_dir" : args.out
-                       }}})
-        except pymongo.errors.OperationFailure:
-            logger.fatal("mongoDB OperationFailure")
-            sys.exit(0)
+    else:
+        raise ValueError(args.status)
 
     # close the connection to MongoDB
     connection.close()

@@ -8,17 +8,16 @@ import os
 import logging
 import argparse
 from collections import namedtuple
+import xml.etree.ElementTree as ET
 
 #--- third-party imports
 #
 import yaml
 import requests
-import xml.etree.ElementTree as ET
 
 #--- project specific imports
 #
 from pipelines import get_machine_run_flowcell_id
-#from bcl2fastq import MuxUnit
 # WARNING changes here, must be reflected in bcl2fastq.py as well
 MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids',
                                  'mux_dir', 'barcode_mismatches'])
@@ -50,17 +49,17 @@ def getdirs(args):
     """
     rundir = args.rundir
     if not os.path.exists(rundir):
-        logger.fatal("rundir '%s' does not exist under Run directory.\n" % (rundir))
+        logger.fatal("rundir '%s' does not exist under Run directory.\n", rundir)
         sys.exit(1)
 
     runinfo = os.path.join(rundir + '/RunInfo.xml')
     if not os.path.exists(runinfo):
-        logger.fatal("RunInfo '%s' does not exist under Run directory.\n" % (runinfo))
+        logger.fatal("RunInfo '%s' does not exist under Run directory.\n", runinfo)
         sys.exit(1)
 
     outdir = args.outdir
     if not os.path.exists(outdir):
-        logger.fatal("output directory '%s' does not exist.\n" % (outdir))
+        logger.fatal("output directory '%s' does not exist.\n", outdir)
         sys.exit(1)
 
     return(rundir, outdir, runinfo)
@@ -141,12 +140,12 @@ def main():
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
     for f in [samplesheet_csv, usebases_cfg, muxinfo_cfg]:
         if not args.force_overwrite and os.path.exists(f):
-            logger.fatal("Refusing to overwrite existing file {}".format(f))
+            logger.fatal("Refusing to overwrite existing file %s", f)
             sys.exit(1)
 
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
 
-    logger.info("Querying ELM for {}".format(run_num))
+    logger.info("Querying ELM for %s", run_num)
     #DEVELOPMENT URL
     #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     #PRODUCTION url
@@ -166,7 +165,7 @@ def main():
         sys.exit(0)
 
     # this is the master samplesheet
-    logger.info("Writing to {}".format(samplesheet_csv))
+    logger.info("Writing to %s", samplesheet_csv)
     # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
     barcode_lens = {}
     mux_units = dict()
@@ -221,12 +220,12 @@ def main():
             else:
                 mux_units[mu.mux_id] = mu
 
-    logger.info("Writing to {}".format(usebases_cfg))
+    logger.info("Writing to %s", usebases_cfg)
     usebases = generate_usebases(barcode_lens, runinfo)
     with open(usebases_cfg, 'w') as fh:
         fh.write(yaml.dump(dict(usebases=usebases), default_flow_style=True))
 
-    logger.info("Writing to {}".format(muxinfo_cfg))
+    logger.info("Writing to %s", muxinfo_cfg)
     with open(muxinfo_cfg, 'w') as fh:
         fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], default_flow_style=True))
 

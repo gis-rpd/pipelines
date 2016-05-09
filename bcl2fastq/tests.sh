@@ -82,8 +82,10 @@ echo "Also check log if the check against expected output hold jobs fail"
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
-
-    echo "FIXME: mongo_status.py test missing" 1>&2
+    echo "Dryrun: mongo_status.py fake run" 1>&2
+    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+    iso8601ms=${iso8601ns:0:26}
+    ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -s FAILED -a $iso8601ms -t -v
     
     echo "Dryrun: Running static code checks with pylint"
     # only warn
