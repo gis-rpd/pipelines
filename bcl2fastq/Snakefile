@@ -52,6 +52,16 @@ def get_mux_dirs():
     return [v['mux_dir'] for k, v in config["units"].items()]
 
     
+def muxdir_to_url(mux_dir):
+    """mux_dir has to be full path"""
+
+    # FIXME change for testin, gis, NSCC
+    if mux_dir.startswith("/mnt/projects/userrig/solexa/"):
+        return mux_dir.replace("/mnt/projects/userrig/solexa/", "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects/")
+    else:
+        raise ValueError(mux_dir)
+
+    
 def write_db_update_trigger(success):
     if success:
         status = 'SUCCESS'
@@ -89,8 +99,25 @@ onstart:# available as patched snakemake 3.5.5
     
 onsuccess:
     elm_logger.stop(True)
+
+    extra_text = ""
+    for unit in config["units"].values():
+        muxname = unit['mux_id']
+        muxdir = unit['mux_dir']
+        indexhtml = os.path.join(RESULT_OUTDIR, muxdir, "html/index.html")
+        if os.path.exists(indexhtml):
+            try:
+                url = muxdir_to_url(os.path.abspath(indexhtml))
+            except ValueError:
+                url = "NA"
+            extra_text += "Summary for {}: {}\n".format(muxname, url)
+        else:
+            extra_text += "Missing summary for {}: {}\n".format(muxname, url)
+            
     send_status_mail(config['ELM']['pipeline_name'], True,
-                     config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
+                     "{} ({})".format(config['run_num'], config['ANALYSIS_ID']),
+                     os.path.abspath(RESULT_OUTDIR), extra_text)
+    
     # cannot talk to mongodb from compute. use trigger file
     write_db_update_trigger(True)
 
@@ -98,7 +125,8 @@ onsuccess:
 onerror:
     elm_logger.stop(False)
     send_status_mail(config['ELM']['pipeline_name'], False,
-                     config['ANALYSIS_ID'], os.path.abspath(RESULT_OUTDIR))
+                     "{} ({})".format(config['run_num'], config['ANALYSIS_ID']),
+                     os.path.abspath(RESULT_OUTDIR))
     # cannot talk to mongodb from compute. use trigger file
     write_db_update_trigger(False)
 
