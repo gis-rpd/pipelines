@@ -54,9 +54,9 @@ def main():
                         help="Run ID plus flowcell ID", required=True,)
     parser.add_argument('-a', "--analysis-id",
                         help="Analysis id / start time", required=True)   
-    parser.add_argument('-mux-id', "--mux-id",
+    parser.add_argument('-i', "--mux-id",
                         help="mux-id", required=True)
-    parser.add_argument('-mux-dir', "--mux-dir",
+    parser.add_argument('-dir', "--mux-dir",
                         help="mux-dir", required=True)
     parser.add_argument('-s', "--mux-status",
                         help="Analysis status", required=True,

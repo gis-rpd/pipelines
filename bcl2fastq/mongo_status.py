@@ -81,7 +81,7 @@ def main():
                         help="Analysis status", required=True,
                         choices=['STARTED', 'SUCCESS', 'FAILED', 'SEQRUNFAILED'])
     parser.add_argument('-a', "--analysis-id",
-                        help="Analysis id / start time", required=True)
+                        help="Analysis id", required=True)
     parser.add_argument('-o', "--out",
                         help="Analysis output directory")
     parser.add_argument('-t', "--test_server", action='store_true')
@@ -116,19 +116,15 @@ def main():
     logger.info("Database connection established")
     db = connection.gisds.runcomplete
     logger.debug("DB %s", db)
-
-    start_time = args.analysis_id
     logger.info("Status for %s is %s", run_number, args.status)
-
     if args.status in ["STARTED", "SEQRUNFAILED"]:
         try:
             if not args.dry_run:
                 db.update({"run": run_number},
                           {"$push":
                            {"analysis": {
-                               "analysis_id" : start_time,
-                               "startTime" : start_time,
-                               "userName" : user_name,
+                               "analysis_id" : args.analysis_id,
+                               "user_name" : user_name,
                                "out_dir" : args.out,
                                "Status" :  args.status,
                            }}})
@@ -142,13 +138,12 @@ def main():
         logger.info("Setting timestamp to %s", end_time)
         try:
             if not args.dry_run:
-                db.update({"run": run_number, 'analysis.analysis_id' : start_time},
+                db.update({"run": run_number, 'analysis.analysis_id' : args.analysis_id},
                           {"$set":
                            {"analysis.$": {
-                               "analysis_id" : start_time,
-                               "startTime" : start_time,
-                               "EndTimes" : end_time,
-                               "userName" : user_name,
+                               "analysis_id" : args.analysis_id,
+                               "end_time" : end_time,
+                               "user_name" : user_name,
                                "out_dir" : args.out,
                                "Status" :  args.status,
                            }}})
