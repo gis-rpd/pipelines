@@ -14,8 +14,7 @@ import pymongo
 
 #--- project specific imports
 #
-from pipelines import generate_timestamp
-from pipelines import get_site
+from mongo_status import mongodb_conn
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -29,7 +28,6 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
-
 
 # first level key must match output of get_site()
 CONMAP = {
@@ -49,41 +47,21 @@ def usage():
     sys.stderr.write("useage: {} [-1]".format(
         os.path.basename(sys.argv[0])))
 
-
-
-def mongodb_conn(use_test_server=False):
-    """Return connection to MongoDB server"""
-    site = get_site()
-    assert site in CONMAP
-    if use_test_server:
-        logger.info("Using test MongoDB server")
-        constr = CONMAP[site]['test']
-    else:
-        logger.info("Using production MongoDB server")
-        constr = CONMAP[site]['production']
-
-    try:
-        connection = pymongo.MongoClient(constr)
-    except pymongo.errors.ConnectionFailure:
-        logger.fatal("Could not connect to the MongoDB server")
-        return None
-    logger.debug("Database connection established")
-    return connection
-
-
-
 def main():
     """main function"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-r', "--runid",
                         help="Run ID plus flowcell ID", required=True,)
-    parser.add_argument('-s', "--status",
-                        help="Analysis status", required=True,
-                        choices=['STARTED', 'SUCCESS', 'FAILED', 'SEQRUNFAILED'])
     parser.add_argument('-a', "--analysis-id",
-                        help="Analysis id", required=True)
-    parser.add_argument('-o', "--out",
-                        help="Analysis output directory")
+                        help="Analysis id / start time", required=True)   
+    parser.add_argument('-i', "--mux-id",
+                        help="mux-id", required=True)
+    parser.add_argument('-dir', "--mux-dir",
+                        help="mux-dir", required=True)
+    parser.add_argument('-s', "--mux-status",
+                        help="Analysis status", required=True,
+                        choices=['SUCCESS', 'FAILED'])
+
     parser.add_argument('-t', "--test_server", action='store_true')
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
@@ -109,54 +87,49 @@ def main():
         logger.warning("Not a production user. Skipping MongoDb update")
         sys.exit(0)
 
-    run_number = args.runid
+    run_number = args.runid.rstrip()
+    print(run_number)
     connection = mongodb_conn(args.test_server)
     if connection is None:
         sys.exit(1)
     logger.info("Database connection established")
     db = connection.gisds.runcomplete
-    logger.debug("DB %s", db)
-    logger.info("Status for %s is %s", run_number, args.status)
-    if args.status in ["STARTED", "SEQRUNFAILED"]:
-        try:
-            if not args.dry_run:
-                db.update({"run": run_number},
-                          {"$push":
-                           {"analysis": {
-                               "analysis_id" : args.analysis_id,
-                               "user_name" : user_name,
-                               "out_dir" : args.out,
-                               "Status" :  args.status,
-                           }}})
-
-        except pymongo.errors.OperationFailure:
-            logger.fatal("mongoDB OperationFailure")
-            sys.exit(0)
-
-    elif args.status in ["SUCCESS", "FAILED"]:
-        end_time = generate_timestamp()
-        logger.info("Setting timestamp to %s", end_time)
+    if args.mux_status == "SUCCESS":
         try:
             if not args.dry_run:
                 db.update({"run": run_number, 'analysis.analysis_id' : args.analysis_id},
-                          {"$set":
-                           {"analysis.$": {
-                               "analysis_id" : args.analysis_id,
-                               "end_time" : end_time,
-                               "user_name" : user_name,
-                               "out_dir" : args.out,
-                               "Status" :  args.status,
-                           }}})
+                          {
+                            "$push": { 
+                                "analysis.$.per_mux_status":  {                                   
+                                    "mux_id" : args.mux_id,                      
+                                    "mux_dir" : args.mux_dir,
+                                    "Status" : args.mux_status,
+                                    "StatsSubmission" : "TODO", 
+                                    "ArchiveSubmission" : "TODO",
+                                    "DownstreamSubmission" : "TODO",
+                        
+                }}})    
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
-
+    elif args.mux_status == "FAILED":
+        try:
+            if not args.dry_run:
+                db.update({"run": run_number, 'analysis.analysis_id' : args.analysis_id},
+                          {
+                            "$push": { 
+                                "analysis.$.per_mux_status":  {                                   
+                                    "mux_id" : args.mux_id,                      
+                                    "mux_dir" : args.mux_dir,
+                                    "Status" : args.mux_status,                        
+                }}})     
+        except pymongo.errors.OperationFailure:
+            logger.fatal("mongoDB OperationFailure")
+            sys.exit(0)
     else:
         raise ValueError(args.status)
-
-    # close the connection to MongoDB
+     # close the connection to MongoDB
     connection.close()
-
 
 if __name__ == "__main__":
     logger.info("MongoDB status update starting")
