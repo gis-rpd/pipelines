@@ -76,6 +76,19 @@ def get_pipeline_version():
     version_file = os.path.abspath(os.path.join(PIPELINE_BASEDIR, "VERSION"))
     with open(version_file) as fh:
         version = fh.readline().strip()
+    cwd =  os.getcwd()
+    os.chdir(PIPELINE_BASEDIR)
+    if os.path.exists(".git"):
+        commit = None
+        cmd = ['git', 'describe', '--always', '--dirty']
+        try:
+            res = subprocess.check_output(cmd , stderr=subprocess.STDOUT)
+            commit = res.decode().strip()
+        except (subprocess.CalledProcessError, OSError) as e:
+            pass
+        if commit:
+            version = "{} commit {}".format(version, commit)
+    os.chdir(cwd)
     return version
 
 
@@ -238,7 +251,7 @@ def email_for_user():
     return toaddr
 
 
-def send_status_mail(pipeline_name, success, analysis_id, outdir):
+def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=None):
     """analysis_id should be unique identifier for this analysis
 
     - success: bool
@@ -256,8 +269,10 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir):
         # FIXME ugly inference of log folder
         logdir = os.path.normpath(os.path.join(outdir, "..", 'logs'))
         body += "\nSorry about this. Please check log files in {}".format(logdir)
+    if extra_text:
+        body = body + "\n" + extra_text + "\n"
     body += RPD_SIGNATURE
-
+    
     subject = "Pipeline {} {} for {}".format(
         pipeline_name, status_str, analysis_id)
 
