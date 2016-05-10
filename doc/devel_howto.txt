@@ -1,0 +1,8 @@
+- each pipeline should have its equally named subfolder containing an equally named wrapper script
+- 'master' should always be deployable i.e. always pass all tests
+- development work should happen on the 'devel' branch of even better a topic branch thereof and only be merged into testing once all tests pass
+- for each newly created script or functionality add a dryrun and a real test to the corresponding tests.sh
+  - dryrun means the test can be run immediately without submission
+  - a real run would be submitted and run on real data
+- test input data should be placed in testing/data/<pipeline>
+- testing output should be written to  testing/output/<pipeline>
