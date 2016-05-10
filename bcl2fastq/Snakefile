@@ -9,7 +9,7 @@ from snakemake.utils import report
 
 from pipelines import send_status_mail, generate_timestamp
 from elmlogger import ElmLogging, ElmUnit
-from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE
+from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE_FMT, DBUPDATE_TRIGGER_FILE_MAXNUM
 
 RESULT_OUTDIR = './out'
 
@@ -70,7 +70,13 @@ def write_db_update_trigger(success):
     update_info = {'run_num': config['run_num'],
                    'analysis_id': config['ANALYSIS_ID'],
                    'status': status}
-    with open(DBUPDATE_TRIGGER_FILE, 'w') as fh:
+    
+    for i in range(DBUPDATE_TRIGGER_FILE_MAXNUM+1):
+        dbupdate_trigger_file = DBUPDATE_TRIGGER_FILE_FMT.format(num=i)
+        if not os.path.exists(dbupdate_trigger_file):
+            break
+    assert not os.path.exists(dbupdate_trigger_file)
+    with open(dbupdate_trigger_file, 'w') as fh:
         # default_flow_style=None(default)|True(least readable)|False(most readable)
         yaml.dump(update_info, fh, default_flow_style=False)
 
@@ -217,13 +223,13 @@ rule fastqc:
     message: "Running fastqc on {input}"
     benchmark: 'benchmark/fastqc.txt'
     shell:
-        # need to be able to deal with empty directories
-        # assume success and delete success flag on failure
-        # fastqc will fail on corrupted files but return proper error code
-        "touch {output};"
+        # note: need to be able to deal with empty directories.
+        # fastqc will fail on corrupted files but return proper error code,
+        # so better check input with gzip -t first
         "for f in $(find $(dirname {input}) -name \*fastq.gz); do"
-        "    gzip -t $f && fastqc -t {threads} $f || rm {output};"
-        "done"
+        "    gzip -t $f && fastqc -t {threads} $f;"
+        " done;"
+        " touch {output};"
 
 
 

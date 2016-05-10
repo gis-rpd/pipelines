@@ -12,7 +12,7 @@ import os
 import argparse
 import logging
 import subprocess
-import glob
+from datetime import datetime
 
 #--- third-party imports
 #
@@ -22,15 +22,9 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 
 #--- project specific imports
 #
-#from pipelines import get_pipeline_version, get_site, get_rpd_vars
-#from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
-#from pipelines import write_cluster_config, generate_timestamp
-#from pipelines import get_machine_run_flowcell_id, is_devel_version
-#from pipelines import email_for_user
-#from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
 from mongo_status import mongodb_conn
-from pipelines import generate_window
-
+from pipelines import generate_window, timestamp_from_string
+from bcl2fastq import PIPELINE_CONFIG_FILE
 
 
 __author__ = "Andreas Wilm"
@@ -39,7 +33,9 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-DBUPDATE_TRIGGER_FILE = "TRIGGER.DBUPDATE"
+DBUPDATE_TRIGGER_FILE_FMT = "TRIGGER.DBUPDATE.{num}"
+# up to DBUPDATE_TRIGGER_FILE_MAXNUM trigger files allowed
+DBUPDATE_TRIGGER_FILE_MAXNUM = 9
 
 
 BASEDIR = os.path.dirname(sys.argv[0])
@@ -54,6 +50,78 @@ logger.addHandler(handler)
 
 
 
+class MongoUpdate(object):
+    """Helper class for mongodb updates
+    """
+    
+    def __init__(self, run_num, analysis_id, testing=False, dryrun=False):
+        self.run_num = run_num
+        self.analysis_id = analysis_id
+        self.testing = testing
+        self.dryrun = dryrun
+
+        mongo_status_script = os.path.abspath(os.path.join(
+            os.path.dirname(sys.argv[0]), "mongo_status.py"))
+        assert os.path.exists(mongo_status_script), (
+            "Missing {}".format(mongo_status_script))
+        self.mongo_status_script = mongo_status_script
+
+        mongo_status_per_mux_script = os.path.abspath(os.path.join(
+            os.path.dirname(sys.argv[0]), "mongo_status_per_mux.py"))
+        assert os.path.exists(mongo_status_per_mux_script), (
+            "Missing {}".format(mongo_status_per_mux_script))
+        self.mongo_status_per_mux_script = mongo_status_per_mux_script
+
+
+    def update_run(self, status, outdir):
+        """update status for run
+        """
+        logger.info("Updating status for run %s analysis %s to %s",
+                    self.analysis_id, self.run_num, status)
+        cmd = [self.mongo_status_script, '-r', self.run_num,
+               '-a', self.analysis_id, '-s', status, '-o', outdir]
+
+        if self.testing:
+            cmd.append("-t")
+        if self.dryrun:
+            cmd.append("--dry-run")
+
+        try:
+            _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            logger.critical("The following command failed with return code %s: %s",
+                            e.returncode, ' '.join(cmd))
+            logger.critical("Output: %s", e.output.decode())
+            return False
+        else:
+            return True
+
+
+    def update_mux(self, status, mux_id, mux_dir):
+        """update status for mux
+        """
+        logger.info("Updating status for mux %s of analysis %s in run %s to %s",
+                    mux_id, self.analysis_id, self.run_num, status)
+        cmd = [self.mongo_status_per_mux_script, '-r', self.run_num,
+               '-a', self.analysis_id, '-s', status,
+               '-i', mux_id, '-d', mux_dir]
+
+        if self.testing:
+            cmd.append("-t")
+        if self.dryrun:
+            cmd.append("--dry-run")
+
+        try:
+            _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            logger.critical("The following command failed with return code %s: %s",
+                            e.returncode, ' '.join(cmd))
+            logger.critical("Output: %s", e.output.decode())
+            return False
+        else:
+            return True
+
+
 def get_outdirs_from_db(testing=True, win=14):
     """FIXME:add-doc"""
     connection = mongodb_conn(testing)
@@ -66,29 +134,42 @@ def get_outdirs_from_db(testing=True, win=14):
     results = db.find({"analysis": {"$exists": 1},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     # results is a pymongo.cursor.Cursor which works like an iterator i.e. dont use len()
-    logger.info("Found {} runs for last {} days".format(results.count(), win))
+    logger.info("Found %d runs for last %s days", results.count(), win)
     for record in results:
-        logger.debug("record: {}".format(record))
+        logger.debug("record: %s", record)
         #run_number = record['run']
         # we might have several analysis runs:
         for analysis in record['analysis']:
             yield analysis["out_dir"]
 
 
-def mux_dir_complete(muxdir):
-    for x in ['bcl2fastq.SUCCESS', 'fastqc.SUCCESS']:
-        if not os.path.exists(os.path.join(muxdir, x)):
+def mux_dir_complete(muxdir, after_ts=None):
+    """Will check whether necessary flag files for muxdir exist. Will return false if one is missing.
+    If after_ts is given or if both exist, but none is newer than after_ts.
+    """
+
+    at_least_one_newer = False
+    for f in ['bcl2fastq.SUCCESS', 'fastqc.SUCCESS']:
+        f = os.path.join(muxdir, f)
+        if not os.path.exists(f):
             return False
-    return True
+        if after_ts:
+            if datetime.fromtimestamp(os.path.getmtime(f)) > after_ts:
+                at_least_one_newer = True
+    if after_ts and at_least_one_newer:
+        return True
+    else:
+        return False
 
 
 def main():
     """main function
     """
     # FIXME ugly and duplicated in bcl2fastq.py
-    mongo_status_script = os.path.abspath(os.path.join(
-        os.path.dirname(sys.argv[0]), "mongo_status.py"))
-    assert os.path.exists(mongo_status_script)
+    mongo_status_per_mux_script = os.path.abspath(os.path.join(
+        os.path.dirname(sys.argv[0]), "mongo_status_per_mux.py"))
+    assert os.path.exists(mongo_status_per_mux_script)
+    assert os.path.exists(mongo_status_per_mux_script)
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-t', "--testing", action='store_true',
@@ -97,8 +178,9 @@ def main():
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
     parser.add_argument('--outdirs', nargs="*",
-                        help="Ignore DB entries and go through this list of directories (DEBUGGING)")
-    parser.add_argument('-n', '--no-run', action='store_true')
+                        help="Ignore DB entries and go through this list"
+                        " of directories (DEBUGGING)")
+    parser.add_argument('-n', '--dry-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
@@ -126,40 +208,60 @@ def main():
 
     num_triggers = 0
     for outdir in outdirs:
-        logger.debug("Scanning {}".format(outdir))
-        trigger_file = os.path.join(outdir, DBUPDATE_TRIGGER_FILE)
-        if not os.path.exists(trigger_file):
-            continue
-        num_triggers += 1
-        with open(trigger_file) as fh:
-            update_info = yaml.safe_load(fh)
 
-            # update status for run
-            #
-            cmd = [mongo_status_script, '-r', update_info['run_num'],
-                   '-s', update_info['status'], '-o', outdir,
-                   '-a', update_info['analysis_id']]
-            if args.testing:
-                cmd.append("-t")
+        # load mux info from config instead of relying on filesystem
+        #
+        logger.debug("Loading config for %s", outdir)
+        with open(os.path.join(outdir, PIPELINE_CONFIG_FILE)) as fh:
+            cfg = yaml.safe_load(fh)
+        muxes = dict([(x['mux_id'], x['mux_dir']) for x in cfg['units'].values()])
 
-            if args.no_run:
-                logger.warning("Dry run. Skipping execution of: {}".format(' '.join(cmd)))
-            try:
-                _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            except subprocess.CalledProcessError as e:
-                logger.fatal("The following command failed with return code {}: {}".format(
-                    e.returncode, ' '.join(cmd)))
-                logger.fatal("Output: {}".format(e.output.decode()))
-                logger.fatal("Trying to continue")
+        # look for trigger files. use their info for update and delete
+        #
+        for i in range(DBUPDATE_TRIGGER_FILE_MAXNUM+1):
+            # multiple trigger files per directory allowed (but rare)
+            trigger_file = os.path.join(outdir, DBUPDATE_TRIGGER_FILE_FMT.format(num=i))
+            if not os.path.exists(trigger_file):
                 continue
 
-            for muxdir in glob.glob(os.path.join(outdir, "out", "Project_*")):
-                if mux_dir_complete(muxdir):
-                    logger.critical("FIXME Implement: mongo_status_per_mux for {}".format(muxdir))
-                    
-            os.unlink(trigger_file)
-            
-    logger.info("{} dirs with triggers".format(num_triggers))
+            logger.debug("Processing trigger file %s", trigger_file)
+            num_triggers += 1
+            with open(trigger_file) as fh:
+                update_info = yaml.safe_load(fh)
+
+            mongo_updater = MongoUpdate(update_info['run_num'],
+                                        update_info['analysis_id'],
+                                        args.testing, args.dry_run)
+
+            res = mongo_updater.update_run(update_info['status'], outdir)
+            if not res:
+                # don't delete trigger. don't processe muxes. try again later
+                logger.critical("Skipping this run")
+                continue
+
+            # update per MUX
+            #
+            for mux_id, mux_dir_base in muxes.items():
+                mux_dir = os.path.join(outdir, "out", mux_dir_base)# ugly
+                after_ts = timestamp_from_string(update_info['analysis_id'])
+                if mux_dir_complete(mux_dir):
+                    # skip the ones completed before
+                    if not mux_dir_complete(mux_dir, after_ts=after_ts):
+                        continue
+                    status = 'SUCCESS'
+                else:
+                    status = 'FAILED'
+
+                res = mongo_updater.update_mux(status, mux_id, mux_dir_base)
+                if not res:
+                    # don't delete trigger. try again later
+                    logger.critical("Skipping this run")
+                    continue
+
+                os.unlink(trigger_file)
+
+    logger.info("%s dirs with triggers", num_triggers)
+
 
 if __name__ == "__main__":
     main()
