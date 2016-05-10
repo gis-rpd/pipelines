@@ -212,7 +212,11 @@ def main():
         # load mux info from config instead of relying on filesystem
         #
         logger.debug("Loading config for %s", outdir)
-        with open(os.path.join(outdir, PIPELINE_CONFIG_FILE)) as fh:
+        config_file = os.path.join(outdir, PIPELINE_CONFIG_FILE)
+        if not os.path.exists(config_file):
+            logger.critical("Missing config file %s. Skipping this directory", config_file)
+            continue
+        with open(config_file) as fh:
             cfg = yaml.safe_load(fh)
         muxes = dict([(x['mux_id'], x['mux_dir']) for x in cfg['units'].values()])
 
