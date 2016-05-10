@@ -47,6 +47,8 @@ LOG_DIR_REL = "logs"
 # master log relative to outdir
 MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log")
 SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log")
+PIPELINE_CONFIG_FILE = "conf.yaml"
+PIPELINE_DEFAULT_CONFIG_FILE = "conf.default.yaml"
 
 # RC files
 RC = {
@@ -77,8 +79,8 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     for k, v in rpd_vars.items():
         logger.debug("{} : {}".format(k, v))
 
-    pipeline_config_in = os.path.join(BASEDIR, "conf.default.yaml".format())
-    pipeline_config_out = os.path.join(outdir, "conf.yaml".format())
+    pipeline_config_in = os.path.join(BASEDIR, PIPELINE_DEFAULT_CONFIG_FILE)
+    pipeline_config_out = os.path.join(outdir, PIPELINE_CONFIG_FILE)
 
     assert os.path.exists(pipeline_config_in)
     if not force_overwrite:

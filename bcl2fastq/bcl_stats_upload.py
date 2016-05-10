@@ -24,10 +24,6 @@ logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s] %(levelname)s %(filename)s: %(message)s')
 
 
-def usage():
-    """print usage info"""
-    sys.stderr.write("useage: {} [-1]".format(
-        os.path.basename(sys.argv[0])))
 def main():
     """main function"""     
     parser = argparse.ArgumentParser(description=__doc__)

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""MongoDB status updates for the bcl2fastq pipeline
+"""MUX specific MongoDB status updates
 """
 # standard library imports
 import logging
 import sys
-import os
 import argparse
 import getpass
 
@@ -15,6 +14,7 @@ import pymongo
 #--- project specific imports
 #
 from mongo_status import mongodb_conn
+
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -29,23 +29,6 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-# first level key must match output of get_site()
-CONMAP = {
-    'gis': {
-        'test': "qlap33.gis.a-star.edu.sg:27017",
-        'production': "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
-        },
-    'nscc': {
-        # using reverse proxy @LMN
-        'test': "192.168.190.1:27020",
-        'production': "192.168.190.1:27016,192.168.190.1:27017,192.168.190.1:27018,192.168.190.1:27019"
-        }
-    }
-
-def usage():
-    """print usage info"""
-    sys.stderr.write("useage: {} [-1]".format(
-        os.path.basename(sys.argv[0])))
 
 def main():
     """main function"""
@@ -53,10 +36,10 @@ def main():
     parser.add_argument('-r', "--runid",
                         help="Run ID plus flowcell ID", required=True,)
     parser.add_argument('-a', "--analysis-id",
-                        help="Analysis id / start time", required=True)   
+                        help="Analysis id / start time", required=True)
     parser.add_argument('-i', "--mux-id",
                         help="mux-id", required=True)
-    parser.add_argument('-dir', "--mux-dir",
+    parser.add_argument('-d', "--mux-dir",
                         help="mux-dir", required=True)
     parser.add_argument('-s', "--mux-status",
                         help="Analysis status", required=True,
@@ -88,7 +71,6 @@ def main():
         sys.exit(0)
 
     run_number = args.runid.rstrip()
-    print(run_number)
     connection = mongodb_conn(args.test_server)
     if connection is None:
         sys.exit(1)
@@ -99,16 +81,16 @@ def main():
             if not args.dry_run:
                 db.update({"run": run_number, 'analysis.analysis_id' : args.analysis_id},
                           {
-                            "$push": { 
-                                "analysis.$.per_mux_status":  {                                   
-                                    "mux_id" : args.mux_id,                      
-                                    "mux_dir" : args.mux_dir,
-                                    "Status" : args.mux_status,
-                                    "StatsSubmission" : "TODO", 
-                                    "ArchiveSubmission" : "TODO",
-                                    "DownstreamSubmission" : "TODO",
-                        
-                }}})    
+                              "$push": {
+                                  "analysis.$.per_mux_status":  {
+                                      "mux_id" : args.mux_id,
+                                      "mux_dir" : args.mux_dir,
+                                      "Status" : args.mux_status,
+                                      "StatsSubmission" : "TODO",
+                                      "ArchiveSubmission" : "TODO",
+                                      "DownstreamSubmission" : "TODO",
+
+                                  }}})
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")
             sys.exit(0)
@@ -117,12 +99,12 @@ def main():
             if not args.dry_run:
                 db.update({"run": run_number, 'analysis.analysis_id' : args.analysis_id},
                           {
-                            "$push": { 
-                                "analysis.$.per_mux_status":  {                                   
-                                    "mux_id" : args.mux_id,                      
-                                    "mux_dir" : args.mux_dir,
-                                    "Status" : args.mux_status,                        
-                }}})     
+                              "$push": {
+                                  "analysis.$.per_mux_status":  {
+                                      "mux_id" : args.mux_id,
+                                      "mux_dir" : args.mux_dir,
+                                      "Status" : args.mux_status,
+                                  }}})
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")
             sys.exit(0)

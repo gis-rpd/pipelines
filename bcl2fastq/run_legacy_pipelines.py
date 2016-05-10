@@ -48,10 +48,7 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-def usage():
-    """print usage info"""
-    sys.stderr.write("useage: {} [-1]".format(
-        os.path.basename(sys.argv[0])))
+
 def check_break_status(break_after_first):
     if break_after_first:
         logger.warning("Stopping after first sequencing run")

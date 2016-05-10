@@ -227,6 +227,14 @@ def generate_timestamp():
     return datetime.isoformat(datetime.now()).replace(":", "-")
 
 
+def timestamp_from_string(analysis_id):
+    """
+    converts output of generate_timestamp(), e.g. 2016-05-09T16-43-32.080740 back to timestamp
+    """
+    dt = datetime.strptime(analysis_id, '%Y-%m-%dT%H-%M-%S.%f')
+    return dt
+
+
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
     Expected string format is machine-runid_flowcellid
