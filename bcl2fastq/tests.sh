@@ -53,10 +53,10 @@ fi
 #TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 #echo "HS1 only" 1>&2
 #TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
-#if [ 1 ]; then
-#    echo "MS001 only" 1>&2
-#    TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
-#fi
+if [ 0 ]; then
+    echo "MS001 only" 1>&2
+    TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
+fi
 
 for d in $TEST_SEQ_RUN_DIRS; do
     if [ ! -d $d ]; then
@@ -85,7 +85,12 @@ if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: mongo_status.py fake run" 1>&2
     iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
     iso8601ms=${iso8601ns:0:26}
-    ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -s FAILED -a $iso8601ms -t -v
+    ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -s SUCCESS -t -v
+
+    echo "Dryrun: mongo_status_per_mux.py fake run" 1>&2
+    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+    iso8601ms=${iso8601ns:0:26}
+    ./mongo_status_per_mux.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -i FAKE -d /tmp/FAKE -s FAILED -t -v
     
     echo "Dryrun: Running static code checks with pylint"
     # only warn
