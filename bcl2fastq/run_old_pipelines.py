@@ -25,7 +25,7 @@ __license__ = "The MIT License (MIT)"
 
 
 # log dir relative to outdir
-LOG_DIR_REL = "logs"
+LOG_DIR_REL = "mappping_logs"
 # Submission log relative to outdir
 SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "mapping_submission.log")
 # same as folder name. also used for cluster job names
@@ -92,7 +92,6 @@ def main():
         sys.exit(1)
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
-    #db.getCollection('runcomplete').find({'analysis.Status': "SUCCESS"})
     results = db.find({"analysis.Status": "SUCCESS",
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found {} runs".format(results.count()))
@@ -100,18 +99,17 @@ def main():
         run_number = record['run']
         analysis = record['analysis']
         for analysis in record['analysis']:
-            outdir = analysis.get("out_dir")
-            downstream_dir, out = os.path.split(outdir)
+            out_dir = analysis.get("out_dir")
             #Check if bcl2Fastq is completed successfully
             if 'Status' in analysis and analysis.get("Status") == "SUCCESS":
                 #Check if downstream analysis has been started      
-                if not os.path.exists(os.path.join(downstream_dir, "config_casava-1.8.2.txt".format())):
-                    logger.info("Start the downstream analysis at {}".format(outdir))
-                    os.makedirs(os.path.join(outdir, LOG_DIR_REL), exist_ok=True)
+                if not os.path.exists(os.path.join(out_dir, "config_casava-1.8.2.txt".format())):
+                    logger.info("Start the downstream analysis at {}".format(out_dir))
+                    os.makedirs(os.path.join(out_dir, LOG_DIR_REL), exist_ok=True)
                     #generate config file
                     config_cmd = [CONFIG, '-r', run_number]
                     try:
-                        f = open(os.path.join(downstream_dir, "config_casava-1.8.2.txt".format()), "w")
+                        f = open(os.path.join(out_dir, "config_casava-1.8.2.txt".format()), "w")
                         _ = subprocess.call(config_cmd, stderr=subprocess.STDOUT, stdout=f)
                     except subprocess.CalledProcessError as e:
                         logger.fatal("The following command failed with return code {}: {}".format(
@@ -119,14 +117,15 @@ def main():
                         logger.fatal("Output: {}".format(e.output.decode()))
                         logger.fatal("Exiting")
                         sys.exit(1)
-                    #Generate and Submit BWA mapping pipeline
-                    if os.path.exists(os.path.join(downstream_dir, "samplesheet.csv".format())):
-                        cmd = "cd {} && {} -r {} -f {} -s {} -j 0 -p Production -c 10 >> {}".format(outdir, BWA, run_number, outdir, os.path.join(downstream_dir, "samplesheet.csv".format()), SUBMISSIONLOG)
-                        cmd += "&& {} -r {} -f {} -s {} -j 0 -p Production -c 10 >> {}".format(RNA, run_number, outdir, os.path.join(downstream_dir, "samplesheet.csv".format()), SUBMISSIONLOG)
+                    #Generate and Submit BWA and RNAseq mapping pipeline
+                    if os.path.exists(os.path.join(out_dir, "samplesheet.csv".format())):
+                        dirs = os.path.join(out_dir, "out")
+                        cmd = "cd {} && {} -r {} -f {} -s {} -j 0 -p Production -c 5 >> {}".format(dirs, BWA, run_number, out_dir, os.path.join(out_dir, "samplesheet.csv".format()), os.path.join(out_dir, SUBMISSIONLOG))
+                        cmd += "&& {} -r {} -f {} -s {} -j 0 -p Production -c 5 >> {}".format(RNA, run_number, out_dir, os.path.join(out_dir, "samplesheet.csv".format()), os.path.join(out_dir, SUBMISSIONLOG))
                         if args.dry_run:
                             logger.warning("Skipped following run: {}".format(cmd))
                             #Remove config txt
-                            os.remove(os.path.join(downstream_dir, "config_casava-1.8.2.txt".format()))
+                            os.remove(os.path.join(out_dir, "config_casava-1.8.2.txt".format()))
                             pass
                             check_break_status(args.break_after_first)
                         else:
@@ -134,19 +133,19 @@ def main():
                                 _ = subprocess.check_output(cmd, shell=True)
                             except subprocess.CalledProcessError as e:
                                 logger.fatal("The following command failed with return code {}: {}".format(
-                                e.returncode, ' '.join(config_cmd)))
+                                e.returncode, ' '.join(cmd)))
                                 logger.fatal("Output: {}".format(e.output.decode()))
                                 logger.fatal("Exiting")
                                 #send_status_mail
-                                send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(outdir))
+                                send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
                                 sys.exit(1)
                         check_break_status(args.break_after_first)
                     else:
                         #send_status_mail
-                        logger.info("samplesheet.csv missing for {} under {}".format(run_number, downstream_dir))
-                        send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(outdir))
+                        logger.info("samplesheet.csv missing for {} under {}".format(run_number, out_dir))
+                        send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
             elif analysis.get("Status") == "FAILED":
-                logger.info("BCL2FASTQ FAILED for {} under {}".format(run_number, downstream_dir))
+                logger.info("BCL2FASTQ FAILED for {} under {}".format(run_number, out_dir))
      # close the connection to MongoDB
     connection.close()
     logger.info("Successful program exit")      
