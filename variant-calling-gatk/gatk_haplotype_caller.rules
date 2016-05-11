@@ -1,0 +1,79 @@
+"""
+Based on rules/variant_calling/gatk_haplotype_caller.rules from https://bitbucket.org/johanneskoester/snakemake-workflows/ (commit fa47806)
+- original author Johannes Köster (http://johanneskoester.bitbucket.org)
+- original license: MIT
+"""
+
+def _gatk_multi_arg(flag, files):
+    flag += " "
+    return " ".join(flag + f for f in files)
+
+
+def _region_for_ctr(wildcards):
+    ctr = int(wildcards.ctr)
+    bed = [x for x in config["references"]["split_regions"] if x.endswith(".{}.bed".format(ctr))]
+    assert len(bed)==1, ("Found {} matches for {}".format(bed, ctr))
+    return bed[0]
+
+
+rule gatk_haplotype_caller:
+    input:
+        bam="mapping/{sample}.realn.recal.bam",
+        bai="mapping/{sample}.realn.recal.bam.bai",
+        ref=config["references"]["genome"],
+        bed=_region_for_ctr
+    output:
+        gvcf="variant_calling/{sample}.{ctr}.gvcf",
+        idx="variant_calling/{sample}.{ctr}.gvcf.idx"
+    params:
+        custom=config.get("params_gatk", "")
+    log:
+        "variant_calling/log/{sample}.{ctr}.genotype_info.log"
+    threads: 1# original comment: "haplotype caller currently does not reliably use more than 2 threads"
+    run:
+        bams = _gatk_multi_arg("-I", input.bams)
+        shell(
+            "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T HaplotypeCaller -R {input.ref} {bams} {params.custom} "
+            "--emitRefConfidence GVCF --variant_index_type LINEAR "
+            "--heterozygosity {config[heterozygosity]} "
+            "-L {input.bed} "
+            "--indel_heterozygosity {config[indel_heterozygosity]} "
+            "--dbsnp {config[references][dbsnp]} "#-nct {threads} "
+            "--variant_index_parameter 128000 -o {output.gvcf} >& {log}")
+
+
+rule gatk_catvariants:
+     input:
+        #ref=_get_ref,
+        split_gvcfs = expand("variant_calling/{{sample}}.{ctr}.gvcf",
+                             ctr=range(len(config["references"]["split_regions"])))
+     output:
+        cat_gvcf="variant_calling/{sample}.concat.gvcf",
+        #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
+     run:
+        #vcf_in_args = " -V ".join(input.split_gvcfs)
+        #shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T CombineVariants -R {input.ref} -V {vcf_in_args} -o {output.cat_gvcf} --assumeIdenticalSamples")
+        # CombineVariants takes forever https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_variantutils_CombineVariants.php
+        #shell("cat {} > {}; grep -v '^#' {} >> {}".format(input.split_gvcfs[0],
+        #   output.cat_gvcf, ' '.join(input.split_gvcfs[1:])), output.cat_gvcf)
+        # keeping all hashes seems to work as well       
+        shell("cat {} > {}".format(input.split_gvcfs, output.cat_gvcf))
+
+
+rule gatk_genotyping:
+    input:
+        ref=config["references"]["genome"],
+        gvcfs=expand("variant_calling/{sample}.concat.gvcf",
+                     sample=config["multi_samples"])
+    output:
+        "variant_calling/all_genotyped.vcf"
+    params:
+        custom=config.get("params_gatk", "")
+    log:
+        "variant_calling/log/all.genotype.log"
+    threads: 24
+    run:
+        gvcfs = _gatk_multi_arg("--variant", input.gvcfs)
+        shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T GenotypeGVCFs {gvcfs} -nt {threads} {params.custom} "
+              "-R {input.ref} "
+              "--dbsnp {config[references][dbsnp]} -o {output} >& {log}")

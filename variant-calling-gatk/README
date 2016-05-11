@@ -1,0 +1,16 @@
+GATK haplotype calling using the workflow suggested in
+https://www.broadinstitute.org/gatk/guide/topic?name=methods#methods3893
+Needs at least GATK 3.0, available in your PATH as "gatk".
+
+GATK rules based on https://bitbucket.org/johanneskoester/snakemake-workflows/ commit fa47806
+- original author Johannes Köster (http://johanneskoester.bitbucket.org)
+- original license: MIT
+
+Changes:
+- 'samples' (allowing multisample calling) is normally just one in our case. using multi_samples instead.
+- _get_ref becomes: config["references"]["genome"]
+- removed {reference} subdir
+- known_variants change as in SG10K as part of references, i.e. hapmap, omni, g1k, dbsnp, mills
+
+
+

@@ -1,0 +1,66 @@
+"""
+Based on rules/variant_calling/gatk_variant_recalibrator.rules from https://bitbucket.org/johanneskoester/snakemake-workflows/ (commit fa47806)
+- original author Johannes Köster (http://johanneskoester.bitbucket.org)
+- original license: MIT
+"""
+
+def _get_recal_params(wildcards):
+    if wildcards.type == "snp":
+        return (
+            "-mode SNP -an DP -an QD -an FS -an MQRankSum -an ReadPosRankSum "
+            "-resource:hapmap,known=false,training=true,truth=true,prior=15.0 {hapmap} "
+            "-resource:omni,known=false,training=true,truth=true,prior=12.0 {omni} "
+            "-resource:1000G,known=false,training=true,truth=false,prior=10.0 {g1k} "
+            "-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 {dbsnp}"
+        ).format(**config["references"])
+    else:
+        return (
+            "-mode INDEL -an DP -an FS -an MQRankSum -an ReadPosRankSum "
+            "-resource:mills,known=true,training=true,truth=true,prior=12.0 {mills}"
+        ).format(**config["references"])
+
+
+rule gatk_variant_recalibration:
+    input:
+        config["references"].values(),
+        ref=config["references"]["genome"],
+        vcf="variant_calling/{prefix}.vcf"
+    output:
+        recal=temp("variant_calling/{prefix}.{type,(snp|indel)}.recal"),
+        tranches=temp("variant_calling/{prefix}.{type,(snp|indel)}.tranches"),
+        plotting=temp("variant_calling/{prefix}.{type,(snp|indel)}.plotting.R")
+    params:
+        _get_recal_params,
+        config.get("params_gatk", "")
+    log:
+        "variant_calling/log//{prefix}.{type}_recal_info.log"
+    threads: 8
+    shell:
+        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T VariantRecalibrator -R {input.ref} "
+        "-input {input.vcf} "
+        "{params} -nt {threads} "
+        "-tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 "
+        "-recalFile {output.recal} "
+        "-tranchesFile {output.tranches} "
+        "-rscriptFile {output.plotting} >& {log}"
+
+
+rule gatk_apply_variant_recalibration:
+    input:
+        ref=config["references"]["genome"],
+        vcf="variant_calling/{prefix}.vcf",
+        recal="variant_calling/{prefix}.{type}.recal",
+        tranches="variant_calling/{prefix}.{type}.tranches"
+    output:
+        "variant_calling/{prefix}.{type,(snp|indel)}_recal.vcf"
+    params:
+        mode=lambda wildcards: wildcards.type.upper(),
+        custom=config.get("params_gatk", "")
+    log:
+        "variant_calling/log/{prefix}.{type}_recal.log"
+    threads: 8
+    shell:
+        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T ApplyRecalibration -R {input.ref} -nt {threads} "
+        "-input {input.vcf} -mode {params.mode} {params.custom} "
+        "-recalFile {input.recal} --ts_filter_level 99.9 "
+        "-tranchesFile {input.tranches} -o {output} >& {log}"
