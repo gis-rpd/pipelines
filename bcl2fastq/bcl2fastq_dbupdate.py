@@ -143,23 +143,26 @@ def get_outdirs_from_db(testing=True, win=14):
             yield analysis["out_dir"]
 
 
-def mux_dir_complete(muxdir, after_ts=None):
+def mux_dir_complete(muxdir, completed_after=None):
     """Will check whether necessary flag files for muxdir exist. Will return false if one is missing.
-    If after_ts is given or if both exist, but none is newer than after_ts.
+    If completed_after is given or if both exist, but none is newer than completed_after.
     """
 
+    if not os.path.exists(muxdir):
+        logger.error("Directory %s doesn't exist", muxdir)
+        return False
     at_least_one_newer = False
     for f in ['bcl2fastq.SUCCESS', 'fastqc.SUCCESS']:
         f = os.path.join(muxdir, f)
         if not os.path.exists(f):
+            logger.debug("mux dir %s incomplete: %s is missing", muxdir, f)
             return False
-        if after_ts:
-            if datetime.fromtimestamp(os.path.getmtime(f)) > after_ts:
+        if completed_after:
+            if datetime.fromtimestamp(os.path.getmtime(f)) > completed_after:
                 at_least_one_newer = True
-    if after_ts and at_least_one_newer:
-        return True
-    else:
+    if completed_after and not at_least_one_newer:
         return False
+    return True
 
 
 def main():
@@ -247,10 +250,10 @@ def main():
             #
             for mux_id, mux_dir_base in muxes.items():
                 mux_dir = os.path.join(outdir, "out", mux_dir_base)# ugly
-                after_ts = timestamp_from_string(update_info['analysis_id'])
                 if mux_dir_complete(mux_dir):
                     # skip the ones completed before
-                    if not mux_dir_complete(mux_dir, after_ts=after_ts):
+                    completed_after = timestamp_from_string(update_info['analysis_id'])
+                    if not mux_dir_complete(mux_dir, completed_after=completed_after):
                         continue
                     status = 'SUCCESS'
                 else:
@@ -262,7 +265,7 @@ def main():
                     logger.critical("Skipping this run")
                     continue
 
-                os.unlink(trigger_file)
+            os.unlink(trigger_file)
 
     logger.info("%s dirs with triggers", num_triggers)
 
