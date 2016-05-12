@@ -40,7 +40,7 @@ done
 
 # readlink resolves links and makes path absolute
 test -z "$RPD_ROOT" && exit 1
-NA12878_DIR=$RPD_ROOT/testing/data/SG10K/illumina-platinum-NA12878
+NA12878_DIR=$RPD_ROOT/testing/data/illumina-platinum-NA12878
 # naming: RXSY = Read X Split Y
 R1S1=$NA12878_DIR/ERR091571_1_split000001_1konly.fastq.gz
 R2S1=$NA12878_DIR/ERR091571_2_split000001_1konly.fastq.gz

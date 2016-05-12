@@ -1,7 +1,7 @@
 import os
 import readunits
 from snakemake.utils import report
-from readunits import gen_rg_lib_id, gen_rg_pu_id
+from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit
 
 
 RESULT_OUTDIR = './out'
@@ -169,7 +169,7 @@ rule map_mdups_sort:
     input:
         reffa = config['references']['genome'],
         reffai = config['references']['genome'] + ".pac",
-        fastqs = lambda wildcards: fastqs_fo_unit(config["units"][wildcards.unit])
+        fastqs = lambda wildcards: fastqs_from_unit(config["units"][wildcards.unit])
     output:
         bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.mdups.srt.bam'))
     params:

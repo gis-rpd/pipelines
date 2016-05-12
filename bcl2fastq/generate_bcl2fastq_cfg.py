@@ -158,7 +158,7 @@ def main():
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
     rest_data = response.json()
-
+    logger.debug("rest_data from {}: {}".format(rest_url, rest_data))
     run_id = rest_data['runId']
     #counter = 0
     if rest_data['runPass'] != 'Pass':
