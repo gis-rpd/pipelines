@@ -146,12 +146,14 @@ def main():
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
 
     logger.info("Querying ELM for %s", run_num)
-    #DEVELOPMENT URL
-    #rest_url = 'http://dlap51v:8080/elm/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
-    #PRODUCTION url
-    rest_url = 'http://qldb01.gis.a-star.edu.sg:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
-    #NEW DEVELOPMENT url
+    
+    
+    # production url
+    rest_url = 'http://plap18v.gis.a-star.edu.sg:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
+    # FIXME create option
+    # development url (prone to change soon 2016-05-12)
     #rest_url = 'http://qldb01:8180/rest/seqrun/illumina/'+ run_num + '/detailanalysis/json'
+    
     response = requests.get(rest_url)
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
