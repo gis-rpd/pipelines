@@ -1,9 +1,7 @@
 import os
-import getpass
-
+import readunits
 from snakemake.utils import report
-from pipelines import generate_timestamp
-from elmlogger import ElmLogging, ElmUnit
+from readunits import gen_rg_lib_id, gen_rg_pu_id
 
 
 RESULT_OUTDIR = './out'
@@ -12,9 +10,8 @@ RESULT_OUTDIR = './out'
 # FIXME to conf once downstream handling clear
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
-
-def getuser():
-    return getpass.getuser()
+# read group functions following
+# http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
 
 
 # non-login bash
@@ -22,38 +19,8 @@ shell.executable("/bin/bash")
 shell.prefix("source snakemake_env.rc;")
 
 
+include: "../rules/logging.rules"
 include: "../rules/samtools.rules"
-
-
-onstart:# available as patched snakemake 3.5.5
-    global elm_logger
-
-    elm_units = []
-    for unit in config['units'].values():
-        # For non-bcl2fastq pipelines use the input as library_files
-        library_files = [unit['fq1']]
-        if 'fq2' in unit and unit['fq2'] is not None:
-            library_files.append(unit['fq2'])
-        eu = ElmUnit._make([unit['run_id'], unit['library_id'], unit['lane_id'], library_files, None])
-        elm_units.append(eu)
-        
-    elm_logger = ElmLogging(workflow.snakefile,
-                            config['ELM']['pipeline_name'],
-                            config['ELM']['pipeline_version'],
-                            getuser(),#SET_ON_EXEC
-                            config['ELM']['site'],
-                            generate_timestamp(),# crutch: master jid would be best, but impossible to get here
-                            config['ELM']['log_path'],#SET_ON_EXEC
-                            elm_units)
-    elm_logger.start()
-
-    
-onsuccess:
-    elm_logger.stop(True)
-
-    
-onerror:
-    elm_logger.stop(False)
 
     
 rule final:
@@ -171,31 +138,6 @@ rule sample_merge:
         else:
             # hard link should work even if input is temp and later deleted
             shell("ln {input} {output}")
-
-
-# read group functions following
-# http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
-
-   
-def gen_rg_lib_id(unit):
-    if unit['library_id']:
-        return unit['library_id']
-    else:
-        return "LIB-DUMMY"
-
-    
-def gen_rg_pu_id(unit):
-    """https://www.biostars.org/p/50349/"""
-    if unit['run_id'] and unit['flowcell_id'] and unit['lane_id']:
-        return "{}_{}.{}".format(unit['run_id'], unit['flowcell_id'], unit['lane_id'])
-    else:
-        return "PU-" + unit['rg_id']
-
-    
-def fastqs_fo_unit(unit):
-    """FIXME:add-doc
-    """
-    return unit['fq1'], unit['fq2']
 
 
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)

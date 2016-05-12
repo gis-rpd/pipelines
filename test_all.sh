@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+set -euo pipefail
+
+MYNAME=$(basename $(readlink -f $0))
+
+toaddr() {
+    if [ $(whoami) == 'userrig' ]; then
+        echo "rpd@mailman.gis.a-star.edu.sg";
+    else
+        echo "$(whoami)@gis.a-star.edu.sg";
+    fi
+}
+
+usage() {
+    echo "$MYNAME: run all pipeline tests"
+    echo " -d: Run dry-run tests"
+    echo " -r: Run real-run tests"
+}
+
+skip_dry_runs=1
+skip_real_runs=1
+while getopts "dr" opt; do
+    case $opt in
+        d)
+            skip_dry_runs=0
+            ;;
+        r)
+            skip_real_runs=0
+            ;;
+        \?)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+args=""
+if [ $skip_dry_runs -ne 1 ]; then
+    args="$args -d"
+fi
+if [ $skip_real_runs -ne 1 ]; then
+    args="$args -r"
+fi
+#echo "DEBUG args=$args" 1>&2
+
+cd $(dirname $0)
+commit=$(git describe --always --dirty)
+
+for sh in $(find . -maxdepth 2 -mindepth 2 -name tests.sh); do
+    echo "------------------------------------------------------------"
+    echo "Running $sh"
+    echo "------------------------------------------------------------"
+    bash $sh $args
+
+    echo "------------------------------------------------------------"
+    echo "Running static code checks in $(dirname $sh)"
+    echo "------------------------------------------------------------"
+    # only warn
+    set +e
+    for f in $(find $(dirname $sh) -maxdepth 1 -name \*py -type f); do
+        echo "Checking $f"
+        pylint -j 2 -E --rcfile pylintrc $f
+    done
+    set -e
+    echo
+done
+
+echo "------------------------------------------------------------"
+echo "Running static code checks with pylint in lib"
+echo "------------------------------------------------------------"
+set +e
+for f in $(ls ./lib/*py); do
+    echo "Checking $f"
+    pylint -j 2 -E --rcfile pylintrc $f
+done
+set -e   
+

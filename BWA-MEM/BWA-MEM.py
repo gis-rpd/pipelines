@@ -28,7 +28,7 @@ import yaml
 from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config
 from pipelines import ref_is_indexed, email_for_user
-from pipelines import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
+from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"

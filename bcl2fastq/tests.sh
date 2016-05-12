@@ -87,22 +87,17 @@ if [ $skip_dry_runs -ne 1 ]; then
     iso8601ms=${iso8601ns:0:26}
     ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -s SUCCESS -t -v
 
+    
     echo "Dryrun: mongo_status_per_mux.py fake run" 1>&2
     iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
     iso8601ms=${iso8601ns:0:26}
     ./mongo_status_per_mux.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -i FAKE -d /tmp/FAKE -s FAILED -t -v
     
-    echo "Dryrun: Running static code checks with pylint"
-    # only warn
-    set +e
-    for f in $(find . -name \*py); do
-        pylint -E --rcfile ../pylintrc $f
-    done
-    set -e
-    
+
     echo "Dryrun: bcl2fastq_starter.py" | tee -a $log
     ./bcl2fastq_starter.py -n -1 -v >> $log 2>&1 
 
+    
     echo "Dryrun: bcl2fastq_dbupdate.py" | tee -a $log
     ./bcl2fastq_dbupdate.py -n -t -v >> $log 2>&1
 

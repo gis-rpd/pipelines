@@ -13,7 +13,7 @@
       "mem" : 8G,
     },
     
-    "map_mdups" :
+    "map_mdups_sort" :
     {
       "time" : "12:00:00",
       "mem" : 16G,

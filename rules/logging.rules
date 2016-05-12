@@ -1,0 +1,53 @@
+import getpass
+
+from pipelines import send_status_mail, generate_timestamp
+from elmlogger import ElmLogging, ElmUnit
+
+
+def getuser():
+    return getpass.getuser()
+
+
+# read unit dict
+assert 'units' in config
+# ELM dict for logging
+assert 'ELM' in config
+assert 'sample' in config
+assert 'RESULT_OUTDIR' in workflow.globals
+
+
+onstart:# available as patched snakemake 3.5.5
+    global elm_logger
+
+    elm_units = []
+    for unit in config['units'].values():
+        # For non-bcl2fastq pipelines use the input as library_files
+        library_files = [unit['fq1']]
+        if 'fq2' in unit and unit['fq2'] is not None:
+            library_files.append(unit['fq2'])
+        eu = ElmUnit._make([unit['run_id'], unit['library_id'], unit['lane_id'], library_files, None])
+        elm_units.append(eu)
+            
+    elm_logger = ElmLogging(workflow.snakefile,
+                            config['ELM']['pipeline_name'],
+                            config['ELM']['pipeline_version'],
+                            getuser(),#SET_ON_EXEC
+                            config['ELM']['site'],
+                            generate_timestamp(),# crutch: master jid would be best, but impossible to get here
+                            config['ELM']['log_path'],#SET_ON_EXEC
+                            elm_units)
+    elm_logger.start()
+
+
+onsuccess:
+    elm_logger.stop(True)
+    if config.get('mail_on_completion', False):
+        send_status_mail(config['ELM']['pipeline_name'], True,
+                         config['sample'], os.path.abspath(RESULT_OUTDIR))
+
+
+onerror:
+    elm_logger.stop(False)
+    if config.get('mail_on_completion', False):
+        send_status_mail(config['ELM']['pipeline_name'], False,
+                         config['sample'], os.path.abspath(RESULT_OUTDIR))

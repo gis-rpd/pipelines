@@ -5,17 +5,13 @@
 #
 import os
 import sys
-import hashlib
 import subprocess
 import logging
 import shutil
-from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 from getpass import getuser
-from itertools import zip_longest
 import socket
-from collections import namedtuple
 import time
 from datetime import datetime, timedelta
 
@@ -31,10 +27,6 @@ __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
-
-
-ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
-                                   'lane_id', 'rg_id', 'fq1', 'fq2'])
 
 
 # global logger
@@ -54,7 +46,7 @@ INIT = {
 RPD_MAIL = "rpd@mailman.gis.a-star.edu.sg"
 RPD_SIGNATURE = """
 
--- 
+--
 Research Pipeline Development Team
 Scientific & Research Computing
 <rpd@mailman.gis.a-star.edu.sg>
@@ -76,13 +68,13 @@ def get_pipeline_version():
     version_file = os.path.abspath(os.path.join(PIPELINE_BASEDIR, "VERSION"))
     with open(version_file) as fh:
         version = fh.readline().strip()
-    cwd =  os.getcwd()
+    cwd = os.getcwd()
     os.chdir(PIPELINE_BASEDIR)
     if os.path.exists(".git"):
         commit = None
         cmd = ['git', 'describe', '--always', '--dirty']
         try:
-            res = subprocess.check_output(cmd , stderr=subprocess.STDOUT)
+            res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             commit = res.decode().strip()
         except (subprocess.CalledProcessError, OSError) as e:
             pass
@@ -135,7 +127,7 @@ def get_rpd_vars():
     try:
         res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
-        logger.fatal("Couldn't call init as '{}'".format(' '.join(cmd)))
+        logger.fatal("Couldn't call init as '%s'", ' '.join(cmd))
         raise
 
     rpd_vars = dict()
@@ -147,16 +139,6 @@ def get_rpd_vars():
             k, v = line.split('=')
             rpd_vars[k.strip()] = v.strip()
     return rpd_vars
-
-
-def hash_for_fastq(fq1, fq2=None):
-    """return hash for one or two fastq files based on filename only
-    """
-    m = hashlib.md5()
-    m.update(fq1.encode())
-    if fq2:
-        m.update(fq2.encode())
-    return m.hexdigest()[:8]
 
 
 def write_dk_init(rc_file, overwrite=False):
@@ -250,7 +232,7 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
 def email_for_user():
     """FIXME:add-doc
     """
-    
+
     user_name = getuser()
     if user_name == "userrig":
         toaddr = "rpd@gis.a-star.edu.sg"
@@ -266,7 +248,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
     - analysis_id: analysis run id
     - outdir: directory where results are found
     """
-    
+
     if success:
         status_str = "completed"
         body = "Pipeline {} {} for {}".format(pipeline_name, status_str, analysis_id)
@@ -280,7 +262,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
     if extra_text:
         body = body + "\n" + extra_text + "\n"
     body += RPD_SIGNATURE
-    
+
     subject = "Pipeline {} {} for {}".format(
         pipeline_name, status_str, analysis_id)
 
@@ -299,73 +281,6 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
         # FIXME consider exit 0 if pipeline breaks
         sys.exit(1)
 
-
-def get_reads_unit_from_cfgfile(cfgfile):
-    """Parse each ReadUnit in cfgfile and return as list"""
-    read_units = []
-    with open(cfgfile) as fh_cfg:
-        for entry in yaml.safe_load(fh_cfg):
-            if len(entry) == 6:
-                rg_id = None
-                [run_id, flowcell_id, library_id, lane_id, fq1, fq2] = entry
-            elif len(entry) == 7:
-                [run_id, flowcell_id, library_id, lane_id, fq1, fq2, rg_id] = entry
-            else:
-                logger.fatal("Couldn't parse read unit from '{}'".format(entry))
-                raise ValueError(entry)
-
-            # if we have relative paths, make them abs relative to cfgfile
-            if fq1 and not os.path.isabs(fq1):
-                fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
-            if fq2 and not os.path.isabs(fq2):
-                fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
-
-            ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id,
-                                 rg_id, fq1, fq2])
-            if rg_id == 'None':
-                ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-            read_units.append(ru)
-    return read_units
-
-
-def get_reads_unit_from_args(fqs1, fqs2):
-    """Turn fastq arguments into fake ReadUnits"""
-
-    read_units = []
-    if not fqs2:
-        fqs2 = len(fqs1)*[None]
-    print_fq_sort_warning = False
-    # sorting here should ensure R1 and R2 match
-    fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
-    fq_pairs_orig = set(zip_longest(fqs1, fqs2))
-    for (fq1, fq2) in fq_pairs:
-        if (fq1, fq2) not in fq_pairs_orig:
-            print_fq_sort_warning = True
-        run_id = flowcell_id = library_id = lane_id = rg_id = None
-        ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
-        ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-        read_units.append(ru)
-    if print_fq_sort_warning:
-        logger.warning("Auto-sorted fq1 and fq2 files! Pairs are now processed as follows:\n{}".format(
-            ' \n'.join(["{} and {}".format(fq1, fq2) for fq1, fq2 in fq_pairs])))
-    return read_units
-
-
-def key_for_read_unit(ru):
-    """used for file nameing hence made unique based on fastq file names
-    """
-    return hash_for_fastq(ru.fq1, ru.fq2)
-
-
-def create_rg_id_from_ru(ru):
-    """Same RG for files coming from same source. If no source info is
-    given use fastq files names
-    """
-    if all([ru.run_id, ru.library_id, ru.lane_id]):
-        return "{}.{}".format(ru.run_id, ru.lane_id)
-    elif ru.fq1:
-        # no source info? then use fastq file names
-        return hash_for_fastq(ru.fq1, ru.fq2)
 
 
 def ref_is_indexed(ref, prog="bwa"):
