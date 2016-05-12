@@ -251,7 +251,8 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
 
     if success:
         status_str = "completed"
-        body = "Pipeline {} {} for {}".format(pipeline_name, status_str, analysis_id)
+        body = "Pipeline {} (version {}) {} for {}".format(
+            pipeline_name, get_pipeline_version(), status_str, analysis_id)
         body += "\nThe results can be found in {}".format(outdir)
     else:
         status_str = "failed"
@@ -261,6 +262,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
         body += "\nSorry about this. Please check log files in {}".format(logdir)
     if extra_text:
         body = body + "\n" + extra_text + "\n"
+    body += "\nThis is an automated email\n"
     body += RPD_SIGNATURE
 
     subject = "Pipeline {} {} for {}".format(
