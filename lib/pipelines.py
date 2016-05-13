@@ -45,7 +45,6 @@ INIT = {
 
 RPD_MAIL = "rpd@mailman.gis.a-star.edu.sg"
 RPD_SIGNATURE = """
-
 --
 Research Pipeline Development Team
 Scientific & Research Computing
@@ -53,13 +52,9 @@ Scientific & Research Computing
 """
 
 
-# FIXME hack: assuming importer is just one dir down of pipeline base dir
-PIPELINE_BASEDIR = os.path.join(os.path.dirname(sys.argv[0]), "..")
-# assert os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION")), (PIPELINE_BASEDIR)
-# we need functions from here in Snakefile as well, where the above breaks
-if not os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION")):
-    # FIXME imported from wrong directory. Make sure everyone using PIPELINE_BASEDIR fails
-    del PIPELINE_BASEDIR
+# ugly
+PIPELINE_BASEDIR = os.path.join(os.path.dirname(__file__), "..")
+assert os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION"))
 
 
 def get_pipeline_version():
@@ -229,6 +224,7 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
     return machineid, runid, flowcellid
 
 
+# FIXME real_name() works at NSCC and GIS: getent passwd wilma | cut -f 5 -d :  | rev | cut -f 2- -d ' ' | rev
 def email_for_user():
     """FIXME:add-doc
     """
@@ -251,9 +247,9 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
 
     if success:
         status_str = "completed"
-        body = "Pipeline {} (version {}) {} for {}".format(
+        body = "Pipeline {} (version {}) {} for {}.".format(
             pipeline_name, get_pipeline_version(), status_str, analysis_id)
-        body += "\nThe results can be found in {}".format(outdir)
+        body += "\n\nResults can be found in {}\n".format(outdir)
     else:
         status_str = "failed"
         body = "Pipeline {} {} for {}".format(pipeline_name, status_str, analysis_id)
@@ -262,7 +258,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
         body += "\nSorry about this. Please check log files in {}".format(logdir)
     if extra_text:
         body = body + "\n" + extra_text + "\n"
-    body += "\nThis is an automated email\n"
+    body += "\n\nThis is an automatically generated email\n"
     body += RPD_SIGNATURE
 
     subject = "Pipeline {} {} for {}".format(
