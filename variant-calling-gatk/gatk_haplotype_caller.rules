@@ -18,7 +18,7 @@ def _region_for_ctr(wildcards):
 
 rule gatk_haplotype_caller:
     input:
-        bam="mapping/{sample}.realn.recal.bam",
+        bams=["mapping/{sample}.realn.recal.bam"],# FIXME original allowed to call on all units per sample
         bai="mapping/{sample}.realn.recal.bam.bai",
         ref=config["references"]["genome"],
         bed=_region_for_ctr
@@ -29,7 +29,11 @@ rule gatk_haplotype_caller:
         custom=config.get("params_gatk", "")
     log:
         "variant_calling/log/{sample}.{ctr}.genotype_info.log"
-    threads: 1# original comment: "haplotype caller currently does not reliably use more than 2 threads"
+    threads: 1
+    # original comment: "haplotype caller currently does not reliably use more than 2 threads"
+    # we found it to not work reliably with anything >1
+    # need to request for more anyway to make our UGE/OS/Java heapspace problem go away
+    threads: 4
     run:
         bams = _gatk_multi_arg("-I", input.bams)
         shell(

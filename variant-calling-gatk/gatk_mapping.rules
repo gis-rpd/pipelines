@@ -38,6 +38,8 @@ rule gatk_realign_bam:
         custom=config.get("params_gatk", "")
     log:
         "mapping/log/{prefix}.realn.log"
+    # single threaded only, but ask for more due to java/scheduler problem
+    threads: 4
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T IndelRealigner -R {input.ref} {params.custom} "
         "--disable_bam_indexing "
@@ -75,6 +77,7 @@ rule gatk_recalibrate_bam:
         custom=config.get("params_gatk", "")
     log:
         "mapping/log/{prefix}.recal.log"
+    # set to 8 in original files. maxes out at that value on aquila
     threads: 8
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T PrintReads -R {input.ref} {params.custom} "
