@@ -80,7 +80,10 @@ def write_db_update_trigger(success):
         # default_flow_style=None(default)|True(least readable)|False(most readable)
         yaml.dump(update_info, fh, default_flow_style=False)
 
-        
+
+# onstart, onsuccess and onerror are in logging.rules for analysis pipelines
+# but bcl2fastq is special
+
 onstart:# available as patched snakemake 3.5.5
     global elm_logger
 
@@ -120,9 +123,10 @@ onsuccess:
         else:
             extra_text += "Missing summary for {}: {}\n".format(muxname, url)
             
-    send_status_mail(config['ELM']['pipeline_name'], True,
-                     "{} ({})".format(config['run_num'], config['ANALYSIS_ID']),
-                     os.path.abspath(RESULT_OUTDIR), extra_text)
+    if config.get('mail_on_completion', False):
+        send_status_mail(config['ELM']['pipeline_name'], True,
+                         "{} ({})".format(config['run_num'], config['ANALYSIS_ID']),
+                         os.path.abspath(RESULT_OUTDIR), extra_text)
     
     # cannot talk to mongodb from compute. use trigger file
     write_db_update_trigger(True)
@@ -130,9 +134,10 @@ onsuccess:
     
 onerror:
     elm_logger.stop(False)
-    send_status_mail(config['ELM']['pipeline_name'], False,
-                     "{} ({})".format(config['run_num'], config['ANALYSIS_ID']),
-                     os.path.abspath(RESULT_OUTDIR))
+    if config.get('mail_on_completion', False):
+        send_status_mail(config['ELM']['pipeline_name'], False,
+                         "{} ({})".format(config['run_num'], config['ANALYSIS_ID']),
+                         os.path.abspath(RESULT_OUTDIR))
     # cannot talk to mongodb from compute. use trigger file
     write_db_update_trigger(False)
 

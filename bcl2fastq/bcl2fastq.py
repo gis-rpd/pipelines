@@ -236,6 +236,8 @@ def main():
                         help="Output directory (may not exist; required if called by user)")
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test server")
+    parser.add_argument('--no-mail', action='store_true',
+                        help="Don't send mail on completion")
     parser.add_argument('-w', '--slave-q',
                         help="Queue to use for slave jobs (defaults: {})".format(DEFAULT_SLAVE_Q))
     parser.add_argument('-m', '--master-q',
@@ -356,6 +358,7 @@ def main():
     user_data = {'rundir': rundir,
                  'lanes_arg': lane_info,
                  'samplesheet_csv': samplesheet_csv,
+                 'mail_on_completion': not args.no_mail,
                  'run_num': run_num}
 
 
