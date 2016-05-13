@@ -123,6 +123,8 @@ def main():
                         " as well as fastq1 and fastq2 per line. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
+    parser.add_argument('--no-mail', action='store_true',
+                        help="Don't send mail on completion")
     parser.add_argument('-w', '--slave-q',
                         help="Queue to use for slave jobs")
     parser.add_argument('-m', '--master-q',
@@ -177,7 +179,7 @@ def main():
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'sample': args.sample,# needed for file naming
-                 'mail_on_completion': False}
+                 'mail_on_completion': not args.no_mail}
     user_data['units'] = OrderedDict()
     for ru in read_units:
         k = key_for_read_unit(ru)
