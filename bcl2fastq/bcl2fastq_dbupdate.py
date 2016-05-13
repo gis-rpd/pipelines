@@ -264,8 +264,8 @@ def main():
                     # don't delete trigger. try again later
                     logger.critical("Skipping this run")
                     continue
-
-            os.unlink(trigger_file)
+            if not args.dry_run:
+                os.unlink(trigger_file)
 
     logger.info("%s dirs with triggers", num_triggers)
 
