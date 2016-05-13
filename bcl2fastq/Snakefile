@@ -1,17 +1,29 @@
+# standard library imports
+#
 import os
 from math import ceil
 from getpass import getuser
 
+# third party imports
+#
 import yaml
 # only dump() and following do not automatically create aliases
 yaml.Dumper.ignore_aliases = lambda *args: True
 from snakemake.utils import report
 
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
 from pipelines import send_status_mail, generate_timestamp
 from elmlogger import ElmLogging, ElmUnit
 from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE_FMT, DBUPDATE_TRIGGER_FILE_MAXNUM
 
+
 RESULT_OUTDIR = './out'
+
 
 # ANALYSIS_ID not necessarily part of config file and if not
 # needs to be passed to snakemake
@@ -55,7 +67,7 @@ def get_mux_dirs():
 def muxdir_to_url(mux_dir):
     """mux_dir has to be full path"""
 
-    # FIXME change for testin, gis, NSCC
+    # FIXME change for testing, gis, NSCC
     if mux_dir.startswith("/mnt/projects/userrig/solexa/"):
         return mux_dir.replace("/mnt/projects/userrig/solexa/", "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects/")
     else:
@@ -113,21 +125,24 @@ onsuccess:
     for unit in config["units"].values():
         muxname = unit['mux_id']
         muxdir = unit['mux_dir']
-        indexhtml = os.path.join(RESULT_OUTDIR, muxdir, "html/index.html")
+        indexhtml = os.path.abspath(os.path.join(
+            RESULT_OUTDIR, muxdir, "html/index.html"))
         if os.path.exists(indexhtml):
             try:
-                url = muxdir_to_url(os.path.abspath(indexhtml))
+                # only works when in production output directory
+                url = muxdir_to_url(indexhtml)
             except ValueError:
-                url = "NA"
-            extra_text += "Summary for {}: {}\n".format(muxname, url)
+                # otherwise just report the file path
+                url = "file://{}".format(indexhtml)
         else:
-            extra_text += "Missing summary for {}: {}\n".format(muxname, url)
-            
+            # if missing something's wrong
+            url = "ERROR:MISSING"
+        extra_text += "Summary for {}: {}\n".format(muxname, url)
+
     if config.get('mail_on_completion', False):
         send_status_mail(config['ELM']['pipeline_name'], True,
                          "{} ({})".format(config['run_num'], config['ANALYSIS_ID']),
                          os.path.abspath(RESULT_OUTDIR), extra_text)
-    
     # cannot talk to mongodb from compute. use trigger file
     write_db_update_trigger(True)
 

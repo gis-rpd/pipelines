@@ -23,6 +23,11 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 
 #--- project specific imports
 #
+# add lib dir for this pipeline installation to PYTHONPATH
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
 from pipelines import write_cluster_config, generate_timestamp

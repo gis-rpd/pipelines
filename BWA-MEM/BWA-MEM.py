@@ -6,7 +6,7 @@ pipeline (unless otherwise requested).
 # generic useage {PIPELINE_NAME} and {PIPELINE_VERSION} replaced while
 # printing usage
 
-# FIXME: this is based on SG10.py (code duplication!). diff both regularly
+# FIXME: this is based on SG10K.py (code duplication!). diff both regularly
 
 #--- standard library imports
 #
@@ -25,6 +25,11 @@ import yaml
 
 #--- project specific imports
 #
+# add lib dir for this pipeline installation to PYTHONPATH
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version, get_site, get_rpd_vars
 from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config
 from pipelines import ref_is_indexed, email_for_user

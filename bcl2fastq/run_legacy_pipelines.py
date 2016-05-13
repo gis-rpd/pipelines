@@ -14,6 +14,10 @@ import sys
 
 # project specific imports
 #
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
 from mongo_status import mongodb_conn
 from pipelines import send_status_mail, generate_timestamp, generate_window
 
@@ -52,7 +56,7 @@ logger.addHandler(handler)
 def check_break_status(break_after_first):
     if break_after_first:
         logger.warning("Stopping after first sequencing run")
-        sys.exit(0)    
+        sys.exit(0)
 def main():
     """main function"""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -91,7 +95,7 @@ def main():
     epoch_present, epoch_back = generate_window(args.win)
     results = db.find({"analysis.Status": "SUCCESS",
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
-    logger.info("Found {} runs".format(results.count()))
+    logger.info("Found %s runs", results.count())
     for record in results:
         run_number = record['run']
         analysis = record['analysis']
@@ -99,9 +103,9 @@ def main():
             out_dir = analysis.get("out_dir")
             #Check if bcl2Fastq is completed successfully
             if 'Status' in analysis and analysis.get("Status") == "SUCCESS":
-                #Check if downstream analysis has been started      
+                #Check if downstream analysis has been started
                 if not os.path.exists(os.path.join(out_dir, "config_casava-1.8.2.txt".format())):
-                    logger.info("Start the downstream analysis at {}".format(out_dir))
+                    logger.info("Start the downstream analysis at %s", out_dir)
                     os.makedirs(os.path.join(out_dir, LOG_DIR_REL), exist_ok=True)
                     #generate config file
                     config_cmd = [CONFIG, '-r', run_number]
@@ -109,9 +113,9 @@ def main():
                         f = open(os.path.join(out_dir, "config_casava-1.8.2.txt".format()), "w")
                         _ = subprocess.call(config_cmd, stderr=subprocess.STDOUT, stdout=f)
                     except subprocess.CalledProcessError as e:
-                        logger.fatal("The following command failed with return code {}: {}".format(
-                        e.returncode, ' '.join(config_cmd)))
-                        logger.fatal("Output: {}".format(e.output.decode()))
+                        logger.fatal("The following command failed with return code %s: %s",
+                                     e.returncode, ' '.join(config_cmd))
+                        logger.fatal("Output: %s", e.output.decode())
                         logger.fatal("Exiting")
                         sys.exit(1)
                     #Generate and Submit BWA and RNAseq mapping pipeline
@@ -120,18 +124,17 @@ def main():
                         cmd = "cd {} && {} -r {} -f {} -s {} -j 0 -p Production -c 5 >> {}".format(dirs, BWA, run_number, out_dir, os.path.join(out_dir, "samplesheet.csv".format()), os.path.join(out_dir, SUBMISSIONLOG))
                         cmd += "&& {} -r {} -f {} -s {} -j 0 -p Production -c 5 >> {}".format(RNA, run_number, out_dir, os.path.join(out_dir, "samplesheet.csv".format()), os.path.join(out_dir, SUBMISSIONLOG))
                         if args.dry_run:
-                            logger.warning("Skipped following run: {}".format(cmd))
+                            logger.warning("Skipped following run: %s", cmd)
                             #Remove config txt
                             os.remove(os.path.join(out_dir, "config_casava-1.8.2.txt".format()))
-                            pass
                             check_break_status(args.break_after_first)
                         else:
                             try:
                                 _ = subprocess.check_output(cmd, shell=True)
                             except subprocess.CalledProcessError as e:
-                                logger.fatal("The following command failed with return code {}: {}".format(
-                                e.returncode, ' '.join(cmd)))
-                                logger.fatal("Output: {}".format(e.output.decode()))
+                                logger.fatal("The following command failed with return code %s: %s",
+                                             e.returncode, ' '.join(cmd))
+                                logger.fatal("Output: %s", e.output.decode())
                                 logger.fatal("Exiting")
                                 #send_status_mail
                                 send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
@@ -139,12 +142,14 @@ def main():
                         check_break_status(args.break_after_first)
                     else:
                         #send_status_mail
-                        logger.info("samplesheet.csv missing for {} under {}".format(run_number, out_dir))
+                        logger.info("samplesheet.csv missing for %s under %s", run_number, out_dir)
                         send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
             elif analysis.get("Status") == "FAILED":
-                logger.info("BCL2FASTQ FAILED for {} under {}".format(run_number, out_dir))
+                logger.info("BCL2FASTQ FAILED for %s under %s", run_number, out_dir)
      # close the connection to MongoDB
     connection.close()
-    logger.info("Successful program exit")      
+    logger.info("Successful program exit")
+
+
 if __name__ == "__main__":
     main()

@@ -24,9 +24,17 @@ import yaml
 
 #--- project specific imports
 #
-from pipelines import get_pipeline_version, get_site, get_rpd_vars, email_for_user
-from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config
-from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
+# add lib dir for this pipeline installation to PYTHONPATH
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from pipelines import get_pipeline_version, get_site
+from pipelines import get_rpd_vars, email_for_user
+from pipelines import write_dk_init, write_snakemake_init
+from pipelines import write_snakemake_env, write_cluster_config
+from readunits import get_reads_unit_from_cfgfile
+from readunits import get_reads_unit_from_args, key_for_read_unit
 
 
 __author__ = "Andreas Wilm"

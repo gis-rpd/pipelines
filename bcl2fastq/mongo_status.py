@@ -14,8 +14,12 @@ import pymongo
 
 #--- project specific imports
 #
-from pipelines import generate_timestamp
-from pipelines import get_site
+# add lib dir for this pipeline installation to PYTHONPATH
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from pipelines import generate_timestamp, get_site
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"

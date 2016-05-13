@@ -43,13 +43,15 @@ INIT = {
     'nscc': "/seq/astar/gis/rpd/init"
 }
 
+# from address, i.e. users should reply to to this
+# instead of rpd@gis to which we send email
 RPD_MAIL = "rpd@mailman.gis.a-star.edu.sg"
 RPD_SIGNATURE = """
 --
 Research Pipeline Development Team
 Scientific & Research Computing
-<rpd@mailman.gis.a-star.edu.sg>
-"""
+<{}>
+""".format(RPD_MAIL)
 
 
 # ugly

@@ -16,6 +16,11 @@ import subprocess
 
 # project specific imports
 #
+# add lib dir for this pipeline installation to PYTHONPATH
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
 from mongo_status import mongodb_conn
 from pipelines import generate_window
 

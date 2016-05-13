@@ -53,7 +53,11 @@ for sh in $(find . -maxdepth 2 -mindepth 2 -name tests.sh); do
     echo "Running $sh"
     echo "------------------------------------------------------------"
     bash $sh $args
-
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Tests failed"
+    else;
+        echo "OK: Tests passed"
+    fi
     echo "------------------------------------------------------------"
     echo "Running static code checks in $(dirname $sh)"
     echo "------------------------------------------------------------"
@@ -61,9 +65,10 @@ for sh in $(find . -maxdepth 2 -mindepth 2 -name tests.sh); do
     set +e
     for f in $(find $(dirname $sh) -maxdepth 1 -name \*py -type f); do
         echo "Checking $f"
-        pylint -j 2 -E --rcfile pylintrc $f
+        PYTHONPATH=$(dirname $MYNAME)/lib pylint -j 2 -E --rcfile pylintrc $f
     done
     set -e
+    echo "Done"
     echo
 done
 
@@ -73,7 +78,8 @@ echo "------------------------------------------------------------"
 set +e
 for f in $(ls ./lib/*py); do
     echo "Checking $f"
-    pylint -j 2 -E --rcfile pylintrc $f
+    PYTHONPATH=$(dirname $MYNAME)/lib pylint -j 2 -E --rcfile pylintrc $f
 done
+echo "Done"
 set -e   
 
