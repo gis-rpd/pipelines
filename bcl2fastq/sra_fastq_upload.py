@@ -85,6 +85,7 @@ def main():
                                 LOG.info("Response was {}".format(response.status_code))
                             else:
                                 LOG.error("Uploading {} completed failed".format(sample_path))
+                                sys.exit(1)
                 else:
                     LOG.info("Bcl2fastq is not completed for {}".format(mux_dir))
                     sys.exit(1)

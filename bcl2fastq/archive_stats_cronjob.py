@@ -121,10 +121,10 @@ def main():
                                     _ = subprocess.check_output(stats_upload_script_cmd, stderr=subprocess.STDOUT)
                                     StatsSubmission_status = "SUCCESS"
                                 except subprocess.CalledProcessError as e:
-                                    logger.critical("The following command failed with return code %s: %s",
-                                    e.returncode, ' '.join(stats_upload_script_cmd))
-                                    logger.critical("Output: %s", e.output.decode())
-                                    logger.info("error code", e.output)
+                                    logger.fatal("The following command failed with return code {}: {}".format(
+                                    e.returncode, ' '.join(stats_upload_script_cmd)))
+                                    logger.fatal("Output: {}".format(e.output.decode()))
+                                    logger.fatal("Exiting")
                                     StatsSubmission_status = "TODO"
                                 # Call FASTQ upload FIXME
                                 archive_upload_script_cmd = [archive_upload_script, '-o', out_dir, '-m', mux_id]                                   
@@ -135,10 +135,10 @@ def main():
                                     _ = subprocess.check_output(archive_upload_script_cmd, stderr=subprocess.STDOUT)
                                     ArchiveSubmission_status = "SUCCESS"
                                 except subprocess.CalledProcessError as e:
-                                    logger.critical("The following command failed with return code %s: %s",
-                                    e.returncode, ' '.join(archive_upload_script_cmd))
-                                    logger.critical("Output: %s", e.output.decode())
-                                    logger.info("error code", e.output)
+                                    logger.fatal("The following command failed with return code {}: {}".format(
+                                    e.returncode, ' '.join(archive_upload_script_cmd)))
+                                    logger.fatal("Output: {}".format(e.output.decode()))
+                                    logger.fatal("Exiting")
                                     ArchiveSubmission_status = "TODO"
                                 #upDate mongoDB
                                 logger.info("MongoDB update for mux {}".format(mux_id))
