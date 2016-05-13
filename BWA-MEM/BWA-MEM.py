@@ -190,8 +190,8 @@ def main():
     write_cluster_config(args.outdir, BASEDIR)
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'sample': args.sample,
-                 'mail_on_completion': not args.no_mail}# needed for file naming
+    user_data = {'sample': args.sample,# needed for file naming
+                 'mail_on_completion': not args.no_mail}
     user_data['units'] = OrderedDict()
     for ru in read_units:
         k = key_for_read_unit(ru)
