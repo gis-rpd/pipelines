@@ -93,7 +93,8 @@ def get_reads_unit_from_cfgfile(cfgfile):
 
 def get_reads_unit_from_args(fqs1, fqs2):
     """Turn fastq arguments into fake ReadUnits"""
-
+    assert isinstance(fqs1, list)
+    assert isinstance(fqs2, list)
     read_units = []
     if not fqs2:
         fqs2 = len(fqs1)*[None]
