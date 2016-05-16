@@ -93,11 +93,13 @@ def get_reads_unit_from_cfgfile(cfgfile):
 
 def get_reads_unit_from_args(fqs1, fqs2):
     """Turn fastq arguments into fake ReadUnits"""
-    assert isinstance(fqs1, list)
-    assert isinstance(fqs2, list)
-    read_units = []
-    if not fqs2:
+    if fqs1:
+        assert isinstance(fqs1, list)
+    if fqs2:
+        assert isinstance(fqs2, list)
+    else:
         fqs2 = len(fqs1)*[None]
+    read_units = []
     print_fq_sort_warning = False
     # sorting here should ensure R1 and R2 match
     fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
