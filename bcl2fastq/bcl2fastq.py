@@ -171,7 +171,7 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
     basedir_map = {
         'gis': {
             'devel': '/mnt/projects/rpd/testing/output/bcl2fastq',
-            'production': '/mnt/projects/userrig/'},
+            'production': '/mnt/projects/userrig/solexa/'},
         'nscc': {
             'devel': '/seq/astar/gis/rpd/testing/output/bcl2fastq/',
             'production': '/seq/astar/gis/userrig/'}
