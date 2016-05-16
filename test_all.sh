@@ -55,7 +55,7 @@ for sh in $(find . -maxdepth 2 -mindepth 2 -name tests.sh); do
     bash $sh $args
     if [ $? -ne 0 ]; then
         echo "ERROR: Tests failed"
-    else;
+    else
         echo "OK: Tests passed"
     fi
     echo "------------------------------------------------------------"

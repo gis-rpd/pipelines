@@ -53,6 +53,10 @@ if false; then
     echo "MS001 only" 1>&2
     TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
 fi
+if false; then
+    echo "HS004 only" 1>&2
+    TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+fi
 
 
 for d in $TEST_SEQ_RUN_DIRS; do

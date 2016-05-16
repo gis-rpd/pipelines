@@ -239,17 +239,17 @@ rule fastqc:
     """
     input: '{muxdir}/bcl2fastq.SUCCESS'
     output: '{muxdir}/fastqc.SUCCESS'
-    threads: 16
+    threads: 8
     message: "Running fastqc on {input}"
     benchmark: 'benchmark/fastqc.txt'
     shell:
         # note: need to be able to deal with empty directories.
         # fastqc will fail on corrupted files but return proper error code,
-        # so better check input with gzip -t first
-        "for f in $(find $(dirname {input}) -name \*fastq.gz); do"
-        "    gzip -t $f && fastqc -t {threads} $f;"
-        " done;"
-        " touch {output};"
+        # so better check input with gzip -t first.
+	# rarely saw fastqc threads actually get more than 100% so no point in using threading option
+        "find $(dirname {input}) -name \*fastq.gz | xargs -n 1 -P {threads} gzip -t;"
+        "find $(dirname {input}) -name \*fastq.gz | xargs -n 1 -P {threads} fastqc;"
+        "touch {output};"
 
 
 

@@ -76,7 +76,7 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
         qsub="$qsub -q $DEFAULT_SLAVE_Q"
     fi
     CLUSTER_ARGS="--cluster-config cluster.yaml --cluster \"$qsub\" --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
-    N_ARG="--jobs 6"
+    N_ARG="--jobs 100"
 else
     # run locally
     CLUSTER_ARGS=""
