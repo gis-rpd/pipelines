@@ -38,7 +38,7 @@ logger.addHandler(handler)
 
 
 INIT = {
-    # FIXME make env instead? because caller knows right?
+    # FIXME make env instead? because caller knows, right?
     'gis': "/mnt/projects/rpd/init",
     'nscc': "/seq/astar/gis/rpd/init"
 }
@@ -108,7 +108,7 @@ def get_init_call():
     try:
         cmd = [INIT[get_site()]]
     except KeyError:
-        raise ValueError("unknown or unconfigured or site {}".format(site))
+        raise ValueError("Unknown site '{}'".format(site))
 
     if is_devel_version():
         cmd.append('-d')
@@ -184,11 +184,19 @@ def write_snakemake_env(rc_file, config, overwrite=False):
         fh_rc.write("set -euo pipefail;\n")
 
 
-def write_cluster_config(outdir, basedir, force_overwrite=False):
+def write_cluster_config(outdir, basedir, force_overwrite=False, skip_unknown_site=False):
     """writes site dependend cluster config
 
     basedir is where to find the input template (i.e. the pipeline directory)
     """
+
+    try:
+        site = get_site()
+    except ValueError:
+        if skip_unknown_site:
+            return
+        else:
+            raise
     cluster_config_in = os.path.join(basedir, "cluster.{}.yaml".format(get_site()))
     cluster_config_out = os.path.join(outdir, "cluster.yaml")
 
@@ -282,7 +290,6 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
         sys.exit(1)
 
 
-
 def ref_is_indexed(ref, prog="bwa"):
     """checks whether a reference was already indexed by given program"""
 
@@ -293,6 +300,7 @@ def ref_is_indexed(ref, prog="bwa"):
         return os.path.exists(ref + ".fai")
     else:
         raise ValueError
+
 
 #window for cronJob
 def generate_window(days=7):

@@ -186,13 +186,10 @@ def main():
         logger.fatal("Output directory {} already exists".format(args.outdir))
         sys.exit(1)
     # also create log dir immediately
+    logger.info("Creating output directory {}".format(args.outdir))
     os.makedirs(os.path.join(args.outdir, LOG_DIR_REL))
-    logger.info("Writing to {}".format(args.outdir))
 
 
-    logger.info("Writing config and rc files")
-
-    write_cluster_config(args.outdir, BASEDIR)
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'sample': args.sample,# needed for file naming
@@ -204,13 +201,20 @@ def main():
     user_data['references'] = {'genome' : args.reffa}
     user_data['mark_dups'] = args.mark_dups
 
+    try:
+        site = get_site()
+    except ValueError:
+        logger.warn("Unknown site")
+        site = "NA"
     elm_data = {'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),
-                'site': get_site(),
+                'site': site,
                 'instance_id': 'SET_ON_EXEC',# dummy
                 'submitter': 'SET_ON_EXEC',# dummy
                 'log_path': os.path.abspath(os.path.join(args.outdir, MASTERLOG))}
 
+    logger.info("Writing config and rc files")
+    write_cluster_config(args.outdir, BASEDIR)
     pipeline_cfgfile = write_pipeline_config(args.outdir, user_data, elm_data)
     write_dk_init(os.path.join(args.outdir, RC['DK_INIT']))
     write_snakemake_init(os.path.join(args.outdir, RC['SNAKEMAKE_INIT']))
