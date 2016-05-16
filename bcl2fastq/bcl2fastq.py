@@ -142,7 +142,7 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None):
     """
 
     basedir_map = {
-        'gis': '/mnt/seq/userrig/solexa/',
+        'gis': '/mnt/seq/userrig/',
         'nscc': '/seq/astar/gis/userrig/'
         }
 
