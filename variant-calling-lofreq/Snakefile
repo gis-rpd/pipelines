@@ -1,0 +1,188 @@
+# standard library imports
+#
+import os
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit
+
+
+RESULT_OUTDIR = './out'
+
+
+# FIXME to conf once downstream handling clear
+MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+
+def mark_dups_pipe_cmd(before="", after=""):
+    """FIXME review once MARK_SHORT_SPLITS is in config
+
+    before and after are commands added before and after samblaster
+    and can be used e.g. for conversion from BAM to BAM (samblaster needs SAM)
+
+    return command will always end in pipe
+    """
+    
+    if config['mark_dups']:
+        if before:
+            cmd = "{} | ".format(before)
+        else:
+            cmd = ""
+            
+        cmd += " samblaster {MARK_SHORT_SPLITS} | "
+        if after:
+            cmd += " {} | ".format(after)
+        return cmd
+    else:
+        return ""
+
+    
+    
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source snakemake_env.rc;")
+
+
+include: "../rules/logging.rules"
+include: "../rules/samtools.rules"
+
+
+rule final:
+    input:
+        os.path.join(RESULT_OUTDIR, 'e2aac1f5.bwamem.lofreq.merged.snps.vcf.gz'),
+        os.path.join(RESULT_OUTDIR, 'e2aac1f5.bwamem.lofreq.merged.indels.vcf.gz')
+
+
+rule vcf_split:
+    input:
+        vcf = '{prefix}.vcf.gz'
+    output:
+        snps = '{prefix}.snps.vcf.gz',
+        indels = '{prefix}.indels.vcf.gz'
+    message:
+        "Splitting vcf into SNPs and Indels"
+    threads:
+        2
+    shell:
+        "zgrep -v '^GL' {input.vcf} | bcftools view -v snps - -O z -o {output.snps};"
+        "tabix {output.snps};"
+        "zgrep -v '^GL' {input.vcf} | bcftools view -v indels - -O z -o {output.indels};"
+        "tabix {output.indels};"
+
+
+rule lofreq_call:
+    input:
+        bam = '{prefix}.bam',
+        bai = '{prefix}.bam.bai',
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".pac"
+    output:
+        vcf='{prefix}.vcf.gz'
+    message:
+        "Calling variants with LoFreq"
+    threads:
+        8
+    benchmark:# should have same name as rule
+        'benchmark/lofreq_call.txt'
+    shell:
+        "lofreq call-parallel --pp-threads {threads} --call-indels -f {input.reffa} -o {output.vcf} {input.bam}"
+
+        
+rule bam_merge:
+    """
+    Merge bam files for multiple units into one for the given sample
+    (or copy if just one).
+    """
+    input:
+        bams=expand('{{prefix}}.split.{ctr}.lofreq.bam',
+                    ctr=range(config["references"]["num_chroms"]+1))
+                         # +1 for unaligned reads
+    output:
+        bam = '{prefix}.lofreq.merged.bam'
+    message:
+        "Merging files"
+    threads:
+        4
+    benchmark:# should have same name as rule
+        'benchmark/bam_merge.txt'
+    run:
+        if len(input) > 1:
+            shell("samtools merge -@ {threads} {output} {input};")
+        else:
+            shell("ln {input} {output}")
+        
+
+rule lofreq_massage_sort:
+    """Runs BAM through full LoFreq preprocessing pipeline,
+    i.e. viterbi, alnqual, indelqual, followed by sort (required by
+    viterbi). 
+
+    WARNING: running this on sorted input files will be inefficient
+    because of constant reloading of the reference
+    """
+    input:
+        bam='{prefix}.bam',
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".pac"
+    output:
+        bam=temp('{prefix}.lofreq.bam')
+    params:
+        sort_mem='500M'
+    message: "Preprocessing BAMs with LoFreq"
+    shell:
+        "lofreq viterbi -f {input.reffa} {input.bam} | "
+        " lofreq alnqual -u - {input.reffa} | "
+        " lofreq indelqual --dindel -f {input.reffa} - | "
+        " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
+
+        
+
+# WARN: Copy&Paste from BWA-MEM!
+# - replaced sorted with split_bam_by_chr and changed out accordingly
+# - removed fixmate (no points since we run viterbi later)
+# - increased threads (since we don't sort etc.)
+rule map_mdups_split:
+    """
+    - Setting read groups correctly is tricky and also depends on downstream programs. 
+      See e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+      For example for BQSR PU takes precedence over ID. PU should contain lane.
+    - More threads mean more memory because of sorting
+    - This originated from the equally named SG10K rule
+    """
+    input:
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".pac",
+        fastqs = lambda wildcards: fastqs_from_unit(config["units"][wildcards.unit])
+    output:
+        bams=temp(expand(os.path.join(RESULT_OUTDIR, '{{unit}}.bwamem.split.{ctr}.bam'),
+                         ctr=range(config["references"]["num_chroms"]+1)))
+                         # +1 for unaligned reads
+    params:
+        mark_short_splits=MARK_SHORT_SPLITS,
+        bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
+        rg_id=lambda wildcards: config["units"][wildcards.unit]['rg_id'],# always set
+        lib_id=lambda wildcards: gen_rg_lib_id(config["units"][wildcards.unit]),
+        pu_id=lambda wildcards: gen_rg_pu_id(config["units"][wildcards.unit]),
+        outprefix=os.path.join(RESULT_OUTDIR, '{unit}.bwamem.split')
+    message:
+        'Aligning PE reads, fixing mate information, marking duplicates (if set) and converting to BAM'
+    threads:
+        16
+    benchmark:# should have same name as rule
+        'benchmark/map_mdups_split.txt'
+    shell:
+        "bwa mem {params.mark_short_splits} -t {threads}"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{config[sample]}\\tCN:GIS'"
+        " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
+        + mark_dups_pipe_cmd() +
+        " samtools view -@ {threads} -bu -o - |"
+        " split_bam_by_chr -l 0 -o {params.outprefix} -"
+        # FIXME
