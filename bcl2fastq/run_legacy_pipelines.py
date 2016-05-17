@@ -139,7 +139,7 @@ def main():
                                 #send_status_mail
                                 send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
                                 sys.exit(1)
-                        check_break_status(args.break_after_first)
+                            check_break_status(args.break_after_first)
                     else:
                         #send_status_mail
                         logger.info("samplesheet.csv missing for %s under %s", run_number, out_dir)
