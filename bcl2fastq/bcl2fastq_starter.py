@@ -10,10 +10,6 @@ import os
 import argparse
 import subprocess
 
-# third party imports
-# WARN: need in conda root and snakemake env
-#import pymongo
-
 # project specific imports
 #
 # add lib dir for this pipeline installation to PYTHONPATH
@@ -50,7 +46,8 @@ def main():
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
     parser.add_argument('-e', "--wrapper-args", nargs="*",
-                        help="Extra arguments for bcl2fastq wrapper (prefix leading dashes with X, e.g. X-n for -n)")
+                        help="Extra arguments for bcl2fastq wrapper"
+                        " (prefix leading dashes with X, e.g. X-n for -n)")
     default = 14
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
@@ -77,42 +74,41 @@ def main():
     if connection is None:
         sys.exit(1)
     db = connection.gisds.runcomplete
-    #DB Query for Jobs that are yet to be analysed in the epoch window
 
-    # FIXME each run object ideally can have 0 or multiple analysis
-    # objects this scripts only kickstarts if no analysis objects are present.
-    # (later: if --force-failed is given try again for those with
-    # exactly one failed. send email for two fail) Analysis object:
-    # initiated:timestamp, ended:timestamp,
-    # status:"completed"|"troubleshooting"
+    # db query for jobs that are yet to be analysed in the epoch window
     epoch_present, epoch_back = generate_window(args.win)
-
     results = db.find({"analysis": {"$exists" : 0},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     # results is a pymongo.cursor.Cursor which works like an iterator i.e. dont use len()
-    logger.info("Found {} runs".format(results.count()))
+    logger.info("Found %s runs", results.count())
     for record in results:
         run_number = record['run']
-        logger.debug(record)
+        logger.debug("Processing record %s", record)
         cmd = [bcl2fastq_wrapper, "-r", run_number, "-v"]
         if args.testing:
             cmd.append("-t")
         if args.wrapper_args:
             cmd.extend([x.lstrip('X') for x in args.wrapper_args])
         if args.dry_run:
-            logger.warning("Skipped following run: {}".format(' '.join(cmd)))
+            logger.warning("Skipped following run: %s", ' '.join(cmd))
             continue
         else:
             try:
-                logger.info("Executing: {}".format(' '.join(cmd)))
+                logger.info("Executing: %s", ' '.join(cmd))
                 res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
                 if res:
-                    logger.info("bcl2fastq wrapper returned:\n{}".format(
-                        res.decode().rstrip()))
+                    logger.info("bcl2fastq wrapper returned:\n%s",
+                                res.decode().rstrip())
             except subprocess.CalledProcessError as e:
-                logger.critical("The following command failed with return code {}: {}".format(
-                    e.stdout, ' '.join(cmd)))
-                logger.critical("Will keep going")
+                logger.critical("The following command failed with"
+                                " return code %s: %s", e.returncode, ' '.join(cmd))
+                logger.critical("Full error message was: %s", e.stdout)
+                if 'commlib error' in e.stdout:
+                    logger.critical(
+                        "Looks like a qmaster problem (commlib error). Exiting")
+                    break
+                else:
+                    logger.critical("Will keep going")
                 # continue so that a failed run doesn't count,
                 # i.e. args.break_after_first shouldn't be trigger
                 continue
