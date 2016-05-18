@@ -41,7 +41,7 @@ def main():
         rest_url = "http://dlap30v:9002/gismart/search"
         LOG.info("send status to development server")
     elif args.test_server == False:
-        LOG.info("FIXME implement the production url")
+        rest_url = "http://plap12v:9002/gismart/search/"
         LOG.info("send status to production server")
     email = "veeravallil@.gis.a-star.edu.sg"# FIXME
     with open(confinfo) as fh_cfg:
