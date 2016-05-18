@@ -12,7 +12,7 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit
+from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
 
 
 RESULT_OUTDIR = './out'
@@ -37,11 +37,16 @@ include: "../rules/samtools.rules"
 rule final:
     input:
         # NOTE changes here will likely have to be reflected in the report rule as well
-        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.idxstats.txt'),
-        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.maprate.txt'),
-        expand(os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.{race}.selfSM'), race=config['references']['cont_vcfs']),
-        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam'),
-        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bamstats/stats_plot.html'),
+        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.idxstats.txt'),
+               sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.maprate.txt'),
+               sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
+               race=config['references']['cont_vcfs'], sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
+               sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
+               sample=config['samples']),
         "report.html"
     message:
         """
@@ -53,16 +58,19 @@ rule final:
 rule report:
     input:
         # NOTE should roughly match final rule?!
-        bam=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bam'),
-        basic_map_stats=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.bamstats/stats_plot.html'),
-        cont_results=expand(os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.recal.{race}.selfSM'), race=config['references']['cont_vcfs'])
+        bam=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
+                   sample=config['samples']),
+        bam_stats=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
+                               sample=config['samples']),
+        cont_results=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
+                            race=config['references']['cont_vcfs'], sample=config['samples']),
     output: html="report.html"
     run:
     	# FIXME duplication with README
         report("""
-        ==========================================================================================
-        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for {config[sample]}
-        ==========================================================================================
+        ===========================================================================================
+        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for {config[samples]}
+        ===========================================================================================
         
         This is the mapping pipeline for the SG10K project workflow. It is
         specifically tailored for SG10K samples and therefore not recommended
@@ -72,7 +80,7 @@ rule report:
         
         - All results can be found in the directory called {RESULT_OUTDIR}
         - Main output is a BAM file (with base qualities recalibrated): {input.bam}
-        - Basic mapping statistics can be found in {input.basic_map_stats}
+        - Basic mapping statistics can be found in {input.bam_stats}
         - Contamination results can be found in {input.cont_results}
         - The full configfile_ containing all parameters, including program versions and settings is attached to this report
         """, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)", configfile="conf.yaml")
@@ -83,16 +91,14 @@ rule report:
         
 rule contamination_check:
     input:
-        bam = os.path.join(RESULT_OUTDIR, '{sample}.bam'),
-        bai = os.path.join(RESULT_OUTDIR, '{sample}.bam.bai'),
-        #vcf = lambda wildcards: config["references"]["cont_vcfs"][wildcards.race]
-        #vcf = lambda wildcards: config["references"]["cont_vcfs"][wildcards.race]
+        bam = os.path.join(RESULT_OUTDIR, '{prefix}.bam'),
+        bai = os.path.join(RESULT_OUTDIR, '{prefix}.bam.bai'),
         vcf = lambda wildcards: config["references"]["cont_vcfs"][wildcards.race]
     output:
         # assuming default option --self
-        bam = os.path.join(RESULT_OUTDIR, '{sample}.{race}.selfSM')
+        bam = os.path.join(RESULT_OUTDIR, '{prefix}.{race}.selfSM')
     params:
-        outbase = os.path.join(RESULT_OUTDIR, '{sample}.{race}')
+        outbase = os.path.join(RESULT_OUTDIR, '{prefix}.{race}')
     message:
         "Checking for contamination"
     benchmark:# should have same name as rule
@@ -113,12 +119,12 @@ rule bq_recal:
     Bottleneck because single thread process! See https://github.com/statgen/bamUtil/issues/21
     """
     input:
-        bam = os.path.join(RESULT_OUTDIR, '{sample}.bam'),
+        bam = '{prefix}.bam',
         reffa = config['references']['genome'],
         dbsnp = config['references']['dbsnp']
     output:
-        bam = os.path.join(RESULT_OUTDIR, '{sample}.recal.bam'),
-        qemp = os.path.join(RESULT_OUTDIR, '{sample}.recal.bam.qemp')
+        bam = '{prefix}.recal.bam',
+        qemp = '{prefix}.recal.bam.qemp'
     message:
         "Base quality recalibration with bamUtils"
     benchmark:# should have same name as rule
@@ -128,19 +134,20 @@ rule bq_recal:
         "bam recab --in {input.bam} --out {output.bam} --refFile {input.reffa} --dbsnp {input.dbsnp} --maxBaseQual 40 --noPhoneHome"
     
     
-rule sample_merge:
+rule unit_merge:
     """
     Merge bam files for multiple units into one for the given sample.
     If the sample has only one unit, a symlink will be created.
     """
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.mdups.srt.bam'), unit=config["units"])
-    threads:
-        16
+        lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam',
+                                 prefix=wildcards.prefix, unit=config['samples'][wildcards.sample])
     output:
-        temp(os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.mdups.srt.merged.bam'))
+        temp('{prefix}/sample-{sample}.bwamem.fixmate.mdups.srt.bam')
     message:
         "Merging files"
+    threads:
+        16
     benchmark:# should have same name as rule
         'benchmark/sample_merge.txt'
     run:
@@ -179,26 +186,27 @@ rule map_mdups_sort:
     """
     input:
         reffa = config['references']['genome'],
-        reffai = config['references']['genome'] + ".pac",
-        fastqs = lambda wildcards: fastqs_from_unit(config["units"][wildcards.unit])
+        reffai = config['references']['genome'] + ".pac",# incomplete but should do
+        fastqs=lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
-        bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.mdups.srt.bam'))
+        bam=temp('{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam')
+    message:
+        'Aligning PE reads, fixing mate information, marking duplicates and converting to sorted BAM'
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
         sort_mem='500M',
-        rg_id=lambda wildcards: config["units"][wildcards.unit]['rg_id'],# always set
-        lib_id=lambda wildcards: gen_rg_lib_id(config["units"][wildcards.unit]),
-        pu_id=lambda wildcards: gen_rg_pu_id(config["units"][wildcards.unit])
-    message:
-        'Aligning PE reads, fixing mate information, marking duplicates and converting to sorted BAM'
+        rg_id=lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
+        lib_id=lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
+        pu_id=lambda wildcards: gen_rg_pu_id(config["readunits"][wildcards.unit]),
+        sample=lambda wildcards: get_sample_for_unit(wildcards.unit, config)
     threads:
         8
     benchmark:# should have same name as rule
         'benchmark/map_mdups_sort.txt'
     shell:
         "bwa mem {params.mark_short_splits} -t {threads}"
-        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{config[sample]}\\tCN:GIS'"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         " samblaster {params.mark_short_splits} |"

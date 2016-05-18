@@ -46,6 +46,15 @@ def gen_rg_lib_id(unit):
         return "LIB-DUMMY"
 
 
+def get_sample_for_unit(unitname, config):
+    """FIXME:add-doc
+    """
+    for samplename, readunits in config["samples"].items():
+        if unitname in readunits:
+            return samplename
+    raise ValueError(unitname)
+
+    
 def gen_rg_pu_id(unit):
     """https://www.biostars.org/p/50349/"""
     if unit['run_id'] and unit['flowcell_id'] and unit['lane_id']:

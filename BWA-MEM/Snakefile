@@ -12,14 +12,7 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit
-
-
-RESULT_OUTDIR = './out'
-
-
-# FIXME to conf once downstream handling clear
-MARK_SHORT_SPLITS="-M"# "-M" or ""
+from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
 
 
 def mark_dups_pipe_cmd(before="", after=""):
@@ -44,8 +37,14 @@ def mark_dups_pipe_cmd(before="", after=""):
     else:
         return ""
 
-    
-    
+
+RESULT_OUTDIR = './out'
+
+
+# FIXME to conf once downstream handling clear
+MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+     
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source snakemake_env.rc;")
@@ -58,10 +57,13 @@ include: "../rules/samtools.rules"
 rule final:
     input:
         # NOTE changes here will likely have to be reflected in the report rule as well
-        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.idxstats.txt'),
-        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bam'),
-        os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bamstats/stats_plot.html'),
-        "report.html"
+        idxstats=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.idxstats.txt'),
+               sample=config['samples']),
+        bams=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.bam'),
+               sample=config['samples']),
+        bamstats=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.bamstats/stats_plot.html'),
+               sample=config['samples']),
+        report="report.html"
     message:
         """
         Pipeline run successfully completed
@@ -71,50 +73,46 @@ rule final:
 
 rule report:
     input:
-        # NOTE should roughly match final rule
-        bam=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bam'),
-        basic_map_stats=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bamstats/stats_plot.html'),
+        bams=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.bam'),
+               sample=config['samples']),
+        bamstats=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.bamstats/stats_plot.html'),
+               sample=config['samples']),
     output: html="report.html"
     run:
         report("""
-        ==========================================================================================
-        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for {config[sample]}
-        ==========================================================================================
+        ===========================================================================================
+        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for {config[samples]}
+        ===========================================================================================
         
         This is a generic BWA-MEM mapping pipeline.
         
         - All results can be found in the directory called {RESULT_OUTDIR}
-        - Main output is a BAM file (raw base qualities): {input.bam}
-        - Basic mapping statistics can be found in {input.basic_map_stats}
+        - Main output is a BAM file (raw base qualities): {input.bams}
+        - Basic mapping statistics can be found in {input.bamstats}
         """, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)", configfile="conf.yaml")
         # doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch
         # FIXME hardcoded path to configfile
-        
 
-rule sample_merge:
+
+rule unit_merge:
     """
     Merge bam files for multiple units into one for the given sample
     (or copy if just one).
-
-    samtools sort might need control of max thread memory to not go 
-    over limit for v1.3 it's 768M. if we use 16 threads this amounts 
-    to max 12.3GB (on top of whatever else is running).
-
-    Define temporary sorting out prefix to avoid nameclashes (default
-    -.XXX.bam for stdin)
     """
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.srt.bam'), unit=config["units"])
-    threads:
-        8
+        # switch expand and wildcards and funny things happen
+        lambda wildcards: expand(os.path.join(RESULT_OUTDIR, 'unit-{unit}.bwamem.bam'),
+                                 unit=config['samples'][wildcards.sample])
     output:
-        bam=os.path.join(RESULT_OUTDIR, config['sample'] + '.bwamem.fixmate.merged.srt.bam')
+        os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.bam')
     message:
         "Merging files"
+    threads:
+        8
     benchmark:# should have same name as rule
-        'benchmark/sample_merge.txt'
+        'benchmark/unit_merge.txt'
     run:
         # not running mark_dups_pipe_cmd again since not read name sorted anymore
         if len(input) > 1:
@@ -136,18 +134,19 @@ rule map_mdups_sort:
     - This originated from the equally named SG10K rule
     """
     input:
-        reffa = config['references']['genome'],
-        reffai = config['references']['genome'] + ".pac",
-        fastqs = lambda wildcards: fastqs_from_unit(config["units"][wildcards.unit])
+        reffa=config['references']['genome'],
+        bwaindex=config['references']['genome'] + ".pac",# incomplete but should do
+        fastqs=lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
-        bam=temp(os.path.join(RESULT_OUTDIR, '{unit}.bwamem.fixmate.srt.bam'))
+        bam=temp(os.path.join(RESULT_OUTDIR, 'unit-{unit}.bwamem.bam'))
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
         sort_mem='250M',
-        rg_id=lambda wildcards: config["units"][wildcards.unit]['rg_id'],# always set
-        lib_id=lambda wildcards: gen_rg_lib_id(config["units"][wildcards.unit]),
-        pu_id=lambda wildcards: gen_rg_pu_id(config["units"][wildcards.unit])
+        rg_id=lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
+        lib_id=lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
+        pu_id=lambda wildcards: gen_rg_pu_id(config["readunits"][wildcards.unit]),
+        sample=lambda wildcards: get_sample_for_unit(wildcards.unit, config)
     message:
         'Aligning PE reads, fixing mate information, marking duplicates (if set) and converting to BAM'
     threads:
@@ -156,7 +155,7 @@ rule map_mdups_sort:
         'benchmark/map_mdups_sort.txt'
     shell:
         "bwa mem {params.mark_short_splits} -t {threads}"
-        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{config[sample]}\\tCN:GIS'"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         + mark_dups_pipe_cmd() +

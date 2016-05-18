@@ -14,7 +14,7 @@
       "mem" : 8G,
     },
     
-    "sample_merge" :
+    "unit_merge" :
     {
       "time" : "04:00:00",
       "mem" : 4G,

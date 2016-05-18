@@ -43,8 +43,9 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
-                                   'lane_id', 'rg_id', 'fq1', 'fq2'])
+# only dump() and following do not automatically create aliases
+yaml.Dumper.ignore_aliases = lambda *args: True
+
 
 BASEDIR = os.path.dirname(sys.argv[0])
 
@@ -186,12 +187,15 @@ def main():
     write_cluster_config(args.outdir, BASEDIR)
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'sample': args.sample,# needed for file naming
-                 'mail_on_completion': not args.no_mail}
-    user_data['units'] = OrderedDict()
+    user_data = {'mail_on_completion': not args.no_mail}
+    user_data['readunits'] = OrderedDict()
     for ru in read_units:
         k = key_for_read_unit(ru)
-        user_data['units'][k] = ru._asdict()
+        user_data['readunits'][k] = ru._asdict()
+    # samples is a dictionary with sample names as key (here just one)
+    # each value is a list of readunits
+    user_data['samples'] = dict()
+    user_data['samples'][args.sample] = list(user_data['readunits'].keys())
 
     elm_data = {'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),

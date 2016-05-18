@@ -18,8 +18,6 @@ import subprocess
 #--- third-party imports
 #
 import yaml
-# only dump() and following do not automatically create aliases
-yaml.Dumper.ignore_aliases = lambda *args: True
 
 #--- project specific imports
 #
@@ -40,6 +38,10 @@ __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
+
+
+# only dump() and following do not automatically create aliases
+yaml.Dumper.ignore_aliases = lambda *args: True
 
 
 BASEDIR = os.path.dirname(sys.argv[0])

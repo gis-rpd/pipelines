@@ -6,8 +6,6 @@ pipeline (unless otherwise requested).
 # generic useage {PIPELINE_NAME} and {PIPELINE_VERSION} replaced while
 # printing usage
 
-# FIXME: this is based on SG10K.py (code duplication!). diff both regularly
-
 #--- standard library imports
 #
 import sys
@@ -35,10 +33,15 @@ from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, 
 from pipelines import ref_is_indexed, email_for_user
 from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
+
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
+
+
+# only dump() and following do not automatically create aliases
+yaml.Dumper.ignore_aliases = lambda *args: True
 
 
 BASEDIR = os.path.dirname(sys.argv[0])
@@ -76,7 +79,7 @@ def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
 
     rpd_vars = get_rpd_vars()
     for k, v in rpd_vars.items():
-        logger.debug("{} : {}".format(k, v))
+        logger.debug("%s : %s", k, v)
 
     pipeline_config_in = os.path.join(BASEDIR, "conf.default.yaml".format())
     pipeline_config_out = os.path.join(outdir, "conf.yaml".format())
@@ -155,10 +158,10 @@ def main():
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     if not os.path.exists(args.reffa):
-        logger.fatal("Reference '{}' doesn't appear to be indexed".format(args.reffa))
+        logger.fatal("Reference '%s' doesn't appear to be indexed", args.reffa)
         sys.exit(1)
     if not ref_is_indexed(args.reffa, "bwa"):
-        logger.fatal("Reference '{}' doesn't appear to be indexed".format(args.reffa))
+        logger.fatal("Reference '%s' doesn't appear to be indexed", args.reffa)
         sys.exit(1)
 
     if args.config:
@@ -166,45 +169,45 @@ def main():
             logger.fatal("Config file overrides fastq input arguments. Use one or the other")
             sys.exit(1)
         if not os.path.exists(args.config):
-            logger.fatal("Config file {} does not exist".format(args.config))
+            logger.fatal("Config file %s does not exist", args.config)
             sys.exit(1)
         read_units = get_reads_unit_from_cfgfile(args.config)
     else:
         read_units = get_reads_unit_from_args(args.fq1, args.fq2)
 
     for i, ru in enumerate(read_units):
-        logger.debug("read unit #{}: {}".format(i, ru))
-    
-    for ru in read_units:
-        logger.debug("Checking read unit: {}".format(ru))
+        logger.debug("Checking read unit #%d: %s", i, ru)
         for f in [ru.fq1, ru.fq2]:
             if f and not os.path.exists(f):
-                logger.fatal("Non-existing input file {}".format(f))
+                logger.fatal("Non-existing input file %s", f)
                 sys.exit(1)
 
     if os.path.exists(args.outdir):
-        logger.fatal("Output directory {} already exists".format(args.outdir))
+        logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
     # also create log dir immediately
-    logger.info("Creating output directory {}".format(args.outdir))
+    logger.info("Creating output directory %s", args.outdir)
     os.makedirs(os.path.join(args.outdir, LOG_DIR_REL))
 
 
-
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'sample': args.sample,# needed for file naming
-                 'mail_on_completion': not args.no_mail}
-    user_data['units'] = OrderedDict()
+    user_data = {'mail_on_completion': not args.no_mail}
+    user_data['readunits'] = OrderedDict()
     for ru in read_units:
         k = key_for_read_unit(ru)
-        user_data['units'][k] = ru._asdict()
+        user_data['readunits'][k] = ru._asdict()
     user_data['references'] = {'genome' : args.reffa}
     user_data['mark_dups'] = args.mark_dups
+
+    # samples is a dictionary with sample names as key (here just one)
+    # each value is a list of readunits
+    user_data['samples'] = dict()
+    user_data['samples'][args.sample] = list(user_data['readunits'].keys())
 
     try:
         site = get_site()
     except ValueError:
-        logger.warn("Unknown site")
+        logger.warning("Unknown site")
         site = "NA"
     elm_data = {'pipeline_name': PIPELINE_NAME,
                 'pipeline_version': get_pipeline_version(),
@@ -222,7 +225,7 @@ def main():
 
     site = get_site()
     if site == "gis" or site == "nscc":
-        logger.info("Writing the run file for site {}".format(site))
+        logger.info("Writing the run file for site %s", site)
         run_template = os.path.join(BASEDIR, "..", "lib", "run.template.{}.sh".format(site))
         run_out = os.path.join(args.outdir, "run.sh")
         # if we copied the snakefile (to allow for local modification)
@@ -253,16 +256,16 @@ def main():
         cmd = "cd {} && qsub {} {} >> {}".format(
             os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
         if args.no_run:
-            logger.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
-            logger.warning("Once ready submit with: {}".format(cmd))
+            logger.warning("Skipping pipeline run on request. Once ready, use: %s", cmd)
+            logger.warning("Once ready submit with: %s", cmd)
         else:
-            logger.info("Starting pipeline: {}".format(cmd))
+            logger.info("Starting pipeline: %s", cmd)
             #os.chdir(os.path.dirname(run_out))
             _ = subprocess.check_output(cmd, shell=True)
             submission_log_abs = os.path.abspath(os.path.join(args.outdir, SUBMISSIONLOG))
             master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))
-            logger.info("For submission details see {}".format(submission_log_abs))
-            logger.info("The (master) logfile is {}".format(master_log_abs))
+            logger.info("For submission details see %ss", submission_log_abs)
+            logger.info("The (master) logfile is %s", master_log_abs)
     else:
         raise ValueError(site)
 
