@@ -14,6 +14,7 @@ from getpass import getuser
 import socket
 import time
 from datetime import datetime, timedelta
+import json
 
 #--- third-party imports
 #
@@ -57,6 +58,23 @@ Scientific & Research Computing
 # ugly
 PIPELINE_BASEDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION"))
+
+
+def read_default_config(pipeline_dir):
+    """parse default config and replace all RPD env vars
+    """
+    rpd_vars = get_rpd_vars()
+    # FIXME hardcoded name
+    cfgfile = os.path.join(pipeline_dir, "conf.default.yaml".format())
+    with open(cfgfile) as fh:
+        cfg = yaml.safe_load(fh)
+    # trick to traverse dictionary fully and replace all instances of variable
+    dump = json.dumps(cfg)
+    for k, v in rpd_vars.items():
+        dump = dump.replace("${}".format(k), v)
+    cfg = dict(json.loads(dump))
+    return cfg
+
 
 
 def get_pipeline_version():
