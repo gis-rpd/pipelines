@@ -9,10 +9,10 @@ def getuser():
 
 
 # read unit dict
-assert 'units' in config
+assert 'readunits' in config
 # ELM dict for logging
 assert 'ELM' in config
-assert 'sample' in config
+assert 'samples' in config
 assert 'RESULT_OUTDIR' in workflow.globals
 
 
@@ -20,7 +20,7 @@ onstart:# available as patched snakemake 3.5.5
     global elm_logger
 
     elm_units = []
-    for unit in config['units'].values():
+    for unit in config['readunits'].values():
         # For non-bcl2fastq pipelines use the input as library_files
         library_files = [unit['fq1']]
         if 'fq2' in unit and unit['fq2'] is not None:
@@ -43,11 +43,13 @@ onsuccess:
     elm_logger.stop(True)
     if config.get('mail_on_completion', False):
         send_status_mail(config['ELM']['pipeline_name'], True,
-                         config['sample'], os.path.abspath(RESULT_OUTDIR))
+                         ",".join(config['samples']),
+                         os.path.abspath(RESULT_OUTDIR))
 
 
 onerror:
     elm_logger.stop(False)
     if config.get('mail_on_completion', False):
         send_status_mail(config['ELM']['pipeline_name'], False,
-                         config['sample'], os.path.abspath(RESULT_OUTDIR))
+                         ",".join(config['samples']),
+                         os.path.abspath(RESULT_OUTDIR))
