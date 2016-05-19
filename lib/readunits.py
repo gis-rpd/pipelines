@@ -117,7 +117,8 @@ def get_reads_unit_from_args(fqs1, fqs2):
         if (fq1, fq2) not in fq_pairs_orig:
             print_fq_sort_warning = True
         run_id = flowcell_id = library_id = lane_id = rg_id = None
-        ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
+        ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id,
+                             os.path.abspath(fq1), os.path.abspath(fq2)])
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         read_units.append(ru)
     if print_fq_sort_warning:
