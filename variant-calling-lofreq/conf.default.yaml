@@ -1,0 +1,22 @@
+{  
+  modules: {
+    # name : version
+    bwa : 0.7.12,
+    samtools : 1.3,
+    samblaster : 0.1.22,
+    lofreq : 2.1.2,
+    bcftools : 1.3,
+    htslib : 1.3,
+    split_bam_by_chr : 274f3fe
+    },
+
+    references: {
+      genome: "$RPD_GENOMES/human_g1k_v37/human_g1k_v37.fasta",
+      },
+      
+  platform: "Illumina",
+  # extra BWA parameters, except -M -R and -t
+  bwa_mem_custom_args: "",
+}
+    
+    

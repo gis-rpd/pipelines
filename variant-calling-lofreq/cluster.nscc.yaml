@@ -1,0 +1,29 @@
+# FIXME needs tweaking
+{
+    # default rules applied to all rules, but overriden by rule-specific settings
+    "__default__" :
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+  
+    "lofreq_call" :
+    {
+      "time" : "12:00:00",
+      "mem" : 8G,
+    },
+
+    "lofreq_massage_sort" :
+    {
+      "time" : "08:00:00",
+      "mem" : 8G,
+    },
+    
+    
+    "map_mdups_split" :
+    {
+      "time" : "12:00:00",
+      "mem" : 12G,
+    },
+}    
+
