@@ -150,7 +150,9 @@ rule map_mdups_sort:
     message:
         'Aligning PE reads, fixing mate information, marking duplicates (if set) and converting to BAM'
     threads:
-        16
+        # 32 is where it seems to max out in GIS. samtools threading
+        # has little effect on overall runtime. but on memory
+        32
     benchmark:# should have same name as rule
         'benchmark/map_mdups_sort.txt'
     shell:
@@ -159,5 +161,5 @@ rule map_mdups_sort:
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         + mark_dups_pipe_cmd() +
-        " samtools view -@ {threads} -bu -o - |"
+        " samtools view -bu -o - |"
         " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
