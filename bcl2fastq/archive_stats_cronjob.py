@@ -89,9 +89,9 @@ def main():
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
-    logger.info("Database connection established")
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
+    num_triggers = 0
     results = db.find({"analysis.Status": "SUCCESS",
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found {} runs".format(results.count()))
@@ -133,7 +133,8 @@ def main():
                                             }})
                                     except pymongo.errors.OperationFailure:
                                         logger.fatal("mongoDB OperationFailure")
-                                        sys.exit(0)  
+                                        sys.exit(0) 
+                                    num_triggers += 1 
                                 # Call FASTQ upload 
                                 archive_upload_script_cmd = [archive_upload_script, '-o', out_dir, '-m', mux_id]                                   
                                 if args.testing:
@@ -157,14 +158,15 @@ def main():
                                             }})
                                     except pymongo.errors.OperationFailure:
                                         logger.fatal("mongoDB OperationFailure")
-                                        sys.exit(0)                             
+                                        sys.exit(0) 
+                                    num_triggers += 1                            
                         else:
                             logger.info("Mux %s from %s is not successfully completed. Skip SRA and STATS uploading", d['mux_id'], run_number)
                     count += 1  
     # close the connection to MongoDB
     connection.close()
-
+    logger.info("%s dirs with triggers", num_triggers)
 if __name__ == "__main__":
     logger.info("MongoDB status update starting")
     main()
-    logger.info("Successful program exit")
+    

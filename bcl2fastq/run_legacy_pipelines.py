@@ -93,6 +93,7 @@ def main():
         sys.exit(1)
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
+    num_triggers = 0
     results = db.find({"analysis.Status": "SUCCESS",
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found %s runs", results.count())
@@ -139,6 +140,7 @@ def main():
                                 #send_status_mail
                                 send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
                                 sys.exit(1)
+                            num_triggers += 1
                             check_break_status(args.break_after_first)
                     else:
                         #send_status_mail
@@ -148,7 +150,7 @@ def main():
                 logger.info("BCL2FASTQ FAILED for %s under %s", run_number, out_dir)
      # close the connection to MongoDB
     connection.close()
-    logger.info("Successful program exit")
+    logger.info("%s dirs with triggers", num_triggers)
 
 
 if __name__ == "__main__":
