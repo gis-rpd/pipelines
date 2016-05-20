@@ -131,6 +131,9 @@ def main():
                             check_break_status(args.break_after_first)
                         else:
                             try:
+                                #ananlysisReport into submission log
+                                with open(os.path.join(out_dir, SUBMISSIONLOG), 'w') as fh:
+                                    fh.write(cmd)
                                 _ = subprocess.check_output(cmd, shell=True)
                             except subprocess.CalledProcessError as e:
                                 logger.fatal("The following command failed with return code %s: %s",
