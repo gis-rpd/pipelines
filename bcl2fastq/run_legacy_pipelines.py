@@ -150,7 +150,7 @@ def main():
                         logger.info("samplesheet.csv missing for %s under %s", run_number, out_dir)
                         send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
             elif analysis.get("Status") == "FAILED":
-                logger.info("BCL2FASTQ FAILED for %s under %s", run_number, out_dir)
+                logger.debug("BCL2FASTQ FAILED for %s under %s", run_number, out_dir)
      # close the connection to MongoDB
     connection.close()
     logger.info("%s dirs with triggers", num_triggers)
