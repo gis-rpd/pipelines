@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MongoDB status updates for the bcl2fastq pipeline
+"""STATs and SRA update for the bcl2fastq pipeline
 """
 # standard library imports
 import logging
@@ -167,6 +167,6 @@ def main():
     connection.close()
     logger.info("%s dirs with triggers", num_triggers)
 if __name__ == "__main__":
-    logger.info("MongoDB status update starting")
+    logger.info("STATs and SRA status update starting")
     main()
     
