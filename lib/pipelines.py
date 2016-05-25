@@ -14,6 +14,7 @@ from getpass import getuser
 import socket
 import time
 from datetime import datetime, timedelta
+import calendar
 import json
 
 #--- third-party imports
@@ -239,6 +240,15 @@ def timestamp_from_string(analysis_id):
     dt = datetime.strptime(analysis_id, '%Y-%m-%dT%H-%M-%S.%f')
     return dt
 
+def isoformat_to_epoch_time(ts):
+    """
+    Converts ISO8601 format (analysis_id) into epoch time
+    """
+    dt = datetime.strptime(ts[:-7],'%Y-%m-%dT%H-%M-%S.%f')-\
+        timedelta(hours=int(ts[-5:-3]),
+        minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
+    epoch_time = calendar.timegm(dt.timetuple()) + dt.microsecond/1000000.0
+    return epoch_time
 
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
@@ -307,6 +317,33 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
         # FIXME consider exit 0 if pipeline breaks
         sys.exit(1)
 
+def send_report_mail(pipeline_name, extra_text):
+    """
+    - pipeline_name: pipeline name or any report generation
+    - extra_text: Body message of email
+    """
+   
+    body = extra_text + "\n"
+    body += "\n\nThis is an automatically generated email\n"
+    body += RPD_SIGNATURE
+
+    subject = pipeline_name
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = RPD_MAIL
+    msg['To'] = email_for_user()
+
+    # Send the mail
+    try:
+        server = smtplib.SMTP('localhost')
+        server.send_message(msg)
+        server.quit()
+    except Exception:
+        logger.fatal("Sending mail failed")
+        # FIXME consider exit 0 if pipeline breaks
+        sys.exit(1)
+
 
 def ref_is_indexed(ref, prog="bwa"):
     """checks whether a reference was already indexed by given program"""
@@ -330,3 +367,4 @@ def generate_window(days=7):
     f = d.strftime("%Y-%m-%d %H:%m:%S")
     epoch_back = int(time.mktime(time.strptime(f, pattern)))*1000
     return (epoch_present, epoch_back)
+
