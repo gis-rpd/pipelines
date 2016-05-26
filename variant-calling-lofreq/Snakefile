@@ -154,6 +154,7 @@ rule unit_merge:
     benchmark:# should have same name as rule
         'benchmark/unit_merge.txt'
     run:
+        # readgroup and pg now different, so make PG and RG uniq (default)
         # not running mark_dups_pipe_cmd again since not read name sorted anymore
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input};")
@@ -181,7 +182,8 @@ rule split_merge:
         'benchmark/bam_merge.txt'
     run:
         if len(input) > 1:
-            shell("samtools merge -@ {threads} {output} {input};")
+            # same readgroup and pg, so combine colliding PG and RG
+            shell("samtools merge -c -p -@ {threads} {output} {input};")
         else:
             shell("ln {input} {output}")
 
