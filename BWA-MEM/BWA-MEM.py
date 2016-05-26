@@ -74,7 +74,7 @@ logger.addHandler(handler)
 def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
     """writes config file for use in snakemake becaused on default config
 
-    FIXME is there a way to retain comments from the template
+    FIXME use read_default_config()
     """
 
     rpd_vars = get_rpd_vars()
