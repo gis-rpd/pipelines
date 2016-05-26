@@ -94,15 +94,32 @@ def main():
     od = collections.OrderedDict(sorted(runs.items()))
     logger.info("Found {} runs".format(results.count()))
     extra_text = "Found {} runs. \n".format(results.count())
+
     for k, v in od.items():
         results = db.find({"run": v})
         for record in results:
             Status = record['analysis'][-1].get("Status")
             if Status == 'SUCCESS':
-                continue
+                #FIXME Check if STATS and SRA submission completd
+                if record['analysis'][-1].get("per_mux_status"):
+                    mux = record['analysis'][-1].get("per_mux_status")
+                    for d in mux:
+                        if d['Status'] and (d['Status']) == "SUCCESS":
+                            mux_id = d['mux_id']
+                            StatsSubmission = d['StatsSubmission']
+                            ArchiveSubmission = d['ArchiveSubmission']
+                            if StatsSubmission == "FAILED":
+                                extra_text += "StatsSubmission for mux_id {} from Run {} has FAILED and " \
+                                    "out_dir is {} \n".format(mux_id, v, record['analysis'][-1].get("out_dir"))
+                                extra_text += "\n"
+                            if ArchiveSubmission == "FAILED":
+                                extra_text += "ArchiveSubmission for mux_id {} from Run {} has FAILED and " \
+                                    "out_dir is {} \n".format(mux_id, v, record['analysis'][-1].get("out_dir"))
+                                extra_text += "\n"
             elif Status == 'FAILED':
                 extra_text += "Analysis for Run {} has faild \n".format(v)
                 extra_text += "Analysis_id is {} and out_dir is {} \n".format(record['analysis'][-1].get("analysis_id"), record['analysis'][-1].get("out_dir"))
+                extra_text += "\n"
                 extra_text += "---------------------------------------------------"
                 logger.info("Analysis for Run %s has faild ", v)
             elif Status == 'STARTED':
@@ -115,10 +132,11 @@ def main():
                 if rd.days > 3:
                     extra_text += "Analysis for Run {} has been started {} days ago. Please check. \n".format(v, rd.days)
                     extra_text += "Analysis_id is {} and out_dir is {} \n".format(record['analysis'][-1].get("analysis_id"), record['analysis'][-1].get("out_dir"))
-                    extra_text += "---------------------------------------------------"
-                    extra_text += "---------------------------------------------------"
+                    extra_text += "\n"
+                    extra_text += "---------------------------------------------------"             
     extra_text += "Report generation is completed"
     send_report_mail('Report generation for bcl2fastq', extra_text)
+    print(extra_text)
     logger.info("Report generation is completed ")
 if __name__ == "__main__":
     logger.info("Report generation starting")
