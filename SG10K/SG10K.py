@@ -139,8 +139,8 @@ def main():
     parser.add_argument('-m', '--master-q',
                         help="Queue to use for master job")
     parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=1,
-                        help="Increase verbosity")
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                            help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
                             help="Decrease verbosity")
 

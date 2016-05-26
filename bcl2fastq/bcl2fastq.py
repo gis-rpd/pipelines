@@ -255,7 +255,7 @@ def main():
                         help="Max. number of allowed barcode mismatches (0>=x<=2)"
                         " setting a value here overrides the default settings read from ELM)")
     parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=1,
+    parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
                         help="Decrease verbosity")
