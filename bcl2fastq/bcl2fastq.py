@@ -445,9 +445,11 @@ def main():
         snakefile = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
         assert not os.path.exists(run_out)
         with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
-            # we don't know for sure who's going to actually exectute
-            # but it's very likely the current user, who needs to be notified
-            # on qsub kills etc
+            # we don't know for sure who's going to actually execute
+            # (we might be running in dyrun mode), but we assume it's
+            # the current user, who needs to be notified on qsub kills
+            # etc. Completion/Failure emails are send through
+            # Snakemake using same function
             toaddr = email_for_user()
             for line in templ_fh:
                 line = line.replace("@SNAKEFILE@", snakefile)

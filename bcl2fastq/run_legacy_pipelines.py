@@ -57,6 +57,8 @@ def check_break_status(break_after_first):
     if break_after_first:
         logger.warning("Stopping after first sequencing run")
         sys.exit(0)
+
+
 def main():
     """main function"""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -65,7 +67,7 @@ def main():
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Don't run anything")
     parser.add_argument('-t', "--testing", action='store_true',
-                        help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
+                        help="Use MongoDB test-server")
     default = 7
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
@@ -102,8 +104,13 @@ def main():
         analysis = record['analysis']
         for analysis in record['analysis']:
             out_dir = analysis.get("out_dir")
+
             #Check if bcl2Fastq is completed successfully
             if 'Status' in analysis and analysis.get("Status") == "SUCCESS":
+                if not os.path.exists(out_dir):
+                    logger.critical("Following directory listed in DB doesn't exist: %s", out_dir)
+                    continue
+
                 #Check if downstream analysis has been started
                 if not os.path.exists(os.path.join(out_dir, "config_casava-1.8.2.txt".format())):
                     logger.info("Start the downstream analysis at %s", out_dir)
@@ -131,6 +138,9 @@ def main():
                             check_break_status(args.break_after_first)
                         else:
                             try:
+                                #ananlysisReport into submission log
+                                with open(os.path.join(out_dir, SUBMISSIONLOG), 'w') as fh:
+                                    fh.write(cmd)
                                 _ = subprocess.check_output(cmd, shell=True)
                             except subprocess.CalledProcessError as e:
                                 logger.fatal("The following command failed with return code %s: %s",
@@ -147,7 +157,7 @@ def main():
                         logger.info("samplesheet.csv missing for %s under %s", run_number, out_dir)
                         send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
             elif analysis.get("Status") == "FAILED":
-                logger.info("BCL2FASTQ FAILED for %s under %s", run_number, out_dir)
+                logger.debug("BCL2FASTQ FAILED for %s under %s", run_number, out_dir)
      # close the connection to MongoDB
     connection.close()
     logger.info("%s dirs with triggers", num_triggers)

@@ -89,6 +89,7 @@ def main():
                                       "StatsSubmission" : "TODO",
                                       "ArchiveSubmission" : "TODO",
                                       "DownstreamSubmission" : "TODO",
+                                      "email_sent" : False,
 
                                   }}})
         except pymongo.errors.OperationFailure:
@@ -104,6 +105,7 @@ def main():
                                       "mux_id" : args.mux_id,
                                       "mux_dir" : args.mux_dir,
                                       "Status" : args.mux_status,
+                                      "email_sent" : False,
                                   }}})
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")
