@@ -248,11 +248,12 @@ def main():
             res = mongo_updater.update_run(update_info['status'], outdir)
             if not res:
                 # don't delete trigger. don't processe muxes. try again later
-                logger.critical("Skipping this run")
+                logger.critical("Skipping this analysis (%s) for run %s", update_info['analysis_id'], update_info['run_num'])
                 continue
 
             # update per MUX
             #
+            keep_trigger = False
             for mux_id, mux_dir_base in muxes.items():
                 mux_dir = os.path.join(outdir, "out", mux_dir_base)# ugly
                 if mux_dir_complete(mux_dir):
@@ -267,9 +268,11 @@ def main():
                 res = mongo_updater.update_mux(status, mux_id, mux_dir_base)
                 if not res:
                     # don't delete trigger. try again later
-                    logger.critical("Skipping this run")
-                    continue
-            if not args.dry_run:
+                    logger.critical("Skipping rest of analysis %s for run %s", update_info['analysis_id'], update_info['run_num'])
+                    keep_trigger = True
+                    break
+                    
+            if not args.dry_run and not keep_trigger:
                 os.unlink(trigger_file)
 
     logger.info("%s dirs with triggers", num_triggers)
