@@ -40,7 +40,7 @@ done
 
 # readlink resolves links and makes path absolute
 test -z "$RPD_ROOT" && exit 1
-CFG=$RPD_ROOT/testing/data/SG10K/MUX3275-WHH474.yaml
+CFG=$RPD_ROOT/testing/data/SG10K/MUX3275-WHH474.one-per-run.yaml
 SAMPLE=MUX3275-WHH474
 
 
