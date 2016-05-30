@@ -16,7 +16,7 @@ import logging
 import json
 import subprocess
 #import string
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 
 #--- third-party imports
 #
@@ -33,6 +33,7 @@ from pipelines import get_pipeline_version, get_site
 from pipelines import get_rpd_vars, email_for_user
 from pipelines import write_dk_init, write_snakemake_init
 from pipelines import write_snakemake_env, write_cluster_config
+from pipelines import logger as aux_logger
 from readunits import get_reads_unit_from_cfgfile
 from readunits import get_reads_unit_from_args, key_for_read_unit
 
@@ -155,6 +156,7 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+    aux_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     if args.config:
         if any([args.fq1, args.fq2]):
@@ -188,10 +190,10 @@ def main():
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail}
-    user_data['readunits'] = OrderedDict()
+    user_data['readunits'] = dict()
     for ru in read_units:
         k = key_for_read_unit(ru)
-        user_data['readunits'][k] = ru._asdict()
+        user_data['readunits'][k] = dict(ru._asdict())
     # samples is a dictionary with sample names as key (here just one)
     # each value is a list of readunits
     user_data['samples'] = dict()

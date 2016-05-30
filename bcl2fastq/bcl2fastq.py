@@ -27,10 +27,10 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version, get_site, get_rpd_vars
-from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env
-from pipelines import write_cluster_config, generate_timestamp
-from pipelines import get_machine_run_flowcell_id, is_devel_version
-from pipelines import email_for_user
+from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config, generate_timestamp
+from pipelines import get_machine_run_flowcell_id, is_devel_version, email_for_user
+from pipelines import LOG_DIR_REL, MASTERLOG, SUBMISSIONLOG, RC_FILES, PIPELINE_CONFIG_FILE, PIPELINE_DEFAULT_CONFIG_FILE
+from pipelines import logger as aux_logger
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
 
 
@@ -48,21 +48,6 @@ BASEDIR = os.path.dirname(sys.argv[0])
 
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "bcl2fastq"
-
-# log dir relative to outdir
-LOG_DIR_REL = "logs"
-# master log relative to outdir
-MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log")
-SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log")
-PIPELINE_CONFIG_FILE = "conf.yaml"
-PIPELINE_DEFAULT_CONFIG_FILE = "conf.default.yaml"
-
-# RC files
-RC = {
-    'DK_INIT' : 'dk_init.rc',# used to load dotkit
-    'SNAKEMAKE_INIT' : 'snakemake_init.rc',# used to load snakemake
-    'SNAKEMAKE_ENV' : 'snakemake_env.rc',# used as bash prefix within snakemakejobs
-}
 
 DEFAULT_SLAVE_Q = {'gis': None,
                    'nscc': 'production'}
@@ -273,6 +258,7 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+    aux_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     if args.mismatches is not None:
         if args.mismatches > 2 or args.mismatches < 0:
@@ -423,9 +409,9 @@ def main():
     logger.debug("Writing config and rc files")
     pipeline_cfgfile = write_pipeline_config(outdir, user_data, elm_data)
     write_cluster_config(outdir, BASEDIR)
-    write_dk_init(os.path.join(outdir, RC['DK_INIT']))
-    write_snakemake_init(os.path.join(outdir, RC['SNAKEMAKE_INIT']))
-    write_snakemake_env(os.path.join(outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
+    write_dk_init(os.path.join(outdir, RC_FILES['DK_INIT']))
+    write_snakemake_init(os.path.join(outdir, RC_FILES['SNAKEMAKE_INIT']))
+    write_snakemake_env(os.path.join(outdir, RC_FILES['SNAKEMAKE_ENV']), pipeline_cfgfile)
 
 
     # create mongodb update command, used later, after queueing
@@ -435,6 +421,8 @@ def main():
         mongo_update_cmd += " -t"
 
 
+    # FIXME consider merging with pipelines:write_run_template_and_exec()
+    # (careful with tiny differences though!)
     site = get_site()
     if site == "gis" or site == "nscc":
         logger.debug("Writing the run file for site {}".format(site))

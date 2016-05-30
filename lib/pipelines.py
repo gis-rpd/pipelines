@@ -31,12 +31,32 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
+# only dump() and following do not automatically create aliases
+yaml.Dumper.ignore_aliases = lambda *args: True
+
+
 # global logger
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
+
+
+# log dir relative to outdir
+LOG_DIR_REL = "logs"
+# master log relative to outdir
+MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log")
+SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log")
+PIPELINE_CONFIG_FILE = "conf.yaml"
+PIPELINE_DEFAULT_CONFIG_FILE = "conf.default.yaml"
+
+# RC files
+RC_FILES = {
+    'DK_INIT' : 'dk_init.rc',# used to load dotkit
+    'SNAKEMAKE_INIT' : 'snakemake_init.rc',# used to load snakemake
+    'SNAKEMAKE_ENV' : 'snakemake_env.rc',# used as bash prefix within snakemakejobs
+}
 
 
 INIT = {
@@ -57,8 +77,8 @@ Scientific & Research Computing
 
 
 # ugly
-PIPELINE_BASEDIR = os.path.join(os.path.dirname(__file__), "..")
-assert os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION"))
+PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
+assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
 
 def read_default_config(pipeline_dir):
@@ -66,7 +86,7 @@ def read_default_config(pipeline_dir):
     """
     rpd_vars = get_rpd_vars()
     # FIXME hardcoded name
-    cfgfile = os.path.join(pipeline_dir, "conf.default.yaml".format())
+    cfgfile = os.path.join(pipeline_dir, PIPELINE_DEFAULT_CONFIG_FILE)
     with open(cfgfile) as fh:
         cfg = yaml.safe_load(fh)
     # trick to traverse dictionary fully and replace all instances of variable
@@ -77,15 +97,36 @@ def read_default_config(pipeline_dir):
     return cfg
 
 
+def write_merged_usr_and_default_cfg(pipelinedir, outdir, user_data, elm_data,
+                                     force_overwrite=False):
+    """writes config file for use in snakemake becaused on default config
+    """
+
+    pipeline_config_out = os.path.join(outdir, PIPELINE_CONFIG_FILE)
+    if not force_overwrite:
+        assert not os.path.exists(pipeline_config_out), pipeline_config_out
+
+    config = read_default_config(pipelinedir)
+    config.update(user_data)
+
+    assert 'ELM' not in config
+    config['ELM'] = elm_data
+
+    with open(pipeline_config_out, 'w') as fh:
+        # default_flow_style=None(default)|True(least readable)|False(most readable)
+        yaml.dump(config, fh, default_flow_style=False)
+
+    return pipeline_config_out
+
 
 def get_pipeline_version():
     """determine pipeline version as defined by updir file
     """
-    version_file = os.path.abspath(os.path.join(PIPELINE_BASEDIR, "VERSION"))
+    version_file = os.path.abspath(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
     with open(version_file) as fh:
         version = fh.readline().strip()
     cwd = os.getcwd()
-    os.chdir(PIPELINE_BASEDIR)
+    os.chdir(PIPELINE_ROOTDIR)
     if os.path.exists(".git"):
         commit = None
         cmd = ['git', 'describe', '--always', '--dirty']
@@ -103,7 +144,7 @@ def get_pipeline_version():
 def is_devel_version():
     """checks whether this is a developers version of production
     """
-    check_file = os.path.abspath(os.path.join(PIPELINE_BASEDIR, "DEVELOPERS_VERSION"))
+    check_file = os.path.abspath(os.path.join(PIPELINE_ROOTDIR, "DEVELOPERS_VERSION"))
     #logger.debug("check_file = {}".format(check_file))
     return os.path.exists(check_file)
 
@@ -212,18 +253,73 @@ def write_cluster_config(outdir, basedir, force_overwrite=False, skip_unknown_si
     try:
         site = get_site()
     except ValueError:
+        site = "NA"
+
+    cluster_config_in = os.path.join(basedir, "cluster.{}.yaml".format(site))
+    cluster_config_out = os.path.join(outdir, "cluster.yaml")
+
+    if not os.path.exists(cluster_config_in):
         if skip_unknown_site:
             return
         else:
-            raise
-    cluster_config_in = os.path.join(basedir, "cluster.{}.yaml".format(get_site()))
-    cluster_config_out = os.path.join(outdir, "cluster.yaml")
+            raise ValueError(site)
 
-    assert os.path.exists(cluster_config_in)
     if not force_overwrite:
         assert not os.path.exists(cluster_config_out), cluster_config_out
 
     shutil.copyfile(cluster_config_in, cluster_config_out)
+
+
+def write_run_template_and_exec(site, outdir, snakefile_abs, pipeline_name,
+                                master_q=None, slave_q=None, no_run=False):
+    """FIXME:add-doc
+    """
+
+    if site not in ["gis", "nscc"]:
+        raise ValueError(site)
+
+    run_template = os.path.join(PIPELINE_ROOTDIR, "lib",
+                                "run.template.{}.sh".format(site))
+    run_out = os.path.join(outdir, "run.sh")
+    assert os.path.exists(run_template)
+    assert not os.path.exists(run_out)
+    with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
+        # we don't know for sure who's going to actually exectute
+        # but it's very likely the current user, who needs to be notified
+        # on qsub kills etc
+        toaddr = email_for_user()
+        for line in templ_fh:
+            # if we copied the snakefile (to allow for local modification)
+            # the rules import won't work.  so use the original file
+            line = line.replace("@SNAKEFILE@", snakefile_abs)
+            line = line.replace("@LOGDIR@", LOG_DIR_REL)
+            line = line.replace("@MASTERLOG@", MASTERLOG)
+            line = line.replace("@PIPELINE_NAME@", pipeline_name)
+            line = line.replace("@MAILTO@", toaddr)
+            if slave_q:
+                line = line.replace("@DEFAULT_SLAVE_Q@", slave_q)
+            else:
+                line = line.replace("@DEFAULT_SLAVE_Q@", "")
+            out_fh.write(line)
+
+    if master_q:
+        master_q_arg = "-q {}".format(master_q)
+    else:
+        master_q_arg = ""
+    cmd = "cd {} && qsub {} {} >> {}".format(
+        os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
+    if no_run:
+        logger.warning("Skipping pipeline run on request. Once ready, use: %s", cmd)
+        logger.warning("Once ready submit with: %s", cmd)
+    else:
+        logger.info("Starting pipeline: %s", cmd)
+        #os.chdir(os.path.dirname(run_out))
+        _ = subprocess.check_output(cmd, shell=True)
+        submission_log_abs = os.path.abspath(os.path.join(outdir, SUBMISSIONLOG))
+        master_log_abs = os.path.abspath(os.path.join(outdir, MASTERLOG))
+        logger.info("For submission details see %ss", submission_log_abs)
+        logger.info("The (master) logfile is %s", master_log_abs)
+
 
 
 def generate_timestamp():
@@ -240,15 +336,17 @@ def timestamp_from_string(analysis_id):
     dt = datetime.strptime(analysis_id, '%Y-%m-%dT%H-%M-%S.%f')
     return dt
 
+
 def isoformat_to_epoch_time(ts):
     """
     Converts ISO8601 format (analysis_id) into epoch time
     """
-    dt = datetime.strptime(ts[:-7],'%Y-%m-%dT%H-%M-%S.%f')-\
-        timedelta(hours=int(ts[-5:-3]),
-        minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
+    dt = datetime.strptime(ts[:-7], '%Y-%m-%dT%H-%M-%S.%f')-\
+         timedelta(hours=int(ts[-5:-3]),
+                   minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
     epoch_time = calendar.timegm(dt.timetuple()) + dt.microsecond/1000000.0
     return epoch_time
+
 
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
@@ -322,7 +420,7 @@ def send_report_mail(pipeline_name, extra_text):
     - pipeline_name: pipeline name or any report generation
     - extra_text: Body message of email
     """
-   
+
     body = extra_text + "\n"
     body += "\n\nThis is an automatically generated email\n"
     body += RPD_SIGNATURE
@@ -367,4 +465,3 @@ def generate_window(days=7):
     f = d.strftime("%Y-%m-%d %H:%m:%S")
     epoch_back = int(time.mktime(time.strptime(f, pattern)))*1000
     return (epoch_present, epoch_back)
-

@@ -12,9 +12,6 @@ import sys
 import os
 import argparse
 import logging
-import subprocess
-#import string
-#from collections import OrderedDict
 
 #--- third-party imports
 #
@@ -27,12 +24,14 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import get_pipeline_version, get_site, get_rpd_vars
+from pipelines import get_pipeline_version, get_site, read_default_config
 from pipelines import write_dk_init, write_snakemake_init
 from pipelines import write_snakemake_env, write_cluster_config
-from pipelines import ref_is_indexed, email_for_user, read_default_config
-from readunits import get_reads_unit_from_cfgfile
-from readunits import get_reads_unit_from_args, key_for_read_unit
+from pipelines import write_merged_usr_and_default_cfg, write_run_template_and_exec
+from pipelines import ref_is_indexed
+from pipelines import LOG_DIR_REL, MASTERLOG, RC_FILES
+from pipelines import logger as aux_logger
+from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 
 __author__ = "Andreas Wilm"
@@ -50,63 +49,23 @@ BASEDIR = os.path.dirname(sys.argv[0])
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "variant-calling-lofreq"
 
-# log dir relative to outdir
-LOG_DIR_REL = "logs"
-# master log relative to outdir
-MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log")
-SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log")
 
-# RC files
-RC = {
-    'DK_INIT' : 'dk_init.rc',# used to load dotkit
-    'SNAKEMAKE_INIT' : 'snakemake_init.rc',# used to load snakemake
-    'SNAKEMAKE_ENV' : 'snakemake_env.rc',# used as bash prefix within snakemakejobs
-}
-
-
-# global logger
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-    
-def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
-    """writes config file for use in snakemake becaused on default config
-
-    FIXME is there a way to retain comments from the template
-    """
-    
-    pipeline_config_out = os.path.join(outdir, "conf.yaml".format())
-    if not force_overwrite:
-        assert not os.path.exists(pipeline_config_out), pipeline_config_out
-
-    config = read_default_config(os.path.dirname(BASEDIR))
-    config.update(user_data)
-
-    assert 'ELM' not in config
-    config['ELM'] = elm_data
-
-    # FIXME we could check presence of files here but would need to
-    # iterate over config and assume structure
-
-    with open(pipeline_config_out, 'w') as fh:
-        # default_flow_style=None(default)|True(least readable)|False(most readable)
-        yaml.dump(config, fh, default_flow_style=False)
-
-    return pipeline_config_out
-
 
 def num_chroms_from_fasta(fasta):
-    """infer number of sequences for fasta from corresponding fai 
+    """infer number of sequences for fasta from corresponding fai
     """
 
     fai = fasta + ".fai"
     assert os.path.exists(fai), ("{} not indexed".format(fasta))
     num_chroms = 0
     with open(fai) as fh:
-        for line in fh:
+        for _ in fh:
             num_chroms += 1
     return num_chroms
 
@@ -149,7 +108,7 @@ def main():
     parser.add_argument('-q', '--quiet', action='count', default=0)
 
     args = parser.parse_args()
-    
+
     # Repeateable -v and -q for setting logging level.
     # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
     # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
@@ -160,7 +119,7 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
-
+    aux_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
     if not os.path.exists(args.reffa):
         logger.fatal("Reference '%s' doesn't appear to be indexed", args.reffa)
         sys.exit(1)
@@ -189,14 +148,13 @@ def main():
     if os.path.exists(args.outdir):
         logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
-    # also create log dir immediately
+    # create log dir recursively so thar parent is created as well
     logger.info("Creating output directory %s", args.outdir)
     os.makedirs(os.path.join(args.outdir, LOG_DIR_REL))
 
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail}
-    #user_data['readunits'] = OrderedDict()
     user_data['readunits'] = dict()
     for ru in read_units:
         k = key_for_read_unit(ru)
@@ -210,6 +168,7 @@ def main():
     user_data['samples'] = dict()
     user_data['samples'][args.sample] = list(user_data['readunits'].keys())
 
+
     try:
         site = get_site()
     except ValueError:
@@ -222,58 +181,19 @@ def main():
                 'submitter': 'SET_ON_EXEC',# dummy
                 'log_path': os.path.abspath(os.path.join(args.outdir, MASTERLOG))}
 
+    setup_env_and_exec()
     logger.info("Writing config and rc files")
     write_cluster_config(args.outdir, BASEDIR)
-    pipeline_cfgfile = write_pipeline_config(args.outdir, user_data, elm_data)
-    write_dk_init(os.path.join(args.outdir, RC['DK_INIT']))
-    write_snakemake_init(os.path.join(args.outdir, RC['SNAKEMAKE_INIT']))
-    write_snakemake_env(os.path.join(args.outdir, RC['SNAKEMAKE_ENV']), pipeline_cfgfile)
+    pipeline_cfgfile = write_merged_usr_and_default_cfg(
+        BASEDIR, args.outdir, user_data, elm_data)
+    write_snakemake_env(os.path.join(args.outdir, RC_FILES['SNAKEMAKE_ENV']), pipeline_cfgfile)
+    write_dk_init(os.path.join(args.outdir, RC_FILES['DK_INIT']))
+    write_snakemake_init(os.path.join(args.outdir, RC_FILES['SNAKEMAKE_INIT']))
 
-    site = get_site()
-    if site == "gis" or site == "nscc":
-        logger.info("Writing the run file for site %s", site)
-        run_template = os.path.join(BASEDIR, "..", "lib", "run.template.{}.sh".format(site))
-        run_out = os.path.join(args.outdir, "run.sh")
-        # if we copied the snakefile (to allow for local modification)
-        # the rules import won't work.  so use the original file
-        snakefile = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
-        assert not os.path.exists(run_out)
-        with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
-            # we don't know for sure who's going to actually exectute
-            # but it's very likely the current user, who needs to be notified
-            # on qsub kills etc
-            toaddr = email_for_user()
-            for line in templ_fh:
-                line = line.replace("@SNAKEFILE@", snakefile)
-                line = line.replace("@LOGDIR@", LOG_DIR_REL)
-                line = line.replace("@MASTERLOG@", MASTERLOG)
-                line = line.replace("@PIPELINE_NAME@", PIPELINE_NAME)
-                line = line.replace("@MAILTO@", toaddr)
-                if args.slave_q:
-                    line = line.replace("@DEFAULT_SLAVE_Q@", args.slave_q)
-                else:
-                    line = line.replace("@DEFAULT_SLAVE_Q@", "")
-                out_fh.write(line)
-
-        if args.master_q:
-            master_q_arg = "-q {}".format(args.master_q)
-        else:
-            master_q_arg = ""
-        cmd = "cd {} && qsub {} {} >> {}".format(
-            os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
-        if args.no_run:
-            logger.warning("Skipping pipeline run on request. Once ready, use: %s", cmd)
-            logger.warning("Once ready submit with: %s", cmd)
-        else:
-            logger.info("Starting pipeline: %s", cmd)
-            #os.chdir(os.path.dirname(run_out))
-            _ = subprocess.check_output(cmd, shell=True)
-            submission_log_abs = os.path.abspath(os.path.join(args.outdir, SUBMISSIONLOG))
-            master_log_abs = os.path.abspath(os.path.join(args.outdir, MASTERLOG))
-            logger.info("For submission details see %ss", submission_log_abs)
-            logger.info("The (master) logfile is %s", master_log_abs)
-    else:
-        raise ValueError(site)
+    logger.info("Writing the run file for site %s", site)
+    snakefile_abs = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
+    write_run_template_and_exec(site, args.outdir, snakefile_abs, PIPELINE_NAME,
+                                args.master_q, args.slave_q, args.no_run)
 
 
 if __name__ == "__main__":
