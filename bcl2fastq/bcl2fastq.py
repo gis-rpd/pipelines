@@ -14,6 +14,7 @@ import os
 import argparse
 import logging
 import subprocess
+import shutil
 
 #--- third-party imports
 #
@@ -26,11 +27,10 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import get_pipeline_version, get_site, get_rpd_vars
-from pipelines import write_dk_init, write_snakemake_init, write_snakemake_env, write_cluster_config, generate_timestamp
-from pipelines import get_machine_run_flowcell_id, is_devel_version, email_for_user
-from pipelines import LOG_DIR_REL, MASTERLOG, SUBMISSIONLOG, RC_FILES, PIPELINE_CONFIG_FILE, PIPELINE_DEFAULT_CONFIG_FILE
-from pipelines import logger as aux_logger
+from pipelines import get_pipeline_version, get_site
+from pipelines import PipelineHandler
+from pipelines import get_machine_run_flowcell_id, is_devel_version
+from pipelines import logger as aux_logger, generate_timestamp
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
 
 
@@ -44,7 +44,7 @@ __license__ = "The MIT License (MIT)"
 yaml.Dumper.ignore_aliases = lambda *args: True
 
 
-BASEDIR = os.path.dirname(sys.argv[0])
+PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "bcl2fastq"
@@ -53,6 +53,19 @@ DEFAULT_SLAVE_Q = {'gis': None,
                    'nscc': 'production'}
 DEFAULT_MASTER_Q = {'gis': None,
                     'nscc': 'production'}
+OUTDIR_BASE = {
+    'gis': {
+        'devel': '/mnt/projects/rpd/testing/output/bcl2fastq',
+        'production': '/mnt/projects/userrig/solexa/'},
+    'nscc': {
+        'devel': '/seq/astar/gis/rpd/testing/output/bcl2fastq/',
+        'production': '/seq/astar/gis/userrig/'}
+}
+SEQDIR_BASE = {
+    'gis': '/mnt/seq/userrig/',
+    'nscc': '/seq/astar/gis/userrig/'
+}
+
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -60,36 +73,6 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
-
-
-def write_pipeline_config(outdir, user_data, elm_data, force_overwrite=False):
-    """writes config file for use in snakemake based on default config,
-    user data and elm data to outdir.
-    """
-
-    rpd_vars = get_rpd_vars()
-    for k, v in rpd_vars.items():
-        logger.debug("{} : {}".format(k, v))
-
-    pipeline_config_in = os.path.join(BASEDIR, PIPELINE_DEFAULT_CONFIG_FILE)
-    pipeline_config_out = os.path.join(outdir, PIPELINE_CONFIG_FILE)
-
-    assert os.path.exists(pipeline_config_in)
-    if not force_overwrite:
-        assert not os.path.exists(pipeline_config_out), pipeline_config_out
-
-    with open(pipeline_config_in, 'r') as fh:
-        config = yaml.safe_load(fh)
-    config.update(user_data)
-
-    config['ELM'] = elm_data
-
-    #import pdb; pdb.set_trace()
-    with open(pipeline_config_out, 'w') as fh:
-        # default_flow_style=None(default)|True(least readable)|False(most readable)
-        yaml.dump(config, fh, default_flow_style=False)
-
-    return pipeline_config_out
 
 
 def get_mux_units_from_cfgfile(cfgfile, restrict_to_lanes=None):
@@ -118,7 +101,7 @@ def get_mux_units_from_cfgfile(cfgfile, restrict_to_lanes=None):
     return mux_units
 
 
-def run_folder_for_run_id(runid_and_flowcellid, site=None):
+def run_folder_for_run_id(runid_and_flowcellid, site=None, basedir_map=SEQDIR_BASE):
     """runid has to contain flowcell id
 
     AKA $RAWSEQDIR
@@ -127,11 +110,6 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None):
     >>> "/mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX"
     if machineid eq MS00
     """
-
-    basedir_map = {
-        'gis': '/mnt/seq/userrig/',
-        'nscc': '/seq/astar/gis/userrig/'
-        }
 
     if not site:
         site = get_site()
@@ -151,18 +129,9 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None):
     return rundir
 
 
-def get_bcl2fastq_outdir(runid_and_flowcellid, site=None):
+def get_bcl2fastq_outdir(runid_and_flowcellid, site=None, basedir_map=OUTDIR_BASE):
+    """FIXME:add-doc
     """
-    """
-
-    basedir_map = {
-        'gis': {
-            'devel': '/mnt/projects/rpd/testing/output/bcl2fastq',
-            'production': '/mnt/projects/userrig/solexa/'},
-        'nscc': {
-            'devel': '/seq/astar/gis/rpd/testing/output/bcl2fastq/',
-            'production': '/seq/astar/gis/userrig/'}
-        }
 
     if not site:
         site = get_site()
@@ -206,7 +175,6 @@ def seqrunfailed(mongo_status_script, run_num, outdir, testing):
     logger.info("Creating flag file {}".format(flagfile))
     with open(flagfile, 'w') as _:
         pass
-
 
 
 def main():
@@ -298,10 +266,12 @@ def main():
         outdir = get_bcl2fastq_outdir(args.runid)
     else:
         outdir = args.outdir
-    assert not os.path.exists(outdir)
-    logger.info("Writing to {}".format(outdir))
-    # create log dir and hence parent dir immediately
-    os.makedirs(os.path.join(outdir, LOG_DIR_REL))
+    if os.path.exists(outdir):
+        logger.fatal("Output directory %s already exists", outdir)
+        sys.exit(1)
+    # create now so that generate_bcl2fastq_cfg.py can run
+    os.makedirs(outdir)
+    
 
 
     # catch cases where rundir was user provided and looks weird
@@ -379,40 +349,13 @@ def main():
     os.unlink(muxinfo_cfg)
 
 
-    #user_data['units'] = OrderedDict()
-    user_data['units'] = dict()# FIXME does it matter if ordered or not?
+    user_data['units'] = dict()
     for mu in mux_units:
-        # special case: mux split across multiple lanes. make lanes a list and add in extra lanes if needed.
+        # special case: mux split across multiple lanes. make lanes a list
+        # and add in extra lanes if needed.
         k = mu.mux_dir
         mu_dict = dict(mu._asdict())
-        #print ("TESTING {}".format(mu_dict))
         user_data['units'][k] = mu_dict
-
-
-    log_library_id = []
-    log_lane_id = []
-    log_run_id = []
-    # one entry per mux and lane
-    for mu in mux_units:
-        for lane in mu.lane_ids:# can have multiple lanes per mux
-            log_library_id.append(mu.mux_id)# logger allows mux_id and lib_id switching
-            log_lane_id.append(lane)
-            log_run_id.append(mu.run_id)
-
-    elm_data = {'pipeline_name': PIPELINE_NAME,
-                'pipeline_version': get_pipeline_version(),
-                'site': get_site(),
-                'instance_id': 'SET_ON_EXEC',# dummy
-                'submitter': 'SET_ON_EXEC',# dummy
-                'log_path': os.path.abspath(os.path.join(outdir, MASTERLOG))}
-
-    logger.debug("Writing config and rc files")
-    pipeline_cfgfile = write_pipeline_config(outdir, user_data, elm_data)
-    write_cluster_config(outdir, BASEDIR)
-    write_dk_init(os.path.join(outdir, RC_FILES['DK_INIT']))
-    write_snakemake_init(os.path.join(outdir, RC_FILES['SNAKEMAKE_INIT']))
-    write_snakemake_env(os.path.join(outdir, RC_FILES['SNAKEMAKE_ENV']), pipeline_cfgfile)
-
 
     # create mongodb update command, used later, after queueing
     mongo_update_cmd = "{} -r {} -s STARTED".format(mongo_status_script, user_data['run_num'])
@@ -420,66 +363,29 @@ def main():
     if args.testing:
         mongo_update_cmd += " -t"
 
+    # NOTE: bcl2fastq has a special run template, so we need to
+    # interfer with the default pipeline_handler.  plenty of
+    # opportunity to shoot yourself in the foot
 
-    # FIXME consider merging with pipelines:write_run_template_and_exec()
-    # (careful with tiny differences though!)
-    site = get_site()
-    if site == "gis" or site == "nscc":
-        logger.debug("Writing the run file for site {}".format(site))
-        run_template = os.path.join(BASEDIR, "run.template.{}.sh".format(site))
-        run_out = os.path.join(outdir, "run.sh")
-        # if we copied the snakefile (to allow for local modification)
-        # the rules import won't work.  so use the original file
-        snakefile = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
-        assert not os.path.exists(run_out)
-        with open(run_template) as templ_fh, open(run_out, 'w') as out_fh:
-            # we don't know for sure who's going to actually execute
-            # (we might be running in dyrun mode), but we assume it's
-            # the current user, who needs to be notified on qsub kills
-            # etc. Completion/Failure emails are send through
-            # Snakemake using same function
-            toaddr = email_for_user()
-            for line in templ_fh:
-                line = line.replace("@SNAKEFILE@", snakefile)
-                line = line.replace("@LOGDIR@", LOG_DIR_REL)
-                line = line.replace("@MASTERLOG@", MASTERLOG)
-                line = line.replace("@PIPELINE_NAME@", PIPELINE_NAME)
-                line = line.replace("@MAILTO@", toaddr)
-                if args.slave_q:
-                    line = line.replace("@DEFAULT_SLAVE_Q@", args.slave_q)
-                else:
-                    if DEFAULT_SLAVE_Q[site] is not None:
-                        line = line.replace("@DEFAULT_SLAVE_Q@", DEFAULT_SLAVE_Q[site])
-                    else:
-                        line = line.replace("@DEFAULT_SLAVE_Q@", "")
+    pipeline_handler = PipelineHandler(PIPELINE_NAME, PIPELINE_BASEDIR,
+                                       outdir, user_data)
+    # use local run template
+    pipeline_handler.run_template = os.path.join(
+        PIPELINE_BASEDIR, "run.template.{}.sh".format(pipeline_handler.site))
+    assert os.path.exists(pipeline_handler.run_template)
+    pipeline_handler.setup_env()
+    # final mongo update line in run_out
+    tmp_run_out = pipeline_handler.run_out + ".tmp"
+    with open(pipeline_handler.run_out) as fh_in, \
+         open(tmp_run_out, 'w') as fh_out:
+        for line in fh_in:
+            line = line.replace("@MONGO_UPDATE_CMD@", mongo_update_cmd)
+            fh_out.write(line)
+    shutil.move(tmp_run_out, pipeline_handler.run_out)
+    pipeline_handler.submit(args.no_run)
 
-                line = line.replace("@MONGO_UPDATE_CMD@", mongo_update_cmd)
-                out_fh.write(line)
 
-        if args.master_q:
-            master_q_arg = "-q {}".format(args.master_q)
-        else:
-            if DEFAULT_MASTER_Q[site] is not None:
-                master_q_arg = "-q {}".format(DEFAULT_MASTER_Q[site])
-            else:
-                master_q_arg = ""
 
-        cmd = "cd {} && qsub {} {} >> {}".format(
-            os.path.dirname(run_out), master_q_arg, os.path.basename(run_out), SUBMISSIONLOG)
-
-        if args.no_run:
-            logger.warning("Skipping pipeline run on request. Once ready, use: {}".format(cmd))
-            logger.warning("Once ready submit with: {}".format(cmd))
-        else:
-            logger.info("Starting pipeline: {}".format(cmd))
-            #os.chdir(os.path.dirname(run_out))
-            _ = subprocess.check_output(cmd, shell=True)
-            submission_log_abs = os.path.abspath(os.path.join(outdir, SUBMISSIONLOG))
-            master_log_abs = os.path.abspath(os.path.join(outdir, MASTERLOG))
-            logger.info("For submission details see {}".format(submission_log_abs))
-            logger.info("The (master) logfile is {}".format(master_log_abs))
-    else:
-        raise ValueError(site)
 
 
 if __name__ == "__main__":

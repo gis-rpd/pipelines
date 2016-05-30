@@ -24,13 +24,10 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import get_pipeline_version, get_site
-from pipelines import write_dk_init, write_snakemake_init
-from pipelines import write_snakemake_env, write_cluster_config
-from pipelines import write_merged_usr_and_default_cfg, write_run_template_and_exec
+from pipelines import get_pipeline_version
+from pipelines import PipelineHandler
 from pipelines import ref_is_indexed
 from pipelines import logger as aux_logger
-from pipelines import LOG_DIR_REL, MASTERLOG, RC_FILES
 from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 
@@ -44,7 +41,7 @@ __license__ = "The MIT License (MIT)"
 yaml.Dumper.ignore_aliases = lambda *args: True
 
 
-BASEDIR = os.path.dirname(sys.argv[0])
+PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "BWA-MEM"
@@ -135,10 +132,6 @@ def main():
     if os.path.exists(args.outdir):
         logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
-    # also create log dir immediately
-    logger.info("Creating output directory %s", args.outdir)
-    os.makedirs(os.path.join(args.outdir, LOG_DIR_REL))
-
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail}
@@ -154,31 +147,10 @@ def main():
     user_data['samples'] = dict()
     user_data['samples'][args.sample] = list(user_data['readunits'].keys())
 
-
-    try:
-        site = get_site()
-    except ValueError:
-        logger.warning("Unknown site")
-        site = "NA"
-    elm_data = {'pipeline_name': PIPELINE_NAME,
-                'pipeline_version': get_pipeline_version(),
-                'site': site,
-                'instance_id': 'SET_ON_EXEC',# dummy
-                'submitter': 'SET_ON_EXEC',# dummy
-                'log_path': os.path.abspath(os.path.join(args.outdir, MASTERLOG))}
-
-    logger.info("Writing config and rc files")
-    write_cluster_config(args.outdir, BASEDIR)
-    pipeline_cfgfile = write_merged_usr_and_default_cfg(
-        BASEDIR, args.outdir, user_data, elm_data)
-    write_snakemake_env(os.path.join(args.outdir, RC_FILES['SNAKEMAKE_ENV']), pipeline_cfgfile)
-    write_dk_init(os.path.join(args.outdir, RC_FILES['DK_INIT']))
-    write_snakemake_init(os.path.join(args.outdir, RC_FILES['SNAKEMAKE_INIT']))
-
-    logger.info("Writing the run file for site %s", site)
-    snakefile_abs = os.path.abspath(os.path.join(BASEDIR, "Snakefile"))
-    write_run_template_and_exec(site, args.outdir, snakefile_abs, PIPELINE_NAME,
-                                args.master_q, args.slave_q, args.no_run)
+    pipeline_handler = PipelineHandler(PIPELINE_NAME, PIPELINE_BASEDIR,
+                                       args.outdir, user_data)
+    pipeline_handler.setup_env()
+    pipeline_handler.submit(args.no_run)
 
 
 if __name__ == "__main__":
