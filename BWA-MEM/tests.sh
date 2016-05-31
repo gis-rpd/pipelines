@@ -79,7 +79,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: PE on command line" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -1 $R1S1 -2 $R2S1 -s NA12878 -r $REFFA -d -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -1 $R1S1 -2 $R2S1 -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -87,7 +87,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: PE through config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -c $SPLIT1KONLY_PE_CFG -s NA12878 -r $REFFA -d -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -c $SPLIT1KONLY_PE_CFG -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -95,7 +95,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: SR on command line" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -1 $R1S1 -s NA12878 -r $REFFA -d -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -1 $R1S1 -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -103,7 +103,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     
     echo "Dryrun: SR through config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -c $SPLIT1KONLY_SR_CFG -s NA12878 -r $REFFA -d -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -c $SPLIT1KONLY_SR_CFG -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -119,7 +119,7 @@ fi
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run: checking whether SE reads in == reads out (-secondary)" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -1 $R1S1 -s NA12878 -r $REFFA -d -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -1 $R1S1 -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
@@ -137,7 +137,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: checking whether PE reads in == reads out (-secondary)" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -1 $R1S1 -2 $R2S1 -s NA12878 -r $REFFA -d -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -1 $R1S1 -2 $R2S1 -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
@@ -155,7 +155,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: checking whether PE dup reads are removed" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-mdups.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s NA12878 -r $REFFA -d -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
@@ -174,9 +174,9 @@ if [ $skip_real_runs -ne 1 ]; then
     fi
     rm -rf $odir
 
-    echo "Real run: dups marking not set should not mark dups" | tee -a $log
+    echo "Real run: no dups marking should not mark dups" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-no-mdups.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s NA12878 -r $REFFA -D -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log

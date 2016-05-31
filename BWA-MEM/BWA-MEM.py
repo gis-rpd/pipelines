@@ -72,8 +72,8 @@ def main():
                         help="Sample name")
     parser.add_argument('-r', "--reffa", required=True,
                         help="Reference fasta file to use. Needs to be indexed already (bwa index)")
-    parser.add_argument('-d', '--mark-dups', action='store_true',
-                        help="Mark duplicate reads")
+    parser.add_argument('-D', '--dont-mark-dups', action='store_true',
+                        help="Don't mark duplicate reads")
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
                         " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
@@ -140,7 +140,7 @@ def main():
         k = key_for_read_unit(ru)
         user_data['readunits'][k] = dict(ru._asdict())
     user_data['references'] = {'genome' : args.reffa}
-    user_data['mark_dups'] = args.mark_dups
+    user_data['mark_dups'] = not args.dont_mark_dups
 
     # samples is a dictionary with sample names as key (here just one)
     # each value is a list of readunits
