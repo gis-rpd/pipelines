@@ -112,10 +112,11 @@ def get_site():
     """Determine site where we're running. Throws ValueError if unknown
     """
     # gis detection is a bit naive... but socket.getfqdn() doesn't help here
-    if os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
-        return "gis"
-    elif os.path.exists('/seq/astar/gis/') or 'nscc' in socket.getfqdn():
+    # also possible: ip a | grep -q 192.168.190 && NSCC=1
+    if os.path.exists('/home/astar/gis'):# 'nscc' in socket.getfqdn():
         return "nscc"
+    elif os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
+        return "gis"
     else:
         raise ValueError("unknown site (fqdn was {})".format(socket.getfqdn()))
 
