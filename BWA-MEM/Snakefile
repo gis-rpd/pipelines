@@ -15,6 +15,22 @@ if LIB_PATH not in sys.path:
 from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
 
 
+RESULT_OUTDIR = './out'
+
+
+# FIXME to conf once downstream handling clear
+MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source snakemake_env.rc;")
+
+
+include: "../rules/logging.rules"
+include: "../rules/samtools.rules"
+
+                    
 def mark_dups_pipe_cmd(before="", after=""):
     """FIXME review once MARK_SHORT_SPLITS is in config
 
@@ -38,22 +54,6 @@ def mark_dups_pipe_cmd(before="", after=""):
         return ""
 
 
-RESULT_OUTDIR = './out'
-
-
-# FIXME to conf once downstream handling clear
-MARK_SHORT_SPLITS="-M"# "-M" or ""
-
-     
-# non-login bash
-shell.executable("/bin/bash")
-shell.prefix("source snakemake_env.rc;")
-
-
-include: "../rules/logging.rules"
-include: "../rules/samtools.rules"
-
-                    
 rule final:
     input:
         # NOTE changes here will likely have to be reflected in the report rule as well
@@ -103,10 +103,10 @@ rule unit_merge:
     """
     input:
         # switch expand and wildcards and funny things happen
-        lambda wildcards: expand(os.path.join(RESULT_OUTDIR, 'unit-{unit}.bwamem.bam'),
+        lambda wildcards: expand('{{prefix}}/unit-{unit}.bwamem.bam',
                                  unit=config['samples'][wildcards.sample])
     output:
-        os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.bam')
+        '{prefix}/sample-{sample}.bwamem.bam'
     message:
         "Merging files"
     threads:
@@ -138,7 +138,7 @@ rule map_mdups_sort:
         bwaindex=config['references']['genome'] + ".pac",# incomplete but should do
         fastqs=lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
-        bam=temp(os.path.join(RESULT_OUTDIR, 'unit-{unit}.bwamem.bam'))
+        bam=temp('{prefix}/unit-{unit}.bwamem.bam')
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
