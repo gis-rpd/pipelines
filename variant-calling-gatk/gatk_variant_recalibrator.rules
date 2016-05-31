@@ -4,6 +4,11 @@ Based on rules/variant_calling/gatk_variant_recalibrator.rules from https://bitb
 - original license: MIT
 """
 
+
+assert 'references' in config
+assert 'genome' in config['references']
+
+
 def _get_recal_params(wildcards):
     if wildcards.type == "snp":
         return (
@@ -21,19 +26,21 @@ def _get_recal_params(wildcards):
 
 
 rule gatk_variant_recalibration:
+    # Note: this can fail due to the lack of data with: "no data found"
+    # https://gatkforums.broadinstitute.org/gatk/discussion/3216/error-stack-trace-unable-to-retrieve-result-a-gatk-runtime-error-has-occurred
+    # "VQSR should not be used on exome and target resequencing. best to use the hard-filtering recommendations"
+    # hard filtering guide lines: http://gatkforums.broadinstitute.org/gatk/discussion/2806/howto-apply-hard-filters-to-a-call-set
     input:
         config["references"].values(),
         ref=config["references"]["genome"],
-        vcf="variant_calling/{prefix}.vcf"
+        vcf="{prefix}.vcf"
     output:
-        recal=temp("variant_calling/{prefix}.{type,(snp|indel)}.recal"),
-        tranches=temp("variant_calling/{prefix}.{type,(snp|indel)}.tranches"),
-        plotting=temp("variant_calling/{prefix}.{type,(snp|indel)}.plotting.R")
+        recal=temp("{prefix}.{type,(snp|indel)}.recal"),
+        tranches=temp("{prefix}.{type,(snp|indel)}.tranches"),
+        plotting=temp("{prefix}.{type,(snp|indel)}.plotting.R")
     params:
         _get_recal_params,
         config.get("params_gatk", "")
-    log:
-        "variant_calling/log//{prefix}.{type}_recal_info.log"
     threads: 8
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T VariantRecalibrator -R {input.ref} "
@@ -42,25 +49,23 @@ rule gatk_variant_recalibration:
         "-tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 "
         "-recalFile {output.recal} "
         "-tranchesFile {output.tranches} "
-        "-rscriptFile {output.plotting} >& {log}"
+        "-rscriptFile {output.plotting}"
 
 
 rule gatk_apply_variant_recalibration:
     input:
         ref=config["references"]["genome"],
-        vcf="variant_calling/{prefix}.vcf",
-        recal="variant_calling/{prefix}.{type}.recal",
-        tranches="variant_calling/{prefix}.{type}.tranches"
+        vcf="{prefix}.vcf",
+        recal="{prefix}.{type}.recal",
+        tranches="{prefix}.{type}.tranches"
     output:
-        "variant_calling/{prefix}.{type,(snp|indel)}_recal.vcf"
+        "{prefix}.{type,(snp|indel)}_recal.vcf"
     params:
         mode=lambda wildcards: wildcards.type.upper(),
         custom=config.get("params_gatk", "")
-    log:
-        "variant_calling/log/{prefix}.{type}_recal.log"
     threads: 8
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T ApplyRecalibration -R {input.ref} -nt {threads} "
         "-input {input.vcf} -mode {params.mode} {params.custom} "
         "-recalFile {input.recal} --ts_filter_level 99.9 "
-        "-tranchesFile {input.tranches} -o {output} >& {log}"
+        "-tranchesFile {input.tranches} -o {output}"

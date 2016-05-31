@@ -4,6 +4,11 @@ Based on rules/variant_calling/gatk_haplotype_caller.rules from https://bitbucke
 - original license: MIT
 """
 
+assert 'references' in config
+for k in ['split_regions', 'genome']:
+    assert k in config["references"]
+
+    
 def _gatk_multi_arg(flag, files):
     flag += " "
     return " ".join(flag + f for f in files)
@@ -18,18 +23,17 @@ def _region_for_ctr(wildcards):
 
 rule gatk_haplotype_caller:
     input:
-        bams=["mapping/{sample}.realn.recal.bam"],# FIXME original allowed to call on all units per sample
-        bai="mapping/{sample}.realn.recal.bam.bai",
+        bams=["{sample}.realn.recal.bam"],# FIXME original allowed to call on all units per sample
+        bai="{sample}.realn.recal.bam.bai",
         ref=config["references"]["genome"],
         bed=_region_for_ctr
     output:
-        gvcf="variant_calling/{sample}.{ctr}.gvcf",
-        idx="variant_calling/{sample}.{ctr}.gvcf.idx"
+        gvcf="{sample}.{ctr}.gvcf",
+        idx="{sample}.{ctr}.gvcf.idx"
     params:
         custom=config.get("params_gatk", "")
-    log:
-        "variant_calling/log/{sample}.{ctr}.genotype_info.log"
-    threads: 1
+    #log:
+    #    "log/{sample}.{ctr}.gvcf.log"
     # original comment: "haplotype caller currently does not reliably use more than 2 threads"
     # we found it to not work reliably with anything >1
     # need to request for more anyway to make our UGE/OS/Java heapspace problem go away
@@ -43,16 +47,16 @@ rule gatk_haplotype_caller:
             "-L {input.bed} "
             "--indel_heterozygosity {config[indel_heterozygosity]} "
             "--dbsnp {config[references][dbsnp]} "#-nct {threads} "
-            "--variant_index_parameter 128000 -o {output.gvcf} >& {log}")
+            "--variant_index_parameter 128000 -o {output.gvcf}")
 
 
 rule gatk_catvariants:
      input:
         #ref=_get_ref,
-        split_gvcfs = expand("variant_calling/{{sample}}.{ctr}.gvcf",
+        split_gvcfs = expand("{{sample}}.{ctr}.gvcf",
                              ctr=range(len(config["references"]["split_regions"])))
      output:
-        cat_gvcf="variant_calling/{sample}.concat.gvcf",
+        cat_gvcf="{sample}.concat.gvcf",
         #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
      run:
         #vcf_in_args = " -V ".join(input.split_gvcfs)
@@ -67,17 +71,17 @@ rule gatk_catvariants:
 rule gatk_genotyping:
     input:
         ref=config["references"]["genome"],
-        gvcfs=expand("variant_calling/{sample}.concat.gvcf",
-                     sample=config["multi_samples"])
+        gvcfs=expand("{{prefix}}/{sample}.concat.gvcf", sample=config["samples"])
     output:
-        "variant_calling/all_genotyped.vcf"
+        "{prefix}/all_genotyped.vcf"
     params:
         custom=config.get("params_gatk", "")
     log:
-        "variant_calling/log/all.genotype.log"
+        "all.genotype.log"
     threads: 24
     run:
         gvcfs = _gatk_multi_arg("--variant", input.gvcfs)
-        shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T GenotypeGVCFs {gvcfs} -nt {threads} {params.custom} "
-              "-R {input.ref} "
-              "--dbsnp {config[references][dbsnp]} -o {output} >& {log}")
+        shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+              " -T GenotypeGVCFs {gvcfs} -nt {threads} {params.custom} "
+              " -R {input.ref} "
+              " --dbsnp {config[references][dbsnp]} -o {output} >& {log}")
