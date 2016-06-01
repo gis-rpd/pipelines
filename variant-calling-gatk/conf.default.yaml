@@ -2,6 +2,10 @@
   modules: {
     samtools : 1.3,
     gatk : 3.1.1,
+    # for BWAMEM. see conf.default.yaml there
+    bwa : 0.7.12,
+    samtools : 1.3,
+    samblaster : 0.1.22,
     },
 
   references: {  

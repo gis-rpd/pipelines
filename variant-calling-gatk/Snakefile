@@ -22,15 +22,14 @@ RESULT_OUTDIR = './out'
 shell.executable("/bin/bash")
 shell.prefix("source snakemake_env.rc;")
 
-include:
-    "../rules/samtools.rules"
-include:
-    "gatk_mapping.rules"
-include:
-    "gatk_variant_recalibrator.rules"
-include:
-    "gatk_haplotype_caller.rules"
+include: "../rules/samtools.rules"
+include: "../rules/bwa_mem.rules"
+include: "gatk_mapping.rules"
+include: "gatk_haplotype_caller.rules"
+include: "gatk_variant_recalibrator.rules"
+
 
 rule all:
     input:
         os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.indel_recal.vcf")
+        #os.path.join(RESULT_OUTDIR, "all_genotyped.vcf")

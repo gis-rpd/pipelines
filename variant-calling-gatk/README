@@ -11,6 +11,6 @@ Changes:
 - _get_ref becomes: config["references"]["genome"]
 - removed {reference} subdir
 - known_variants change as in SG10K as part of references, i.e. hapmap, omni, g1k, dbsnp, mills
-
+- original uses unsorted bam as bwamem output and has no dupl marking implemented
 
 
