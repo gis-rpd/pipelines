@@ -181,11 +181,8 @@ class PipelineHandler(object):
         with open(rc_file, 'w') as fh:
             fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
             fh.write("reuse -q miniconda-3\n")
-            #fh.write("source activate snakemake-3.5.4\n")
-            #fh.write("source activate snakemake-ga622cdd-onstart\n")
-            #fh.write("source activate snakemake-3.5.5-onstart\n")
-            fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
-
+            #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
+            fh.write("source activate snakemake-3.7.1\n")
 
     @staticmethod
     def write_snakemake_env(rc_file, config_file, overwrite=False):
