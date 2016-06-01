@@ -13,6 +13,7 @@ from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_
 
 assert 'mark_dups' in config
 assert 'samples' in config
+assert 'platform' in config
 
 
 # FIXME to conf once downstream handling clear
@@ -49,7 +50,8 @@ rule unit_merge:
     """
     input:
         # switch expand and wildcards and funny things happen
-        lambda wildcards: expand('{{prefix}}/unit-{unit}.bwamem.bam',
+        lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.bam',
+                                 prefix=wildcards.prefix,
                                  unit=config['samples'][wildcards.sample])
     output:
         '{prefix}/sample-{sample}.bwamem.bam'
