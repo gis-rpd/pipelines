@@ -52,6 +52,8 @@ shell.prefix("source snakemake_env.rc;")
 
 include: "../rules/logging.rules"
 include: "../rules/samtools.rules"
+include: "../rules/lacer.rules"
+include: "../rules/lofreq.rules"
 
 
 rule final:
@@ -79,71 +81,14 @@ rule vcf_split:
         "tabix {output.indels};"
 
 
-rule lofreq_call:
-    input:
-        bam = '{prefix}.bam',
-        bai = '{prefix}.bam.bai',
-        reffa = config['references']['genome'],
-        reffai = config['references']['genome'] + ".pac"
-    output:
-        vcf = temp('{prefix}.both.vcf.gz')
-    message:
-        "Calling variants with LoFreq"
-    threads:
-        8
-    benchmark:# should have same name as rule
-        'benchmark/lofreq_call.txt'
-    shell:
-        "lofreq call-parallel --pp-threads {threads} --call-indels -f {input.reffa} -o {output.vcf} {input.bam}"
-
-    
-rule lacer_apply:
-    input:
-        bam = '{prefix}.bam',
-        table = '{prefix}.lacer.table'
-    output:
-        bam = '{prefix}.lacer.bam'
-    message:
-        "Applying lacer recalibration to BAM"
-    threads:
-        1
-    benchmark:
-        'benchmark/lacer_recal'
-    shell:
-        'lacepr {input.bam} {input.table} {output.bam}'
-    
-        
-rule lacer_table:
-    input:
-        bam = '{prefix}.bam',
-        bai = '{prefix}.bam.bai',
-        reffa = config['references']['genome'],
-        reffai = config['references']['genome'] + ".pac"
-    output:
-        table = '{prefix}.lacer.table'
-    message:
-        "Computing recalibration table with Lacer"
-    threads:
-        8
-    params:
-        stopbases = 1000000
-    benchmark:
-        'benchmark/lacer_table'
-    shell:
-        'lacer.pl -randomize -threads {threads} -stopbases {params.stopbases}'
-        ' -bam {input.bam} -reference {input.reffa} -outfile {output.table}'
-
-
 rule unit_merge:
     """
     Merge bam files for multiple units into one for the given sample
     (or copy if just one).
     """
     input:
-        # the following will try to create files called {{prefix}}!?
-        #lambda wildcards: expand('{{prefix}}/unit-{unit}.bwamem.merged.lofreq.bam',
-        #                         unit=config['samples'][wildcards.sample])
-        lambda wildcards: expand(os.path.join(RESULT_OUTDIR, "unit-{unit}.bwamem.merged.lofreq.bam"),
+        lambda wildcards: expand("{prefix}/unit-{unit}.bwamem.merged.lofreq.bam",
+                                 prefix=wildcards.prefix,
                                  unit=config['samples'][wildcards.sample])
     output:
         '{prefix}/sample-{sample}.bwamem.lofreq.bam'
@@ -162,7 +107,6 @@ rule unit_merge:
             shell("ln {input} {output}")
 
 
-
 rule split_merge:
     """
     Merge bam files for multiple units into one for the given sample
@@ -171,7 +115,7 @@ rule split_merge:
     input:
         bams=expand('{{prefix}}.chrsplit.{ctr}.lofreq.bam',
                     ctr=range(config["references"]["num_chroms"]+1))
-                    # +1 for unaligned reads
+        # +1 for unaligned reads
     output:
         bam = temp('{prefix}.merged.lofreq.bam')
     message:
@@ -188,38 +132,10 @@ rule split_merge:
             shell("ln {input} {output}")
 
 
-rule lofreq_massage_sort:
-    """Runs BAM through full LoFreq preprocessing pipeline,
-    i.e. viterbi, alnqual, indelqual, followed by sort (required by
-    viterbi). 
-
-    WARNING: running this on sorted input files will be inefficient
-    because of constant reloading of the reference
-    """
-    input:
-        bam = '{prefix}.bwamem.chrsplit.{ctr}.bam',
-        reffa = config['references']['genome'],
-        reffai = config['references']['genome'] + ".pac"
-    output:
-        bam=temp('{prefix}.bwamem.chrsplit.{ctr}.lofreq.bam')
-    params:
-        sort_mem='500M'
-    message: "Preprocessing BAMs with LoFreq"
-    shell:
-        "lofreq viterbi -f {input.reffa} {input.bam} | "
-        " lofreq alnqual -u - {input.reffa} | "
-        " lofreq indelqual --dindel -f {input.reffa} - | "
-        " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
-
-
-#def get_outprefix_for_map_mdups_split(wildcards):
-#    return '{prefix}/unit-{unit}.bwamem.chrsplit'.format(
-#        wildcards['prefix'], wildcards['unit'])
-            
-## WARN: Copy&Paste from BWA-MEM!
-## - replaced sorted with split_bam_by_chr and changed out accordingly
-## - removed fixmate (no points since we run viterbi later)
-## - increased threads (since we don't sort etc.)
+# WARN: Near identical copy from BWA-MEM
+# - replaced sorted with split_bam_by_chr and changed out accordingly
+# - removed fixmate (no points since we run viterbi later)
+# - increased threads (since we don't sort etc.)
 rule map_mdups_split:
     """
     - Setting read groups correctly is tricky and also depends on downstream programs. 
