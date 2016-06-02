@@ -44,7 +44,7 @@ rule gatk_haplotype_caller:
         ref=config["references"]["genome"],
         bed=_region_for_ctr
     output:
-        gvcf=temp("{prefix}/{sample}.{ctr}.gvcf)",
+        gvcf=temp("{prefix}/{sample}.{ctr}.gvcf"),
         idx=temp("{prefix}/{sample}.{ctr}.gvcf.idx")
     params:
         custom=config.get("params_gatk", "")

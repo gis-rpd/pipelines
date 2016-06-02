@@ -303,7 +303,7 @@ class PipelineHandler(object):
             _ = subprocess.check_output(cmd, shell=True)
             submission_log_abs = os.path.abspath(os.path.join(self.outdir, self.submissionlog))
             master_log_abs = os.path.abspath(os.path.join(self.outdir, self.masterlog))
-            logger.info("For submission details see %ss", submission_log_abs)
+            logger.debug("For submission details see %s", submission_log_abs)
             logger.info("The (master) logfile is %s", master_log_abs)
 
 
