@@ -105,11 +105,12 @@ def main():
     aux_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     if not os.path.exists(args.reffa):
-        logger.fatal("Reference '%s' doesn't appear to be indexed", args.reffa)
+        logger.fatal("Reference '%s' doesn't exist", args.reffa)
         sys.exit(1)
-    if not ref_is_indexed(args.reffa, "bwa"):
-        logger.fatal("Reference '%s' doesn't appear to be indexed", args.reffa)
-        sys.exit(1)
+    for p in ['bwa', 'samtools']:
+        if not ref_is_indexed(args.reffa, p):
+            logger.fatal("Reference '%s' doesn't appear to be indexed with %s", args.reffa, p)
+            sys.exit(1)
 
     if args.config:
         if any([args.fq1, args.fq2]):
@@ -139,7 +140,7 @@ def main():
     for ru in read_units:
         k = key_for_read_unit(ru)
         user_data['readunits'][k] = dict(ru._asdict())
-    user_data['references'] = {'genome' : args.reffa}
+    user_data['references'] = {'genome' : os.path.abspath(args.reffa)}
     user_data['mark_dups'] = not args.dont_mark_dups
 
     # samples is a dictionary with sample names as key (here just one)
