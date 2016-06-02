@@ -35,17 +35,17 @@ rule gatk_haplotype_caller:
         #                pattern, reference=wildcards.reference,
         #                            unit=config["samples"][wildcards.sample])
         #                                return apply
-        bams = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.bam',
+        bams = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.realn.recal.bam',
                                         prefix=wildcards.prefix,
                                         unit=config['samples'][wildcards.sample]),
-        bais = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.bam.bai',
+        bais = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.realn.recal.bam.bai',
                                         prefix=wildcards.prefix,
                                         unit=config['samples'][wildcards.sample]),
         ref=config["references"]["genome"],
         bed=_region_for_ctr
     output:
-        gvcf="{prefix}/{sample}.{ctr}.gvcf",
-        idx="{prefix}/{sample}.{ctr}.gvcf.idx"
+        gvcf=temp("{prefix}/{sample}.{ctr}.gvcf)",
+        idx=temp("{prefix}/{sample}.{ctr}.gvcf.idx")
     params:
         custom=config.get("params_gatk", "")
     #log:
