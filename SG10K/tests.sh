@@ -51,7 +51,7 @@ commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
 
-test_outdir_base=/mnt/projects/rpd/testing/output/${pipeline}/${pipeline}-commit-${commit}
+test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
