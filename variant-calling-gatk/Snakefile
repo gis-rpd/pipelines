@@ -24,6 +24,7 @@ shell.prefix("source snakemake_env.rc;")
 
 include: "../rules/samtools.rules"
 include: "../rules/bwa_mem.rules"
+include: "../rules/logging.rules"
 include: "gatk_mapping.rules"
 include: "gatk_haplotype_caller.rules"
 include: "gatk_variant_recalibrator.rules"

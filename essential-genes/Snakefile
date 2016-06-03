@@ -25,6 +25,7 @@ shell.prefix("source snakemake_env.rc;")
 include: "../rules/samtools.rules"
 include: "../rules/bwa_mem.rules"
 include: "../rules/lofreq.rules"
+include: "../rules/logging.rules"
 
 
                    
