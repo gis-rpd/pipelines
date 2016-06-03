@@ -35,7 +35,8 @@
 # snakemake control job run time: 175h == 1 week
 #PBS -l walltime=175:00:00
 # memory
-#PBS -l select=1:mem=1g
+# shoots up for heavily multiplexed libraries
+#PBS -l select=1:mem=16g
 # cpu
 #PBS -l select=1:ncpus=1
 # keep env so that qsub works

@@ -35,7 +35,7 @@
 # snakemake control job run time: 175h == 1 week
 #$ -l h_rt=175:00:00
 # memory
-#$ -l mem_free=1G
+#$ -l mem_free=8G
 # 'parallel env'
 #$ -pe OpenMP 1
 # run the job in the current working directory (where qsub is called)
