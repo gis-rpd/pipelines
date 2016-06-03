@@ -120,8 +120,8 @@ def main():
                 out_dir = analysis['out_dir']
 
                 if args.dry_run:
-                    logger.warn("Skipping analysis {} run {} MUX {}"
-                                " with StatsSubmission {} and ArchiveSubmission {}", 
+                    logger.warn("Skipping analysis %s run %s MUX %s"
+                                " with StatsSubmission %s and ArchiveSubmission %s", 
                                 analysis_id, run_number, mux_status['mux_id'], 
                                 mux_status.get('StatsSubmission', None),  
                                 mux_status.get('ArchiveSubmission', None))
