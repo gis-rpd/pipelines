@@ -79,10 +79,12 @@ class PipelineHandler(object):
     PIPELINE_CONFIG_FILE = "conf.yaml"
     PIPELINE_DEFAULT_CONFIG_FILE = "conf.default.yaml"
 
+    RC_DIR = "rc"
+    
     RC_FILES = {
-        'DK_INIT' : 'dk_init.rc',# used to load dotkit
-        'SNAKEMAKE_INIT' : 'snakemake_init.rc',# used to load snakemake
-        'SNAKEMAKE_ENV' : 'snakemake_env.rc',# used as bash prefix within snakemakejobs
+        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),# used to load dotkit
+        'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),# used to load snakemake
+        'SNAKEMAKE_ENV' : os.path.join(RC_DIR, 'snakemake_env.rc'),# used as bash prefix within snakemakejobs
     }
 
     LOG_DIR_REL = "logs"
@@ -187,20 +189,20 @@ class PipelineHandler(object):
             fh.write("source activate snakemake-3.7.1\n")
 
             
-    @staticmethod
-    def write_snakemake_env(rc_file, config_file, overwrite=False):
+    def write_snakemake_env(self, overwrite=False):
         """creates rc file for use as 'bash prefix', which also loads modules defined in config_file
         """
-        if not overwrite:
-            assert not os.path.exists(rc_file), rc_file
 
-        with open(rc_file, 'w') as fh_rc:
+        if not overwrite:
+            assert not os.path.exists(self.snakemake_env_file), self.snakemake_env_file
+
+        with open(self.snakemake_env_file, 'w') as fh_rc:
             fh_rc.write("# used as bash prefix within snakemake\n\n")
             fh_rc.write("# init dotkit\n")
-            fh_rc.write("source dk_init.rc\n\n")
+            fh_rc.write("source {}\n\n".format(self.dk_init_file))
 
             fh_rc.write("# load modules\n")
-            with open(config_file) as fh_cfg:
+            with open(self.pipeline_config_out) as fh_cfg:
                 yaml_data = yaml.safe_load(fh_cfg)
                 assert "modules" in yaml_data
                 for k, v in yaml_data["modules"].items():
@@ -276,10 +278,11 @@ class PipelineHandler(object):
         logger.info("Creating run environment in %s", self.outdir)
         # create log dir recursively so that parent is created as well
         os.makedirs(os.path.join(self.outdir, self.log_dir_rel))
+        os.makedirs(os.path.join(self.outdir, self.RC_DIR))
 
         self.write_cluster_config()
         self.write_merged_cfg()
-        self.write_snakemake_env(self.snakemake_env_file, self.pipeline_config_out)
+        self.write_snakemake_env()
         self.write_dk_init(self.dk_init_file)
         self.write_snakemake_init(self.snakemake_init_file)
         self.write_run_template()

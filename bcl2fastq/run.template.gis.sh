@@ -118,11 +118,11 @@ ANALYSIS_ID=$iso8601ms
 args="$args --config ANALYSIS_ID=$ANALYSIS_ID"
 
 # dotkit setup
-source dk_init.rc || exit 1
+source rc/dk_init.rc || exit 1
 
 
 # snakemake setup
-source snakemake_init.rc || exit 1
+source rc/snakemake_init.rc || exit 1
 
 
 test -d $LOGDIR || mkdir $LOGDIR

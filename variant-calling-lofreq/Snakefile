@@ -47,7 +47,7 @@ def mark_dups_pipe_cmd(before="", after=""):
 
 # non-login bash
 shell.executable("/bin/bash")
-shell.prefix("source snakemake_env.rc;")
+shell.prefix("source rc/snakemake_env.rc;")
 
 
 include: "../rules/logging.rules"
