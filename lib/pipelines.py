@@ -43,6 +43,9 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
+#SMTP_SERVER = 'localhost'
+SMTP_SERVER = 'mailman.gis.a-star.edu.sg'
+
 
 INIT = {
     # FIXME make env instead? because caller knows, right?
@@ -64,7 +67,6 @@ Scientific & Research Computing
 # ugly
 PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
-
 
 
 class PipelineHandler(object):
@@ -184,6 +186,7 @@ class PipelineHandler(object):
             #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
             fh.write("source activate snakemake-3.7.1\n")
 
+            
     @staticmethod
     def write_snakemake_env(rc_file, config_file, overwrite=False):
         """creates rc file for use as 'bash prefix', which also loads modules defined in config_file
@@ -473,7 +476,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
 
     # Send the mail
     try:
-        server = smtplib.SMTP('localhost')
+        server = smtplib.SMTP(SMTP_SERVER)
         server.send_message(msg)
         server.quit()
     except Exception:
@@ -501,7 +504,7 @@ def send_report_mail(pipeline_name, extra_text):
 
     # Send the mail
     try:
-        server = smtplib.SMTP('localhost')
+        server = smtplib.SMTP(SMTP_SERVER)
         server.send_message(msg)
         server.quit()
     except Exception:
