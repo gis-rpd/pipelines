@@ -62,7 +62,7 @@ rule gatk_recalibrate_info:
     threads: 8
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        "-T BaseRecalibrator -R {input.ref} {params.custom}"
+        " -T BaseRecalibrator -R {input.ref} {params.custom}"
         " -nct {threads}"
         " -I {input.bam} -knownSites {config[references][dbsnp]}"
         " -o {output}"
