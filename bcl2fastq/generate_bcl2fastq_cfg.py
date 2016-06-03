@@ -25,7 +25,7 @@ if LIB_PATH not in sys.path:
 from pipelines import get_machine_run_flowcell_id
 # WARNING changes here, must be reflected in bcl2fastq.py as well
 MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids',
-                                 'mux_dir', 'barcode_mismatches'])
+                                 'mux_dir', 'barcode_mismatches', 'requestor'])
 
 
 __author__ = "Lavanya Veeravalli"
@@ -46,6 +46,7 @@ SAMPLESHEET_CSV = "samplesheet.csv"
 USEBASES_CFG = "usebases.yaml"
 MUXINFO_CFG = "muxinfo.yaml"
 DEFAULT_BARCODE_MISMATCHES = None
+
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
 
 
@@ -149,16 +150,12 @@ def main():
             sys.exit(1)
 
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
-
     logger.info("Querying ELM for %s", run_num)
-    
-    
     # production url
-    rest_url = 'http://plap18v.gis.a-star.edu.sg:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
+    #rest_url = 'http://plap18v.gis.a-star.edu.sg:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
     # FIXME create option
     # development url (prone to change soon 2016-05-12)
-    #rest_url = 'http://qldb01:8180/rest/seqrun/illumina/'+ run_num + '/detailanalysis/json'
-    
+    rest_url = 'http://qldb01:8180/rest/seqrun/illumina/'+ run_num + '/detailanalysis/json' 
     response = requests.get(rest_url)
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
@@ -183,6 +180,10 @@ def main():
             if rows['lanePass'] != 'Pass':
                 continue
             BCL_Mismatch = []
+            if 'requestor' in rows:
+                requestor = rows['requestor']
+            else:
+                requestor = None
             if "MUX" in rows['libraryId']:
                 # multiplexed
                 #counter = 0
@@ -215,8 +216,8 @@ def main():
             if len(set(BCL_Mismatch)) == 1:
                 barcode_mismatches = BCL_Mismatch[0]
             else:
-                barcode_mismatches = DEFAULT_BARCODE_MISMATCHES# FIXME get from ELM
-            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches])
+                barcode_mismatches = DEFAULT_BARCODE_MISMATCHES
+            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches, requestor])
             # merge lane into existing mux if needed
             if mu.mux_id in mux_units:
                 mu_orig = mux_units[mu.mux_id]
@@ -235,7 +236,6 @@ def main():
     logger.info("Writing to %s", muxinfo_cfg)
     with open(muxinfo_cfg, 'w') as fh:
         fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], default_flow_style=True))
-
 
 if __name__ == "__main__":
     main()
