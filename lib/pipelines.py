@@ -39,6 +39,10 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
+#SMTP_SERVER = 'localhost'
+SMTP_SERVER = 'mailman.gis.a-star.edu.sg'
+
+
 INIT = {
     # FIXME make env instead? because caller knows, right?
     'gis': "/mnt/projects/rpd/init",
@@ -309,7 +313,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
 
     # Send the mail
     try:
-        server = smtplib.SMTP('localhost')
+        server = smtplib.SMTP(SMTP_SERVER)
         server.send_message(msg)
         server.quit()
     except Exception:
@@ -336,7 +340,7 @@ def send_report_mail(pipeline_name, extra_text):
 
     # Send the mail
     try:
-        server = smtplib.SMTP('localhost')
+        server = smtplib.SMTP(SMTP_SERVER)
         server.send_message(msg)
         server.quit()
     except Exception:
