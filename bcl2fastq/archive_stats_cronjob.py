@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """STATs and SRA update for the bcl2fastq pipeline
 """
+
 # standard library imports
 import logging
 import sys
@@ -18,10 +19,12 @@ import pymongo
 from mongo_status import mongodb_conn
 from pipelines import generate_window
 
+
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
+
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -29,6 +32,7 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
+
 
 # first level key must match output of get_site()
 CONMAP = {
@@ -43,10 +47,7 @@ CONMAP = {
         }
     }
 
-def usage():
-    """print usage info"""
-    sys.stderr.write("useage: {} [-1]".format(
-        os.path.basename(sys.argv[0])))
+
 
 def main():
     """main function
@@ -82,99 +83,103 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+
     user_name = getpass.getuser()
     if user_name != "userrig":
         logger.warning("Not a production user. Skipping MongoDb update")
         sys.exit(0)
+
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
     num_triggers = 0
-    results = db.find({"analysis.Status": "SUCCESS",
+    results = db.find({"analysis" : {"$exists": True},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found %s runs", results.count())
+
     for record in results:
         run_number = record['run']
-        count = 0
 
-        for analysis in record['analysis']:
-            mux = analysis.get("per_mux_status", None)
-            if mux is None:
-                continue
+        for (analysis_count, analysis) in enumerate(record['analysis']):
             analysis_id = analysis['analysis_id']
-            for d in mux:
-                # careful with continue. need 'count'
-                if d.get('Status', None) == "SUCCESS":
-                    mux_id = d['mux_id']
-                    out_dir = analysis['out_dir']
-                    StatsSubmission = "analysis.$.per_mux_status.{}.StatsSubmission".format(count)
-                    ArchiveSubmission = "analysis.$.per_mux_status.{}.ArchiveSubmission".format(count)
 
-                    if not args.dry_run:
+            per_mux_status = analysis.get("per_mux_status", None)
+            if per_mux_status is None:
+                continue
 
-                        # Call STATS upload
-                        #
-                        if 'StatsSubmission' in d and d['StatsSubmission'] == "TODO":
-                            logger.info("Stats upload for %s from %s and analysis_id is %s",
-                                        mux_id, run_number, analysis_id)
-                            stats_upload_script_cmd = [stats_upload_script, '-o', out_dir, '-m', mux_id]
-                            if args.testing:
-                                stats_upload_script_cmd.append("-t")
-                            try:
-                                _ = subprocess.check_output(stats_upload_script_cmd, stderr=subprocess.STDOUT)
-                                StatsSubmission_status = "SUCCESS"
-                            except subprocess.CalledProcessError as e:
-                                logger.fatal("The following command failed with return code %s: %s",
-                                             e.returncode, ' '.join(stats_upload_script_cmd))
-                                logger.fatal("Output: %s", e.output.decode())
-                                logger.fatal("Exiting")
-                                StatsSubmission_status = "TODO"
-                            try:
-                                db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
-                                          {"$set": {
-                                              StatsSubmission: StatsSubmission_status,
-                                          }})
-                            except pymongo.errors.OperationFailure:
-                                logger.fatal("mongoDB OperationFailure")
-                                sys.exit(0)
-                            num_triggers += 1
+            for (mux_count, mux_status) in enumerate(per_mux_status):
 
-                        # Call FASTQ upload
-                        #
-                        if 'ArchiveSubmission' in d and d['ArchiveSubmission'] == "TODO":
-                            logger.info("SRA upload for %s from %s and analysis_id is %s", 
-                                        mux_id, run_number, analysis_id)
-                            archive_upload_script_cmd = [archive_upload_script,
-                                                         '-o', out_dir, '-m', mux_id]
-                            if args.testing:
-                                archive_upload_script_cmd.append("-t")
-                            try:
-                                _ = subprocess.check_output(archive_upload_script_cmd, stderr=subprocess.STDOUT)
-                                ArchiveSubmission_status = "SUCCESS"
-                            except subprocess.CalledProcessError as e:
-                                logger.fatal("The following command failed with return code %s: %s",
-                                             e.returncode, ' '.join(archive_upload_script_cmd))
-                                logger.fatal("Output: %s", e.output.decode())
-                                logger.fatal("Exiting")
-                                ArchiveSubmission_status = "TODO"
-                            #update mongoDB
-                            try:
-                                db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
-                                          {"$set": {
-                                              ArchiveSubmission: ArchiveSubmission_status
-                                          }})
-                            except pymongo.errors.OperationFailure:
-                                logger.fatal("mongoDB OperationFailure")
-                                sys.exit(0)
-                            num_triggers += 1
-                        # end if dryrun
+                if mux_status.get('Status', None) != "SUCCESS":
+                    logger.info("MUX %s from %s is not SUCCESS. Skipping SRA and STATS uploading",
+                                mux_status['mux_id'], run_number)
+                    continue
 
-                    else: # if status == SUCCESS
-                        logger.info("Mux %s from %s is not successfully completed. Skip SRA and STATS uploading",
-                                    d['mux_id'], run_number)
-                count += 1# for d in mux
+                mux_id = mux_status['mux_id']
+                out_dir = analysis['out_dir']
+
+                # Call STATS upload
+                #
+                if mux_status.get('StatsSubmission', None) == "TODO":
+                    logger.info("Stats upload for %s from %s and analysis_id is %s",
+                                mux_id, run_number, analysis_id)
+                    StatsSubmission = "analysis.{}.per_mux_status.{}.StatsSubmission".format(
+                        analysis_count, mux_count)
+
+                    stats_upload_script_cmd = [stats_upload_script,
+                                               '-o', out_dir, '-m', mux_id]
+                    if args.testing:
+                        stats_upload_script_cmd.append("-t")
+                    try:
+                        _ = subprocess.check_output(stats_upload_script_cmd, stderr=subprocess.STDOUT)
+                        StatsSubmission_status = "SUCCESS"
+                    except subprocess.CalledProcessError as e:
+                        logger.fatal("The following command failed with return code %s: %s",
+                                     e.returncode, ' '.join(stats_upload_script_cmd))
+                        logger.fatal("Output: %s", e.output.decode())
+                        logger.fatal("Resetting to TODO")
+                        StatsSubmission_status = "TODO"
+                    try:
+                        db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
+                                  {"$set": {
+                                      StatsSubmission: StatsSubmission_status,
+                                  }})
+                    except pymongo.errors.OperationFailure:
+                        logger.fatal("MongoDB OperationFailure")
+                        sys.exit(0)
+                    num_triggers += 1
+
+                # Call FASTQ upload
+                #
+                if mux_status.get('ArchiveSubmission', None) == "TODO":
+                    logger.info("SRA upload for %s from %s and analysis_id is %s",
+                                mux_id, run_number, analysis_id)
+                    ArchiveSubmission = "analysis.{}.per_mux_status.{}.ArchiveSubmission".format(
+                        analysis_count, mux_count)
+                    archive_upload_script_cmd = [archive_upload_script,
+                                                 '-o', out_dir, '-m', mux_id]
+                    if args.testing:
+                        archive_upload_script_cmd.append("-t")
+                    try:
+                        _ = subprocess.check_output(archive_upload_script_cmd, stderr=subprocess.STDOUT)
+                        ArchiveSubmission_status = "SUCCESS"
+                    except subprocess.CalledProcessError as e:
+                        logger.fatal("The following command failed with return code %s: %s",
+                                     e.returncode, ' '.join(archive_upload_script_cmd))
+                        logger.fatal("Output: %s", e.output.decode())
+                        logger.fatal("Resetting to TODO")
+                        ArchiveSubmission_status = "TODO"
+                    #update mongoDB
+                    try:
+                        db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
+                                  {"$set": {
+                                      ArchiveSubmission: ArchiveSubmission_status
+                                  }})
+                    except pymongo.errors.OperationFailure:
+                        logger.fatal("MongoDB OperationFailure")
+                        sys.exit(0)
+                    num_triggers += 1
 
     # close the connection to MongoDB
     connection.close()
