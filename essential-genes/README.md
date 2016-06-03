@@ -4,8 +4,8 @@ Description
 This pipeline aligns your FastQ files with BWA-MEM, realigns indels
 and calls variants with LoFreq and annotates the resulting vcf file
 with SNPeff. The produced `*genes.txt` files from multiple samples
-can be used as input for `essential_genes.py` (can be found in this
-folder) to predict essential genes.
+can be used as input for `essential_genes_from_tables.py` (can be
+found in this folder) to predict essential genes.
 
 All runtime variables can be found in `conf.yaml`
 
