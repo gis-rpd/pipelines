@@ -38,7 +38,7 @@ def main():
         LOG.fatal("conf info '%s' does not exist under Run directory.\n" % (confinfo))
         sys.exit(1)
     if args.test_server == True:
-        rest_url = "http://dlap30v:9002/gismart/search"
+        rest_url = "http://dlap30v:9102/gismart/search"
         LOG.info("send status to development server")
     elif args.test_server == False:
         rest_url = "http://plap12v:9002/gismart/search/"
