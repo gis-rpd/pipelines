@@ -199,7 +199,7 @@ class PipelineHandler(object):
         with open(self.snakemake_env_file, 'w') as fh_rc:
             fh_rc.write("# used as bash prefix within snakemake\n\n")
             fh_rc.write("# init dotkit\n")
-            fh_rc.write("source {}\n\n".format(self.dk_init_file))
+            fh_rc.write("source {}\n\n".format(os.path.relpath(self.dk_init_file, self.outdir)))
 
             fh_rc.write("# load modules\n")
             with open(self.pipeline_config_out) as fh_cfg:
