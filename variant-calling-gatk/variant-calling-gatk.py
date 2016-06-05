@@ -82,6 +82,9 @@ def main():
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name")
+    parser.add_argument('-t', "--seqtype", required=True,
+                        choices=['WGS', 'WES', 'targeted'], 
+                        help="Sequencing type")
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
                         " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
@@ -136,7 +139,8 @@ def main():
 
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'mail_on_completion': not args.no_mail}
+    user_data = {'mail_on_completion': not args.no_mail,
+                 'seqtype': args.seqtype}
     user_data['readunits'] = dict()
     for ru in read_units:
         k = key_for_read_unit(ru)

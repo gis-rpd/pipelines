@@ -23,18 +23,6 @@ def _region_for_ctr(wildcards):
 
 rule gatk_haplotype_caller:
     input:
-        # mine
-        #bams=["{sample}.realn.recal.bam"],# FIXME original allowed to call on all units per sample
-        #bai="{sample}.realn.recal.bam.bai",
-        # orig
-        #_sample_to_units("mapping/{reference}/units/{unit}.sorted.realigned.recalibrated.bam.bai"),
-        # bams=_sample_to_units("mapping/{reference}/units/{unit}.sorted.realigned.recalibrated.bam")
-        # def _sample_to_units(pattern):
-        #    def apply(wildcards):
-        #    return expand(
-        #                pattern, reference=wildcards.reference,
-        #                            unit=config["samples"][wildcards.sample])
-        #                                return apply
         bams = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.realn.recal.bam',
                                         prefix=wildcards.prefix,
                                         unit=config['samples'][wildcards.sample]),
@@ -48,8 +36,6 @@ rule gatk_haplotype_caller:
         idx=temp("{prefix}/{sample}.{ctr}.gvcf.idx")
     params:
         custom=config.get("params_gatk", "")
-    #log:
-    #    "log/{sample}.{ctr}.gvcf.log"
     # original comment: "haplotype caller currently does not reliably use more than 2 threads"
     # we found it to not work reliably with anything >1
     # need to request for more anyway to make our UGE/OS/Java heapspace problem go away
@@ -67,14 +53,14 @@ rule gatk_haplotype_caller:
 
 
 rule gatk_catvariants:
-     input:
+    input:
         #ref=_get_ref,
         split_gvcfs = expand("{{sample}}.{ctr}.gvcf",
                              ctr=range(len(config["references"]["split_regions"])))
-     output:
+    output:
         cat_gvcf="{sample}.concat.gvcf",
-        #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
-     run:
+    #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
+    run:
         #vcf_in_args = " -V ".join(input.split_gvcfs)
         #shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T CombineVariants -R {input.ref} -V {vcf_in_args} -o {output.cat_gvcf} --assumeIdenticalSamples")
         # CombineVariants takes forever https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_variantutils_CombineVariants.php

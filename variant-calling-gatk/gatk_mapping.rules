@@ -10,8 +10,8 @@ Based on rules/mapping/gatk.rules from https://bitbucket.org/johanneskoester/sna
 assert 'references' in config
 assert 'genome' in config['references']
 assert 'dbsnp' in config['references']
-
-
+assert 'seqtype' in config
+assert config['seqtype'] in ['WGS', 'WES', 'targeted']
 rule gatk_realign_info:
     input:
         bam="{prefix}.bam",
@@ -23,6 +23,7 @@ rule gatk_realign_info:
     params:
         custom=config.get("params_gatk", "")
     threads: 8
+    message: "Running RealignerTargetCreator"
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T RealignerTargetCreator -R {input.ref}"
@@ -42,6 +43,7 @@ rule gatk_realign_bam:
         custom=config.get("params_gatk", "")
     # single threaded only, but ask for more due to java/scheduler problem
     threads: 4
+    message: "Running IndelRealigner"
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T IndelRealigner -R {input.ref} {params.custom}"
@@ -60,12 +62,17 @@ rule gatk_recalibrate_info:
     params:
         custom=config.get("params_gatk", "")
     threads: 8
-    shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T BaseRecalibrator -R {input.ref} {params.custom}"
-        " -nct {threads}"
-        " -I {input.bam} -knownSites {config[references][dbsnp]}"
-        " -o {output}"
+    message: "{} BaseRecalibrator".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
+    run:
+        # skip bqsr for targeted regions
+        if config['seqtype'] == 'targeted':
+            shell("echo 'Skipped because targeted resequencing' > {output}")
+        else:
+            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+                  " -T BaseRecalibrator -R {input.ref} {params.custom}"
+                  " -nct {threads}"
+                  " -I {input.bam} -knownSites {config[references][dbsnp]}"
+                  " -o {output}")
 
 
 rule gatk_recalibrate_bam:
@@ -79,10 +86,14 @@ rule gatk_recalibrate_bam:
         custom=config.get("params_gatk", "")
     # set to 8 in original files. maxes out at that value on aquila
     threads: 8
-    shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T PrintReads -R {input.ref} {params.custom}"
-        " -nct {threads}"
-        " --disable_bam_indexing"
-        " -I {input.bam} -BQSR {input.grp}"
-        " -o {output}"
+    message: "{} PrintReads for Recal".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
+    run:
+        if config['seqtype'] == 'targeted':
+            shell("ln {input} {output}")
+        else:
+            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+                  " -T PrintReads -R {input.ref} {params.custom}"
+                  " -nct {threads}"
+                  " --disable_bam_indexing"
+                  " -I {input.bam} -BQSR {input.grp}"
+                  " -o {output}")
