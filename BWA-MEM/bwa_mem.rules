@@ -20,6 +20,17 @@ assert 'platform' in config
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 
+rule bwa_fasta_index:
+    input:
+        "{prefix}.{suffix}"     
+    output:             
+        "{prefix}.{suffix,(fasta|fa)}.pac",
+        "{prefix}.{suffix,(fasta|fa)}.bwt",
+        "{prefix}.{suffix,(fasta|fa)}.sa"
+    shell:
+        "bwa index {input};"
+
+        
 def mark_dups_pipe_cmd(before="", after=""):
     """FIXME review once MARK_SHORT_SPLITS is in config
 

@@ -32,7 +32,7 @@ assert 'ANALYSIS_ID' in config
 
 # non-login bash
 shell.executable("/bin/bash")
-shell.prefix("source snakemake_env.rc;")
+shell.prefix("source rc/snakemake_env.rc;")
 
 
 def bcl2fastq_threads_setting(num_threads):

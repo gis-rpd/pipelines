@@ -20,10 +20,11 @@ RESULT_OUTDIR = './out'
 
 # non-login bash
 shell.executable("/bin/bash")
-shell.prefix("source snakemake_env.rc;")
+shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../rules/samtools.rules"
-include: "../rules/bwa_mem.rules"
+include: "../rules/logging.rules"
+include: "bwa_mem.rules"
 include: "gatk_mapping.rules"
 include: "gatk_haplotype_caller.rules"
 include: "gatk_variant_recalibrator.rules"

@@ -35,7 +35,7 @@
 # snakemake control job run time: 175h == 1 week
 #PBS -l walltime=175:00:00
 # memory
-#PBS -l select=1:mem=1g
+#PBS -l select=1:mem=8g
 # cpu
 #PBS -l select=1:ncpus=1
 # keep env so that qsub works
@@ -112,11 +112,11 @@ args="$args $CLUSTER_ARGS"
 
 
 # dotkit setup
-source dk_init.rc || exit 1
+source rc/dk_init.rc || exit 1
 
 
 # snakemake setup
-source snakemake_init.rc || exit 1
+source rc/snakemake_init.rc || exit 1
 
 
 test -d $LOGDIR || mkdir $LOGDIR

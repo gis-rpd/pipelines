@@ -59,7 +59,7 @@ OUTDIR_BASE = {
         'production': '/mnt/projects/userrig/solexa/'},
     'nscc': {
         'devel': '/seq/astar/gis/rpd/testing/output/bcl2fastq/',
-        'production': '/seq/astar/gis/userrig/'}
+        'production': '/seq/astar/gis/seq/'}
 }
 SEQDIR_BASE = {
     'gis': '/mnt/seq/userrig/',

@@ -18,7 +18,7 @@ rule lofreq_massage_sort:
         reffa = config['references']['genome'],
         reffai = config['references']['genome'] + ".fai"
     output:
-        bam=temp('{prefix}.lofreq.bam')
+        bam='{prefix}.lofreq.bam'
     params:
         sort_mem='500M'
     message: "Preprocessing BAMs with LoFreq"
@@ -36,7 +36,7 @@ rule lofreq_call:
         reffa = config['references']['genome'],
         reffai = config['references']['genome'] + ".pac"
     output:
-        vcf = temp('{prefix}.both.vcf.gz')
+        vcf = '{prefix}.both.vcf.gz'
     message:
         "Calling variants with LoFreq"
     threads:

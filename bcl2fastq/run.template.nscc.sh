@@ -35,7 +35,8 @@
 # snakemake control job run time: 175h == 1 week
 #PBS -l walltime=175:00:00
 # memory
-#PBS -l select=1:mem=1g
+# shoots up for heavily multiplexed libraries
+#PBS -l select=1:mem=16g
 # cpu
 #PBS -l select=1:ncpus=1
 # keep env so that qsub works
@@ -119,11 +120,11 @@ ANALYSIS_ID=$iso8601ms
 args="$args --config ANALYSIS_ID=$ANALYSIS_ID"
 
 # dotkit setup
-source dk_init.rc || exit 1
+source rc/dk_init.rc || exit 1
 
 
 # snakemake setup
-source snakemake_init.rc || exit 1
+source rc/snakemake_init.rc || exit 1
 
 
 test -d $LOGDIR || mkdir $LOGDIR
