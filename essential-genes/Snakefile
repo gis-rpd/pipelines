@@ -43,7 +43,7 @@ rule report:
     params: samplenames=', '.join(config['samples'].keys())
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
-        readme = "FIXME"
+        readme = "EMPTY"
         with open(os.path.join(workflow_home, "README.md")) as fh:
             readme = fh.read()
             

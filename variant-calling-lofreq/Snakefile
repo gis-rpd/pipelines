@@ -44,7 +44,6 @@ def mark_dups_pipe_cmd(before="", after=""):
         return ""
 
 
-
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source snakemake_env.rc;")
@@ -61,7 +60,40 @@ rule final:
         expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
-               sample=config['samples'])
+               sample=config['samples']),
+        "report.html"
+
+
+rule report:
+    input:
+        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),
+               sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
+               sample=config['samples']),
+    output: html="report.html"
+    params: samplenames=', '.join(config['samples'].keys())
+    run:
+        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
+        readme = "EMPTY"
+        with open(os.path.join(workflow_home, "README.md")) as fh:
+            readme = fh.read()
+            
+        report("""
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+=================================================================
+
+Version Info
+------------
+
+{config[ELM][pipeline_version]}) 
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch to have at least something
+
 
 
 rule vcf_split:

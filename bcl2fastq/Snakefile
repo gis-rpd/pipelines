@@ -93,6 +93,14 @@ def write_db_update_trigger(success):
         yaml.dump(update_info, fh, default_flow_style=False)
 
 
+def barcode_mismatch_arg_for_mux(wildcards):
+    if config['units'][wildcards.muxdir]['barcode_mismatches'] is not None:
+        arg = '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches'])
+    else:
+        arg = ""
+    return arg
+
+
 # onstart, onsuccess and onerror are in logging.rules for analysis pipelines
 # but bcl2fastq is special
 
@@ -167,9 +175,7 @@ rule final:
                muxdir=get_mux_dirs()),
         expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'fastqc.SUCCESS'),
                muxdir=get_mux_dirs()),
-        #expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'srasubmission.SUCCESS'),
-               #muxdir=get_mux_dirs()),
-        "report.html"
+        report="report.html"
     message:
         """
         Pipeline run successfully completed
@@ -181,29 +187,30 @@ rule report:
     input:
         expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'bcl2fastq.SUCCESS'),
                muxdir=get_mux_dirs()),
-
     output: html="report.html"
+    params: samplenames=config['run_num']
     run:
-        # FIXME duplication with README
+        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
+        readme = "EMPTY"
+        with open(os.path.join(workflow_home, "README.md")) as fh:
+            readme = fh.read()
+            
         report("""
-        ==========================================================================================
-        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for FIXME:runid
-        ==========================================================================================
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+=================================================================
 
-        FIXME:text        
-        """, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)", configfile="conf.yaml")
-        # doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+Version Info
+------------
+
+{config[ELM][pipeline_version]}) 
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
-        # Attaching configfile is more a crutch
-        # FIXME hardcoded path to configfile
+        # Attaching configfile is more a crutch to have at least something
 
-
-def barcode_mismatch_arg_for_mux(wildcards):
-    if config['units'][wildcards.muxdir]['barcode_mismatches'] is not None:
-        arg = '--barcode-mismatches {}'.format(config['units'][wildcards.muxdir]['barcode_mismatches'])
-    else:
-        arg = ""
-    return arg
 
 
 rule bcl2fastq:
