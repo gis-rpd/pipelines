@@ -56,9 +56,6 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 # --printshellcmds: also prints actual commands
 # --latency-wait: might help with FS sync problems. also used by broad: https://github.com/broadinstitute/viral-ngs/blob/master/pipes/Broad_LSF/run-pipe.sh
 
-#export SGE_ROOT=/opt/uge-8.1.7p3
-#export SGE_CELL=aquila_cell
-#source $SGE_ROOT/$SGE_CELL/common/settings.sh
 
 LOGDIR="@LOGDIR@";# should be same as defined above
 
@@ -81,6 +78,7 @@ else
     CLUSTER_ARGS=""
     N_ARG="--cores 8"
 fi
+
 
 if [ "$DEBUG" -eq 1 ]; then
     echo "DEBUG ENVIRONMENT=$ENVIRONMENT" 1>&2;
@@ -123,7 +121,5 @@ test -d $LOGDIR || mkdir $LOGDIR
 
 
 #cat<<EOF
-eval snakemake $args >@MASTERLOG@ 2>&1
+eval snakemake $args >> @MASTERLOG@ 2>&1
 #EOF
-
-
