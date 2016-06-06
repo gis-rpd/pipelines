@@ -53,6 +53,7 @@ DEFAULT_SLAVE_Q = {'gis': None,
                    'nscc': 'production'}
 DEFAULT_MASTER_Q = {'gis': None,
                     'nscc': 'production'}
+
 OUTDIR_BASE = {
     'gis': {
         'devel': '/mnt/projects/rpd/testing/output/bcl2fastq',
@@ -198,10 +199,13 @@ def main():
                         help="Use MongoDB test server")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
-    parser.add_argument('-w', '--slave-q',
-                        help="Queue to use for slave jobs (defaults: {})".format(DEFAULT_SLAVE_Q))
-    parser.add_argument('-m', '--master-q',
-                        help="Queue to use for master job (defaults: {})".format(DEFAULT_MASTER_Q))
+    site = get_site()
+    default = DEFAULT_SLAVE_Q.get(site, None)
+    parser.add_argument('-w', '--slave-q', default=default,
+                        help="Queue to use for slave jobs (default: {})".format(default))
+    default = DEFAULT_MASTER_Q.get(site, None)
+    parser.add_argument('-m', '--master-q', default=default,
+                        help="Queue to use for master job (default: {})".format(default))
     parser.add_argument('-l', '--lanes', type=int, nargs="*",
                         help="Limit run to given lane/s (multiples separated by space")
     parser.add_argument('-i', '--mismatches', type=int,

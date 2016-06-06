@@ -46,6 +46,11 @@ PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "essential-genes"
 
+DEFAULT_SLAVE_Q = {'gis': None,
+                   'nscc': 'production'}
+DEFAULT_MASTER_Q = {'gis': None,
+                    'nscc': 'production'}
+
 MARK_DUPS = True
 
 logger = logging.getLogger(__name__)
@@ -82,9 +87,12 @@ def main():
                         help="Output directory (may not exist)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
-    parser.add_argument('-w', '--slave-q',
+    site = get_site()
+    default = DEFAULT_SLAVE_Q.get(site, None)
+    parser.add_argument('-w', '--slave-q', default=default,
                         help="Queue to use for slave jobs")
-    parser.add_argument('-m', '--master-q',
+    default = DEFAULT_MASTER_Q.get(site, None)
+    parser.add_argument('-m', '--master-q',  default=default,
                         help="Queue to use for master job")
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
