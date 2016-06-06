@@ -26,6 +26,7 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version
 from pipelines import ref_is_indexed
+from pipelines import get_site
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
 from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
@@ -90,10 +91,10 @@ def main():
     site = get_site()
     default = DEFAULT_SLAVE_Q.get(site, None)
     parser.add_argument('-w', '--slave-q', default=default,
-                        help="Queue to use for slave jobs")
+                        help="Queue to use for slave jobs (default: {})".format(default))
     default = DEFAULT_MASTER_Q.get(site, None)
     parser.add_argument('-m', '--master-q',  default=default,
-                        help="Queue to use for master job")
+                        help="Queue to use for master job (default: {})".format(default))
     parser.add_argument('-n', '--no-run', action='store_true')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-q', '--quiet', action='count', default=0)
