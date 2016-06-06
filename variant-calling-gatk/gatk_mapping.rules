@@ -38,7 +38,7 @@ rule gatk_realign_bam:
         bam="{prefix}.bam",
         intervals="{prefix}.realn.intervals"
     output:
-        "{prefix}.realn.bam"
+        temp("{prefix}.realn.bam")
     params:
         custom=config.get("params_gatk", "")
     # single threaded only, but ask for more due to java/scheduler problem
@@ -89,7 +89,7 @@ rule gatk_recalibrate_bam:
     message: "{} PrintReads for Recal".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
     run:
         if config['seqtype'] == 'targeted':
-            shell("ln {input} {output}")
+            shell("ln {input.bam} {output} && touch -h {output}")
         else:
             shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
                   " -T PrintReads -R {input.ref} {params.custom}"

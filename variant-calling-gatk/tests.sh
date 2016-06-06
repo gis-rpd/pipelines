@@ -60,6 +60,7 @@ COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
+SKIP_REAL_WGS=1
 
 WRAPPER=./variant-calling-gatk.py
 targeted_cmd_base="$WRAPPER -c $RPD_ROOT/testing/data/illumina-platinum-NA12878/split1konly_pe.yaml -s NA12878-targeted -t targeted"
@@ -116,13 +117,16 @@ if [ $skip_real_runs -ne 1 ]; then
     echo "Started $jid writing to $odir. You will receive an email"
     #echo "DEBUG skipping WGS"; exit 1
 
-    echo "Realrun: WGS" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
-    eval $wgs_cmd_base -o $odir -v >> $log 2>&1
-    # magically works even if line just contains id as in the case of pbspro
-    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
-    echo "Started $jid writing to $odir. You will receive an email"
-    
+    if [ $SKIP_REAL_WGS -eq 0 ]; then
+        echo "Realrun: WGS" | tee -a $log
+        odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
+        eval $wgs_cmd_base -o $odir -v >> $log 2>&1
+        # magically works even if line just contains id as in the case of pbspro
+        jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+        echo "Started $jid writing to $odir. You will receive an email"
+    else
+        echo "Skipping real WGS run due to config"
+    fi
 else
     echo "Real-run test skipped"
 fi

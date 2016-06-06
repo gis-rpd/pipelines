@@ -58,8 +58,8 @@ rule gatk_catvariants:
         split_gvcfs = expand("{{sample}}.{ctr}.gvcf",
                              ctr=range(len(config["references"]["split_regions"])))
     output:
-        cat_gvcf="{sample}.concat.gvcf",
-    #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
+        cat_gvcf=temp("{sample}.concat.gvcf",)
+        #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
     run:
         #vcf_in_args = " -V ".join(input.split_gvcfs)
         #shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T CombineVariants -R {input.ref} -V {vcf_in_args} -o {output.cat_gvcf} --assumeIdenticalSamples")

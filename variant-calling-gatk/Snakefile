@@ -33,7 +33,7 @@ include: "gatk_variant_recalibrator.rules"
 rule all:
     input:
         os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.indel_recal.vcf"),
-    report="report.html"
+        report="report.html"
 
 
 rule report:
