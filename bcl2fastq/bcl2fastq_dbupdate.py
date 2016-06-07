@@ -136,7 +136,7 @@ def get_outdirs_from_db(testing=True, win=14):
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(win)
 
-    results = db.find({"analysis": {"$exists": 1},
+    results = db.find({"analysis": {"$exists": True},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     # results is a pymongo.cursor.Cursor which works like an iterator i.e. dont use len()
     logger.info("Found %d runs for last %s days", results.count(), win)
