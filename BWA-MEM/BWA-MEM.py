@@ -157,7 +157,7 @@ def main():
     user_data['samples'][args.sample] = list(user_data['readunits'].keys())
 
     pipeline_handler = PipelineHandler(PIPELINE_NAME, PIPELINE_BASEDIR,
-                                       args.outdir, user_data)
+                                       args.outdir, user_data, site=site, master_q=args.master_q, slave_q=args.slave_q)
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
 
