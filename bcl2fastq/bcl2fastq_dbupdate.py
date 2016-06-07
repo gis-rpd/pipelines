@@ -255,13 +255,17 @@ def main():
             #
             keep_trigger = False
             for mux_id, mux_dir_base in muxes.items():
-                mux_dir = os.path.join(outdir, "out", mux_dir_base)# ugly
+                mux_dir = os.path.join(outdir, "out", mux_dir_base)# ugly       
                 if mux_dir_complete(mux_dir):
                     # skip the ones completed before
                     completed_after = timestamp_from_string(update_info['analysis_id'])
                     if not mux_dir_complete(mux_dir, completed_after=completed_after):
                         continue
-                    status = 'SUCCESS'
+                    no_archive = cfg.get('no_archive', None)
+                    if no_archive == True:
+                        status = 'NOARCHIVE'
+                    else:    
+                        status = 'SUCCESS'
                 else:
                     status = 'FAILED'
 
@@ -273,7 +277,8 @@ def main():
                     break
                     
             if not args.dry_run and not keep_trigger:
-                os.unlink(trigger_file)
+                #os.unlink(trigger_file)
+                print("FIXME for testing..thx")
 
     logger.info("%s dirs with triggers", num_triggers)
 

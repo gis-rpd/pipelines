@@ -39,6 +39,10 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
+#SMTP_SERVER = 'localhost'
+SMTP_SERVER = 'mailman.gis.a-star.edu.sg'
+
+
 INIT = {
     # FIXME make env instead? because caller knows, right?
     'gis': "/mnt/projects/rpd/init",
@@ -309,7 +313,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
 
     # Send the mail
     try:
-        server = smtplib.SMTP('localhost')
+        server = smtplib.SMTP(SMTP_SERVER)
         server.send_message(msg)
         server.quit()
     except Exception:
@@ -317,26 +321,28 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
         # FIXME consider exit 0 if pipeline breaks
         sys.exit(1)
 
-def send_report_mail(pipeline_name, extra_text):
+def send_report_mail(pipeline_name, Subject, extra_text, toaddr=None):
     """
     - pipeline_name: pipeline name or any report generation
     - extra_text: Body message of email
     """
-   
     body = extra_text + "\n"
     body += "\n\nThis is an automatically generated email\n"
     body += RPD_SIGNATURE
 
-    subject = pipeline_name
-
     msg = MIMEText(body)
-    msg['Subject'] = subject
+    msg['Subject'] = Subject
     msg['From'] = RPD_MAIL
-    msg['To'] = email_for_user()
+    if toaddr is None:
+        msg['To'] = email_for_user()
+    elif "@" in toaddr:
+        msg['To'] = toaddr
+    else:
+        msg['To'] = toaddr + "@gis.a-star.edu.sg"
 
     # Send the mail
     try:
-        server = smtplib.SMTP('localhost')
+        server = smtplib.SMTP(SMTP_SERVER)
         server.send_message(msg)
         server.quit()
     except Exception:

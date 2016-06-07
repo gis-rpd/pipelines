@@ -43,8 +43,7 @@ def main():
                         help="mux-dir", required=True)
     parser.add_argument('-s', "--mux-status",
                         help="Analysis status", required=True,
-                        choices=['SUCCESS', 'FAILED'])
-
+                        choices=['SUCCESS', 'FAILED', 'NOARCHIVE'])
     parser.add_argument('-t', "--test_server", action='store_true')
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
@@ -106,6 +105,25 @@ def main():
                                       "mux_dir" : args.mux_dir,
                                       "Status" : args.mux_status,
                                       "email_sent" : False,
+                                  }}})
+        except pymongo.errors.OperationFailure:
+            logger.fatal("mongoDB OperationFailure")
+            sys.exit(0)
+    elif args.mux_status == "NOARCHIVE":
+        try:
+            if not args.dry_run:
+                db.update({"run": run_number, 'analysis.analysis_id' : args.analysis_id},
+                          {
+                              "$push": {
+                                  "analysis.$.per_mux_status":  {
+                                      "mux_id" : args.mux_id,
+                                      "mux_dir" : args.mux_dir,
+                                      "Status" : args.mux_status,
+                                      "StatsSubmission" : "NOARCHIVE",
+                                      "ArchiveSubmission" : "NOARCHIVE",
+                                      "DownstreamSubmission" : "NOARCHIVE",
+                                      "email_sent" : True,
+
                                   }}})
         except pymongo.errors.OperationFailure:
             logger.fatal("mongoDB OperationFailure")

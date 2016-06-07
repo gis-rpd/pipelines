@@ -135,9 +135,13 @@ def main():
                             .format(record['analysis'][-1].get("analysis_id"), \
                             record['analysis'][-1].get("out_dir"))
                         extra_text += "\n"
-                        extra_text += "---------------------------------------------------\n" 
+                        extra_text += "---------------------------------------------------\n"
     extra_text += "Report generation is completed"
-    send_report_mail('Report generation for bcl2fastq', 'Report generation for bcl2fastq', extra_text)
+    Subject =  "Report generation for bcl2fastq"
+    if args.testing:
+        print("testing")
+        Subject = "Testing:" + Subject
+    send_report_mail('Report generation for bcl2fastq', Subject, extra_text)
     print(extra_text)
     logger.info("Report generation is completed ")
 if __name__ == "__main__":
