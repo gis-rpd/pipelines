@@ -69,3 +69,4 @@ rule gatk_apply_variant_recalibration:
         "-input {input.vcf} -mode {params.mode} {params.custom} "
         "-recalFile {input.recal} --ts_filter_level 99.9 "
         "-tranchesFile {input.tranches} -o {output}"
+

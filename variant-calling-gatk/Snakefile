@@ -30,20 +30,28 @@ include: "bwa_mem.rules"
 include: "gatk_mapping.rules"
 include: "gatk_haplotype_caller.rules"
 include: "gatk_variant_recalibrator.rules"
+include: "gatk_hard_filter.rules"
 
 
+if config['seqtype']=='WGS':
+    FINAL_VCF = os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.indel_recal.vcf"),
+else:
+    FINAL_VCF = os.path.join(RESULT_OUTDIR, "all_genotyped.snp_hfilter.indel_hfilter.vcf"),
+
+    
 rule all:
     input:
-        os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.indel_recal.vcf"),
+        vcf=FINAL_VCF,
         report="report.html"
 
 
 rule report:
     input:
-        vcf=os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.indel_recal.vcf")
-
-    output: html="report.html"
-    params: samplenames=', '.join(config['samples'].keys())
+        vcf=FINAL_VCF
+    output:
+        html="report.html"
+    params:
+        samplenames=', '.join(config['samples'].keys())
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"
@@ -79,7 +87,8 @@ rule prep_bed_files:
         ref = config['references']['genome'],
         reffai = config['references']['genome'] + ".fai"
     output:
-        bed = expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"), ctr=range(config["num_chroms"]))
+        bed = temp(expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
+                          ctr=range(config["num_chroms"])))
     params:
         outbedfmt = os.path.join(RESULT_OUTDIR, "chr.split.{}.bed")
     message:
