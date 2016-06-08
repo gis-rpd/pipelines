@@ -277,11 +277,8 @@ def main():
                     break
                     
             if not args.dry_run and not keep_trigger:
-                #os.unlink(trigger_file)
-                print("FIXME for testing..thx")
-
+                os.unlink(trigger_file)
     logger.info("%s dirs with triggers", num_triggers)
-
 
 if __name__ == "__main__":
     main()
