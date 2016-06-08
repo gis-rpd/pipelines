@@ -371,8 +371,9 @@ def main():
     # interfer with the default pipeline_handler.  plenty of
     # opportunity to shoot yourself in the foot
 
-    pipeline_handler = PipelineHandler(PIPELINE_NAME, PIPELINE_BASEDIR,
-                                       outdir, user_data)
+    pipeline_handler = PipelineHandler(
+        PIPELINE_NAME, PIPELINE_BASEDIR, outdir, user_data,
+        site=site, master_q=args.master_q, slave_q=args.slave_q)
     # use local run template
     pipeline_handler.run_template = os.path.join(
         PIPELINE_BASEDIR, "run.template.{}.sh".format(pipeline_handler.site))
