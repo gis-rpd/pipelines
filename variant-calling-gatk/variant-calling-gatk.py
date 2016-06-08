@@ -26,9 +26,9 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version
 from pipelines import get_site
-from pipelines import ref_is_indexed
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
+from pipelines import chroms_from_fasta
 from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 
@@ -61,24 +61,19 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
-def num_chroms_from_fasta(fasta):
-    """infer number of sequences for fasta from corresponding fai
-    """
-
-    fai = fasta + ".fai"
-    assert os.path.exists(fai), ("{} not indexed".format(fasta))
-    num_chroms = 0
-    with open(fai) as fh:
-        for _ in fh:
-            num_chroms += 1
-    return num_chroms
-
 
 def main():
     """main function
     """
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
+    fake_pipeline_handler = PipelineHandler("FAKE", PIPELINE_BASEDIR, "FAKE", None)
+    default_cfg = fake_pipeline_handler.read_default_config()
+    default = default_cfg['references']['genome']
+    parser.add_argument('-r', "--reffa", default=default,
+                        help=argparse.SUPPRESS)
+                        # WARN do not change. this is just to populate args.reffa
+                        # any change here would require changes in dbsnp, hapmap, g1k, omni and mills as well
     parser.add_argument('-1', "--fq1", nargs="+",
                         help="FastQ file/s (gzip only)."
                         " Multiple input files supported (auto-sorted)."
@@ -91,6 +86,10 @@ def main():
     parser.add_argument('-t', "--seqtype", required=True,
                         choices=['WGS', 'WES', 'targeted'], 
                         help="Sequencing type")
+    parser.add_argument('-l', "--intervals",
+                        help="Intervals file (e.g. bed file) listing regions of interest."
+                        " Required for WES and targeted sequencing.")
+    # see https://www.broadinstitute.org/gatk/guide/article?id=4133
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
                         " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
@@ -146,10 +145,21 @@ def main():
         logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
 
-
+    if args.seqtype in ['WES', 'targeted']:
+        if not args.intervals:
+            logger.fatal("Analysis of exome and targeted sequence runs requires a bed file")
+            sys.exit(1)
+        else:
+            if not os.path.exists(args.intervals):
+                logger.fatal("Intervals file %s does not exist", args.config)
+                sys.exit(1)
+            logger.warn("Compatilibity between interval file and reference not checked")# FIXME
+            
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail,
-                 'seqtype': args.seqtype}
+                 'num_chroms' : len(list(chroms_from_fasta(args.reffa))),
+                 'seqtype': args.seqtype,
+                 'intervals': args.intervals}# always safe, might be used for WGS as well
     user_data['readunits'] = dict()
     for ru in read_units:
         k = key_for_read_unit(ru)
@@ -161,8 +171,9 @@ def main():
     user_data['samples'] = dict()
     user_data['samples'][args.sample] = list(user_data['readunits'].keys())
 
-    pipeline_handler = PipelineHandler(PIPELINE_NAME, PIPELINE_BASEDIR,
-                                       args.outdir, user_data, site=site, master_q=args.master_q, slave_q=args.slave_q)
+    pipeline_handler = PipelineHandler(
+        PIPELINE_NAME, PIPELINE_BASEDIR, args.outdir, user_data,
+        site=site, master_q=args.master_q, slave_q=args.slave_q)
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
 

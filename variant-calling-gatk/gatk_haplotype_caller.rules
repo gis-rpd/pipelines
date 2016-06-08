@@ -4,21 +4,23 @@ Based on rules/variant_calling/gatk_haplotype_caller.rules from https://bitbucke
 - original license: MIT
 """
 
+assert 'num_chroms' in config
 assert 'references' in config
-for k in ['split_regions', 'genome']:
-    assert k in config["references"]
+assert 'genome' in config["references"]
 
     
+def _get_intervals_arg():
+    intervals = config.get("intervals")
+    if intervals:
+        assert os.path.exists(intervals)
+        return "-L {}".format(intervals)
+    else:
+        return ""
+
+
 def _gatk_multi_arg(flag, files):
     flag += " "
     return " ".join(flag + f for f in files)
-
-
-def _region_for_ctr(wildcards):
-    ctr = int(wildcards.ctr)
-    bed = [x for x in config["references"]["split_regions"] if x.endswith(".{}.bed".format(ctr))]
-    assert len(bed)==1, ("Found {} matches for {}".format(bed, ctr))
-    return bed[0]
 
 
 rule gatk_haplotype_caller:
@@ -30,33 +32,56 @@ rule gatk_haplotype_caller:
                                         prefix=wildcards.prefix,
                                         unit=config['samples'][wildcards.sample]),
         ref=config["references"]["genome"],
-        bed=_region_for_ctr
+        # see prep_bed_files
+        # split by chrom and intersect with intervals already if needed
+        bed=os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed")
     output:
         gvcf=temp("{prefix}/{sample}.{ctr}.gvcf"),
         idx=temp("{prefix}/{sample}.{ctr}.gvcf.idx")
     params:
+        #intervals_arg=_get_intervals_arg(),
         custom=config.get("params_gatk", "")
-    # original comment: "haplotype caller currently does not reliably use more than 2 threads"
-    # we found it to not work reliably with anything >1
-    # need to request for more anyway to make our UGE/OS/Java heapspace problem go away
+    # original comment: "haplotype caller currently does not reliably
+    # use more than 2 threads".  we found it to not work reliably with
+    # anything >1 need to request for more anyway to make our
+    # UGE/OS/Java heapspace problem go away.  won't use in in nct
+    # though
     threads: 4
     run:
         bams = _gatk_multi_arg("-I", input.bams)
-        shell(
-            "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T HaplotypeCaller -R {input.ref} {bams} {params.custom} "
-            "--emitRefConfidence GVCF --variant_index_type LINEAR "
-            "--heterozygosity {config[heterozygosity]} "
-            "-L {input.bed} "
-            "--indel_heterozygosity {config[indel_heterozygosity]} "
-            "--dbsnp {config[references][dbsnp]} "#-nct {threads} "
-            "--variant_index_parameter 128000 -o {output.gvcf}")
+        # no need to call if bed is empty
+        num_regs = 0
+        with open(input.bed) as fh:
+            for line in fh:
+                if len(line.strip()):
+                    num_regs += 1
+        if num_regs:
+            shell(
+                "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+                " -T HaplotypeCaller -R {input.ref} {bams}"
+                " -L {input.bed} {params.custom}"
+                " --emitRefConfidence GVCF --variant_index_type LINEAR"
+                " --heterozygosity {config[heterozygosity]} "
+                " --indel_heterozygosity {config[indel_heterozygosity]}"
+                " --dbsnp {config[references][dbsnp]}"#-nct {threads} "
+                " --variant_index_parameter 128000 -o {output.gvcf}")
+        else:
+            # if empty just touch. idx no needed and gvcf later simply concatenated
+            shell("touch {output.gvcf} {output.idx}")
 
-
+        
+ruleorder: gatk_catvariants > gatk_haplotype_caller
 rule gatk_catvariants:
     input:
-        #ref=_get_ref,
+        # With the following things would normally fail with
+        #   "gatk_haplotype_caller and gatk_catvariants are ambiguous for the file ./out/NA12878-targeted.concat.gvcf"
         split_gvcfs = expand("{{sample}}.{ctr}.gvcf",
-                             ctr=range(len(config["references"]["split_regions"])))
+                             ctr=range(config["num_chroms"]))
+        # hence use rule dep (alternative rule order): ruleorder: gatk_haplotype_caller > gatk_catvariants
+        # With the following rule dep as replacement, things still fail with
+        #   "Wildcards in input, params, log or benchmark file of rule gatk_catvariants cannot be determined from output files: 'prefix'"
+        # split_gvcfs = rules.gatk_haplotype_caller.output.gvcf
+        # Hence we use the first with a ruleorder (see above)
     output:
         cat_gvcf=temp("{sample}.concat.gvcf",)
         #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
@@ -66,7 +91,7 @@ rule gatk_catvariants:
         # CombineVariants takes forever https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_variantutils_CombineVariants.php
         #shell("cat {} > {}; grep -v '^#' {} >> {}".format(input.split_gvcfs[0],
         #   output.cat_gvcf, ' '.join(input.split_gvcfs[1:])), output.cat_gvcf)
-        # keeping all hashes seems to work as well       
+        # simple cat which keeps hashes seems to work as well       
         shell("cat {} > {}".format(input.split_gvcfs, output.cat_gvcf))
 
 
@@ -78,12 +103,10 @@ rule gatk_genotyping:
         "{prefix}/all_genotyped.vcf"
     params:
         custom=config.get("params_gatk", "")
-    log:
-        "all.genotype.log"
     threads: 24
     run:
         gvcfs = _gatk_multi_arg("--variant", input.gvcfs)
         shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
               " -T GenotypeGVCFs {gvcfs} -nt {threads} {params.custom} "
               " -R {input.ref} "
-              " --dbsnp {config[references][dbsnp]} -o {output} >& {log}")
+              " --dbsnp {config[references][dbsnp]} -o {output}")

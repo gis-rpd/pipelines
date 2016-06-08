@@ -26,6 +26,7 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version
 from pipelines import ref_is_indexed
+from pipelines import chroms_from_fasta
 from pipelines import get_site
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
@@ -58,18 +59,6 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-
-def num_chroms_from_fasta(fasta):
-    """infer number of sequences for fasta from corresponding fai
-    """
-
-    fai = fasta + ".fai"
-    assert os.path.exists(fai), ("{} not indexed".format(fasta))
-    num_chroms = 0
-    with open(fai) as fh:
-        for _ in fh:
-            num_chroms += 1
-    return num_chroms
 
 
 def main():
@@ -165,7 +154,7 @@ def main():
         k = key_for_read_unit(ru)
         user_data['readunits'][k] = dict(ru._asdict())
     user_data['references'] = {'genome' : os.path.abspath(args.reffa),
-                               'num_chroms' : num_chroms_from_fasta(args.reffa)}
+                               'num_chroms' : len(list(chroms_from_fasta(args.reffa)))}
     user_data['mark_dups'] = args.mark_dups
 
     # samples is a dictionary with sample names as key (here just one)
@@ -173,8 +162,9 @@ def main():
     user_data['samples'] = dict()
     user_data['samples'][args.sample] = list(user_data['readunits'].keys())
 
-    pipeline_handler = PipelineHandler(PIPELINE_NAME, PIPELINE_BASEDIR,
-                                       args.outdir, user_data, site=site, master_q=args.master_q, slave_q=args.slave_q)
+    pipeline_handler = PipelineHandler(
+        PIPELINE_NAME, PIPELINE_BASEDIR, args.outdir, user_data,
+        site=site, master_q=args.master_q, slave_q=args.slave_q)
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
 

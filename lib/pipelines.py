@@ -529,7 +529,6 @@ def ref_is_indexed(ref, prog="bwa"):
         raise ValueError
 
 
-#window for cronJob
 def generate_window(days=7):
     """returns tuple representing epoch window (int:present, int:past)"""
     date_time = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -539,3 +538,17 @@ def generate_window(days=7):
     f = d.strftime("%Y-%m-%d %H:%m:%S")
     epoch_back = int(time.mktime(time.strptime(f, pattern)))*1000
     return (epoch_present, epoch_back)
+
+
+def chroms_from_fasta(fasta):
+    """return sequence and their length as two tuple. derived from fai
+    """
+
+    fai = fasta + ".fai"
+    assert os.path.exists(fai), ("{} not indexed".format(fasta))
+    with open(fai) as fh:
+        for line in fh:
+            (s, l) = line.split()[:2]
+            l = int(l)
+            yield (s, l)
+

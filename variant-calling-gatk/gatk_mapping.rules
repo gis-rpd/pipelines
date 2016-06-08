@@ -12,6 +12,18 @@ assert 'genome' in config['references']
 assert 'dbsnp' in config['references']
 assert 'seqtype' in config
 assert config['seqtype'] in ['WGS', 'WES', 'targeted']
+
+
+# this is the global bed file, if given
+def _get_intervals_arg():
+    intervals = config.get("intervals")
+    if intervals:
+        assert os.path.exists(intervals)
+        return "-L {}".format(intervals)
+    else:
+        return ""
+
+    
 rule gatk_realign_info:
     input:
         bam="{prefix}.bam",
@@ -21,13 +33,14 @@ rule gatk_realign_info:
     output:
         temp("{prefix}.realn.intervals")
     params:
+        intervals_arg=_get_intervals_arg(),
         custom=config.get("params_gatk", "")
     threads: 8
     message: "Running RealignerTargetCreator"
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T RealignerTargetCreator -R {input.ref}"
-        " -nt {threads} {params.custom}"
+        " -nt {threads} {params.intervals_arg} {params.custom}"
         " -I {input.bam} -known {config[references][dbsnp]}"
         " -o {output}"
 
@@ -60,17 +73,19 @@ rule gatk_recalibrate_info:
     output:
         temp("{prefix}.recal.grp")
     params:
+        intervals_arg=_get_intervals_arg(),
         custom=config.get("params_gatk", "")
     threads: 8
-    message: "{} BaseRecalibrator".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
+    message:
+        "{} BaseRecalibrator".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
     run:
         # skip bqsr for targeted regions
         if config['seqtype'] == 'targeted':
             shell("echo 'Skipped because targeted resequencing' > {output}")
         else:
             shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-                  " -T BaseRecalibrator -R {input.ref} {params.custom}"
-                  " -nct {threads}"
+                  " -T BaseRecalibrator -R {input.ref}"
+                  " -nct {threads} {params.intervals_arg} {params.custom}"
                   " -I {input.bam} -knownSites {config[references][dbsnp]}"
                   " -o {output}")
 

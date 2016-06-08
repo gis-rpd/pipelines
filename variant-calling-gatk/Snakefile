@@ -1,6 +1,7 @@
 # standard library imports
 #
 import os
+import subprocess
 
 # third party imports
 #
@@ -13,6 +14,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
+from pipelines import chroms_from_fasta
 
 
 RESULT_OUTDIR = './out'
@@ -64,4 +66,39 @@ Version Info
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch to have at least something
 
-    
+
+rule prep_bed_files:
+    """Prepare bed files to be able to run haplotype caller per chromosome
+    to speed things up. if we also have a global bed file intersect
+    with this one.
+
+    NOTE: this might produce empty bed files!
+
+    """
+    input:
+        ref = config['references']['genome'],
+        reffai = config['references']['genome'] + ".fai"
+    output:
+        bed = expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"), ctr=range(config["num_chroms"]))
+    params:
+        outbedfmt = os.path.join(RESULT_OUTDIR, "chr.split.{}.bed")
+    message:
+        "Preparing intervals for splitting jobs"
+    run:
+        for (i, (s, l)) in enumerate(chroms_from_fasta(input.ref)):
+            outbed = params.outbedfmt.format(i)
+            tmpbed = outbed + ".tmp"
+            # write one bed per chrom
+            with open(tmpbed, 'w') as fh:
+                fh.write("{}\t0\t{}\n".format(s, l))
+
+            # intersect with given bed if needed
+            # NOTE: might produce empty files!
+            if config['intervals']:
+                shell("bedtools intersect -a {} -b {} > {}".format(
+                    config['intervals'], tmpbed, outbed))
+                os.unlink(tmpbed)
+            else:
+                shutil.move(tmpbed, outbed)
+
+
