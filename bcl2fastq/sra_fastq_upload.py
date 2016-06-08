@@ -43,7 +43,7 @@ def main():
     elif args.test_server == False:
         rest_url = "http://plap12v:9002/gismart/search/"
         LOG.info("send status to production server")
-    email = "veeravallil@.gis.a-star.edu.sg"# FIXME
+    email = "rpd@gis.a-star.edu.sg"
     with open(confinfo) as fh_cfg:
         yaml_data = yaml.safe_load(fh_cfg)
         assert "run_num" in yaml_data
