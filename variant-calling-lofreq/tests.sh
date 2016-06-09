@@ -6,11 +6,10 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
-KEEP_TMP=1
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
-        echo "rpd@gis.a-star.edu.sg";
+        echo "rpd@mailman.gis.a-star.edu.sg";
     else
         echo "$(whoami)@gis.a-star.edu.sg";
     fi
@@ -41,20 +40,13 @@ done
 
 # readlink resolves links and makes path absolute
 test -z "$RPD_ROOT" && exit 1
-NA12878_DIR=$RPD_ROOT/testing/data/illumina-platinum-NA12878
-#R1_1M=ERR091571_1_split000001_1M-only.fastq.gz
-#R2_1M=ERR091571_2_split000001_1M-only.fastq.gz
-R1_1K=$NA12878_DIR/ERR091571_1_split000001_1konly.fastq.gz
-R2_1K=$NA12878_DIR/ERR091571_2_split000001_1konly.fastq.gz
-SAMPLE_1K=NA12878-1K
 
-for f in $R1_1K $R2_1K; do
-    if [ ! -e $f ]; then
-        echo "FATAL: non existant file $f" 1>&2
-        exit 1
-    fi
-done
-
+TARGETED_CFG=$RPD_ROOT/testing/data/illumina-platinum-NA12878/split1konly_pe.yaml
+WES_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/SRR098401_1.fastq.gz
+WES_FQ2=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/SRR098401_2.fastq.gz
+WGS_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_1.fastq.gz
+WGS_FQ2=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_2.fastq.gz
+DUMMY_BED=$RPD_ROOT/testing/data/illumina-platinum-NA12878/human_g1k_v37_decoy_chr21.bed
 
 cd $(dirname $0)
 pipeline=$(pwd | sed -e 's,.*/,,')
@@ -68,17 +60,40 @@ COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
+SKIP_REAL_WGS=0
+
+WRAPPER=./variant-calling-lofreq.py
+targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -s NA12878-targeted -l $DUMMY_BED -t targeted"
+wge_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -l $DUMMY_BED -t WES"
+wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS"
 
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
-    echo "Dryrun: $SAMPLE_1K" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-dryrun-$SAMPLE_1K.XXXXXXXXXX) && rmdir $odir
-    ./variant-calling-lofreq.py -1 $R1_1K -2 $R2_1K -s $SAMPLE_1K -d -o $odir --no-run >> $log 2>&1
+    echo "Dryrun: targeted" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    eval $targeted_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+    rm -rf $odir
     popd >> $log
-    test $KEEP_TMP -eq  1 || rm -rf $odir
+    
+    echo "Dryrun: WES" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-wge.XXXXXXXXXX) && rmdir $odir
+    eval $wge_cmd_base -o $odir -v --no-run >> $log 2>&1
+    pushd $odir >> $log
+    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+    rm -rf $odir
+    popd >> $log
+
+    echo "Dryrun: WGS" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
+    eval $wgs_cmd_base -o $odir -v --no-run >> $log 2>&1
+    pushd $odir >> $log
+    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+    rm -rf $odir
+    popd >> $log
+    
 else
     echo "Dryruns tests skipped"
 fi
@@ -87,16 +102,31 @@ fi
 # real runs
 #
 if [ $skip_real_runs -ne 1 ]; then
-    echo "Real run: $SAMPLE_1K" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-realrun-$SAMPLE_1K.XXXXXXXXXX) && rmdir $odir
-    ./variant-calling-lofreq.py -1 $R1_1K -2 $R2_1K -s $SAMPLE_1K -d -o $odir >> $log 2>&1
-    #pushd $odir >> $log
-    #EXTRA_SNAKEMAKE_ARGS="--notemp" bash run.sh >> $log 2>&1
-    #EXTRA_SNAKEMAKE_ARGS="--notemp" 
-    #bash run.sh >> $log 2>&1
-    #popd >> $log
-    echo "Started job in $odir. You will receive an email"
-    test $KEEP_TMP -eq  1 || rm -rf $odir       
+    echo "Realrun: targeted" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    eval $targeted_cmd_base -o $odir -v >> $log 2>&1
+    # magically works even if line just contains id as in the case of pbspro
+    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+    echo "Started job $jid writing to $odir. You will receive an email"
+    
+    echo "Realrun: WES" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-wge.XXXXXXXXXX) && rmdir $odir
+    eval $wge_cmd_base -o $odir -v >> $log 2>&1
+    # magically works even if line just contains id as in the case of pbspro
+    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+    echo "Started $jid writing to $odir. You will receive an email"
+    #echo "DEBUG skipping WGS"; exit 1
+
+    if [ $SKIP_REAL_WGS -eq 0 ]; then
+        echo "Realrun: WGS" | tee -a $log
+        odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
+        eval $wgs_cmd_base -o $odir -v >> $log 2>&1
+        # magically works even if line just contains id as in the case of pbspro
+        jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+        echo "Started $jid writing to $odir. You will receive an email"
+    else
+        echo "Skipping real WGS run due to config"
+    fi
 else
     echo "Real-run test skipped"
 fi
@@ -104,3 +134,4 @@ fi
 
 echo
 echo "$COMPLETE_MSG"
+

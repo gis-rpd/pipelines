@@ -1,6 +1,16 @@
-# paranoid overkill?
 assert 'references' in config
 assert 'genome' in config['references']
+
+
+# this is the global bed file, if given
+def _get_intervals_arg():
+    intervals = config.get("intervals")
+    if intervals:
+        assert os.path.exists(intervals)
+        return "-l {}".format(intervals)
+    else:
+        return ""
+
 
 
 rule lofreq_massage_sort:
@@ -39,10 +49,13 @@ rule lofreq_call:
         vcf = '{prefix}.both.vcf.gz'
     message:
         "Calling variants with LoFreq"
+    params:
+        intervals_arg=_get_intervals_arg(),
     threads:
         8
     benchmark:# should have same name as rule
         'benchmark/lofreq_call.txt'
     shell:
-        "lofreq call-parallel --pp-threads {threads} --call-indels -f {input.reffa} -o {output.vcf} {input.bam}"
+        "lofreq call-parallel --pp-threads {threads}"
+        " --call-indels {params.intervals_arg} -f {input.reffa} -o {output.vcf} {input.bam}"
 

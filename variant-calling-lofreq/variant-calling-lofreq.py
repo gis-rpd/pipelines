@@ -12,6 +12,7 @@ import sys
 import os
 import argparse
 import logging
+from copy import deepcopy
 
 #--- third-party imports
 #
@@ -75,7 +76,12 @@ def main():
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name")
-
+    parser.add_argument('-t', "--seqtype", required=True,
+                        choices=['WGS', 'WES', 'targeted'], 
+                        help="Sequencing type")
+    parser.add_argument('-l', "--intervals",
+                        help="Intervals file (e.g. bed file) listing regions of interest."
+                        " Required for WES and targeted sequencing.")
     fake_pipeline_handler = PipelineHandler("FAKE", PIPELINE_BASEDIR, "FAKE", None)
     default_cfg = fake_pipeline_handler.read_default_config()
     default = default_cfg['references']['genome']
@@ -146,15 +152,28 @@ def main():
         logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
 
+    if args.seqtype in ['WES', 'targeted']:
+        if not args.intervals:
+            logger.fatal("Analysis of exome and targeted sequence runs requires a bed file")
+            sys.exit(1)
+        else:
+            if not os.path.exists(args.intervals):
+                logger.fatal("Intervals file %s does not exist", args.config)
+                sys.exit(1)
+            logger.warn("Compatilibity between interval file and reference not checked")# FIXME
 
     # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'mail_on_completion': not args.no_mail}
+    user_data = {'mail_on_completion': not args.no_mail,
+                 'seqtype': args.seqtype,
+                 'intervals': args.intervals}
+    # WARNING: this currently only works because these two are the only members in reference dict
+    # Should normally only write to root level
+    user_data['references'] = {'genome' : os.path.abspath(args.reffa),
+                               'num_chroms' : len(list(chroms_from_fasta(args.reffa)))}
     user_data['readunits'] = dict()
     for ru in read_units:
         k = key_for_read_unit(ru)
         user_data['readunits'][k] = dict(ru._asdict())
-    user_data['references'] = {'genome' : os.path.abspath(args.reffa),
-                               'num_chroms' : len(list(chroms_from_fasta(args.reffa)))}
     user_data['mark_dups'] = args.mark_dups
 
     # samples is a dictionary with sample names as key (here just one)

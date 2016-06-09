@@ -51,8 +51,8 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../rules/logging.rules"
 include: "../rules/samtools.rules"
-include: "../rules/lacer.rules"
 include: "../rules/lofreq.rules"
+include: "lacer.rules"
 
 
 rule final:
