@@ -173,8 +173,9 @@ def main():
                 elif mux_status.get('Status', None) == "SUCCESS":
                     out_path = os.path.join(out_dir, 'out', mux_status.get('mux_dir'), 'html/index.html')
                     out = outpath_url(out_path)
-                    body = "Analysis for {} from {} is successfully completed. Please check the" \
-                        "output under {}".format(mux_id, run_number, out)
+                    body = "Analysis for {} from {} is successfully completed.".format(
+                        mux_id, run_number)
+                    body += "\nPlease check the output under {}".format(out)
                     confinfo = os.path.join(out_dir, 'conf.yaml')
                     #print(body)
                     if not os.path.exists(confinfo):
