@@ -9,17 +9,16 @@ import sys
 import os
 import argparse
 import getpass
-import subprocess
 import yaml
 
 #--- third party imports
-# WARN: need in conda root and snakemake env
+#
 import pymongo
 
 #--- project specific imports
 #
 from mongo_status import mongodb_conn
-from pipelines import generate_window, send_report_mail
+from pipelines import generate_window, send_mail
 from pipelines import is_devel_version
 
 
@@ -50,15 +49,15 @@ CONMAP = {
         }
     }
 
+
 def update_mongodb_email(db, run_number, analysis_id, email_sent, Status):
     try:
         db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
-            {"$set": {
-                email_sent: Status,
-            }})
+                  {"$set": {email_sent: Status,}})
     except pymongo.errors.OperationFailure:
         logger.fatal("MongoDB OperationFailure")
         sys.exit(0)
+
 
 def outpath_url(out_path):
     if out_path.startswith("/mnt/projects/userrig/solexa/"):
@@ -67,6 +66,18 @@ def outpath_url(out_path):
     else:
         #raise ValueError(out_path)
         return out_path
+
+
+def get_requestor(mux_id, cfg_file):
+    with open(cfg_file) as fh_cfg:
+        yaml_data = yaml.safe_load(fh_cfg)
+    assert "units" in yaml_data
+    for k, v in yaml_data["units"].items():
+        if k == "Project_{}".format(mux_id):
+            requestor = v.get('requestor', None)
+            return requestor
+    return None
+
 
 def main():
     """main function
@@ -112,100 +123,89 @@ def main():
         sys.exit(1)
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
-    num_triggers = 0
+    num_emails = 0
     results = db.find({"analysis" : {"$exists": True},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found %s runs", results.count())
 
-    if is_devel_version():
-        ngsp_mail = 'veeravallil'
+    if is_devel_version() or args.testing:
+        mail_to = 'veeravallil'# domain added in mail function
     else:
-        ngsp_mail = 'ngsp@mailman.gis.a-star.edu.sg'
+        mail_to = 'ngsp@mailman.gis.a-star.edu.sg'
 
-    if args.testing:
-        mail_test = 'veeravallil'
 
     for record in results:
         run_number = record['run']
-        print(run_number)
+        #print(run_number)
         for (analysis_count, analysis) in enumerate(record['analysis']):
             analysis_id = analysis['analysis_id']
             per_mux_status = analysis.get("per_mux_status", None)
             if per_mux_status is None:
                 continue
+
             for (mux_count, mux_status) in enumerate(per_mux_status):
                 if args.dry_run:
-                    logger.warn("Skipping analysis %s run %s MUX %s"
-                                " with email_sent %s",
-                                analysis_id, run_number, mux_status['mux_id'],
-                                mux_status.get('email_sent', None))
+                    logger.warning("Skipping analysis %s run %s MUX %s"
+                                   " with email_sent %s",
+                                   analysis_id, run_number, mux_status['mux_id'],
+                                   mux_status.get('email_sent', None))
                     continue
-                email_sent = "analysis.{}.per_mux_status.{}.email_sent".format(
-                        analysis_count, mux_count)
+
+                if mux_status.get('email_sent', None):
+                    continue
+
+                # for all others: send email and update db
+
+                email_sent_query = "analysis.{}.per_mux_status.{}.email_sent".format(
+                    analysis_count, mux_count)
                 mux_id = mux_status['mux_id']
                 out_dir = analysis['out_dir']
-                if mux_status.get('Status', None) == "FAILED" and \
-                    mux_status.get('email_sent', None) == False:
-                    logger.info("MUX %s from %s is not SUCCESS. ",
+
+                if mux_status.get('Status', None) == "FAILED":
+                    logger.info("bcl2fastq for MUX %s from %s failed. ",
                                 mux_status['mux_id'], run_number)
-                    body = "Analysis for {} from {} has failed. Please check the logs under {}" \
-                        .format(mux_id, run_number, out_dir+"/logs")
-                    #Send email to NGSP and update mongoDB
-                    if not args.testing:
-                        send_report_mail('bcl2fastq Job for run', 'bcl2fastq Job: '+mux_id, \
-                            body, ngsp_mail)
-                    else:
-                        send_report_mail('bcl2fastq Job for run', 'bcl2fastq Job (T): '+mux_id, \
-                            body, mail_test)
-                    update_mongodb_email(db, run_number, analysis_id, email_sent, True)
-                    continue
-                # Send email
-                #
-                if mux_status.get('Status', None) == "SUCCESS" and mux_status.get('email_sent', \
-                    None) == False:
-                    out_path = os.path.join(out_dir + '/out/' + mux_status.get('mux_dir') + \
-                        '/html/index.html')
+                    body = "bcl2fastq for {} from {} has failed. Please check the logs under {}" \
+                        .format(mux_id, run_number, out_dir + "/logs")
+                    send_mail('bcl2fastq Job: '+ mux_id, body, mail_to, ccaddr="rpd")
+                    num_emails += 1
+                    update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
+
+                elif mux_status.get('Status', None) == "SUCCESS":
+                    out_path = os.path.join(out_dir, 'out', mux_status.get('mux_dir'), 'html/index.html')
                     out = outpath_url(out_path)
                     body = "Analysis for {} from {} is successfully completed. Please check the" \
                         "output under {}".format(mux_id, run_number, out)
-                    confinfo = os.path.join(out_dir + '/conf.yaml')
+                    confinfo = os.path.join(out_dir, 'conf.yaml')
                     #print(body)
                     if not os.path.exists(confinfo):
-                        logger.fatal("conf info '%s' does not exist under Run directory.\n" \
-                            % (confinfo))
-                        sys.exit(1)
-                    with open(confinfo) as fh_cfg:
-                        yaml_data = yaml.safe_load(fh_cfg)
-                        assert "units" in yaml_data
-                        for k, v in yaml_data["units"].items():
-                            if k == "Project_{}".format(mux_id):
-                                requestor = v.get('requestor', None)
-                                if not args.testing:
-                                    if requestor is not None:
-                                        #send email to NGSP and requestor
-                                        #FIXME mail_test should be changed to requestor
-                                        send_report_mail('bcl2fastq Job', 'bcl2fastq Job: '+mux_id,\
-                                            body, ngsp_mail)
-                                        update_mongodb_email(db, run_number, analysis_id, \
-                                            email_sent, True)
-                                        print("email to requestor {}".format(requestor))
-                                        send_report_mail('bcl2fastq Job', 'bcl2fastq Job: '+mux_id,\
-                                            body, mail_test)
-                                    else:
-                                        #Send email to NGSP
-                                        send_report_mail('bcl2fastq Job for run', 'bcl2fastq Job: '\
-                                            +mux_id, body, ngsp_mail)
-                                        update_mongodb_email(db, run_number, analysis_id, \
-                                            email_sent, True)
-                                else:
-                                    send_report_mail('bcl2fastq Job for run', 'bcl2fastq Job(T) : '\
-                                        +mux_id, body, mail_test)
-                                    update_mongodb_email(db, run_number, analysis_id, \
-                                        email_sent, True)
-                num_triggers += 1
+                        logger.fatal("conf info '%s' does not exist"
+                                     " under run directory.", confinfo)
+                        continue
+
+                    subject = 'bcl2fastq'
+                    if args.testing:
+                        subject += ' testing'
+                    if is_devel_version():
+                        subject += ' devel'
+                    subject += ': ' + mux_id
+                    send_mail(subject, body, mail_to, ccaddr="rpd")# mail_to already set
+                    num_emails += 1
+                    update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
+
+                    if not args.testing and not is_devel_version:
+                        requestor = get_requestor(mux_id, confinfo)
+                        if requestor is not None:
+                            #FIXME change to requestor
+                            requestor = "rpd"
+                            subject += " (instead of requestor)"
+                            # FIXME send twice. once send_mail supports multiple
+                            # recipients use that instead
+                            send_mail(subject, body, requestor)
+                            # don't incr num_emails. sent to ngsp already
+
     # close the connection to MongoDB
     connection.close()
-    logger.info("%s dirs with triggers", num_triggers)
+    logger.info("%d emails sent", num_emails)
 
 
 if __name__ == "__main__":

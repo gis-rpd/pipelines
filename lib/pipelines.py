@@ -221,7 +221,7 @@ def write_cluster_config(outdir, basedir, force_overwrite=False, skip_unknown_si
             return
         else:
             raise
-    cluster_config_in = os.path.join(basedir, "cluster.{}.yaml".format(get_site()))
+    cluster_config_in = os.path.join(basedir, "cluster.{}.yaml".format(site))
     cluster_config_out = os.path.join(outdir, "cluster.yaml")
 
     assert os.path.exists(cluster_config_in)
@@ -245,15 +245,17 @@ def timestamp_from_string(analysis_id):
     dt = datetime.strptime(analysis_id, '%Y-%m-%dT%H-%M-%S.%f')
     return dt
 
+
 def isoformat_to_epoch_time(ts):
     """
     Converts ISO8601 format (analysis_id) into epoch time
     """
-    dt = datetime.strptime(ts[:-7],'%Y-%m-%dT%H-%M-%S.%f')-\
+    dt = datetime.strptime(ts[:-7], '%Y-%m-%dT%H-%M-%S.%f')-\
         timedelta(hours=int(ts[-5:-3]),
-        minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
+                  minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
     epoch_time = calendar.timegm(dt.timetuple()) + dt.microsecond/1000000.0
     return epoch_time
+
 
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
@@ -322,17 +324,19 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
         # FIXME consider exit 0 if pipeline breaks
         sys.exit(1)
 
-def send_report_mail(pipeline_name, Subject, extra_text, toaddr=None):
+
+def send_mail(subject, body, toaddr=None, ccaddr=None):
     """
-    - pipeline_name: pipeline name or any report generation
-    - extra_text: Body message of email
+    - Generic mail function
+
+    FIXME make toaddr and ccaddr lists
     """
-    body = extra_text + "\n"
+    body += "\n"
     body += "\n\nThis is an automatically generated email\n"
     body += RPD_SIGNATURE
 
     msg = MIMEText(body)
-    msg['Subject'] = Subject
+    msg['Subject'] = subject
     msg['From'] = RPD_MAIL
     if toaddr is None:
         msg['To'] = email_for_user()
@@ -340,6 +344,10 @@ def send_report_mail(pipeline_name, Subject, extra_text, toaddr=None):
         msg['To'] = toaddr
     else:
         msg['To'] = toaddr + "@gis.a-star.edu.sg"
+    if ccaddr:
+        if "@" not in ccaddr:
+            ccaddr += "@gis.a-star.edu.sg"
+        msg['Cc'] = ccaddr
 
     # Send the mail
     try:
@@ -348,7 +356,6 @@ def send_report_mail(pipeline_name, Subject, extra_text, toaddr=None):
         server.quit()
     except Exception:
         logger.fatal("Sending mail failed")
-        # FIXME consider exit 0 if pipeline breaks
         sys.exit(1)
 
 

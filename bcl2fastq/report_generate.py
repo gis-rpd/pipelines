@@ -6,20 +6,18 @@ import logging
 import sys
 import os
 import argparse
-import getpass
 import collections
 import datetime
 import dateutil.relativedelta
 
 #--- third party imports
-# WARN: need in conda root and snakemake env
-import pymongo
+# /
 
 #--- project specific imports
 #
 from mongo_status import mongodb_conn
 from pipelines import generate_window, isoformat_to_epoch_time
-from pipelines import send_report_mail
+from pipelines import send_mail
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -90,7 +88,7 @@ def main():
     od = collections.OrderedDict(sorted(runs.items()))
     logger.info("Found %s runs", results.count())
     extra_text = "Found {} runs. \n".format(results.count())
-    for k, v in od.items():
+    for _, v in od.items():
         results = db.find({"run": v})
         for record in results:
             if 'analysis' in record and 'Status' in record['analysis'][-1]:
@@ -136,14 +134,17 @@ def main():
                             record['analysis'][-1].get("out_dir"))
                         extra_text += "\n"
                         extra_text += "---------------------------------------------------\n"
+
     extra_text += "Report generation is completed"
-    Subject =  "Report generation for bcl2fastq"
+    subject = "Report generation for bcl2fastq"
     if args.testing:
         print("testing")
-        Subject = "Testing:" + Subject
-    send_report_mail('Report generation for bcl2fastq', Subject, extra_text)
+        subject = "Testing:" + subject
+    send_mail('Report generation for bcl2fastq', subject, extra_text)
     print(extra_text)
-    logger.info("Report generation is completed ")
+    logger.info("Report generation is completed")
+
+
 if __name__ == "__main__":
     logger.info("Report generation starting")
     main()
