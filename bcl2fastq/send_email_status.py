@@ -164,16 +164,17 @@ def main():
                 if mux_status.get('Status', None) == "FAILED":
                     logger.info("bcl2fastq for MUX %s from %s failed. ",
                                 mux_status['mux_id'], run_number)
-                    body = "bcl2fastq for {} from {} has failed. Please check the logs under {}" \
-                        .format(mux_id, run_number, out_dir + "/logs")
-                    send_mail('bcl2fastq Job: '+ mux_id, body, mail_to, ccaddr="rpd")
+                    subject = 'bcl2fastq: ' + mux_id
+                    body = "bcl2fastq for {} from {} failed.".format(mux_id, run_number)
+                    body += "\nPlease check the logs under {}".format(out_dir + "/logs")
+                    send_mail(subject, body, mail_to, ccaddr="rpd")
                     num_emails += 1
                     update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
 
                 elif mux_status.get('Status', None) == "SUCCESS":
                     out_path = os.path.join(out_dir, 'out', mux_status.get('mux_dir'), 'html/index.html')
                     out = outpath_url(out_path)
-                    body = "Analysis for {} from {} is successfully completed.".format(
+                    body = "bcl2fastq for {} from {} successfully completed.".format(
                         mux_id, run_number)
                     body += "\nPlease check the output under {}".format(out)
                     confinfo = os.path.join(out_dir, 'conf.yaml')
