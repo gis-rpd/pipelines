@@ -38,6 +38,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test-server")
+    parser.add_argument('-s', "--status", 
+                        help="Limit to analysis records with this status (e.g. STARTED, FAILED, SUCCESS")
     default = 7
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
@@ -48,8 +50,12 @@ def main():
     connection = mongodb_conn(args.testing)
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
-    results = db.find({"analysis.Status": "SUCCESS",
-                       "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
+    if args.status:
+        results = db.find({"analysis.Status": args.status,
+            "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
+    else:
+        results = db.find({"timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
+        
     for record in results:
         pp.pprint(record)
 

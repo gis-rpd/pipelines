@@ -6,7 +6,7 @@ import socket
 from datetime import datetime
 import subprocess
 import json
-from collections import OrderedDict
+#from collections import OrderedDict
 from collections import namedtuple
 
 from pipelines import generate_timestamp
@@ -83,7 +83,8 @@ class ElmLogging(object):
         self.script_name = script_name
 
         # json-like values
-        self.fields = OrderedDict()
+        #self.fields = OrderedDict()
+        self.fields = dict()
         # caller provided
         self.fields['pipeline_name'] = pipeline_name
         self.fields['pipeline_version'] = pipeline_version

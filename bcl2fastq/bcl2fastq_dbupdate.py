@@ -29,7 +29,7 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from mongo_status import mongodb_conn
 from pipelines import generate_window, timestamp_from_string
-from bcl2fastq import PIPELINE_CONFIG_FILE
+from pipelines import PipelineHandler
 
 
 __author__ = "Andreas Wilm"
@@ -220,7 +220,7 @@ def main():
         # load mux info from config instead of relying on filesystem
         #
         logger.debug("Loading config for %s", outdir)
-        config_file = os.path.join(outdir, PIPELINE_CONFIG_FILE)
+        config_file = os.path.join(outdir, PipelineHandler.PIPELINE_CONFIG_FILE)
         if not os.path.exists(config_file):
             logger.critical("Missing config file %s. Skipping this directory", config_file)
             continue

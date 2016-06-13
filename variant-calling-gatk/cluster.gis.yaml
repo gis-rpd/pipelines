@@ -1,0 +1,12 @@
+# FIXME needs tweaking
+{
+    # default rules applied to all rules, but overriden by rule-specific settings
+    "__default__":
+    {
+      "time" : "12:00:00",
+      # saw >16GB for maps_mdups at NSCC
+      "mem" : 24G,
+    },
+}    
+
+

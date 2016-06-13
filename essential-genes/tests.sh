@@ -9,7 +9,7 @@ MYNAME=$(basename $(readlink -f $0))
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
-        echo "rpd@mailman.gis.a-star.edu.sg";
+        echo "rpd@gis.a-star.edu.sg";
     else
         echo "$(whoami)@gis.a-star.edu.sg";
     fi
@@ -40,9 +40,20 @@ done
 
 # readlink resolves links and makes path absolute
 test -z "$RPD_ROOT" && exit 1
-CFG=$RPD_ROOT/testing/data/SG10K/MUX3275-WHH474.one-per-run.yaml
-SAMPLE=MUX3275-WHH474
+TEST_DATA_DIR=$RPD_ROOT/testing/data/essential-genes/
+REF=$TEST_DATA_DIR/NC_017550.1.fa
+GENOME=Propionibacterium_acnes_ATCC_11828_uid162177
+FQ1=$TEST_DATA_DIR/WBE005_decont_human_1.fastq.gz
+FQ2=$TEST_DATA_DIR/WBE005_decont_human_2.fastq.gz
+SAMPLE=WBE005
 
+
+for f in $REF $FQ1 $FQ2; do
+    if [ ! -e $f ]; then
+        echo "FATAL: non existant file $f" 1>&2
+        exit 1
+    fi
+done
 
 
 cd $(dirname $0)
@@ -61,13 +72,13 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
-    echo "Dryrun: $SAMPLE" | tee -a $log
+    echo "Dryrun" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./SG10K.py -s $SAMPLE -c $CFG -o $odir --no-run >> $log 2>&1
+    ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005  --no-run --no-mail -o $odir >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
 
 else
     echo "Dryruns tests skipped"
@@ -77,11 +88,14 @@ fi
 # real runs
 #
 if [ $skip_real_runs -ne 1 ]; then
-    echo "Real run: $SAMPLE" | tee -a $log
+    echo "Real run" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./SG10K.py -s $SAMPLE -c $CFG -o $odir >> $log 2>&1
-    echo "FIXME IMPLEMENT: send email"
-    echo "FIXME IMPLEMENT: test number of reads etc. as extra submitted job"
+    ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
+    pushd $odir >> $log
+    bash run.sh >> $log 2>&1
+    popd >> $log
+    rm -rf $odir
+    
 else
     echo "Real-run test skipped"
 fi

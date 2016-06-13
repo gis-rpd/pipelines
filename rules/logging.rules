@@ -8,12 +8,10 @@ def getuser():
     return getpass.getuser()
 
 
-# read unit dict
-assert 'readunits' in config
-# ELM dict for logging
-assert 'ELM' in config
-assert 'samples' in config
-assert 'RESULT_OUTDIR' in workflow.globals
+for k in ['readunits', 'ELM', 'samples']:
+    assert k in config, ("Missing config key %s" % k)
+assert 'RESULT_OUTDIR' in workflow.globals, (
+    "RESULT_OUTDIR missing in workflow.globals")
 
 
 onstart:# available as patched snakemake 3.5.5

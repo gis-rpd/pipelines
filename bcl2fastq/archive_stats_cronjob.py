@@ -86,7 +86,7 @@ def main():
 
     user_name = getpass.getuser()
     if user_name != "userrig":
-        logger.warning("Not a production user. Skipping MongoDb update")
+        logger.warning("Not a production user. Skipping MongoDB update")
         sys.exit(0)
 
     connection = mongodb_conn(args.testing)

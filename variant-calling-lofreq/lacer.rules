@@ -1,0 +1,40 @@
+# paranoid overkill?
+assert 'references' in config
+assert 'genome' in config['references']
+    
+rule lacer_apply:
+    input:
+        bam = '{prefix}.bam',
+        table = '{prefix}.lacer.table'
+    output:
+        bam = '{prefix}.lacer.bam'
+    message:
+        "Applying lacer recalibration to BAM"
+    threads:
+        1
+    benchmark:
+        'benchmark/lacer_recal'
+    shell:
+        'lacepr {input.bam} {input.table} {output.bam}'
+    
+        
+rule lacer_table:
+    input:
+        bam = '{prefix}.bam',
+        bai = '{prefix}.bam.bai',
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".pac"
+    output:
+        table = '{prefix}.lacer.table'
+    message:
+        "Computing recalibration table with Lacer"
+    threads:
+        8
+    params:
+        stopbases = 1000000
+    benchmark:
+        'benchmark/lacer_table'
+    shell:
+        'lacer.pl -randomize -threads {threads} -stopbases {params.stopbases}'
+        ' -bam {input.bam} -reference {input.reffa} -outfile {output.table}'
+

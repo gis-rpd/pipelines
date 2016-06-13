@@ -35,7 +35,7 @@
 # snakemake control job run time: 175h == 1 week
 #PBS -l walltime=175:00:00
 # memory
-#PBS -l select=1:mem=1g
+#PBS -l select=1:mem=8g
 # cpu
 #PBS -l select=1:ncpus=1
 # keep env so that qsub works
@@ -56,9 +56,6 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 # --printshellcmds: also prints actual commands
 # --latency-wait: might help with FS sync problems. also used by broad: https://github.com/broadinstitute/viral-ngs/blob/master/pipes/Broad_LSF/run-pipe.sh
 
-#export SGE_ROOT=/opt/uge-8.1.7p3
-#export SGE_CELL=aquila_cell
-#source $SGE_ROOT/$SGE_CELL/common/settings.sh
 
 LOGDIR="@LOGDIR@";# should be same as defined above
 
@@ -81,6 +78,7 @@ else
     CLUSTER_ARGS=""
     N_ARG="--cores 8"
 fi
+
 
 if [ "$DEBUG" -eq 1 ]; then
     echo "DEBUG ENVIRONMENT=$ENVIRONMENT" 1>&2;
@@ -112,18 +110,16 @@ args="$args $CLUSTER_ARGS"
 
 
 # dotkit setup
-source dk_init.rc || exit 1
+source rc/dk_init.rc || exit 1
 
 
 # snakemake setup
-source snakemake_init.rc || exit 1
+source rc/snakemake_init.rc || exit 1
 
 
 test -d $LOGDIR || mkdir $LOGDIR
 
 
 #cat<<EOF
-eval snakemake $args >@MASTERLOG@ 2>&1
+eval snakemake $args >> @MASTERLOG@ 2>&1
 #EOF
-
-

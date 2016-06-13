@@ -106,25 +106,41 @@ def get_reads_unit_from_args(fqs1, fqs2):
         assert isinstance(fqs1, list)
     if fqs2:
         assert isinstance(fqs2, list)
+        paired = True
     else:
         fqs2 = len(fqs1)*[None]
+        paired = False
+
+    if paired:
+        print_fq_sort_warning = False
+        # sorting here should ensure R1 and R2 match
+        fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
+        fq_pairs_orig = set(zip_longest(fqs1, fqs2))
+        for (fq1, fq2) in fq_pairs:
+            if (fq1, fq2) not in fq_pairs_orig:
+                print_fq_sort_warning = True
+                break
+        if print_fq_sort_warning:
+            logger.warning("Are you sure paired-end reads are in correct order?")
+            
+    if len(fqs1) != len(set(fqs1)):
+        logger.warning("Looks like the same files was given twice?")
+    if fqs2:
+        if len(fqs2) != len(set(fqs2)):
+            logger.warning("Looks like the same files was given twice?")
+        
     read_units = []
-    print_fq_sort_warning = False
-    # sorting here should ensure R1 and R2 match
-    fq_pairs = list(zip_longest(sorted(fqs1), sorted(fqs2)))
-    fq_pairs_orig = set(zip_longest(fqs1, fqs2))
+    fq_pairs = list(zip_longest(fqs1, fqs2))
     for (fq1, fq2) in fq_pairs:
-        if (fq1, fq2) not in fq_pairs_orig:
-            print_fq_sort_warning = True
         run_id = flowcell_id = library_id = lane_id = rg_id = None
-        ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id, rg_id,
-                             os.path.abspath(fq1), os.path.abspath(fq2)])
+        fq1 = os.path.abspath(fq1)
+        if fq2 is not None:
+            fq2 = os.path.abspath(fq2)
+        ru = ReadUnit._make(
+            [run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         read_units.append(ru)
-    if print_fq_sort_warning:
-        logger.warning("Auto-sorted fq1 and fq2 files!"
-                       " Pairs are now processed as follows:\n%s", ' \n'.join(
-                           ["{} and {}".format(fq1, fq2) for fq1, fq2 in fq_pairs]))
+        
     return read_units
 
 

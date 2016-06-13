@@ -31,6 +31,10 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
+# only dump() and following do not automatically create aliases
+yaml.Dumper.ignore_aliases = lambda *args: True
+
+
 # global logger
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -61,42 +65,270 @@ Scientific & Research Computing
 
 
 # ugly
-PIPELINE_BASEDIR = os.path.join(os.path.dirname(__file__), "..")
-assert os.path.exists(os.path.join(PIPELINE_BASEDIR, "VERSION"))
+PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
+assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
 
-def read_default_config(pipeline_dir):
-    """parse default config and replace all RPD env vars
+class PipelineHandler(object):
+    """FIXME:add-doc
+
+    - FIXME needs cleaning up!
+    - FIXME check access of global vars
     """
-    rpd_vars = get_rpd_vars()
-    # FIXME hardcoded name
-    cfgfile = os.path.join(pipeline_dir, "conf.default.yaml".format())
-    with open(cfgfile) as fh:
-        cfg = yaml.safe_load(fh)
-    # trick to traverse dictionary fully and replace all instances of variable
-    dump = json.dumps(cfg)
-    for k, v in rpd_vars.items():
-        dump = dump.replace("${}".format(k), v)
-    cfg = dict(json.loads(dump))
-    return cfg
+
+    PIPELINE_CONFIG_FILE = "conf.yaml"
+    PIPELINE_DEFAULT_CONFIG_FILE = "conf.default.yaml"
+
+    RC_DIR = "rc"
+
+    RC_FILES = {
+        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),# used to load dotkit
+        'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),# used to load snakemake
+        'SNAKEMAKE_ENV' : os.path.join(RC_DIR, 'snakemake_env.rc'),# used as bash prefix within snakemakejobs
+    }
+
+    LOG_DIR_REL = "logs"
+    MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log")
+    SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log")
+
+
+    def __init__(self,
+                 pipeline_name,
+                 pipeline_subdir,
+                 outdir,
+                 user_data,
+                 pipeline_rootdir=PIPELINE_ROOTDIR,
+                 site=None,
+                 master_q=None,
+                 slave_q=None):
+        """FIXME:add-doc
+
+        pipeline_subdir: where default configs can be found, i.e pipeline subdir
+        """
+
+        self.outdir = outdir
+        self.pipeline_name = pipeline_name
+        self.pipeline_version = get_pipeline_version()# external function
+        self.pipeline_subdir = pipeline_subdir
+        self.user_data = user_data
+
+        self.log_dir_rel = self.LOG_DIR_REL
+        self.masterlog = self.MASTERLOG
+        self.submissionlog = self.SUBMISSIONLOG
+        self.pipeline_config_out = os.path.join(
+            self.outdir, self.PIPELINE_CONFIG_FILE)
+        self.pipeline_default_config_file = os.path.join(
+            pipeline_subdir, self.PIPELINE_DEFAULT_CONFIG_FILE)
+
+        # RCs
+        self.dk_init_file = os.path.join(
+            self.outdir, self.RC_FILES['DK_INIT'])
+        self.snakemake_init_file = os.path.join(
+            self.outdir, self.RC_FILES['SNAKEMAKE_INIT'])
+        self.snakemake_env_file = os.path.join(
+            self.outdir, self.RC_FILES['SNAKEMAKE_ENV'])
+
+        if site is None:
+            try:
+                site = get_site()
+            except ValueError:
+                logger.warning("Unknown site")
+                site = "local"
+        self.site = site
+        self.master_q = master_q
+        self.slave_q = slave_q
+
+        self.snakefile_abs = os.path.abspath(os.path.join(pipeline_subdir, "Snakefile"))
+        assert os.path.exists(self.snakefile_abs)
+
+        # cluster configs
+        self.cluster_config_in = os.path.join(
+            pipeline_subdir, "cluster.{}.yaml".format(site))
+        self.cluster_config_out = os.path.join(outdir, "cluster.yaml")
+        assert os.path.exists(self.cluster_config_in)
+
+        # run template
+        self.run_template = os.path.join(pipeline_rootdir, "lib",
+                                         "run.template.{}.sh".format(self.site))
+        self.run_out = os.path.join(outdir, "run.sh")
+        assert os.path.exists(self.run_template)
+
+        # we don't know for sure who's going to actually exectute
+        # but it's very likely the current user, who needs to be notified
+        # on qsub kills etc
+        self.toaddr = email_for_user()
+
+        self.elm_data = {'pipeline_name': self.pipeline_name,
+                         'pipeline_version': self.pipeline_version,
+                         'site': self.site,
+                         'instance_id': 'SET_ON_EXEC',# dummy
+                         'submitter': 'SET_ON_EXEC',# dummy
+                         'log_path': os.path.abspath(os.path.join(self.outdir, self.masterlog))}
+
+
+    @staticmethod
+    def write_dk_init(rc_file, overwrite=False):
+        """write dotkit init rc
+        """
+        if not overwrite:
+            assert not os.path.exists(rc_file), rc_file
+        with open(rc_file, 'w') as fh:
+            fh.write("eval `{}`;\n".format(' '.join(get_init_call())))
+
+
+    @staticmethod
+    def write_snakemake_init(rc_file, overwrite=False):
+        """write snakemake init rc (loads miniconda and, activate source')
+        """
+        if not overwrite:
+            assert not os.path.exists(rc_file), rc_file
+        with open(rc_file, 'w') as fh:
+            fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
+            fh.write("reuse -q miniconda-3\n")
+            #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
+            fh.write("source activate snakemake-3.7.1\n")
+
+
+    def write_snakemake_env(self, overwrite=False):
+        """creates rc file for use as 'bash prefix', which also loads modules defined in config_file
+        """
+
+        if not overwrite:
+            assert not os.path.exists(self.snakemake_env_file), self.snakemake_env_file
+
+        with open(self.snakemake_env_file, 'w') as fh_rc:
+            fh_rc.write("# used as bash prefix within snakemake\n\n")
+            fh_rc.write("# init dotkit\n")
+            fh_rc.write("source {}\n\n".format(os.path.relpath(self.dk_init_file, self.outdir)))
+
+            fh_rc.write("# load modules\n")
+            with open(self.pipeline_config_out) as fh_cfg:
+                yaml_data = yaml.safe_load(fh_cfg)
+                assert "modules" in yaml_data
+                for k, v in yaml_data["modules"].items():
+                    fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
+
+            fh_rc.write("\n")
+            fh_rc.write("# unofficial bash strict has to come last\n")
+            fh_rc.write("set -euo pipefail;\n")
+
+
+    def write_cluster_config(self):
+        """writes site dependend cluster config
+        """
+        shutil.copyfile(self.cluster_config_in, self.cluster_config_out)
+
+
+    def write_run_template(self):
+        """FIXME:add-doc
+        """
+
+        with open(self.run_template) as templ_fh, open(self.run_out, 'w') as out_fh:
+            for line in templ_fh:
+                # if we copied the snakefile (to allow for local modification)
+                # the rules import won't work.  so use the original file
+                line = line.replace("@SNAKEFILE@", self.snakefile_abs)
+                line = line.replace("@LOGDIR@", self.log_dir_rel)
+                line = line.replace("@MASTERLOG@", self.masterlog)
+                line = line.replace("@PIPELINE_NAME@", self.pipeline_name)
+                line = line.replace("@MAILTO@", self.toaddr)
+                if self.slave_q:
+                    line = line.replace("@DEFAULT_SLAVE_Q@", self.slave_q)
+                else:
+                    line = line.replace("@DEFAULT_SLAVE_Q@", "")
+                out_fh.write(line)
+
+
+    def read_default_config(self):
+        """parse default config and replace all RPD env vars
+        """
+
+        rpd_vars = get_rpd_vars()
+        with open(self.pipeline_default_config_file) as fh:
+            cfg = yaml.safe_load(fh)
+        # trick to traverse dictionary fully and replace all instances of variable
+        dump = json.dumps(cfg)
+        for k, v in rpd_vars.items():
+            dump = dump.replace("${}".format(k), v)
+        cfg = dict(json.loads(dump))
+        return cfg
+
+
+
+    def write_merged_cfg(self, force_overwrite=False):
+        """writes config file for use in snakemake becaused on default config
+        """
+
+        config = self.read_default_config()
+        config.update(self.user_data)
+        assert 'ELM' not in config
+        config['ELM'] = self.elm_data
+
+        if not force_overwrite:
+            assert not os.path.exists(self.pipeline_config_out)
+        with open(self.pipeline_config_out, 'w') as fh:
+            # default_flow_style=None(default)|True(least readable)|False(most readable)
+            yaml.dump(config, fh, default_flow_style=False)
+
+
+    def setup_env(self):
+        """FIXME:add-doc
+        """
+
+        logger.info("Creating run environment in %s", self.outdir)
+        # create log dir recursively so that parent is created as well
+        os.makedirs(os.path.join(self.outdir, self.log_dir_rel))
+        os.makedirs(os.path.join(self.outdir, self.RC_DIR))
+
+        self.write_cluster_config()
+        self.write_merged_cfg()
+        self.write_snakemake_env()
+        self.write_dk_init(self.dk_init_file)
+        self.write_snakemake_init(self.snakemake_init_file)
+        self.write_run_template()
+
+
+
+    def submit(self, no_run=False):
+        """FIXME:add-doc
+        """
+
+        if self.master_q:
+            master_q_arg = "-q {}".format(self.master_q)
+        else:
+            master_q_arg = ""
+        cmd = "cd {} && qsub {} {} >> {}".format(
+            os.path.dirname(self.run_out), master_q_arg,
+            os.path.basename(self.run_out), self.submissionlog)
+        if no_run:
+            logger.warning("Skipping pipeline run on request. Once ready, use: %s", cmd)
+            logger.warning("Once ready submit with: %s", cmd)
+        else:
+            logger.info("Starting pipeline: %s", cmd)
+            #os.chdir(os.path.dirname(run_out))
+            _ = subprocess.check_output(cmd, shell=True)
+            submission_log_abs = os.path.abspath(os.path.join(self.outdir, self.submissionlog))
+            master_log_abs = os.path.abspath(os.path.join(self.outdir, self.masterlog))
+            logger.debug("For submission details see %s", submission_log_abs)
+            logger.info("The (master) logfile is %s", master_log_abs)
 
 
 
 def get_pipeline_version():
     """determine pipeline version as defined by updir file
     """
-    version_file = os.path.abspath(os.path.join(PIPELINE_BASEDIR, "VERSION"))
+    version_file = os.path.abspath(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
     with open(version_file) as fh:
         version = fh.readline().strip()
     cwd = os.getcwd()
-    os.chdir(PIPELINE_BASEDIR)
+    os.chdir(PIPELINE_ROOTDIR)
     if os.path.exists(".git"):
         commit = None
         cmd = ['git', 'describe', '--always', '--dirty']
         try:
             res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             commit = res.decode().strip()
-        except (subprocess.CalledProcessError, OSError) as e:
+        except (subprocess.CalledProcessError, OSError) as _:
             pass
         if commit:
             version = "{} commit {}".format(version, commit)
@@ -107,7 +339,7 @@ def get_pipeline_version():
 def is_devel_version():
     """checks whether this is a developers version of production
     """
-    check_file = os.path.abspath(os.path.join(PIPELINE_BASEDIR, "DEVELOPERS_VERSION"))
+    check_file = os.path.abspath(os.path.join(PIPELINE_ROOTDIR, "DEVELOPERS_VERSION"))
     #logger.debug("check_file = {}".format(check_file))
     return os.path.exists(check_file)
 
@@ -162,74 +394,6 @@ def get_rpd_vars():
     return rpd_vars
 
 
-def write_dk_init(rc_file, overwrite=False):
-    """creates dotkit init rc
-    """
-    if not overwrite:
-        assert not os.path.exists(rc_file), rc_file
-    with open(rc_file, 'w') as fh:
-        fh.write("eval `{}`;\n".format(' '.join(get_init_call())))
-
-
-def write_snakemake_init(rc_file, overwrite=False):
-    """creates file which loads snakemake
-    """
-    if not overwrite:
-        assert not os.path.exists(rc_file), rc_file
-    with open(rc_file, 'w') as fh:
-        fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
-        fh.write("reuse -q miniconda-3\n")
-        #fh.write("source activate snakemake-3.5.4\n")
-        #fh.write("source activate snakemake-ga622cdd-onstart\n")
-        #fh.write("source activate snakemake-3.5.5-onstart\n")
-        fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
-
-
-def write_snakemake_env(rc_file, config, overwrite=False):
-    """creates file for use as bash prefix within snakemake
-    """
-    if not overwrite:
-        assert not os.path.exists(rc_file), rc_file
-
-    with open(rc_file, 'w') as fh_rc:
-        fh_rc.write("# used as bash prefix within snakemake\n\n")
-        fh_rc.write("# init dotkit\n")
-        fh_rc.write("source dk_init.rc\n\n")
-
-        fh_rc.write("# load modules\n")
-        with open(config) as fh_cfg:
-            yaml_data = yaml.safe_load(fh_cfg)
-            assert "modules" in yaml_data
-            for k, v in yaml_data["modules"].items():
-                fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
-
-        fh_rc.write("\n")
-        fh_rc.write("# unofficial bash strict has to come last\n")
-        fh_rc.write("set -euo pipefail;\n")
-
-
-def write_cluster_config(outdir, basedir, force_overwrite=False, skip_unknown_site=False):
-    """writes site dependend cluster config
-
-    basedir is where to find the input template (i.e. the pipeline directory)
-    """
-
-    try:
-        site = get_site()
-    except ValueError:
-        if skip_unknown_site:
-            return
-        else:
-            raise
-    cluster_config_in = os.path.join(basedir, "cluster.{}.yaml".format(site))
-    cluster_config_out = os.path.join(outdir, "cluster.yaml")
-
-    assert os.path.exists(cluster_config_in)
-    if not force_overwrite:
-        assert not os.path.exists(cluster_config_out), cluster_config_out
-
-    shutil.copyfile(cluster_config_in, cluster_config_out)
-
 
 def generate_timestamp():
     """generate ISO8601 timestamp incl microsends, but with colons
@@ -251,8 +415,8 @@ def isoformat_to_epoch_time(ts):
     Converts ISO8601 format (analysis_id) into epoch time
     """
     dt = datetime.strptime(ts[:-7], '%Y-%m-%dT%H-%M-%S.%f')-\
-        timedelta(hours=int(ts[-5:-3]),
-                  minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
+         timedelta(hours=int(ts[-5:-3]),
+                   minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
     epoch_time = calendar.timegm(dt.timetuple()) + dt.microsecond/1000000.0
     return epoch_time
 
@@ -327,10 +491,11 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
 
 def send_mail(subject, body, toaddr=None, ccaddr=None):
     """
-    - Generic mail function
+    Generic mail function
 
     FIXME make toaddr and ccaddr lists
     """
+
     body += "\n"
     body += "\n\nThis is an automatically generated email\n"
     body += RPD_SIGNATURE
@@ -371,7 +536,6 @@ def ref_is_indexed(ref, prog="bwa"):
         raise ValueError
 
 
-#window for cronJob
 def generate_window(days=7):
     """returns tuple representing epoch window (int:present, int:past)"""
     date_time = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -382,3 +546,15 @@ def generate_window(days=7):
     epoch_back = int(time.mktime(time.strptime(f, pattern)))*1000
     return (epoch_present, epoch_back)
 
+
+def chroms_from_fasta(fasta):
+    """return sequence and their length as two tuple. derived from fai
+    """
+
+    fai = fasta + ".fai"
+    assert os.path.exists(fai), ("{} not indexed".format(fasta))
+    with open(fai) as fh:
+        for line in fh:
+            (s, l) = line.split()[:2]
+            l = int(l)
+            yield (s, l)
