@@ -110,7 +110,10 @@ def main():
                 continue
 
             for (mux_count, mux_status) in enumerate(per_mux_status):
-
+                if mux_status is None:
+                    logger.warning("mux_status is None for run %s analysis %s."
+                                   " Requires fix in DB. Skipping entry for now.", run_number, analysis_id)
+                    
                 if mux_status.get('Status', None) != "SUCCESS":
                     logger.info("MUX %s from %s is not SUCCESS. Skipping SRA and STATS uploading",
                                 mux_status['mux_id'], run_number)
@@ -120,10 +123,10 @@ def main():
                 out_dir = analysis['out_dir']
 
                 if args.dry_run:
-                    logger.warn("Skipping analysis %s run %s MUX %s"
-                                " with StatsSubmission %s and ArchiveSubmission %s", 
-                                analysis_id, run_number, mux_status['mux_id'], 
-                                mux_status.get('StatsSubmission', None),  
+                    logger.warning("Skipping analysis %s run %s MUX %s"
+                                " with StatsSubmission %s and ArchiveSubmission %s",
+                                analysis_id, run_number, mux_status['mux_id'],
+                                mux_status.get('StatsSubmission', None),
                                 mux_status.get('ArchiveSubmission', None))
                     continue
 
