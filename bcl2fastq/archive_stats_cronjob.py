@@ -113,7 +113,8 @@ def main():
                 if mux_status is None:
                     logger.warning("mux_status is None for run %s analysis %s."
                                    " Requires fix in DB. Skipping entry for now.", run_number, analysis_id)
-                    
+                    continue
+                
                 if mux_status.get('Status', None) != "SUCCESS":
                     logger.info("MUX %s from %s is not SUCCESS. Skipping SRA and STATS uploading",
                                 mux_status['mux_id'], run_number)
