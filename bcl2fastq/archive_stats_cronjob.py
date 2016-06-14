@@ -110,8 +110,9 @@ def main():
                 continue
 
             for (mux_count, mux_status) in enumerate(per_mux_status):
-                if mux_status is None:
-                    logger.warning("mux_status is None for run %s analysis %s."
+                # sanity checks against corrupted DB entries
+                if mux_status is None or mux_status.get('mux_id') is None:
+                    logger.warning("mux_status is None or incomplete for run %s analysis %s."
                                    " Requires fix in DB. Skipping entry for now.", run_number, analysis_id)
                     continue
                 
