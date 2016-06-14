@@ -52,7 +52,7 @@ rule lofreq_call:
     params:
         intervals_arg=_get_intervals_arg(),
     threads:
-        8
+        16
     shell:
         "lofreq call-parallel --pp-threads {threads}"
         " --call-indels {params.intervals_arg} -f {input.reffa} -o {output.vcf} {input.bam}"
