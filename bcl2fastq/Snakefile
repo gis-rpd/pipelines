@@ -230,7 +230,6 @@ rule bcl2fastq:
         usebases = config['usebases_arg'],
         barcode_mismatches = barcode_mismatch_arg_for_mux,
         tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
-    benchmark: "benchmark/bcl2fastq.txt"
     run:
         #cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
         #shell(cmd)
@@ -248,7 +247,6 @@ rule fastqc:
     output: '{muxdir}/fastqc.SUCCESS'
     threads: 8
     message: "Running fastqc on {input}"
-    benchmark: 'benchmark/fastqc.txt'
     shell:
         # note: need to be able to deal with empty directories.
         # fastqc will fail on corrupted files but return proper error code,

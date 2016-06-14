@@ -53,8 +53,6 @@ rule lofreq_call:
         intervals_arg=_get_intervals_arg(),
     threads:
         8
-    benchmark:# should have same name as rule
-        'benchmark/lofreq_call.txt'
     shell:
         "lofreq call-parallel --pp-threads {threads}"
         " --call-indels {params.intervals_arg} -f {input.reffa} -o {output.vcf} {input.bam}"

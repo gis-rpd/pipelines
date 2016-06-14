@@ -12,8 +12,6 @@ rule lacer_apply:
         "Applying lacer recalibration to BAM"
     threads:
         1
-    benchmark:
-        'benchmark/lacer_recal'
     shell:
         'lacepr {input.bam} {input.table} {output.bam}'
     
@@ -32,8 +30,6 @@ rule lacer_table:
         8
     params:
         stopbases = 1000000
-    benchmark:
-        'benchmark/lacer_table'
     shell:
         'lacer.pl -randomize -threads {threads} -stopbases {params.stopbases}'
         ' -bam {input.bam} -reference {input.reffa} -outfile {output.table}'

@@ -128,8 +128,6 @@ rule unit_merge:
         "Merging units to samples"
     threads:
         8
-    benchmark:# should have same name as rule
-        'benchmark/unit_merge.txt'
     run:
         # readgroup and pg now different, so make PG and RG uniq (default)
         # not running mark_dups_pipe_cmd again since not read name sorted anymore
@@ -154,8 +152,6 @@ rule split_merge:
         "Merging split units"
     threads:
         4
-    benchmark:# should have same name as rule
-        'benchmark/bam_merge.txt'
     run:
         if len(input) > 1:
             # same readgroup and pg, so combine colliding PG and RG
@@ -198,8 +194,6 @@ rule map_mdups_split:
     threads:
         # see also BWA-MEM
         32
-    benchmark:# should have same name as rule
-        'benchmark/map_mdups_split.txt'
     shell:
         "bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"

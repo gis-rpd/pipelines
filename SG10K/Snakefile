@@ -101,8 +101,6 @@ rule contamination_check:
         outbase = os.path.join(RESULT_OUTDIR, '{prefix}.{race}')
     message:
         "Checking for contamination"
-    benchmark:# should have same name as rule
-        'benchmark/contamination_check.txt'
     shell:
         # NOTE: defaults tuned for shallow WGS
         # See http://genome.sph.umich.edu/wiki/VerifyBamID#What_the_default_option_does
@@ -127,8 +125,6 @@ rule bq_recal:
         qemp = '{prefix}.recal.bam.qemp'
     message:
         "Base quality recalibration with bamUtils"
-    benchmark:# should have same name as rule
-        'benchmark/bq_recal.txt'
     shell:
         # recommended use is --storeQualTag OQ but we need the BAMs to be small
         "bam recab --in {input.bam} --out {output.bam} --refFile {input.reffa} --dbsnp {input.dbsnp} --maxBaseQual 40 --noPhoneHome"
@@ -148,8 +144,6 @@ rule unit_merge:
         "Merging files"
     threads:
         16
-    benchmark:# should have same name as rule
-        'benchmark/sample_merge.txt'
     run:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input};")
@@ -202,8 +196,6 @@ rule map_mdups_sort:
         sample=lambda wildcards: get_sample_for_unit(wildcards.unit, config)
     threads:
         8
-    benchmark:# should have same name as rule
-        'benchmark/map_mdups_sort.txt'
     shell:
         "bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
