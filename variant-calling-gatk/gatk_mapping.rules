@@ -75,6 +75,7 @@ rule gatk_recalibrate_info:
     params:
         intervals_arg=_get_intervals_arg(),
         custom=config.get("params_gatk", "")
+    # might need opt
     threads: 8
     message:
         "{} BaseRecalibrator".format("Skipping" if config['seqtype'] == 'targeted' else "Running")

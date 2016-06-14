@@ -39,8 +39,11 @@ if config['seqtype']=='WGS':
 else:
     FINAL_VCF = os.path.join(RESULT_OUTDIR, "all_genotyped.snp_hfilter.indel_hfilter.vcf"),
 
-    
-rule all:
+
+localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter
+
+
+rule final:
     input:
         vcf=FINAL_VCF,
         report="report.html"

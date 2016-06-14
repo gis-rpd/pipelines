@@ -55,6 +55,10 @@ include: "../rules/lofreq.rules"
 include: "lacer.rules"
 
 
+
+localrules: final, report, vcf_split
+
+
 rule final:
     input:
         expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),

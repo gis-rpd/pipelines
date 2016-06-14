@@ -28,8 +28,10 @@ include: "../rules/lofreq.rules"
 include: "../rules/logging.rules"
 
 
-                   
-rule all:
+localrules: final, report, prep_bed_files
+
+
+rule final:
     input:
         expand(os.path.join(RESULT_OUTDIR, "sample-{sample}.bwamem.lofreq.both.ann.vcf.gz"),
                            sample=config['samples']),

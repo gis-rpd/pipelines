@@ -164,7 +164,10 @@ onerror:
     # cannot talk to mongodb from compute. use trigger file
     write_db_update_trigger(False)
 
-    
+
+localrules: final, report
+
+
 rule final:
     input:
 	# here, expand creates a list of expected output folders/files based on 'units'

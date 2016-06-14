@@ -33,7 +33,10 @@ shell.prefix("source rc/snakemake_env.rc;")
 include: "../rules/logging.rules"
 include: "../rules/samtools.rules"
 
-    
+
+localrules: final, report
+
+
 rule final:
     input:
         # NOTE changes here will likely have to be reflected in the report rule as well

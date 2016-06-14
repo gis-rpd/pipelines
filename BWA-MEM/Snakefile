@@ -29,6 +29,9 @@ include: "../rules/samtools.rules"
 include: "bwa_mem.rules"
 
                     
+localrules: final, report
+
+
 rule final:
     input:
         # NOTE changes here will likely have to be reflected in the report rule as well
