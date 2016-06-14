@@ -43,8 +43,10 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
-#SMTP_SERVER = 'localhost'
-SMTP_SERVER = 'mailman.gis.a-star.edu.sg'
+SMTP_SERVER = {
+    'gis': 'mailman.gis.a-star.edu.sg',
+    'nscc': 'localhost'
+}
 
 
 INIT = {
@@ -480,7 +482,8 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
 
     # Send the mail
     try:
-        server = smtplib.SMTP(SMTP_SERVER)
+        site = get_site()
+        server = smtplib.SMTP(SMTP_SERVER[site])
         server.send_message(msg)
         server.quit()
     except Exception:
@@ -516,7 +519,8 @@ def send_mail(subject, body, toaddr=None, ccaddr=None):
 
     # Send the mail
     try:
-        server = smtplib.SMTP(SMTP_SERVER)
+        site = get_site()
+        server = smtplib.SMTP(SMTP_SERVER[site])
         server.send_message(msg)
         server.quit()
     except Exception:

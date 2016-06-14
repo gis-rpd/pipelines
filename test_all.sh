@@ -63,7 +63,8 @@ for sh in $(find . -maxdepth 2 -mindepth 2 -name tests.sh); do
     echo "------------------------------------------------------------"
     # only warn
     set +e
-    for f in $(find $(dirname $sh) -maxdepth 1 -name \*py -type f | grep -v flymake); do
+    # ignore essential-genes.py (python2)
+    for f in $(find $(dirname $sh) -maxdepth 1 -name \*py -type f | grep -v flymake | grep -v essential-genes.py); do
         echo "Checking $f"
         PYTHONPATH=$(dirname $MYNAME)/lib pylint -j 2 -E --rcfile pylintrc $f
     done
