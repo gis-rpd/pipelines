@@ -29,7 +29,7 @@ rule lacer_table:
     threads:
         8
     params:
-        stopbases = 1000000
+        stopbases = 3000000
     shell:
         'lacer.pl -randomize -threads {threads} -stopbases {params.stopbases}'
         ' -bam {input.bam} -reference {input.reffa} -outfile {output.table}'

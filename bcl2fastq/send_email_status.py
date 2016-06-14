@@ -36,20 +36,6 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
-# first level key must match output of get_site()
-CONMAP = {
-    'gis': {
-        'test': "qlap33.gis.a-star.edu.sg:27017",
-        'production': "qldb01.gis.a-star.edu.sg:27017,qlap37.gis.a-star.edu.sg:27017,qlap38.gis.a-star.edu.sg:27017,qlap39.gis.a-star.edu.sg:27017"
-        },
-    'nscc': {
-        # using reverse proxy @LMN
-        'test': "192.168.190.1:27020",
-        'production': "192.168.190.1:27016,192.168.190.1:27017,192.168.190.1:27018,192.168.190.1:27019"
-        }
-    }
-
-
 def update_mongodb_email(db, run_number, analysis_id, email_sent, Status):
     try:
         db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},

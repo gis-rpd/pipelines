@@ -3,7 +3,7 @@
 pipeline-specific config files to given output directory and runs the
 pipeline (unless otherwise requested).
 """
-# generic useage {PIPELINE_NAME} and {PIPELINE_VERSION} replaced while
+# generic usage {PIPELINE_NAME} and {PIPELINE_VERSION} replaced while
 # printing usage
 
 #--- standard library imports
