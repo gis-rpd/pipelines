@@ -101,7 +101,7 @@ def main():
 
     user_name = getpass.getuser()
     if user_name != "userrig":
-        logger.warning("Not a production user. Skipping MongoDb update")
+        logger.warning("Not a production user. Skipping sending of emails")
         sys.exit(0)
 
     connection = mongodb_conn(args.testing)
@@ -152,7 +152,7 @@ def main():
                                 mux_status['mux_id'], run_number)
                     subject = 'bcl2fastq: ' + mux_id
                     body = "bcl2fastq for {} from {} failed.".format(mux_id, run_number)
-                    body += "\nPlease check the logs under {}".format(out_dir + "/logs")
+                    body += "\n\nPlease check the logs under {}".format(out_dir + "/logs")
                     send_mail(subject, body, mail_to, ccaddr="rpd")
                     num_emails += 1
                     update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
@@ -162,7 +162,7 @@ def main():
                     out = outpath_url(out_path)
                     body = "bcl2fastq for {} from {} successfully completed.".format(
                         mux_id, run_number)
-                    body += "\nPlease check the output under {}".format(out)
+                    body += "\n\nPlease check the output under {}".format(out)
                     confinfo = os.path.join(out_dir, 'conf.yaml')
                     #print(body)
                     if not os.path.exists(confinfo):
