@@ -88,7 +88,7 @@ def main():
     od = collections.OrderedDict(sorted(runs.items()))
     logger.info("Found %s runs", results.count())
     extra_text = "Found {} runs. \n".format(results.count())
-    for _, v in od.items():
+    for _, v in od.items():# v is run
         results = db.find({"run": v})
         for record in results:
             if 'analysis' in record and 'Status' in record['analysis'][-1]:
@@ -97,6 +97,9 @@ def main():
                     if record['analysis'][-1].get("per_mux_status"):
                         mux = record['analysis'][-1].get("per_mux_status")
                         for d in mux:
+                            if d is None:
+                                logger.warning("Skipping empty per_mux_status for run %s. Needs fix in DB", v)
+                                continue
                             if d['Status'] and (d['Status']) == "SUCCESS":
                                 mux_id = d['mux_id']
                                 StatsSubmission = d['StatsSubmission']
@@ -111,14 +114,16 @@ def main():
                                         "has FAILED and out_dir is {} \n" \
                                         .format(mux_id, v, record['analysis'][-1].get("out_dir"))
                                     extra_text += "\n"
+
                 elif Status == 'FAILED':
-                    extra_text += "Analysis for Run {} has faild. \n".format(v)
+                    extra_text += "Analysis for Run {} has failed. \n".format(v)
                     extra_text += "Analysis_id is {} and out_dir is {} \n" \
                         .format(record['analysis'][-1].get("analysis_id"), \
                         record['analysis'][-1].get("out_dir"))
                     extra_text += "\n"
                     extra_text += "---------------------------------------------------\n"
-                    logger.info("Analysis for Run %s has faild ", v)
+                    logger.info("Analysis for Run %s has failed ", v)
+
                 elif Status == 'STARTED':
                     analysis_id = record['analysis'][-1].get("analysis_id")
                     analysis_epoch_time = isoformat_to_epoch_time(analysis_id+"+08:00")

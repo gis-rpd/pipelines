@@ -154,8 +154,9 @@ def mux_dir_complete(muxdir, completed_after=None):
     """
 
     if not os.path.exists(muxdir):
-        logger.error("Directory %s doesn't exist", muxdir)
+        logger.info("Directory %s doesn't exist", muxdir)
         return False
+    
     at_least_one_newer = False
     for f in ['bcl2fastq.SUCCESS', 'fastqc.SUCCESS']:
         f = os.path.join(muxdir, f)
