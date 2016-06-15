@@ -2,18 +2,21 @@
 assert 'references' in config
 assert 'genome' in config['references']
     
+
 rule lacer_apply:
     input:
         bam = '{prefix}.bam',
         table = '{prefix}.lacer.table'
     output:
         bam = '{prefix}.lacer.bam'
+    log:
+        '{prefix}.lacer.apply.log'
     message:
         "Applying lacer recalibration to BAM"
     threads:
         1
     shell:
-        'lacepr {input.bam} {input.table} {output.bam}'
+        'lacepr {input.bam} {input.table} {output.bam} >& {log}'
     
         
 rule lacer_table:
@@ -24,6 +27,8 @@ rule lacer_table:
         reffai = config['references']['genome'] + ".pac"
     output:
         table = '{prefix}.lacer.table'
+    log:
+        '{prefix}.lacer.table.log'
     message:
         "Computing recalibration table with Lacer"
     threads:
@@ -32,5 +37,5 @@ rule lacer_table:
         stopbases = 3000000
     shell:
         'lacer.pl -randomize -threads {threads} -stopbases {params.stopbases}'
-        ' -bam {input.bam} -reference {input.reffa} -outfile {output.table}'
+        ' -bam {input.bam} -reference {input.reffa} -outfile {output.table} >& {log}'
 

@@ -7,7 +7,7 @@ Using
 
 ## Setup Notes
 
-- Create $RPD_ROOT/elm-logs.testing/${p} and $RPD_ROOT/elm-logs/${p} for p in pipelines
-- Install latest snakemake into own env
+- Create $RPD_ROOT/elm-logs.testing/${p} and $RPD_ROOT/elm-logs/${p} for p in pipelines (see `tools/create_pipeline_dirs.sh`)
+- Install snakemake into its own conda env (see pipelines.py)
 - Install pymongo into conda root env and snakemake env
 

@@ -8,7 +8,9 @@ rule genomecov:
         "{sample}.bam"
     output:
         "{sample}.genomecov.txt.gz"
+    log:
+        "{sample}.genomecov.log"
     shell:
-        "bedtools genomecov -ibam {input} | gzip > {output};"
+        "{{ bedtools genomecov -ibam {input} | gzip > {output}; }} >& {log}"
         
 

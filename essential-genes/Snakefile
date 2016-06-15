@@ -23,9 +23,9 @@ shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../rules/samtools.rules"
-include: "bwa_mem.rules"
-include: "../rules/lofreq.rules"
 include: "../rules/logging.rules"
+include: "bwa_mem.rules"
+include: "lofreq.rules"
 
 
 localrules: final, report, prep_bed_files

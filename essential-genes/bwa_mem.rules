@@ -20,15 +20,17 @@ assert 'platform' in config
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 
-rule bwa_fasta_index:
+rule bwa_index:
     input:
         "{prefix}.{suffix}"     
     output:             
         "{prefix}.{suffix,(fasta|fa)}.pac",
         "{prefix}.{suffix,(fasta|fa)}.bwt",
         "{prefix}.{suffix,(fasta|fa)}.sa"
+    log:
+        "{prefix}.{suffix,(fasta|fa)}.index.log"
     shell:
-        "bwa index {input};"
+        "bwa index {input} >& {log};"
 
         
 def mark_dups_pipe_cmd(before="", after=""):
@@ -66,6 +68,8 @@ rule unit_merge:
                                  unit=config['samples'][wildcards.sample])
     output:
         temp('{prefix}/sample-{sample}.bwamem.bam')
+    log:
+        '{prefix}/sample-{sample}.bwamem.merge.log'
     message:
         "Merging files"
     threads:
@@ -73,9 +77,9 @@ rule unit_merge:
     run:
         # not running mark_dups_pipe_cmd again since not read name sorted anymore
         if len(input) > 1:
-            shell("samtools merge -@ {threads} {output} {input};")
+            shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output}")
+            shell("ln {input} {output} >& {log};")
         
     
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
@@ -96,6 +100,8 @@ rule map_mdups_sort:
         fastqs=lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
         bam=temp('{prefix}/unit-{unit}.bwamem.bam')
+    log:
+        '{prefix}/unit-{unit}.bwamem.bam.log'
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
@@ -111,10 +117,10 @@ rule map_mdups_sort:
         # has little effect on overall runtime. but on memory
         32
     shell:
-        "bwa mem {params.mark_short_splits} -t {threads}"
+        "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         + mark_dups_pipe_cmd() +
         " samtools view -bu -o - |"
-        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
+        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"

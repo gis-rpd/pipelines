@@ -49,14 +49,13 @@ def bcl2fastq_threads_setting(num_threads):
 
     Processes seem to be mutually exclusive (hard to tell though) and
     IO bound
-
     """
 
     r = min([4, num_threads])
     w = min([4, num_threads])
     d = ceil(0.2 * num_threads)
     p = ceil(1.0 * num_threads)
-    return " -r {} -w {} -d {} -p {}".format(r, w, d, p)
+    return "-r {} -w {} -d {} -p {}".format(r, w, d, p)
 
 
 def get_mux_dirs():
@@ -101,10 +100,11 @@ def barcode_mismatch_arg_for_mux(wildcards):
     return arg
 
 
-# onstart, onsuccess and onerror are in logging.rules for analysis pipelines
-# but bcl2fastq is special
+# NOTE: onstart, onsuccess and onerror are normally in logging.rules
+# for analysis pipelines but bcl2fastq needs special versions
 
-onstart:# available as patched snakemake 3.5.5
+
+onstart:
     global elm_logger
 
     elm_units = []
@@ -227,37 +227,48 @@ rule bcl2fastq:
     output:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
         results = os.path.join(RESULT_OUTDIR, "{muxdir}"),
-    message: "Running bcl2fastq/Demultiplexing"
+    log:
+        os.path.join(RESULT_OUTDIR, "{muxdir}.log")
+    message:
+        "Running bcl2fastq/Demultiplexing"
     threads: 16
     params:
         usebases = config['usebases_arg'],
         barcode_mismatches = barcode_mismatch_arg_for_mux,
         tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
     run:
-        #cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
-        #shell(cmd)
-        #shell('echo {} > {}'.format(cmd, output))
-        cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir out --stats-dir {output.results} --reports-dir {output.results} --sample-sheet {input.samplesheet} {params.usebases} {params.barcode_mismatches} --tiles {params.tiles}" + bcl2fastq_threads_setting(threads)
+        cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir %s" % RESULT_OUTDIR
+        cmd += " --stats-dir {output.results} --reports-dir {output.results}"
+        cmd += " --sample-sheet {input.samplesheet} {params.usebases}"
+        cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
+        cmd += " %s" % bcl2fastq_threads_setting(threads)
+        cmd += " >& {log}"
         shell(cmd)
         shell("touch {output.flag}")
           
+
 rule fastqc:
     """fastqc per muxdir. note: this will not make full use of
     parallelization of many subdirs exist simply because we don't keep
     sample information
     """
-    input: '{muxdir}/bcl2fastq.SUCCESS'
-    output: '{muxdir}/fastqc.SUCCESS'
+    input: 
+        '{muxdir}/bcl2fastq.SUCCESS'
+    output:
+        '{muxdir}/fastqc.SUCCESS'
+    log:
+        '{muxdir}/fastqc.log'
     threads: 8
-    message: "Running fastqc on {input}"
+    message:
+        "Running fastqc on {input}"
     shell:
         # note: need to be able to deal with empty directories.
         # fastqc will fail on corrupted files but return proper error code,
         # so better check input with gzip -t first.
 	# rarely saw fastqc threads actually get more than 100% so no point in using threading option
-        "find $(dirname {input}) -name \*fastq.gz | xargs -n 1 -P {threads} gzip -t;"
-        "find $(dirname {input}) -name \*fastq.gz | xargs -n 1 -P {threads} fastqc;"
-        "touch {output};"
+        "{{ find $(dirname {input}) -name \*fastq.gz | xargs -n 1 -P {threads} gzip -t;"
+        " find $(dirname {input}) -name \*fastq.gz | xargs -n 1 -P {threads} fastqc;"
+        " touch {output}; }} >& {log}"
 
 
 

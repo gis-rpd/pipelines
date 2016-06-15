@@ -78,6 +78,3 @@ Version Info
         # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch to have at least something
-
-
-
