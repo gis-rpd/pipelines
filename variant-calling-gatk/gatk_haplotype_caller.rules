@@ -8,7 +8,7 @@ assert 'num_chroms' in config
 assert 'references' in config
 assert 'genome' in config["references"]
 
-    
+
 def _get_intervals_arg():
     intervals = config.get("intervals")
     if intervals:
@@ -38,6 +38,8 @@ rule gatk_haplotype_caller:
     output:
         gvcf=temp("{prefix}/{sample}.{ctr}.gvcf"),
         idx=temp("{prefix}/{sample}.{ctr}.gvcf.idx")
+    log:
+        "{prefix}/{sample}.{ctr}.gvcf.log"
     params:
         #intervals_arg=_get_intervals_arg(),
         custom=config.get("params_gatk", "")
@@ -64,12 +66,12 @@ rule gatk_haplotype_caller:
                 " --heterozygosity {config[heterozygosity]} "
                 " --indel_heterozygosity {config[indel_heterozygosity]}"
                 " --dbsnp {config[references][dbsnp]}"#-nct {threads} "
-                " --variant_index_parameter 128000 -o {output.gvcf}")
+                " --variant_index_parameter 128000 -o {output.gvcf} >& {log}")
         else:
             # if empty just touch. idx no needed and gvcf later simply concatenated
-            shell("touch {output.gvcf} {output.idx}")
+            shell("touch {output.gvcf} {output.idx} >& {log}; echo 'Linking only' >> {log}")
 
-        
+
 ruleorder: gatk_catvariants > gatk_haplotype_caller
 rule gatk_catvariants:
     input:
@@ -85,14 +87,16 @@ rule gatk_catvariants:
     output:
         cat_gvcf=temp("{sample}.concat.gvcf",)
         #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
+    log:
+        "{sample}.concat.gvcf.log"
     run:
         #vcf_in_args = " -V ".join(input.split_gvcfs)
         #shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T CombineVariants -R {input.ref} -V {vcf_in_args} -o {output.cat_gvcf} --assumeIdenticalSamples")
         # CombineVariants takes forever https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_variantutils_CombineVariants.php
         #shell("cat {} > {}; grep -v '^#' {} >> {}".format(input.split_gvcfs[0],
         #   output.cat_gvcf, ' '.join(input.split_gvcfs[1:])), output.cat_gvcf)
-        # simple cat which keeps hashes seems to work as well       
-        shell("cat {} > {}".format(input.split_gvcfs, output.cat_gvcf))
+        # simple cat which keeps hashes seems to work as well
+        shell("cat {} > {} 2> {{log}}".format(input.split_gvcfs, output.cat_gvcf))
 
 
 rule gatk_genotyping:
@@ -101,6 +105,8 @@ rule gatk_genotyping:
         gvcfs=expand("{{prefix}}/{sample}.concat.gvcf", sample=config["samples"])
     output:
         "{prefix}/all_genotyped.vcf"
+    log:
+        "{prefix}/all_genotyped.log"
     params:
         custom=config.get("params_gatk", "")
     threads: 24
@@ -109,4 +115,4 @@ rule gatk_genotyping:
         shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
               " -T GenotypeGVCFs {gvcfs} -nt {threads} {params.custom} "
               " -R {input.ref} "
-              " --dbsnp {config[references][dbsnp]} -o {output}")
+              " --dbsnp {config[references][dbsnp]} -o {output} >& {log}")

@@ -1,7 +1,19 @@
 # paranoid overkill?
 assert 'references' in config
 assert 'genome' in config['references']
-    
+assert 'seqtype' in config
+assert config['seqtype'] in ['WGS', 'WES', 'targeted']
+       
+
+# this is the global bed file, if given
+def _get_intervals_arg():
+    intervals = config.get("intervals")
+    if intervals:
+        assert os.path.exists(intervals)
+        return "-region {}".format(intervals)
+    else:
+        return ""
+
 
 rule lacer_apply:
     input:
@@ -15,8 +27,11 @@ rule lacer_apply:
         "Applying lacer recalibration to BAM"
     threads:
         1
-    shell:
-        'lacepr {input.bam} {input.table} {output.bam} >& {log}'
+    run:
+        if config['seqtype'] == 'targeted':
+            shell("{{ ln {input.bam} {output.bam} && touch -h {output.bam} }} >& {log}; echo 'Linking only' >> {log}")                    
+        else:
+            shell('lacepr {input.bam} {input.table} {output.bam} >& {log}')
     
         
 rule lacer_table:
@@ -34,8 +49,14 @@ rule lacer_table:
     threads:
         8
     params:
+        intervals_arg=_get_intervals_arg()
+    params:
         stopbases = 3000000
-    shell:
-        'lacer.pl -randomize -threads {threads} -stopbases {params.stopbases}'
-        ' -bam {input.bam} -reference {input.reffa} -outfile {output.table} >& {log}'
+    run:
+        if config['seqtype'] == 'targeted':
+            shell("echo 'Skipped because targeted resequencing' | tee {output.table} > {log}")
+        else:
+            shell('lacer.pl -randomize -threads {threads} -stopbases {params.stopbases}'
+                  ' {params.intervals_arg} -bam {input.bam} -reference {input.reffa}'
+                  ' -outfile {output.table} >& {log}')
 

@@ -29,14 +29,16 @@ rule lofreq_massage_sort:
         reffai = config['references']['genome'] + ".fai"
     output:
         bam='{prefix}.lofreq.bam'
+    log:
+        '{prefix}.lofreq.log'        
     params:
         sort_mem='500M'
     message: "Preprocessing BAMs with LoFreq"
     shell:
-        "lofreq viterbi -f {input.reffa} {input.bam} | "
+        "{{ lofreq viterbi -f {input.reffa} {input.bam} | "
         " lofreq alnqual -u - {input.reffa} | "
         " lofreq indelqual --dindel -f {input.reffa} - | "
-        " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
+        " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
 
 
 rule lofreq_call:
@@ -47,6 +49,8 @@ rule lofreq_call:
         reffai = config['references']['genome'] + ".pac"
     output:
         vcf = '{prefix}.both.vcf.gz'
+    log:
+        '{prefix}.both.vcf.log'
     message:
         "Calling variants with LoFreq"
     params:
@@ -54,6 +58,7 @@ rule lofreq_call:
     threads:
         16
     shell:
-        "lofreq call-parallel --pp-threads {threads}"
-        " --call-indels {params.intervals_arg} -f {input.reffa} -o {output.vcf} {input.bam}"
+        "lofreq call-parallel --pp-threads {threads} --call-indels"
+        " {params.intervals_arg} -f {input.reffa} -o {output.vcf}"
+        " {input.bam} >& {log}"
 

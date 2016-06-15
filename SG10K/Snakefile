@@ -92,6 +92,7 @@ rule report:
         # Attaching configfile is more a crutch
         # FIXME hardcoded path to configfile
         
+
 rule contamination_check:
     input:
         bam = os.path.join(RESULT_OUTDIR, '{prefix}.bam'),
@@ -100,8 +101,8 @@ rule contamination_check:
     output:
         # assuming default option --self
         bam = os.path.join(RESULT_OUTDIR, '{prefix}.{race}.selfSM')
-    output:
-        log = os.path.join(RESULT_OUTDIR, '{prefix}.{race}.recal.cont.log')
+    log:
+        os.path.join(RESULT_OUTDIR, '{prefix}.{race}.recal.cont.log')
     params:
         outbase = os.path.join(RESULT_OUTDIR, '{prefix}.{race}'),
         maxdepth = 100,

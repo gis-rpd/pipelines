@@ -8,7 +8,7 @@
     bcftools : 1.3,
     htslib : 1.3,
     split_bam_by_chr : 274f3fe,
-    lacer : 0.421-Q-segfault-2016-06
+    lacer : 0.422
     },
 
     references: {

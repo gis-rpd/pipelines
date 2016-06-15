@@ -31,25 +31,25 @@ rule gatk_variant_recalibration:
     # "VQSR should not be used on exome and target resequencing. best to use the hard-filtering recommendations"
     # hard filtering guide lines: http://gatkforums.broadinstitute.org/gatk/discussion/2806/howto-apply-hard-filters-to-a-call-set
     input:
-        config["references"].values(),
         ref=config["references"]["genome"],
         vcf="{prefix}.vcf"
     output:
         recal=temp("{prefix}.{type,(snp|indel)}.recal"),
         tranches=temp("{prefix}.{type,(snp|indel)}.tranches"),
         plotting=temp("{prefix}.{type,(snp|indel)}.plotting.R")
+    log:
+        "{prefix}.{type,(snp|indel)}.recal.log"
     params:
         _get_recal_params,
         config.get("params_gatk", "")
     threads: 8
     shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T VariantRecalibrator -R {input.ref} "
-        "-input {input.vcf} "
-        "{params} -nt {threads} "
-        "-tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 "
-        "-recalFile {output.recal} "
-        "-tranchesFile {output.tranches} "
-        "-rscriptFile {output.plotting}"
+        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+        " -T VariantRecalibrator -R {input.ref} -input {input.vcf}"
+        " {params} -nt {threads} -tranche 100.0"
+        " -tranche 99.9 -tranche 99.0 -tranche 90.0"
+        " -recalFile {output.recal} -tranchesFile {output.tranches}"
+        " -rscriptFile {output.plotting} >& {log}"
 
 
 rule gatk_apply_variant_recalibration:
@@ -60,6 +60,8 @@ rule gatk_apply_variant_recalibration:
         tranches="{prefix}.{type}.tranches"
     output:
         "{prefix}.{type,(snp|indel)}_recal.vcf"
+    log:
+        "{prefix}.{type,(snp|indel)}_recal.vcf.log"
     params:
         mode=lambda wildcards: wildcards.type.upper(),
         custom=config.get("params_gatk", "")
@@ -68,5 +70,4 @@ rule gatk_apply_variant_recalibration:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T ApplyRecalibration -R {input.ref} -nt {threads} "
         "-input {input.vcf} -mode {params.mode} {params.custom} "
         "-recalFile {input.recal} --ts_filter_level 99.9 "
-        "-tranchesFile {input.tranches} -o {output}"
-
+        "-tranchesFile {input.tranches} -o {output} >& {log}"

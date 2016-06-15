@@ -50,15 +50,13 @@
 DEBUG=0
 DEFAULT_SLAVE_Q=@DEFAULT_SLAVE_Q@
 SNAKEFILE=@SNAKEFILE@
-
-DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats snakemake.stats --configfile conf.yaml --latency-wait 60"
+LOGDIR="@LOGDIR@";# should be same as defined above
+DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60"
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
 # --printshellcmds: also prints actual commands
 # --latency-wait: might help with FS sync problems. also used by broad: https://github.com/broadinstitute/viral-ngs/blob/master/pipes/Broad_LSF/run-pipe.sh
 
-
-LOGDIR="@LOGDIR@";# should be same as defined above
 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake

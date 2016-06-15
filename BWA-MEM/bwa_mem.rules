@@ -21,17 +21,18 @@ assert 'platform' in config
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 
-rule bwa_index:
-    input:
-        "{prefix}.{suffix}"     
-    output:             
-        "{prefix}.{suffix,(fasta|fa)}.pac",
-        "{prefix}.{suffix,(fasta|fa)}.bwt",
-        "{prefix}.{suffix,(fasta|fa)}.sa"
-    log:
-        "{prefix}.{suffix}.index.log"
-    shell:
-        "bwa index {input} >& {log};"
+# can't avoid race condition. just don't do it
+#rule bwa_index:
+#    input:
+#        "{prefix}.{suffix}"     
+#    output:             
+#        "{prefix}.{suffix,(fasta|fa)}.pac",
+#        "{prefix}.{suffix,(fasta|fa)}.bwt",
+#        "{prefix}.{suffix,(fasta|fa)}.sa"
+#    log:
+#        "{prefix}.{suffix,(fasta|fa)}.index.log"
+#    shell:
+#        "bwa index {input} >& {log};"
 
         
 def mark_dups_pipe_cmd(before="", after=""):
@@ -81,7 +82,7 @@ rule unit_merge:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& log;")
+            shell("ln {input} {output} >& {log};")
         
     
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
@@ -119,7 +120,7 @@ rule map_mdups_sort:
         # has little effect on overall runtime. but on memory
         32
     shell:
-        " {{ bwa mem {params.mark_short_splits} -t {threads}"
+        "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
