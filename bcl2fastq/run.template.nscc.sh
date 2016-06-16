@@ -33,7 +33,7 @@
 # combine stdout/stderr
 #PBS -j oe
 # snakemake control job run time: 175h == 1 week
-#PBS -l walltime=175:00:00
+#PBS -l walltime=@MASTER_WALLTIME_H@:00:00
 # memory: shoots up for heavily multiplexed libraries
 #PBS -l select=1:mem=16g
 # cpu

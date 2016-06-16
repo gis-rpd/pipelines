@@ -33,7 +33,7 @@
 # combine stdout/stderr
 #$ -j y
 # snakemake control job run time: 175h == 1 week
-#$ -l h_rt=175:00:00
+#$ -l h_rt=@MASTER_WALLTIME_H@:00:00
 # memory: shoots up for heavily multiplexed libraries
 #$ -l mem_free=16G
 # 'parallel env'

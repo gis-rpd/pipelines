@@ -93,6 +93,9 @@ class PipelineHandler(object):
     MASTERLOG = os.path.join(LOG_DIR_REL, "snakemake.log")
     SUBMISSIONLOG = os.path.join(LOG_DIR_REL, "submission.log")
 
+    # master max walltime in hours
+    # note, this includes waiting for jobs in q
+    MASTER_WALLTIME_H = 120
 
     def __init__(self,
                  pipeline_name,
@@ -102,7 +105,8 @@ class PipelineHandler(object):
                  pipeline_rootdir=PIPELINE_ROOTDIR,
                  site=None,
                  master_q=None,
-                 slave_q=None):
+                 slave_q=None,
+                 master_walltime_h=MASTER_WALLTIME_H):
         """FIXME:add-doc
 
         pipeline_subdir: where default configs can be found, i.e pipeline subdir
@@ -139,7 +143,7 @@ class PipelineHandler(object):
         self.site = site
         self.master_q = master_q
         self.slave_q = slave_q
-
+        self.master_walltime_h = master_walltime_h
         self.snakefile_abs = os.path.abspath(os.path.join(pipeline_subdir, "Snakefile"))
         assert os.path.exists(self.snakefile_abs)
 
@@ -234,6 +238,7 @@ class PipelineHandler(object):
                 line = line.replace("@MASTERLOG@", self.masterlog)
                 line = line.replace("@PIPELINE_NAME@", self.pipeline_name)
                 line = line.replace("@MAILTO@", self.toaddr)
+                line = line.replace("@MASTER_WALLTIME_H@", str(self.master_walltime_h))
                 if self.slave_q:
                     line = line.replace("@DEFAULT_SLAVE_Q@", self.slave_q)
                 else:
