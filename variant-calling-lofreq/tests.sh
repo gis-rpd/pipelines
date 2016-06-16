@@ -60,7 +60,9 @@ COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
-SKIP_REAL_WGS=0
+SKIP_REAL_WES=0
+SKIP_REAL_WGS=1
+
 
 WRAPPER=./variant-calling-lofreq.py
 targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -s NA12878-targeted -l $DUMMY_BED -t targeted"
@@ -109,13 +111,17 @@ if [ $skip_real_runs -ne 1 ]; then
     jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
     echo "Started job $jid writing to $odir. You will receive an email"
     
-    echo "Realrun: WES" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wge.XXXXXXXXXX) && rmdir $odir
-    eval $wge_cmd_base -o $odir -v >> $log 2>&1
-    # magically works even if line just contains id as in the case of pbspro
-    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
-    echo "Started $jid writing to $odir. You will receive an email"
-    #echo "DEBUG skipping WGS"; exit 1
+    if [ $SKIP_REAL_WES -eq 0 ]; then
+        echo "Realrun: WES" | tee -a $log
+        odir=$(mktemp -d ${test_outdir_base}-wge.XXXXXXXXXX) && rmdir $odir
+        eval $wge_cmd_base -o $odir -v >> $log 2>&1
+        # magically works even if line just contains id as in the case of pbspro
+        jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+        echo "Started $jid writing to $odir. You will receive an email"
+        #echo "DEBUG skipping WGS"; exit 1
+    else
+        echo "Skipping real WES run due to config"
+    fi
 
     if [ $SKIP_REAL_WGS -eq 0 ]; then
         echo "Realrun: WGS" | tee -a $log

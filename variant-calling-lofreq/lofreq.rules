@@ -1,0 +1,64 @@
+assert 'references' in config
+assert 'genome' in config['references']
+
+
+# this is the global bed file, if given
+def _get_intervals_arg():
+    intervals = config.get("intervals")
+    if intervals:
+        assert os.path.exists(intervals)
+        return "-l {}".format(intervals)
+    else:
+        return ""
+
+
+
+rule lofreq_massage_sort:
+    """Runs BAM through full LoFreq preprocessing pipeline,
+    i.e. viterbi, alnqual, indelqual, followed by sort (required by
+    viterbi). 
+
+    WARNING: running this on unsorted input files will be inefficient
+    because of constant reloading of the reference
+
+    See also lofreq_massage_sort_chrsplit
+    """
+    input:
+        bam = '{prefix}.bam',
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".fai"
+    output:
+        bam='{prefix}.lofreq.bam'
+    log:
+        '{prefix}.lofreq.log'        
+    params:
+        sort_mem='500M'
+    message: "Preprocessing BAMs with LoFreq"
+    shell:
+        "{{ lofreq viterbi -f {input.reffa} {input.bam} | "
+        " lofreq alnqual -u - {input.reffa} | "
+        " lofreq indelqual --dindel -f {input.reffa} - | "
+        " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
+
+
+rule lofreq_call:
+    input:
+        bam = '{prefix}.bam',
+        bai = '{prefix}.bam.bai',
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".pac"
+    output:
+        vcf = '{prefix}.both.vcf.gz'
+    log:
+        '{prefix}.both.vcf.log'
+    message:
+        "Calling variants with LoFreq"
+    params:
+        intervals_arg=_get_intervals_arg(),
+    threads:
+        16
+    shell:
+        "lofreq call-parallel --pp-threads {threads} --call-indels"
+        " {params.intervals_arg} -f {input.reffa} -o {output.vcf}"
+        " {input.bam} >& {log}"
+

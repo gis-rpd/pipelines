@@ -51,12 +51,14 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../rules/logging.rules"
 include: "../rules/samtools.rules"
-include: "../rules/lofreq.rules"
+include: "lofreq.rules"
 include: "lacer.rules"
 
 
-
-localrules: final, report, vcf_split
+if config['seqtype'] == 'targeted':
+    localrules: final, report, vcf_split, lacer_apply, lacer_table
+else:
+    localrules: final, report, vcf_split
 
 
 rule final:
@@ -106,15 +108,17 @@ rule vcf_split:
     output:
         snps = '{prefix}.snps.vcf.gz',
         indels = '{prefix}.indels.vcf.gz'
+    log:
+        '{prefix}.split.log'
     message:
         "Splitting vcf into SNPs and Indels"
     threads:
         2
     shell:
-        "zgrep -v '^GL' {input.vcf} | bcftools view -v snps - -O z -o {output.snps};"
-        "tabix {output.snps};"
-        "zgrep -v '^GL' {input.vcf} | bcftools view -v indels - -O z -o {output.indels};"
-        "tabix {output.indels};"
+        "{{ zgrep -v '^GL' {input.vcf} | bcftools view -v snps - -O z -o {output.snps};"
+        " tabix {output.snps};"
+        " zgrep -v '^GL' {input.vcf} | bcftools view -v indels - -O z -o {output.indels}; "
+        " tabix {output.indels}; }} >& {log};"
 
 
 rule unit_merge:
@@ -128,6 +132,8 @@ rule unit_merge:
                                  unit=config['samples'][wildcards.sample])
     output:
         '{prefix}/sample-{sample}.bwamem.lofreq.bam'
+    log:
+        '{prefix}/sample-{sample}.bwamem.lofreq.bam.unit_merge.log'        
     message:
         "Merging units to samples"
     threads:
@@ -136,9 +142,9 @@ rule unit_merge:
         # readgroup and pg now different, so make PG and RG uniq (default)
         # not running mark_dups_pipe_cmd again since not read name sorted anymore
         if len(input) > 1:
-            shell("samtools merge -@ {threads} {output} {input};")
+            shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output}")
+            shell("ln {input} {output} >& {log};")
 
 
 rule split_merge:
@@ -152,6 +158,8 @@ rule split_merge:
         # +1 for unaligned reads
     output:
         bam = temp('{prefix}.merged.lofreq.bam')
+    log:
+        '{prefix}.merged.lofreq.bam.split_merge.log'
     message:
         "Merging split units"
     threads:
@@ -159,9 +167,9 @@ rule split_merge:
     run:
         if len(input) > 1:
             # same readgroup and pg, so combine colliding PG and RG
-            shell("samtools merge -c -p -@ {threads} {output} {input};")
+            shell("samtools merge -c -p -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output}")
+            shell("ln {input} {output} >& {log}")
 
 
 # WARN: Near identical copy from BWA-MEM
@@ -184,6 +192,8 @@ rule map_mdups_split:
         bams=temp(expand('{{prefix}}/unit-{{unit}}.bwamem.chrsplit.{ctr}.bam',
                          ctr=range(config["references"]["num_chroms"]+1)))
                          # +1 for unaligned reads
+    log:
+        '{prefix}/unit-{unit}.bwamem.map.log'
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
@@ -199,9 +209,9 @@ rule map_mdups_split:
         # see also BWA-MEM
         32
     shell:
-        "bwa mem {params.mark_short_splits} -t {threads}"
+        "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         + mark_dups_pipe_cmd() +
-        " split_bam_by_chr -S -l 0 -o {params.outprefix} -"
-        # " samtools view -bu -o - |"
+        " split_bam_by_chr -S -l 0 -o {params.outprefix} -; }} >& {log}"
+

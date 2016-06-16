@@ -8,7 +8,8 @@ import os
 
 # project specific imports
 #
-from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
+from readunits import gen_rg_lib_id, gen_rg_pu_id
+from readunits import fastqs_from_unit, get_sample_for_unit
 
 
 assert 'mark_dups' in config
@@ -20,17 +21,20 @@ assert 'platform' in config
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 
-rule bwa_fasta_index:
-    input:
-        "{prefix}.{suffix}"     
-    output:             
-        "{prefix}.{suffix,(fasta|fa)}.pac",
-        "{prefix}.{suffix,(fasta|fa)}.bwt",
-        "{prefix}.{suffix,(fasta|fa)}.sa"
-    shell:
-        "bwa index {input};"
+# can't avoid race condition. just don't do it
+#rule bwa_index:
+#    input:
+#        "{prefix}.{suffix}"
+#    output:
+#        "{prefix}.{suffix,(fasta|fa)}.pac",
+#        "{prefix}.{suffix,(fasta|fa)}.bwt",
+#        "{prefix}.{suffix,(fasta|fa)}.sa"
+#    log:
+#        "{prefix}.{suffix,(fasta|fa)}.index.log"
+#    shell:
+#        "bwa index {input} >& {log};"
 
-        
+
 def mark_dups_pipe_cmd(before="", after=""):
     """FIXME review once MARK_SHORT_SPLITS is in config
 
@@ -39,13 +43,13 @@ def mark_dups_pipe_cmd(before="", after=""):
 
     return command will always end in pipe
     """
-    
+
     if config['mark_dups']:
         if before:
             cmd = "{} | ".format(before)
         else:
             cmd = ""
-            
+
         cmd += " samblaster {MARK_SHORT_SPLITS} | "
         if after:
             cmd += " {} | ".format(after)
@@ -66,25 +70,28 @@ rule unit_merge:
                                  unit=config['samples'][wildcards.sample])
     output:
         temp('{prefix}/sample-{sample}.bwamem.bam')
+    log:
+        '{prefix}/sample-{sample}.bwamem.bam.merge.log'
     message:
         "Merging files"
     threads:
+        # FIXME waste for ln
         8
     run:
         # not running mark_dups_pipe_cmd again since not read name sorted anymore
         if len(input) > 1:
-            shell("samtools merge -@ {threads} {output} {input};")
+            shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output}")
-        
-    
+            shell("ln {input} {output} >& {log};")
+
+
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
 rule map_mdups_sort:
     """
-    - fixmate (and samblaster) only work on name sorted files. 
+    - fixmate (and samblaster) only work on name sorted files.
     - fixmate ignores secondary  alignments, i.e. safe to use with bwa mem -M:
       http://sourceforge.net/p/samtools/mailman/message/30556922/
-    - Setting read groups correctly is tricky and also depends on downstream programs. 
+    - Setting read groups correctly is tricky and also depends on downstream programs.
       See e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
       For example for BQSR PU takes precedence over ID. PU should contain lane.
     - More threads mean more memory because of sorting
@@ -96,6 +103,8 @@ rule map_mdups_sort:
         fastqs=lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
         bam=temp('{prefix}/unit-{unit}.bwamem.bam')
+    log:
+        '{prefix}/unit-{unit}.bwamem.bam.log'
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
@@ -111,10 +120,10 @@ rule map_mdups_sort:
         # has little effect on overall runtime. but on memory
         32
     shell:
-        "bwa mem {params.mark_short_splits} -t {threads}"
+        "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         + mark_dups_pipe_cmd() +
         " samtools view -bu -o - |"
-        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
+        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"

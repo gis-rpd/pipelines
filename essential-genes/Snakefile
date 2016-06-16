@@ -23,9 +23,9 @@ shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../rules/samtools.rules"
-include: "bwa_mem.rules"
-include: "../rules/lofreq.rules"
 include: "../rules/logging.rules"
+include: "bwa_mem.rules"
+include: "lofreq.rules"
 
 
 localrules: final, report, prep_bed_files
@@ -74,6 +74,8 @@ rule snpeff:
         vcfgz="{prefix}.ann.vcf.gz",
         stats="{prefix}.stats",
         #statscsv="{prefix}_stats.csv"
+    log:
+        "{prefix}.ann.vcf.log"
     params:
         genome=config['references']['snpeff_genome']
     message:
@@ -82,7 +84,7 @@ rule snpeff:
         "SNPEFF_THREADS={threads} SNPEFF_MEM=8g snpeff_wrapper"
         " -c $(dirname $(which snpeff_wrapper))/snpEff.config"
         " -noStats -csvStats {output.stats} -no-downstream -no-upstream -nodownload -v"
-        " {params.genome} {input.vcfgz} | bgzip > {output.vcfgz}"
+        " {params.genome} {input.vcfgz} 2>{log} | bgzip > {output.vcfgz}"
     
 
 

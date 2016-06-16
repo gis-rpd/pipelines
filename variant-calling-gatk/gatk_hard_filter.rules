@@ -1,13 +1,15 @@
 assert 'references' in config
 assert 'genome' in config['references']
 
-        
+
 rule gatk_selectvariants:
     input:
         vcf='{prefix}.vcf',
         ref=config["references"]["genome"],
     output:
         vcf=temp("{prefix}.{type,(snp|indel)}.vcf")
+    log:
+        "{prefix}.{type,(snp|indel)}.log"
     params:
         type = lambda wildcards: wildcards.type.upper()
     threads: 4
@@ -16,7 +18,7 @@ rule gatk_selectvariants:
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -R {input.ref} -V {input.vcf} -o {output.vcf}"
-        " -T SelectVariants -nt {threads} -selectType {params.type}"
+        " -T SelectVariants -nt {threads} -selectType {params.type} >& {log}"
 
 
 rule gatk_hard_filter_snps:
@@ -25,6 +27,8 @@ rule gatk_hard_filter_snps:
         ref=config["references"]["genome"],
     output:
         vcf=temp('{prefix}.snp_hfilter.vcf')
+    log:
+        '{prefix}.snp_hfilter.vcf.log'
     params:
         filter_name = 'snp_default_hard_filter',
         filter_expr = 'QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'
@@ -33,8 +37,9 @@ rule gatk_hard_filter_snps:
         4
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T VariantFiltration -R {input.ref} -V {input.vcf} -o {output.vcf}"
-        " --filterExpression '{params.filter_expr}' --filterName {params.filter_name}"
+        " -T VariantFiltration -R {input.ref} -V {input.vcf}"
+        " -o {output.vcf} --filterExpression '{params.filter_expr}'"
+        " --filterName {params.filter_name} >& {log}"
 
 
 rule gatk_hard_filter_indels:
@@ -43,6 +48,8 @@ rule gatk_hard_filter_indels:
         ref=config["references"]["genome"],
     output:
         vcf=temp('{prefix}.indel_hfilter.vcf')
+    log:
+        '{prefix}.indel_hfilter.vcf.log'
     params:
         filter_name = 'indel_default_hard_filter',
         filter_expr = 'QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0'
@@ -51,8 +58,9 @@ rule gatk_hard_filter_indels:
         4
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T VariantFiltration -R {input.ref} -V {input.vcf} -o {output.vcf}"
-        " --filterExpression '{params.filter_expr}' --filterName {params.filter_name}"
+        " -T VariantFiltration -R {input.ref} -V {input.vcf}"
+        " -o {output.vcf} --filterExpression '{params.filter_expr}'"
+        " --filterName {params.filter_name} >& {log}"
 
 
 # avoid ambiguity or wrong order (indels extract from snps etc
@@ -69,10 +77,11 @@ rule gatk_hardfilter:
         vcf_indel='{prefix}.indel_hfilter.vcf'
     output:
         vcf='{prefix}.snp_hfilter.indel_hfilter.vcf'
+    log:
+        '{prefix}.snp_hfilter.indel_hfilter.vcf.log'
     message:
         "Merging SNP and Indels"
     threads:
         1
     shell:
-        "bcftools concat {input.vcf_snp} {input.vcf_indel} -O v -o {output.vcf}"
-
+        "bcftools concat {input.vcf_snp} {input.vcf_indel} -O v -o {output.vcf} >& {log}"

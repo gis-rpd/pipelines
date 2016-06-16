@@ -92,6 +92,7 @@ rule report:
         # Attaching configfile is more a crutch
         # FIXME hardcoded path to configfile
         
+
 rule contamination_check:
     input:
         bam = os.path.join(RESULT_OUTDIR, '{prefix}.bam'),
@@ -100,8 +101,14 @@ rule contamination_check:
     output:
         # assuming default option --self
         bam = os.path.join(RESULT_OUTDIR, '{prefix}.{race}.selfSM')
+    log:
+        os.path.join(RESULT_OUTDIR, '{prefix}.{race}.recal.cont.log')
     params:
-        outbase = os.path.join(RESULT_OUTDIR, '{prefix}.{race}')
+        outbase = os.path.join(RESULT_OUTDIR, '{prefix}.{race}'),
+        maxdepth = 100,
+        minmapq = 20,
+        minq = 20,
+        maxq = 100
     message:
         "Checking for contamination"
     shell:
@@ -109,7 +116,9 @@ rule contamination_check:
         # See http://genome.sph.umich.edu/wiki/VerifyBamID#What_the_default_option_does
         # Chaolong wanted specials settings (see email from 2016-02-22)
         # run for sample and read-groups, i.e. don't use --ignoreRG
-        "verifyBamID --vcf {input.vcf} --bam {input.bam} --out {params.outbase} --noPhoneHome --precise --maxDepth 100 --minMapQ 20 --minQ 20 --maxQ 100;"
+        "verifyBamID --vcf {input.vcf} --bam {input.bam} --out {params.outbase}"
+        " --noPhoneHome --precise --maxDepth {params.maxdepth} --minMapQ {params.minmapq}"
+        " --minQ {params.minq} --maxQ {params.maxq} >& {log};"
 
         
 rule bq_recal:
@@ -126,11 +135,14 @@ rule bq_recal:
     output:
         bam = '{prefix}.recal.bam',
         qemp = '{prefix}.recal.bam.qemp'
+    log:
+        '{prefix}.recal.log',
     message:
         "Base quality recalibration with bamUtils"
     shell:
         # recommended use is --storeQualTag OQ but we need the BAMs to be small
-        "bam recab --in {input.bam} --out {output.bam} --refFile {input.reffa} --dbsnp {input.dbsnp} --maxBaseQual 40 --noPhoneHome"
+        "bam recab --in {input.bam} --out {output.bam} --refFile {input.reffa}"
+        " --dbsnp {input.dbsnp} --maxBaseQual 40 --noPhoneHome >& {log}"
     
     
 rule unit_merge:
@@ -139,20 +151,24 @@ rule unit_merge:
     If the sample has only one unit, a symlink will be created.
     """
     input:
-        lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam',
-                                 prefix=wildcards.prefix, unit=config['samples'][wildcards.sample])
+        lambda wildcards: expand(
+            '{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam', 
+            prefix=wildcards.prefix, unit=config['samples'][wildcards.sample])
     output:
         temp('{prefix}/sample-{sample}.bwamem.fixmate.mdups.srt.bam')
+    log:
+        '{prefix}/sample-{sample}.bwamem.fixmate.mdups.srt.bam.log'
     message:
         "Merging files"
     threads:
+        # FIXME waste for ln
         16
     run:
         if len(input) > 1:
-            shell("samtools merge -@ {threads} {output} {input};")
+            shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
             # hard link should work even if input is temp and later deleted
-            shell("ln {input} {output}")
+            shell("ln {input} {output} >& {log};")
 
 
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
@@ -187,6 +203,8 @@ rule map_mdups_sort:
         fastqs=lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
         bam=temp('{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam')
+    log:
+        '{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam.log'
     message:
         'Aligning PE reads, fixing mate information, marking duplicates and converting to sorted BAM'
     params:
@@ -200,10 +218,10 @@ rule map_mdups_sort:
     threads:
         8
     shell:
-        "bwa mem {params.mark_short_splits} -t {threads}"
+        "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         " samblaster {params.mark_short_splits} |"
         " samtools view -@ {threads} -bu -o - |"
-        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -"
+        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"

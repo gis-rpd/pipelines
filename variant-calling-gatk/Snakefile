@@ -40,9 +40,12 @@ else:
     FINAL_VCF = os.path.join(RESULT_OUTDIR, "all_genotyped.snp_hfilter.indel_hfilter.vcf"),
 
 
-localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter
+if config['seqtype'] == 'targeted':
+    localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter, gatk_recalibrate_bam gatk_recalibrate_info
+else:    
+    localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter
 
-
+    
 rule final:
     input:
         vcf=FINAL_VCF,
@@ -93,6 +96,8 @@ rule prep_bed_files:
     output:
         bed = temp(expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
                           ctr=range(config["num_chroms"])))
+    log:
+        os.path.join(RESULT_OUTDIR, "chr.split.log")
     params:
         outbedfmt = os.path.join(RESULT_OUTDIR, "chr.split.{}.bed")
     message:
@@ -103,15 +108,18 @@ rule prep_bed_files:
             tmpbed = outbed + ".tmp"
             # write one bed per chrom
             with open(tmpbed, 'w') as fh:
-                fh.write("{}\t0\t{}\n".format(s, l))
-
+                if s not in config['references'].get('excl_chrom', []):
+                    fh.write("{}\t0\t{}\n".format(s, l))
+                # else: empty file
+                
             # intersect with given bed if needed
-            # NOTE: might produce empty files!
+            # NOTE: might produce empty files (which is what we want)
+            # Can also deal with empty import (create above if in excl)
             if config['intervals']:
-                shell("bedtools intersect -a {} -b {} > {}".format(
+                shell("bedtools intersect -a {} -b {} > {} 2> {{log}}".format(
                     config['intervals'], tmpbed, outbed))
                 os.unlink(tmpbed)
             else:
                 shutil.move(tmpbed, outbed)
-
+        
 
