@@ -68,7 +68,7 @@ def main():
                         help="Don't run anything")
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test-server")
-    default = 7
+    default = 14
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
     parser.add_argument('-v', '--verbose', action='count', default=0,
