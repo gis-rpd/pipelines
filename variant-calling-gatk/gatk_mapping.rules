@@ -114,7 +114,7 @@ rule gatk_recalibrate_bam:
     message: "{} PrintReads for Recal".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
     run:
         if config['seqtype'] == 'targeted':
-            shell("{{ ln {input.bam} {output} && touch -h {output} }} >& {log}; echo 'Linking only' >> {log}")
+            shell("{{ ln {input.bam} {output} && touch -h {output}; }} >& {log}; echo 'Linking only' >> {log}")
         else:
             shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
                   " -T PrintReads -R {input.ref} {params.custom}"
