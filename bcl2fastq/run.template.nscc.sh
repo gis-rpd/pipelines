@@ -46,7 +46,8 @@
 #PBS -m a
 
 
-DEBUG=0
+DEBUG=${DEBUG:-0}
+DRMAA_OFF=${DRMAA_OFF:-0}
 DEFAULT_SLAVE_Q=@DEFAULT_SLAVE_Q@
 SNAKEFILE=@SNAKEFILE@
 LOGDIR="@LOGDIR@";# should be same as defined above
@@ -59,17 +60,22 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
-    qsub="qsub -l select=1:ncpus={threads} -l select=1:mem={cluster.mem} -l walltime={cluster.time}"
+    clustercmd="-l select=1:ncpus={threads} -l select=1:mem={cluster.mem} -l walltime={cluster.time}"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
-    qsub="$qsub -V -e $LOGDIR -o $LOGDIR"
+    clustercmd="$clustercmd -e $LOGDIR -o $LOGDIR"
     # PBS: cwd (workaround for missing SGE option "-cwd")
     cd $PBS_O_WORKDIR
     if [ -n "$SLAVE_Q" ]; then
-        qsub="$qsub -q $SLAVE_Q"
+        clustercmd="$clustercmd -q $SLAVE_Q"
     elif [ -n "$DEFAULT_SLAVE_Q" ]; then 
-        qsub="$qsub -q $DEFAULT_SLAVE_Q"
+        clustercmd="$clustercmd -q $DEFAULT_SLAVE_Q"
     fi
-    CLUSTER_ARGS="--cluster-config cluster.yaml --cluster \"$qsub\" --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
+    if [ "$DRMAA_OFF" -eq 1 ]; then
+        clustercmd="--cluster \"qsub $clustercmd\""
+    else
+        clustercmd="--drmaa \" $clustercmd -w n\""
+    fi
+    CLUSTER_ARGS="--cluster-config cluster.yaml $clustercmd --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
     N_ARG="--jobs 100"
 else
     # run locally
@@ -145,6 +151,9 @@ else
 fi
 
 
-#cat<<EOF
-eval snakemake $args >> @MASTERLOG@ 2>&1
-#EOF
+cmd="snakemake $args >> @MASTERLOG@ 2>&1"
+if [ $DEBUG -eq 1 ]; then
+    echo $cmd
+else
+    eval $cmd
+fi

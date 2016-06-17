@@ -47,7 +47,9 @@
 #$ -m a
 
 
-DEBUG=0
+DEBUG=${DEBUG:-0}
+export DRMAA_LIBRARY_PATH=$SGE_ROOT/lib/lx-amd64/libdrmaa.so
+DRMAA_OFF=${DRMAA_OFF:-0}
 DEFAULT_SLAVE_Q=@DEFAULT_SLAVE_Q@
 SNAKEFILE=@SNAKEFILE@
 LOGDIR="@LOGDIR@";# should be same as defined above
@@ -60,15 +62,20 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
-    qsub="qsub -pe OpenMP {threads} -l mem_free={cluster.mem} -l h_rt={cluster.time}"
+    clustercmd="-pe OpenMP {threads} -l mem_free={cluster.mem} -l h_rt={cluster.time}"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
-    qsub="$qsub -V -cwd -e $LOGDIR -o $LOGDIR"
+    clustercmd="$clustercmd -cwd -e $LOGDIR -o $LOGDIR"
     if [ -n "$SLAVE_Q" ]; then
-        qsub="$qsub -q $SLAVE_Q"
+        clustercmd="$clustercmd -q $SLAVE_Q"
     elif [ -n "$DEFAULT_SLAVE_Q" ]; then 
-        qsub="$qsub -q $DEFAULT_SLAVE_Q"
+        clustercmd="$clustercmd -q $DEFAULT_SLAVE_Q"
     fi
-    CLUSTER_ARGS="--cluster-config cluster.yaml --cluster \"$qsub\" --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
+    if [ "$DRMAA_OFF" -eq 1 ]; then
+        clustercmd="--cluster \"qsub $clustercmd\""
+    else
+        clustercmd="--drmaa \" $clustercmd -w n\""
+    fi
+    CLUSTER_ARGS="--cluster-config cluster.yaml $clustercmd --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
     N_ARG="--jobs 100"
 else
     # run locally
@@ -117,8 +124,11 @@ source rc/snakemake_init.rc || exit 1
 test -d $LOGDIR || mkdir $LOGDIR
 
 
-#cat<<EOF
-eval snakemake $args >> @MASTERLOG@ 2>&1
-#EOF
+cmd="snakemake $args >> @MASTERLOG@ 2>&1"
+if [ $DEBUG -eq 1 ]; then
+    echo $cmd
+else
+    eval $cmd
+fi
 
 
