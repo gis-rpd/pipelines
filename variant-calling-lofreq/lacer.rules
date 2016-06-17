@@ -29,7 +29,7 @@ rule lacer_apply:
         1
     run:
         if config['seqtype'] == 'targeted':
-            shell("{{ ln {input.bam} {output.bam} && touch -h {output.bam} }} >& {log}; echo 'Linking only' >> {log}")                    
+            shell("{{ ln {input.bam} {output.bam} && touch -h {output.bam}; }} >& {log}; echo 'Linking only' >> {log}")                    
         else:
             shell('lacepr {input.bam} {input.table} {output.bam} >& {log}')
     
