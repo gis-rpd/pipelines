@@ -54,6 +54,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test server")
+    parser.add_argument('-n', "--no-mail", action='store_true',
+                        help="Don't mail. Just print to console")
     default = 14
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
@@ -91,62 +93,71 @@ def main():
     for _, v in od.items():# v is run
         results = db.find({"run": v})
         for record in results:
-            if 'analysis' in record and 'Status' in record['analysis'][-1]:
-                Status = record['analysis'][-1].get("Status")
-                if Status == 'SUCCESS':
-                    if record['analysis'][-1].get("per_mux_status"):
-                        mux = record['analysis'][-1].get("per_mux_status")
-                        for d in mux:
-                            if d is None:
-                                logger.warning("Skipping empty per_mux_status for run %s. Needs fix in DB", v)
-                                continue
-                            if d['Status'] and (d['Status']) == "SUCCESS":
-                                mux_id = d['mux_id']
-                                StatsSubmission = d['StatsSubmission']
-                                ArchiveSubmission = d['ArchiveSubmission']
-                                if StatsSubmission == "FAILED":
-                                    extra_text += "StatsSubmission for mux_id {} from Run {} " \
-                                        "has FAILED and out_dir is {} \n" \
-                                         .format(mux_id, v, record['analysis'][-1].get("out_dir"))
-                                    extra_text += "\n"
-                                if ArchiveSubmission == "FAILED":
-                                    extra_text += "ArchiveSubmission for mux_id {} from Run {} " \
-                                        "has FAILED and out_dir is {} \n" \
-                                        .format(mux_id, v, record['analysis'][-1].get("out_dir"))
-                                    extra_text += "\n"
+            if not 'analysis' in record:
+                continue
+            last_analysis = record['analysis'][-1]
+            status = last_analysis.get("Status")
+            if not status:
+                continue
 
-                elif Status == 'FAILED':
-                    extra_text += "Analysis for Run {} has failed. \n".format(v)
+            if status == 'SUCCESS':
+                if last_analysis.get("per_mux_status"):
+                    mux = last_analysis.get("per_mux_status")
+                    for d in mux:
+                        if d is None:
+                            logger.warning("Skipping empty per_mux_status for run %s. Needs fix in DB", v)
+                            continue
+                        if d.get('Status') == "SUCCESS":# FIXME what if key is missing?
+                            mux_id = d['mux_id']
+
+                            stats_submission = d['StatsSubmission']
+                            if stats_submission == "FAILED":
+                                extra_text += "StatsSubmission for mux_id {} from run {} " \
+                                    "has FAILED and out_dir is {} \n" \
+                                     .format(mux_id, v, last_analysis.get("out_dir"))
+                                extra_text += "\n"
+
+                            archive_submission = d['ArchiveSubmission']
+                            if archive_submission == "FAILED":
+                                extra_text += "ArchiveSubmission for mux_id {} from run {} " \
+                                    "has FAILED and out_dir is {} \n" \
+                                    .format(mux_id, v, last_analysis.get("out_dir"))
+                                extra_text += "\n"
+
+            elif status == 'FAILED':
+                extra_text += "Analysis for run {} has failed. \n".format(v)
+                extra_text += "Analysis_id is {} and out_dir is {} \n" \
+                    .format(last_analysis.get("analysis_id"), \
+                    last_analysis.get("out_dir"))
+                extra_text += "\n"
+                extra_text += "---------------------------------------------------\n"
+                logger.info("Analysis for run %s has failed ", v)
+
+            elif status == 'STARTED':
+                analysis_id = last_analysis.get("analysis_id")
+                analysis_epoch_time = isoformat_to_epoch_time(analysis_id+"+08:00")
+                run_completion_time = timestamp/1000
+                dt1 = datetime.datetime.fromtimestamp(run_completion_time)
+                dt2 = datetime.datetime.fromtimestamp(analysis_epoch_time)
+                rd = dateutil.relativedelta.relativedelta(dt1, dt2)
+                if rd.days > 3:
+                    extra_text += "Analysis for run {} was started {} days ago. "\
+                        "Please check. \n".format(v, rd.days)
                     extra_text += "Analysis_id is {} and out_dir is {} \n" \
-                        .format(record['analysis'][-1].get("analysis_id"), \
-                        record['analysis'][-1].get("out_dir"))
+                        .format(last_analysis.get("analysis_id"), \
+                        last_analysis.get("out_dir"))
                     extra_text += "\n"
                     extra_text += "---------------------------------------------------\n"
-                    logger.info("Analysis for Run %s has failed ", v)
-
-                elif Status == 'STARTED':
-                    analysis_id = record['analysis'][-1].get("analysis_id")
-                    analysis_epoch_time = isoformat_to_epoch_time(analysis_id+"+08:00")
-                    run_completion_time = timestamp/1000
-                    dt1 = datetime.datetime.fromtimestamp(run_completion_time)
-                    dt2 = datetime.datetime.fromtimestamp(analysis_epoch_time)
-                    rd = dateutil.relativedelta.relativedelta(dt1, dt2)
-                    if rd.days > 3:
-                        extra_text += "Analysis for Run {} has been started {} days ago. "\
-                            "Please check. \n".format(v, rd.days)
-                        extra_text += "Analysis_id is {} and out_dir is {} \n" \
-                            .format(record['analysis'][-1].get("analysis_id"), \
-                            record['analysis'][-1].get("out_dir"))
-                        extra_text += "\n"
-                        extra_text += "---------------------------------------------------\n"
 
     extra_text += "Report generation is completed"
     subject = "Report generation for bcl2fastq"
     if args.testing:
-        print("testing")
         subject = "Testing:" + subject
-    send_mail('Report generation for bcl2fastq', subject, extra_text)
-    print(extra_text)
+    if args.no_mail:
+        print("Skipping sending of email with subject '{}' and following body:".format(subject))
+        print(extra_text)
+    else:
+        send_mail('Report generation for bcl2fastq', subject, extra_text)
     logger.info("Report generation is completed")
 
 
