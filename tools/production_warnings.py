@@ -28,7 +28,7 @@ THRESHOLD_EQW = 0
 # max total jobs
 THRESHOLD_ALL = 10000
 # max age in days for running jobs
-THRESHOLD_AGE = 3
+THRESHOLD_AGE = 5
 # max percent usage of predefined FSs
 THRESHOLD_DF = 90
 FS_TO_CHECK = ["/mnt/seq", "/mnt/projects/rpd", "/mnt/projects/userrig"]
