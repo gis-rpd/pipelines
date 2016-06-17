@@ -266,8 +266,8 @@ rule fastqc:
         # fastqc will fail on corrupted files but return proper error code,
         # so better check input with gzip -t first.
 	# rarely saw fastqc threads actually get more than 100% so no point in using threading option
-        "{{ find $(dirname {input}) -name \*fastq.gz | xargs -n 1 -P {threads} gzip -t;"
-        " find $(dirname {input}) -name \*fastq.gz | xargs -n 1 -P {threads} fastqc;"
+        "{{ find $(dirname {input}) -name \*fastq.gz | xargs --no-run-if-empty -n 1 -P {threads} gzip -t;"
+        " find $(dirname {input}) -name \*fastq.gz | xargs --no-run-if-empty -n 1 -P {threads} fastqc;"
         " touch {output}; }} >& {log}"
 
 
