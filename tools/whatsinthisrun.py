@@ -28,14 +28,14 @@ for rows in get_data['lanes']:
 
 	if "MUX" in rows['libraryId']:
 		for child in rows['Children']:
+			sample = (get_data['runId'],rows['laneId'],rows['libraryId'],'\tNA',child['barcode'],child['genome'],child['libraryId'],child['libtech'],child['Analysis'])
+			print('\t'.join(sample))
 			#sample = get_data['runId'] + '\t' + rows['laneId'] + '\t' + rows['libraryId'] + '\tNA\t' + child['barcode'] + '\t' + child['genome'] + '\t' + child['libraryId'] + '\t' + child['libtech'] + '\t' + child['Analysis']
 			#print(sample)
-			sample1 = (get_data['runId'],rows['laneId'],rows['libraryId'],'\tNA',child['barcode'],child['genome'],child['libraryId'],child['libtech'],child['Analysis'])
-			print('\t'.join(sample1))
 			    #fh_out.write(sample + '\n')
 	else:
+		sample = (run_num,rows['laneId'],rows['libraryId'],rows['genome'],rows['libtech'],rows['Analysis'])
+		print('\t'.join(sample))
 		#sample = run_num + '\t' + rows['laneId'] + '\t' + rows['libraryId'] + '\t' + rows['genome'] + '\t' + rows['libtech'] + '\t' + rows['Analysis']
 		#print(sample)
-		sample1 = (run_num,rows['laneId'],rows['libraryId'],rows['genome'],rows['libtech'],rows['Analysis'])
-		print('\t'.join(sample1))
 		    #fh_out.write(sample + '\n')
