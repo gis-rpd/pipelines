@@ -121,7 +121,7 @@ def main():
                                       "Status" : args.mux_status,
                                       "StatsSubmission" : "NOARCHIVE",
                                       "ArchiveSubmission" : "NOARCHIVE",
-                                      "DownstreamSubmission" : "NOARCHIVE",
+                                      "DownstreamSubmission" : "TODO",
                                       "email_sent" : True,
 
                                   }}})
