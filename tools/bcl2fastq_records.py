@@ -43,6 +43,8 @@ def main():
     default = 7
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
+    parser.add_argument('-r', '--run', type=str, help="Search records by run")
+    parser.add_argument('-m', '--mux', type=str, help="Search records by mux_id")
     args = parser.parse_args()
 
     pp = pprint.PrettyPrinter(indent=2)
@@ -50,12 +52,16 @@ def main():
     connection = mongodb_conn(args.testing)
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
+'''    
     if args.status:
         results = db.find({"analysis.Status": args.status,
             "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     else:
         results = db.find({"timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
-        
+'''
+    if args.run:
+        results = db.find({"run": args.run})
+
     for record in results:
         pp.pprint(record)
 
