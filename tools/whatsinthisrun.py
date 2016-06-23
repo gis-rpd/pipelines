@@ -11,7 +11,7 @@ def main(run_num):
     """
 
     run_url = 'http://plap18v:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
-    print(run_url)
+    #print(run_url)
     r = requests.get(run_url)
     if r.status_code != requests.codes.ok:
         r.raise_for_status()
@@ -22,8 +22,8 @@ def main(run_num):
         sys.stderr.write("FATAL: Run number not found in ELM\n")
         sys.exit(1)
 
-    run_id = get_data['runId']
-    print(run_id)
+    #run_id = get_data['runId']
+    #print(run_id)
     for rows in get_data['lanes']:
         if "MUX" in rows['libraryId']:
             for child in rows['Children']:
@@ -39,4 +39,4 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.stderr.write("FATAL: need exactly only run id\n")
         sys.exit(1)
-    run_num = sys.argv[1]
+    main(sys.argv[1])

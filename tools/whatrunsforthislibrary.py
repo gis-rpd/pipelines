@@ -19,8 +19,8 @@ def main(library_id):
         sys.stderr.write("FATAL: Library id not found in ELM\n")
         sys.exit(1)
 
-    run_id = get_data['libraryId']
-    print(run_id)
+    #run_id = get_data['libraryId']
+    #print(run_id)
 
     for rows in get_data['runs']:
         if "MUX" in get_data['libraryId']:
@@ -37,4 +37,4 @@ if __name__ == "__main__":
     # FIXME:add-argparser
     if len(sys.argv) != 2:
         sys.exit("FATAL: need exactly one library id")
-    library_id = sys.argv[1]
+    main(sys.argv[1])
