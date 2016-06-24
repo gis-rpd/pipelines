@@ -1,0 +1,131 @@
+# standard library imports
+#
+import os
+import subprocess
+import shutil
+from itertools import chain
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
+
+
+RESULT_OUTDIR = './out'
+SAMPLE_MERGE_OUTDIR = os.path.join(RESULT_OUTDIR, 'merged')
+FDEMUX_OUTDIR = os.path.join(RESULT_OUTDIR, 'fdemux')
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+assert len(config['samples'])==1
+# include: "../rules/logging.rules"
+
+    
+rule final:
+    input:
+        clipped_fastqs=expand('{dir}/{sample}_ROW{row}_merged_R2.trimmed.fastq.gz',
+               dir=FDEMUX_OUTDIR,
+               sample=config['samples'], row=["{:02d}".format(x) for x in range(1, 41)]),
+        report="report.html"
+
+
+rule report:
+    input:
+        "Snakefile"# FIXME FAKE!
+    output:
+        html="report.html"
+    params:
+        samplenames=', '.join(config['samples'].keys())
+    run:
+        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
+        readme = "EMPTY"
+        with open(os.path.join(workflow_home, "README.md")) as fh:
+            readme = fh.read()
+            
+        report("""
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+=================================================================
+
+Version Info
+------------
+
+{config[ELM][pipeline_version]}) 
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch to have at least something
+
+
+
+rule trimming:
+    input:
+        fq="{prefix}_R2.fastq.gz"
+    output:
+        fq="{prefix}_R2.trimmed.fastq.gz"
+    message:
+        "Running trimming"
+    log:
+        "{prefix}_R2.trimmed.log"
+    params:
+        trim_tail_right=1,
+        min_len=20
+    shell:
+        "zcat {input.fq} | prinseq-lite.pl -trim_tail_right {params.trim_tail_right}"
+         " -min_len {params.min_len} -fastq stdin -out_good stdout 2>{log} " 
+         " | gzip > {output.fq}"
+    # later: subshell {} 2>log
+    #run:
+    # threads, log, params, benchmark
+
+
+rule fluidigm_demux:
+    # careful: fdemux splits after first _ so prefix should not contain underscore
+    input:
+        expand("{dir}/{{sample}}_merged_R{end}.fastq.gz", 
+            dir=SAMPLE_MERGE_OUTDIR, 
+            end=["1", "2"])
+    output:
+        # COL01_ROW36_S1-TGATAGAG_S100_L001_R2.fastq.gz
+        temp(expand("{dir}/{{sample}}_ROW{row}_merged_R{end}.fastq.gz", 
+            dir=FDEMUX_OUTDIR, 
+            row=["{:02d}".format(x) for x in range(1, 41)], 
+            end=["1", "2"]))
+    message:
+        "Running fluidigm_demux"
+    params:
+        indir=SAMPLE_MERGE_OUTDIR,
+        outdir=FDEMUX_OUTDIR
+    shell:
+        #'perl /home/userrig/pipelines/fluidigmdemux/mRNASeqHT_demultiplex_v2.pl -i {params.indir} -o {params.outdir}; '
+        'perl /mnt/projects/rpd/devs/andreas/fluidigm_800_singlecell/mrnaseqht_demux.git/mRNASeqHT_demultiplex.pl -i {params.indir} -o {params.outdir}; '
+        
+
+rule readunit_merge:
+    input:
+        lambda wc: list(chain.from_iterable(
+            [fastqs_from_unit(config["readunits"][ru]) for ru in config["samples"][wc.sample]]))
+    output:
+        r1=temp(expand("{dir}/{{sample}}_merged_R1.fastq.gz",  
+            dir=SAMPLE_MERGE_OUTDIR)),
+        r2=temp(expand("{dir}/{{sample}}_merged_R2.fastq.gz",  
+            dir=SAMPLE_MERGE_OUTDIR))
+    message:
+        "Merging read units (e.g. lanes)"
+    #log:
+    shell:
+        'ls {input} | grep "_R1_" | sort | xargs cat > {output.r1};'
+        ' ls {input} | grep "_R2_" | sort | xargs cat > {output.r2}'
