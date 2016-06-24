@@ -9,6 +9,7 @@ from itertools import chain
 #
 from snakemake.utils import report
 
+#####
 # project specific imports
 #
 LIB_PATH = os.path.abspath(
@@ -105,11 +106,11 @@ rule star_mapping:
         " --outFilterType BySJout"
         " --outSAMtype BAM SortedByCoordinate"
         " --quantMode TranscriptomeSAM GeneCounts"
-        " --max-frag-multihits 1"
+        " --outSAMmapqUnique 50"
         " --outSAMattributes NH HI AS nM NM MD"
         " --outBAMsortingThreadN {threads}"
+        " --outSAMstrandField intronMotif"
         " --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
-        " --outFilterMultimapNmax 1"
         " --outFilterMultimapNmax 1"
         " --outFilterMismatchNmax 999"
         " --outFilterMismatchNoverLmax 0.04"
