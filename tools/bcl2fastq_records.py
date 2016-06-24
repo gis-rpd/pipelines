@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Retrieves runcomplete records in MongoDB with key parameters
+"""
+Retrieves runcomplete records in MongoDB with user-specified parameters for filtering.
+Unless specified by -w or --win, only the 7 most recent days of records are retrieved.
 """
 
-# standard library imports
+#--- standard library imports
 #
 from argparse import ArgumentParser
 import os
 from pprint import PrettyPrinter
 import sys
 
-# third party imports
-#
+#--- third-party imports
 #/
 
 #--- project specific imports
@@ -32,21 +33,31 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-def instantiate_args(winsize):
+def instantiate_args():
+    """
+    Instantiates argparse object
+    """
     instance = ArgumentParser(description=__doc__)
     instance.add_argument("-t", "--testing", action="store_true", help="use MongoDB test-server")
-    instance.add_argument("-s", "--status", help="filter records by analysis status (STARTED/FAILED/SUCCESS)")
-    instance.add_argument("-m", '--mux', help="filter records by mux_id")
-    instance.add_argument("-r", '--run', help="filter records by run")
-    instance.add_argument("-w", '--win', type=int, default=winsize, help="filter records up to given number of day(s) ago (default: {})".format(winsize))
+    instance.add_argument(
+        "-s", "--status", help="filter records by analysis status (STARTED/FAILED/SUCCESS)")
+    instance.add_argument("-m", "--mux", help="filter records by mux_id")
+    instance.add_argument("-r", "--run", help="filter records by run")
+    instance.add_argument("-w", "--win", type=int, help="filter records up to specified day(s) ago")
     return instance.parse_args()
 
 
 def instantiate_mongo(testing):
+    """
+    Instantiates MongoDB database object
+    """
     return mongodb_conn(testing).gisds.runcomplete
 
 
 def instantiate_query(args):
+    """
+    Instantiates MongoDB query dictionary object
+    """
     instance = {}
     if args.status:
         instance["analysis.Status"] = args.status
@@ -56,13 +67,17 @@ def instantiate_query(args):
         instance["run"] = args.run
     if args.win:
         epoch_present, epoch_initial = generate_window(args.win)
-        instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
+    else:
+        epoch_present, epoch_initial = generate_window(7)
+    instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
     return instance
 
 
 def main():
-    """main function"""
-    args = instantiate_args(7)
+    """
+    Main function
+    """
+    args = instantiate_args()
     mongo = instantiate_mongo(args.testing)
     query = instantiate_query(args)
 
