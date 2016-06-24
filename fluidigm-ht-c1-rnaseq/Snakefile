@@ -22,7 +22,6 @@ RESULT_OUTDIR = './out'
 SAMPLE_MERGE_OUTDIR = os.path.join(RESULT_OUTDIR, 'merged')
 FDEMUX_OUTDIR = os.path.join(RESULT_OUTDIR, 'fdemux')
 
-
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
@@ -31,12 +30,17 @@ shell.prefix("source rc/snakemake_env.rc;")
 assert len(config['samples'])==1
 # include: "../rules/logging.rules"
 
+
+GENOME_BASENAME = os.path.splitext(os.path.basename(config['references']['genome']))[0]
     
+
 rule final:
     input:
-        clipped_fastqs=expand('{dir}/{sample}_ROW{row}_merged_R2.trimmed.fastq.gz',
-               dir=FDEMUX_OUTDIR,
-               sample=config['samples'], row=["{:02d}".format(x) for x in range(1, 41)]),
+        expand('{dir}/{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam',
+               dir=RESULT_OUTDIR,
+               genome=GENOME_BASENAME,
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, 41)]),
         report="report.html"
 
 
@@ -69,6 +73,57 @@ Version Info
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch to have at least something
 
+
+rule star_mapping:
+    input:
+        r2 = expand("{fdemux_outdir}/{{sample}}_ROW{{row}}_merged_R2.trimmed.fastq.gz", 
+            fdemux_outdir=FDEMUX_OUTDIR),
+        staridx = config['references']['staridx']
+    output:
+        bam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam",
+        transbam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
+        counts = "{dir}/{sample}_ROW{row}_{genome}_ReadsPerGene.out.tab",
+        wig = "{dir}/{sample}_ROW{row}_{genome}_Signal.Unique.str1.out.wig",
+    #log:
+    params:
+        rg_id="FIXME-RG",
+        lib_id="FIXME-libid",
+        pu_id="FIXME-pu",
+        sample=lambda wc: wc.sample + "-ROW" + wc.row,
+        commentsheader=lambda wc: wc.dir + "/commentsheader.txt"
+    #message:
+    threads: 16# FIXME need optimization
+    shell:
+        "echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > {params.commentsheader};"
+        " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
+        " STAR --genomeDir {input.staridx}"
+        " --outSAMattrRGline 'ID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
+        " --outSAMheaderCommentFile {params.commentsheader}"
+        " --runThreadN {threads}"
+        " --genomeLoad LoadAndKeep"
+        " --readFilesCommand zcat"
+        " --outFilterType BySJout"
+        " --outSAMtype BAM SortedByCoordinate"
+        " --quantMode TranscriptomeSAM GeneCounts"
+        " --max-frag-multihits 1"
+        " --outSAMattributes NH HI AS nM NM MD"
+        " --outBAMsortingThreadN {threads}"
+        " --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
+        " --outFilterMultimapNmax 1"
+        " --outFilterMultimapNmax 1"
+        " --outFilterMismatchNmax 999"
+        " --outFilterMismatchNoverLmax 0.04"
+        " --outFilterIntronMotifs RemoveNoncanonical"
+        " --alignEndsType EndToEnd"
+        " --alignSJoverhangMin 8"
+        " --alignSJDBoverhangMin 1"
+        " --alignIntronMin 20"
+        " --alignIntronMax 1000000"
+        " --alignMatesGapMax 1000000"
+        " --limitBAMsortRAM 20016346648"
+        " --outFileNamePrefix $outpref"
+        " --readFilesIn {input.r2};"
+        " STAR --genomeDir {input.staridx} --genomeLoad Remove;"
 
 
 rule trimming:
