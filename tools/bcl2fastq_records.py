@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Pretty print all MongoDB (runcomplete) entries
+"""Retrieves runcomplete records in MongoDB with key parameters
 """
 
 # standard library imports
 #
-import sys
+from argparse import ArgumentParser
 import os
-import pprint
-import argparse
+from pprint import PrettyPrinter
+import sys
 
 # third party imports
 #
@@ -32,39 +32,42 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
+def instantiate_args(winsize):
+    instance = ArgumentParser(description=__doc__)
+    instance.add_argument("-t", "--testing", action="store_true", help="use MongoDB test-server")
+    instance.add_argument("-s", "--status", help="filter records by analysis status (STARTED/FAILED/SUCCESS)")
+    instance.add_argument("-m", '--mux', help="filter records by mux_id")
+    instance.add_argument("-r", '--run', help="filter records by run")
+    instance.add_argument("-w", '--win', type=int, default=winsize, help="filter records up to given number of day(s) ago (default: {})".format(winsize))
+    return instance.parse_args()
+
+
+def instantiate_mongo(testing):
+    return mongodb_conn(testing).gisds.runcomplete
+
+
+def instantiate_query(args):
+    instance = {}
+    if args.status:
+        instance["analysis.Status"] = args.status
+    if args.mux:
+        instance["analysis.per_mux_status.mux_id"] = args.mux
+    if args.run:
+        instance["run"] = args.run
+    if args.win:
+        epoch_present, epoch_initial = generate_window(args.win)
+        instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
+    return instance
+
+
 def main():
     """main function"""
+    args = instantiate_args(7)
+    mongo = instantiate_mongo(args.testing)
+    query = instantiate_query(args)
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-t', "--testing", action='store_true',
-                        help="Use MongoDB test-server")
-    parser.add_argument('-s', "--status", 
-                        help="Limit to analysis records with this status (e.g. STARTED, FAILED, SUCCESS")
-    default = 7
-    parser.add_argument('-w', '--win', type=int, default=default,
-                        help="Number of days to look back (default {})".format(default))
-    parser.add_argument('-r', '--run', type=str, help="Search records by run")
-    parser.add_argument('-m', '--mux', type=str, help="Search records by mux_id")
-    args = parser.parse_args()
-
-    pp = pprint.PrettyPrinter(indent=2)
-
-    connection = mongodb_conn(args.testing)
-    db = connection.gisds.runcomplete
-    epoch_present, epoch_back = generate_window(args.win)
-'''    
-    if args.status:
-        results = db.find({"analysis.Status": args.status,
-            "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
-    else:
-        results = db.find({"timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
-'''
-    if args.run:
-        results = db.find({"run": args.run})
-
-    for record in results:
-        pp.pprint(record)
-
+    for record in mongo.find(query):
+        PrettyPrinter(indent=2).pprint(record)
 
 if __name__ == "__main__":
     main()
