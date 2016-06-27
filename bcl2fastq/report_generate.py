@@ -79,7 +79,6 @@ def main():
         sys.exit(1)
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
-    print(epoch_present, epoch_back)
     results = db.find({"timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     runs = {}
     extra_text = ""
@@ -157,7 +156,7 @@ def main():
         print("Skipping sending of email with subject '{}' and following body:".format(subject))
         print(extra_text)
     else:
-        send_mail('Report generation for bcl2fastq', subject, extra_text)
+        send_mail(subject, extra_text)
     logger.info("Report generation is completed")
 
 
