@@ -470,7 +470,10 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
         status_str = "failed"
         body = "Pipeline {} {} for {}".format(pipeline_name, status_str, analysis_id)
         # FIXME ugly inference of log folder
-        logdir = os.path.normpath(os.path.join(outdir, "..", 'logs'))
+        if pipeline_name == "Mapping":
+            logdir = outdir
+        else:
+            logdir = os.path.normpath(os.path.join(outdir, "..", 'logs'))
         body += "\nSorry about this. Please check log files in {}".format(logdir)
     if extra_text:
         body = body + "\n" + extra_text + "\n"
