@@ -13,6 +13,8 @@ import sys
 
 #--- third-party imports
 #/
+from flask import Flask, Markup, request, render_template
+app = Flask(__name__)
 
 #--- project specific imports
 #
@@ -38,6 +40,7 @@ def instantiate_args():
     Instantiates argparse object
     """
     instance = ArgumentParser(description=__doc__)
+    instance.add_argument("-f", "--flask", action="store_true", help="use web server")
     instance.add_argument("-t", "--testing", action="store_true", help="use MongoDB test-server")
     instance.add_argument(
         "-s", "--status", help="filter records by analysis status (STARTED/FAILED/SUCCESS)")
@@ -73,16 +76,49 @@ def instantiate_query(args):
     return instance
 
 
+@app.route('/')
+def form():
+    return render_template("index.html")
+
+
+@app.route('/', methods=['POST'])
+def form_post():
+    mongo = instantiate_mongo(True)
+    instance = {}
+    instance[request.form['text'].split(" ")[0]] = request.form['text'].split(" ")[1]
+    epoch_present, epoch_initial = generate_window(365)
+    instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
+
+    result = ""
+    for record in mongo.find(instance):
+        result += "<tr>"
+#        result += ("<td>" + str(record["analysis.Status"]) + "</td>")
+#        result += ("<td>" + str(record["analysis.per_mux_status.mux_id"]) + "</td>")
+        result += ("<td>" + str(record["run"]) + "</td>")
+        result += ("<td>" + str(record["timestamp"]) + "</td>")
+        result += "</tr>"
+    
+    return render_template("index.html", result=Markup(result))
+
+
 def main():
     """
     Main function
+    export FLASK_APP=bcl2fastq_records.py
+    flask run --host=0.0.0.0
     """
     args = instantiate_args()
     mongo = instantiate_mongo(args.testing)
     query = instantiate_query(args)
 
-    for record in mongo.find(query):
-        PrettyPrinter(indent=2).pprint(record)
+    if args.flask:
+        os.environ["FLASK_APP"] = os.path.basename(__file__)
+        os.system("flask run --host=0.0.0.0")
+        app.run()
+    else:
+        for record in mongo.find(query):
+            PrettyPrinter(indent=2).pprint(record)
 
 if __name__ == "__main__":
+#    app.run(debug=True)
     main()
