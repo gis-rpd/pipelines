@@ -117,7 +117,6 @@ rule cuffdiff:
         ref = config['references']['genome']
     output:
         matrix = "{dir}/{sample}_ROW{row}_{genome}_genes_FPKM_Rawreadcount_GIS.txt",
-        #fpkm = "{dir}/{sample}_ROW{row}_{genome}_cuffdiffcomplete.OK"
     message: "Running cuffdiff"
     params:
         biascorr = "--frag-bias-correct",
@@ -128,7 +127,7 @@ rule cuffdiff:
     #run:
     shell:
         " outprefix=`dirname {output.matrix}`; "
-        " cuffdiff --quiet"
+        " /mnt/AnalysisPool/libraries/tools/cufflinks2/cufflinks-2.2.1.Linux_x86_64/cuffdiff -p {threads} --quiet"
         " --no-update-check"
         " --dispersion-method blind"
         " --library-norm-method classic-fpkm"
