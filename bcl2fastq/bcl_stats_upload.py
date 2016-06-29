@@ -14,6 +14,15 @@ import json
 import yaml
 import requests
 
+#--- project specific imports
+#
+# add lib dir for this pipeline installation to PYTHONPATH
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from rest import rest_services
+
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
@@ -27,7 +36,6 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-
 def main():
     """main function"""
 
@@ -36,7 +44,23 @@ def main():
     parser.add_argument("-m", "--mux_id", required=True, help="mux_id")
     parser.add_argument('-t', "--test_server", action='store_true',
                         help="Use test-server for stats uploading")
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                        help="Decrease verbosity")
     args = parser.parse_args()
+
+    # Repeateable -v and -q for setting logging level.
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no logging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+
     if not os.path.exists(args.out_dir):
         logger.fatal("out_dir %s does not exist", args.out_dir)
         sys.exit(1)
@@ -48,12 +72,11 @@ def main():
         logger.fatal("conf info '%s' does not exist under Run directory.\n", confinfo)
         sys.exit(1)
     if args.test_server:
-        rest_url = "http://dlap54v:8058/gisanalysis/rest/resource/submit/new/stats"
+        rest_url = rest_services['stats_upload']['testing']
         logger.info("send status to development server")
     else:
-        rest_url = "http://plap12v:8080/gisanalysis/rest/resource/submit/new/stats"
+        rest_url = rest_services['stats_upload']['production']
         logger.info("send status to production server")
-
 
     with open(confinfo) as fh_cfg:
         yaml_data = yaml.safe_load(fh_cfg)

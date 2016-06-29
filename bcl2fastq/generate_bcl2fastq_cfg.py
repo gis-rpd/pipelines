@@ -9,11 +9,11 @@ import logging
 import argparse
 from collections import namedtuple
 import xml.etree.ElementTree as ET
-
+from string import Template
 #--- third-party imports
 #
-import yaml
 import requests
+import yaml
 
 #--- project specific imports
 #
@@ -22,7 +22,9 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
+from rest import rest_services
 from pipelines import get_machine_run_flowcell_id
+
 # WARNING changes here, must be reflected in bcl2fastq.py as well
 MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids',
                                  'mux_dir', 'barcode_mismatches', 'requestor'])
@@ -47,7 +49,8 @@ USEBASES_CFG = "usebases.yaml"
 MUXINFO_CFG = "muxinfo.yaml"
 DEFAULT_BARCODE_MISMATCHES = None
 
-SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
+SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,' \
+    'Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
 
 
 def getdirs(args):
@@ -83,7 +86,6 @@ def generate_usebases(barcode_lens, runinfo):
         # v is list of barcode_len tuples
         assert len(set(v)) == 1, ("Different barcode length in lane {}".format(k))
         bc1, bc2 = v[0]# since all v's are the same
-
         ub = ""
         #if test:
         for read in root.iter('Read'):
@@ -110,7 +112,6 @@ def main():
     """
     The main function
     """
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--force-overwrite",
                         action="store_true",
@@ -119,6 +120,7 @@ def main():
                         dest="rundir",
                         required=True,
                         help="rundir, e.g. /mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX")
+    parser.add_argument('-t', "--test_server", action='store_true')
     parser.add_argument("-o", "--outdir",
                         required=True,
                         dest="outdir",
@@ -151,11 +153,13 @@ def main():
 
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
     logger.info("Querying ELM for %s", run_num)
-    # production url
-    rest_url = 'http://plap18v.gis.a-star.edu.sg:8080/rest/seqrun/illumina/' + run_num + '/detailanalysis/json'
-    # FIXME create option
-    # development url (prone to change soon 2016-05-12)
-    #rest_url = 'http://qldb01:8180/rest/seqrun/illumina/'+ run_num + '/detailanalysis/json' 
+
+    if args.test_server:
+        rest_url = rest_services['run_details']['testing'].replace("run_num", run_num)
+        logger.info("development server")
+    else:
+        rest_url = rest_services['run_details']['production'].replace("run_num", run_num)
+        logger.info("production server")
     response = requests.get(rest_url)
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
@@ -197,32 +201,40 @@ def main():
                     if "-" in child['barcode']:
                         # dual index
                         index = child['barcode'].split('-')
-                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,,'+ index[0] +',,'+ index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
+                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+ \
+                            child['libraryId']+'-'+child['barcode']+',,,,'+ index[0] +',,'+ \
+                            index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
                         index_lens = (len((index[0])), len((index[1])))
                     else:
-                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+child['libraryId']+'-'+child['barcode']+',,,,'+child['barcode']+',,,'+'Project_'+rows['libraryId']+','+child['libtech']
+                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+ \
+                            child['libraryId']+'-'+child['barcode']+',,,,'+child['barcode']+',,,'\
+                            +'Project_'+rows['libraryId']+','+child['libtech']
                         index_lens = (len(child['barcode']), -1)
 
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     fh_out.write(sample+ '\n')
 
             else:# non-multiplexed
-                sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+'-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
+                sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+ \
+                    '-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
                 index_lens = (-1, -1)
                 barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                 fh_out.write(sample + '\n')
 
-            #Barcode mismatch has to be the same for all the libraries in one MUX. Otherwise default mismatch value to be used
+            #Barcode mismatch has to be the same for all the libraries in one MUX.
+            #Otherwise default mismatch value to be used
             if len(set(BCL_Mismatch)) == 1:
                 barcode_mismatches = BCL_Mismatch[0]
             else:
                 barcode_mismatches = DEFAULT_BARCODE_MISMATCHES
-            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], 'Project_' + rows['libraryId'], barcode_mismatches, requestor])
+            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], \
+                'Project_'+ rows['libraryId'], barcode_mismatches, requestor])
             # merge lane into existing mux if needed
             if mu.mux_id in mux_units:
                 mu_orig = mux_units[mu.mux_id]
                 assert mu.barcode_mismatches == mu_orig.barcode_mismatches
-                assert len(mu.lane_ids) == 1# is a list by design but just one element. otherwise below fails
+                assert len(mu.lane_ids) == 1# is a list by design but just one element.
+                #otherwise below fails
                 lane_ids = mu_orig.lane_ids.extend(mu.lane_ids)
                 mu_orig = mu_orig._replace(lane_ids=lane_ids)
             else:
@@ -235,7 +247,8 @@ def main():
 
     logger.info("Writing to %s", muxinfo_cfg)
     with open(muxinfo_cfg, 'w') as fh:
-        fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], default_flow_style=True))
+        fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], \
+            default_flow_style=True))
 
 if __name__ == "__main__":
     main()
