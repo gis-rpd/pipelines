@@ -76,6 +76,17 @@ def instantiate_query(args):
     return instance
 
 
+def merge_cells(parent_key, child_key, record):
+    result = "<td>"
+    if parent_key in record:
+        for key in record[parent_key]:
+            if child_key in key:
+                result += str(key[child_key])
+            result += "<br/>"
+    result += "</td>"
+    return result
+
+
 @app.route('/')
 @app.route('/', methods=['POST'])
 def form_post():
@@ -88,12 +99,37 @@ def form_post():
     result = ""
     for record in mongo.find(instance):
         result += "<tr>"
-#        result += ("<td>" + str(record["analysis.Status"]) + "</td>")
-#        result += ("<td>" + str(record["analysis.per_mux_status.mux_id"]) + "</td>")
         result += ("<td>" + str(record["run"]) + "</td>")
         result += ("<td>" + str(record["timestamp"]) + "</td>")
+
+        result += merge_cells("analysis", "analysis_id", record)
+        result += merge_cells("analysis", "end_time", record)
+        result += merge_cells("analysis", "out_dir", record)
+
+        result += "<td>"
+        if "analysis" in record:
+            for key in record["analysis"]:
+                if "user_name" in key:
+                    result += str(key["user_name"])
+                if "userName" in key:
+                    result += str(key["userName"])
+                result += "<br/>"
+        result += "</td>"
+
+        result += "<td>"
+        if "analysis" in record:
+            for analysis_set in record["analysis"]:
+                
+                if "per_mux_status" in analysis_set:
+                    for mux_set in analysis_set["per_mux_status"]:
+                        if mux_set is not None:
+                            if "mux_id" in mux_set:
+                                result += str(mux_set["mux_id"])
+                                result += "<br/>"
+        result += "</td>"
+
         result += "</tr>"
-    
+
     return render_template("index.html", result=Markup(result))
 
 
