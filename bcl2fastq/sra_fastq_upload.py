@@ -27,10 +27,11 @@ __license__ = "The MIT License (MIT)"
 
 
 # global logger
-# http://docs.python.org/library/logging.html
-LOG = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO,
-                    format='[%(asctime)s] %(levelname)s %(filename)s: %(message)s')
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
+logger.addHandler(handler)
 
 def main():
     """main function"""
@@ -39,21 +40,37 @@ def main():
     parser.add_argument("-m", "--mux_id", required=True, help="mux_id")
     parser.add_argument('-t', "--test_server", action='store_true', help="Use STATS uploading to"\
         "test-server here and when calling bcl2fastq wrapper (-t)")
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                        help="Decrease verbosity")
     args = parser.parse_args()
+    
+    # Repeateable -v and -q for setting logging level.
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no loggerging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+
     if not os.path.exists(args.out_dir):
-        LOG.fatal("out_dir %s does not exist", args.out_dir)
+        logger.fatal("out_dir %s does not exist", args.out_dir)
         sys.exit(1)
-    LOG.info("out_dir is %s", args.out_dir)
+    logger.info("out_dir is %s", args.out_dir)
     confinfo = os.path.join(args.out_dir + '/conf.yaml')
     if not os.path.exists(confinfo):
-        LOG.fatal("conf info '%s' does not exist under Run directory.\n", confinfo)
+        logger.fatal("conf info '%s' does not exist under Run directory.\n", confinfo)
         sys.exit(1)
     if args.test_server:
         rest_url = rest_services['sra_upload']['testing']
-        LOG.info("send status to development server")
+        logger.info("send status to development server")
     else:
         rest_url = rest_services['sra_upload']['production']
-        LOG.info("send status to production server")
+        logger.info("send status to production server")
     email = "rpd@gis.a-star.edu.sg"
     with open(confinfo) as fh_cfg:
         yaml_data = yaml.safe_load(fh_cfg)
@@ -61,7 +78,7 @@ def main():
         run_num = yaml_data["run_num"]
         assert "units" in yaml_data
         if not "Project_"+args.mux_id in yaml_data["units"]:
-            LOG.fatal("mux_id %s does not exist in conf.yaml under %s", \
+            logger.fatal("mux_id %s does not exist in conf.yaml under %s", \
                 args.mux_id, args.out_dir)
             sys.exit(1)
         for k, v in yaml_data["units"].items():
@@ -73,7 +90,7 @@ def main():
                 mux_id = v.get('mux_id')
                 bcl_success = os.path.join(args.out_dir, "out", mux_dir, "bcl2fastq.SUCCESS")
                 if os.path.exists(bcl_success):
-                    LOG.info("Bcl2fastq completed for %s hence Upload the STATs", mux_dir)
+                    logger.info("Bcl2fastq completed for %s hence Upload the STATs", mux_dir)
                     for child in os.listdir(os.path.join(args.out_dir, "out", mux_dir)):
                         if child.startswith('Sample'):
                             sample_path = os.path.join(args.out_dir, "out", mux_dir, child)
@@ -95,21 +112,21 @@ def main():
                                 response = requests.post(rest_url, data=data_json, headers=headers)
                                 print(response.status_code)
                                 if response.status_code == requests.codes.ok:
-                                    LOG.info("Uploading %s completed successfully", \
+                                    logger.info("Uploading %s completed successfully", \
                                         sample_path)
-                                    LOG.info("JSON request was %s", data_json)
-                                    LOG.info("Response was %s", response.status_code)
+                                    logger.info("JSON request was %s", data_json)
+                                    logger.info("Response was %s", response.status_code)
                                 else:
-                                    LOG.error("Uploading %s completed failed", sample_path)
+                                    logger.error("Uploading %s completed failed", sample_path)
                                     sys.exit(1)
                             else:
-                                LOG.error("There are no fastq file genereated for %s", \
+                                logger.error("There are no fastq file genereated for %s", \
                                     child)
                 else:
-                    LOG.info("Bcl2fastq is not completed for %s", mux_dir)
+                    logger.info("Bcl2fastq is not completed for %s", mux_dir)
                     sys.exit(1)
 
 if __name__ == "__main__":
-    LOG.info("STATS update starting")
+    logger.info("STATS update starting")
     main()
-    LOG.info("Successful program exit")
+    logger.info("Successful program exit")

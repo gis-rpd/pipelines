@@ -36,38 +36,31 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-
 def main():
     """main function"""
-<<<<<<< HEAD
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-o", "--out_dir", required=True, help="out_dir")
-    parser.add_argument("-m", "--mux_id", required=True, help="mux_id")
-    parser.add_argument('-t', "--test_server", action='store_true', \
-        help="Use STATS uploading to test-server here and when calling bcl2fastq wrapper (-t)")
-    args = parser.parse_args()
-    if not os.path.exists(args.out_dir):
-        LOG.fatal("out_dir %s does not exist", args.out_dir)
-        sys.exit(1)
-    LOG.info("out_dir is %s", args.out_dir)
-    confinfo = os.path.join(args.out_dir + '/conf.yaml')
-    if not os.path.exists(confinfo):
-        LOG.fatal("conf info '%s' does not exist under Run directory.\n", confinfo)
-        sys.exit(1)
-    if args.test_server:
-        rest_url = rest_services['stats_upload']['testing']
-        LOG.info("send status to development server")
-    else:
-        rest_url = rest_services['stats_upload']['production']
-        LOG.info("send status to production server")
-=======
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--out_dir", required=True, help="out_dir")
     parser.add_argument("-m", "--mux_id", required=True, help="mux_id")
     parser.add_argument('-t', "--test_server", action='store_true',
                         help="Use test-server for stats uploading")
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                        help="Decrease verbosity")
     args = parser.parse_args()
+
+    # Repeateable -v and -q for setting logging level.
+    # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
+    # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
+    # script -vv -> DEBUG
+    # script -v -> INFO
+    # script -> WARNING
+    # script -q -> ERROR
+    # script -qq -> CRITICAL
+    # script -qqq -> no logging at all
+    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+
     if not os.path.exists(args.out_dir):
         logger.fatal("out_dir %s does not exist", args.out_dir)
         sys.exit(1)
@@ -79,13 +72,11 @@ def main():
         logger.fatal("conf info '%s' does not exist under Run directory.\n", confinfo)
         sys.exit(1)
     if args.test_server:
-        rest_url = "http://dlap54v:8058/gisanalysis/rest/resource/submit/new/stats"
+        rest_url = rest_services['stats_upload']['testing']
         logger.info("send status to development server")
     else:
-        rest_url = "http://plap12v:8080/gisanalysis/rest/resource/submit/new/stats"
+        rest_url = rest_services['stats_upload']['production']
         logger.info("send status to production server")
-
->>>>>>> d4d761c9591fd4b0c6f2a0863be6345b9d6e6176
 
     with open(confinfo) as fh_cfg:
         yaml_data = yaml.safe_load(fh_cfg)
@@ -94,43 +85,25 @@ def main():
         assert "modules" in yaml_data
         soft_ver = yaml_data["modules"].get('bcl2fastq')
         if not soft_ver:
-<<<<<<< HEAD
-            LOG.fatal("bclpath software version %s does not exist", soft_ver)
-            sys.exit(1)
-        assert "units" in yaml_data
-        if not "Project_"+args.mux_id in yaml_data["units"]:
-            LOG.fatal("mux_id %s does not exist in conf.yaml under %s", \
-                args.mux_id, args.out_dir)
-=======
             logger.fatal("bclpath software version %s does not exist", soft_ver)
             sys.exit(1)
         assert "units" in yaml_data
         if not "Project_" + args.mux_id in yaml_data["units"]:
             logger.fatal("mux_id %s does not exist in conf.yaml under %s",
                          args.mux_id, args.out_dir)
->>>>>>> d4d761c9591fd4b0c6f2a0863be6345b9d6e6176
             sys.exit(1)
 
         for k, v in yaml_data["units"].items():
             if k == "Project_{}".format(args.mux_id):
                 data = {}
                 mux_dir = v.get('mux_dir')
-<<<<<<< HEAD
-                index_html_path = glob.glob(os.path.join(args.out_dir, "out", \
-                    mux_dir, "html/*/all/all/all/lane.html"))
-=======
                 index_html_path = glob.glob(
                     os.path.join(args.out_dir, "out",
                                  mux_dir, "html/*/all/all/all/lane.html"))
->>>>>>> d4d761c9591fd4b0c6f2a0863be6345b9d6e6176
                 index_html = index_html_path[0]
                 # FIXME should use the snakemake trigger to decide if complete
                 if os.path.exists(index_html):
-<<<<<<< HEAD
-                    LOG.info("Bcl2fastq completed for %s hence Upload the STATs", mux_dir)
-=======
                     logger.info("Uploading stats for completed bcl2fastq %s", mux_dir)
->>>>>>> d4d761c9591fd4b0c6f2a0863be6345b9d6e6176
                     data['path'] = index_html
                     data['software'] = soft_ver
                     data['runid'] = run_num
@@ -138,20 +111,6 @@ def main():
                     data_json = test_json.replace("\\", "")
                     headers = {'content-type': 'application/json'}
                     response = requests.post(rest_url, data=data_json, headers=headers)
-<<<<<<< HEAD
-                    ### Response Code is 201 for STATs posting
-                    if response.status_code == 201:
-                        LOG.info("Uploading %s completed successfully", index_html)
-                        LOG.info("JSON request was %s", data_json)
-                        LOG.info("Response was %s", response.status_code)
-                    else:
-                        LOG.error("Uploading %s failed", index_html)
-                        sys.exit(1)
-                else:
-                    LOG.info("Bcl2fastq not completed for %s hence Skip..."\
-                    "Uploading the STATs", mux_dir)
-                    sys.exit(1)
-=======
                     # Response Code is 201 for STATs posting
                     if response.status_code == 201:
                         logger.info("Uploading %s completed successfully", index_html)
@@ -165,7 +124,6 @@ def main():
 
 
 
->>>>>>> d4d761c9591fd4b0c6f2a0863be6345b9d6e6176
 if __name__ == "__main__":
     logger.info("Stats update starting")
     main()
