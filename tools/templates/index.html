@@ -4,40 +4,43 @@
 		<meta charset="utf-8">
 	    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 	    <meta http-equiv="x-ua-compatible" content="ie=edge">
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.2/css/bootstrap.min.css" integrity="sha384-y3tfxAZXuh4HwSYylfB+J125MxIs6mR5FOHamPBG064zB+AFeWH94NdvaCBm8qnd" crossorigin="anonymous">
+
+		<link href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet" />
+		<link href="https://cdn.datatables.net/plug-ins/1.10.7/integration/bootstrap/3/dataTables.bootstrap.css" rel="stylesheet" />
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+		<script src="https://cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
+		<script src="https://cdn.datatables.net/plug-ins/1.10.7/integration/bootstrap/3/dataTables.bootstrap.js"></script>
+		<script>
+			$(document).ready(function() {
+				$("table").dataTable();
+			});
+		</script>
+
 	</head>
 	<body>
-		<div class="container">
-			<div class="container-fluid">
-				<nav class="navbar navbar-light bg-faded">
-					<div class="container">
-						<a class="navbar-brand" href="#">bcl2fastq</a>
-					    <form class="form-inline pull-xs-right" action="." method="POST">
-					        <input class="form-control" placeholder="Keywords" type="text" name="text">
-					        <input class="btn btn-primary-outline" type="submit" name="submit" value="Filter">
-					    </form>
-					</div>
-			    </nav>
-			</div>
-		    <div class="container-fluid">
-		        <table class="table table-bordered table-hover">
-	    			<thead>
-			            <tr>
-			                <th>RUN</th>
-			                <th>TIMESTAMP</th>
-			            </tr>
-	    			</thead>
-	    			<tbody>
-						{% if result %}
-							{{ result }}
-						{% else %}
-							
-						{% endif %}
-					</tbody>
-				</table>
+		<div class="panel-group">
+			<div class="panel panel-default">
+				<div class="panel-heading">bcl2fastq</div>
+				<div class="panel-body">
+			        <table class="table table-bordered table-hover table-fixed">
+		    			<thead>
+				            <tr>
+				                <th>RUN</th>
+				                <th>TIMESTAMP</th>
+				            </tr>
+		    			</thead>
+		    			<tbody>
+							{% if result %}
+								{{ result }}
+							{% else %}
+								<script>
+									alert("No data available in table")
+								</script>
+							{% endif %}
+						</tbody>
+					</table>
+				</div>
 			</div>
 		</div>
-		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
-		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.2/js/bootstrap.min.js" integrity="sha384-vZ2WRJMwsjRMW/8U7i6PWi6AlO1L79snBrmgiDpgIWJ82z8eA5lenwvxbMV1PAh7" crossorigin="anonymous"></script>
 	</body>
 </html>

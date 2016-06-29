@@ -77,15 +77,11 @@ def instantiate_query(args):
 
 
 @app.route('/')
-def form():
-    return render_template("index.html")
-
-
 @app.route('/', methods=['POST'])
 def form_post():
     mongo = instantiate_mongo(True)
     instance = {}
-    instance[request.form['text'].split(" ")[0]] = request.form['text'].split(" ")[1]
+#    instance[request.form['text'].split(" ")[0]] = request.form['text'].split(" ")[1]
     epoch_present, epoch_initial = generate_window(365)
     instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
 
