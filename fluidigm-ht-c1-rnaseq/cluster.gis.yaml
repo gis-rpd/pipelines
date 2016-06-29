@@ -1,0 +1,18 @@
+# FIXME needs tweaking
+{
+    # default rules applied to all rules, but overriden by rule-specific settings
+    "__default__":
+    {
+      "time" : "01:00:00",
+      # saw >16GB for maps_mdups at NSCC
+      "mem" : 8G,
+    },
+
+    "star_mapping":
+    {
+      "time" : "01:00:00",
+      "mem" : 42G,
+    },
+}    
+
+

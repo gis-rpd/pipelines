@@ -1,0 +1,34 @@
+{
+
+references: {
+  #genome: /mnt/AnalysisPool/libraries/genomes/mm9/mm9.fa,
+  #staridx: /mnt/AnalysisPool/libraries/genomes/mm9/star/,
+  #rsemidx: /mnt/AnalysisPool/libraries/genomes/mm9/RSEM_index/RSEMtr_mm9,
+  #gtfsourcefile: /mnt/AnalysisPool/libraries/genomes/mm9/gtf/mm9_annotation.gtf,
+  #gtfmaskfile: /mnt/AnalysisPool/libraries/genomes/mm9/gtf/mm9_annotation_maskfile.gtf,
+  #rnaseqc_annotation: /mnt/AnalysisPool/libraries/genomes/mm9/gtf/mm9_RNASeqQCannotation.gtf,
+  #dexseqgff: /mnt/AnalysisPool/libraries/genomes/mm9/gtf/mm9_annotationdexseq.gff,
+
+  # FIXME needs equivalents incl docu how to produce/download them in /mnt/projects/rpd/genomes.testing etc
+  genome : /mnt/AnalysisPool/libraries/genomes/human_g1k_v37/human_g1k_v37.fa,
+  staridx : /mnt/AnalysisPool/libraries/genomes/human_g1k_v37/star/,
+  rsemidx : /mnt/AnalysisPool/libraries/genomes/human_g1k_v37/RSEM_index/RSEMtr_human_g1k_v37,
+  gtfsourcefile : /mnt/AnalysisPool/libraries/genomes/human_g1k_v37/gtf/human_g1k_v37_annotation.gtf,
+  gtfmaskfile : /mnt/AnalysisPool/libraries/genomes/human_g1k_v37/gtf/human_g1k_v37_annotation_maskfile.gtf,
+  rnaseqc_annotation : /mnt/AnalysisPool/libraries/genomes/human_g1k_v37/gtf/human_g1k_v37_RNASeqQCannotation.gtf,
+  },
+  
+  modules: {
+    # name : version
+    samtools : 1.3,
+    mrnaseqht-demux : ad8499f,
+    star : 2.5.2a,
+    rsem : 1.2.31,
+    rnaseqc : 1.1.8,
+    prinseq-lite : 0.20.4,
+    },
+
+    platform: Illumina
+}
+    
+    
