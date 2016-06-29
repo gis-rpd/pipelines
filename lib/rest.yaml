@@ -1,0 +1,12 @@
+run_details:
+        production: http://plap18v.gis.a-star.edu.sg:8080/rest/seqrun/illumina/run_num/detailanalysis/json
+        testing: http://qldb01.gis.a-star.edu.sg:8180/rest/seqrun/illumina/run_num/detailanalysis/json
+lib_details:
+        production: http://plap18v.gis.a-star.edu.sg:8080/rest/libinfo/lib_id/solexaRun/json
+        testing: http://qldb01.gis.a-star.edu.sg:8180/rest/libinfo/WSB100/solexaRun/json
+sra_upload:
+        production: http://plap12v.gis.a-star.edu.sg:9002/gismart/search/
+        testing: http://dlap30v.gis.a-star.edu.sg:9102/gismart/search
+stats_upload:
+        production: http://plap12v.gis.a-star.edu.sg:8080/gisanalysis/rest/resource/submit/new/stats
+        testing: http://dlap54v.gis.a-star.edu.sg:8058/gisanalysis/rest/resource/submit/new/stats

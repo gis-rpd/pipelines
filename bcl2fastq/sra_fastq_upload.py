@@ -11,6 +11,14 @@ import glob
 import requests
 import yaml
 
+#--- project specific imports
+#
+# add lib dir for this pipeline installation to PYTHONPATH
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from rest import rest_services
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -41,10 +49,10 @@ def main():
         LOG.fatal("conf info '%s' does not exist under Run directory.\n", confinfo)
         sys.exit(1)
     if args.test_server:
-        rest_url = "http://dlap30v:9102/gismart/search"
+        rest_url = rest_services['sra_upload']['testing']
         LOG.info("send status to development server")
     else:
-        rest_url = "http://plap12v:9002/gismart/search/"
+        rest_url = rest_services['sra_upload']['production']
         LOG.info("send status to production server")
     email = "rpd@gis.a-star.edu.sg"
     with open(confinfo) as fh_cfg:
