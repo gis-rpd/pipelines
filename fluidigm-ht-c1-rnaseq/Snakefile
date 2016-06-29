@@ -30,7 +30,7 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 assert len(config['samples'])==1
 # include: "../rules/logging.rules"
-
+include: "../rules/samtools.rules"
 
 GENOME_BASENAME = os.path.splitext(os.path.basename(config['references']['genome']))[0]
     
@@ -38,6 +38,26 @@ GENOME_BASENAME = os.path.splitext(os.path.basename(config['references']['genome
 rule final:
     input:
         expand('{dir}/{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam',
+               dir=RESULT_OUTDIR,
+               genome=GENOME_BASENAME,
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, 41)]),
+        expand('{dir}/{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK',
+               dir=RESULT_OUTDIR,
+               genome=GENOME_BASENAME,
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, 41)]),
+        expand('{dir}/{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results',
+               dir=RESULT_OUTDIR,
+               genome=GENOME_BASENAME,
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, 41)]),
+        expand('{dir}/{sample}_ROW{row}/cuffdiff/{sample}_ROW{row}_{genome}_genes_FPKM_Rawreadcount_GIS.txt',
+               dir=RESULT_OUTDIR,
+               genome=GENOME_BASENAME,
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, 41)]),
+        expand('{dir}/{sample}_ROW{row}/dexseq/{sample}_ROW{row}_{genome}_dexseq_exoncount.txt',
                dir=RESULT_OUTDIR,
                genome=GENOME_BASENAME,
                sample=config['samples'], 
@@ -74,6 +94,105 @@ Version Info
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch to have at least something
 
+rule DEXSeq:
+    input:
+        bam = expand("{dir}/{{sample}}_ROW{{row}}/star/{{sample}}_ROW{{row}}_{genome}_Aligned.sortedByCoord.out.bam",
+            dir=RESULT_OUTDIR,
+            genome=GENOME_BASENAME),
+        gff = config['references']['dexseqgff'],
+    output:
+        "{dir}/{sample}_ROW{row}_{genome}_dexseq_exoncount.txt"
+    message: "Running DEXSeq"    
+    run:
+        shell("""export PATH=$PATH:/mnt/software/bin;
+            /mnt/software/bin/python2.7 /home/userrig/pipelines_tools/DEXSeq/inst/python_scripts/dexseq_count.py -f bam -s no -r pos {input.gff} {input.bam} {output};""")
+
+rule cuffdiff:
+    input:
+        bam = expand("{dir}/{{sample}}_ROW{{row}}/star/{{sample}}_ROW{{row}}_{genome}_Aligned.sortedByCoord.out.bam",
+            dir=RESULT_OUTDIR,
+            genome=GENOME_BASENAME),
+        gtf = config['references']['gtfsourcefile'],
+        gtfmask = config['references']['gtfmaskfile'],
+        ref = config['references']['genome']
+    output:
+        matrix = "{dir}/{sample}_ROW{row}_{genome}_genes_FPKM_Rawreadcount_GIS.txt",
+    message: "Running cuffdiff"
+    params:
+        biascorr = "--frag-bias-correct",
+        mask = "--mask-file"
+    log:
+        "{dir}/{sample}_ROW{row}_{genome}_cufflinks.log"
+    threads: 18    
+    #run:
+    shell:
+        " outprefix=`dirname {output.matrix}`; "
+        " /mnt/AnalysisPool/libraries/tools/cufflinks2/cufflinks-2.2.1.Linux_x86_64/cuffdiff -p {threads} --quiet"
+        " --no-update-check"
+        " --dispersion-method blind"
+        " --library-norm-method classic-fpkm"
+        " --compatible-hits-norm"
+        " --max-bundle-frags 100000000"
+        " --library-type fr-unstranded"
+        " --max-frag-multihits 1"
+        " --no-diff {input.gtf} {params.mask} {input.gtfmask} {params.biascorr} {input.ref} {input.bam} {input.bam} --output-dir $outprefix 2>{log};"
+        "cut -f1,5,7,10 $outprefix/genes.fpkm_tracking |grep -v tracking_id |sort > $outprefix/genes.fpkm_tracking.col15710;"
+        "grep -E -w -v \"tracking_id|q2\" $outprefix/genes.read_group_tracking |cut -f1,4 |sort | cut -f1-4,6 | paste - $outprefix/genes.fpkm_tracking.col15710 | awk 'BEGIN {{ FS = \"\\t\" }} ;{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $4, $5, $2, $6}}' >{output.matrix};"
+        "sed -i '1s/^/Gene_Id\\tGene_Name\\tLocus\\tReadCount\\tFPKM\\n/' {output.matrix};"
+
+rule RSEM:
+    input:
+        bam = expand("{dir}/{{sample}}_ROW{{row}}/star/{{sample}}_ROW{{row}}_{genome}_Aligned.toTranscriptome.out.bam",
+            dir=RESULT_OUTDIR,
+            genome=GENOME_BASENAME),
+        rsemidx = config['references']['rsemidx'] + ".seq"
+    output:
+        genecount = "{dir}/{sample}_ROW{row}_{genome}_RSEM.genes.results",
+        isocount = "{dir}/{sample}_ROW{row}_{genome}_RSEM.isoforms.results",
+        gbam = "{dir}/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam",
+        wig = "{dir}/{sample}_ROW{row}_{genome}_RSEM.sorted.wig",
+        plot = "{dir}/{sample}_ROW{row}_{genome}_RSEM.pdf"
+    message: "Running RSEM"
+    params:
+        rsemidx=config['references']['rsemidx']
+    log:
+        "{dir}/{sample}_ROW{row}_{genome}_RSEM.log"
+    threads: 18    
+    #run:
+    shell:
+        " outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
+        " /home/userrig/tools/rsem-1.2.21/rsem-calculate-expression --bam"
+        " --output-genome-bam"
+        " --seed 12345"
+        " --forward-prob 0.5 {input.bam} {params.rsemidx} $outprefix 2>{log};"
+        " /home/userrig/tools/rsem-1.2.21/rsem-bam2wig {output.gbam} {output.wig} $outprefix;"
+        " export PATH=$PATH:/mnt/software/bin;"
+        " /home/userrig/tools/rsem-1.2.21/rsem-plot-model $outprefix {output.plot};"
+
+rule rnaseqQC:
+    input:
+        bam = expand("{dir}/{{sample}}_ROW{{row}}/star/{{sample}}_ROW{{row}}_{genome}_Aligned.sortedByCoord.out.bam",
+            dir=RESULT_OUTDIR,
+            genome=GENOME_BASENAME),
+        bamidx = expand("{dir}/{{sample}}_ROW{{row}}/star/{{sample}}_ROW{{row}}_{genome}_Aligned.sortedByCoord.out.bam.bai",
+            dir=RESULT_OUTDIR,
+            genome=GENOME_BASENAME),
+        rnaseqc_annotation = config['references']['rnaseqc_annotation'],
+        ref = config['references']['genome']
+    output:
+        "{dir}/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK"
+    log:
+        "{dir}/{sample}_ROW{row}_{genome}_RNASeqQC.log"    
+    params:
+        mem = "-Xmx3g",
+        sample=lambda wc: wc.sample + "-ROW" + wc.row
+    threads:
+        18
+    message: "Running RNASeqQC"            
+    shell:
+        " outprefix=`dirname {output}`; "
+        "java {params.mem} -XX:ParallelGCThreads={threads} -jar /mnt/AnalysisPool/libraries/tools/RNA-SeQC/RNA-SeQC_v1.1.7.jar -n 1000 -s \"{params.sample}|{input.bam}|RNASeqQC\" -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outprefix 2> {log};"
+        "touch {output};"
 
 rule star_mapping:
     input:
@@ -94,7 +213,7 @@ rule star_mapping:
         commentsheader=lambda wc: wc.dir + "/commentsheader.txt"
     #message:
     threads: 16# FIXME need optimization
-    shell:
+    shell:# FIXME sleep 2
         "echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > {params.commentsheader};"
         " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
         " STAR --genomeDir {input.staridx}"
