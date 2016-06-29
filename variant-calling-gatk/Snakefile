@@ -35,10 +35,15 @@ include: "gatk_hard_filter.rules"
 
 
 if config['seqtype']=='WGS':
-    FINAL_VCF = os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.indel_recal.vcf"),
+    FINAL_VCFS = [
+        os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.vcf"),
+        os.path.join(RESULT_OUTDIR, "all_genotyped.indel_recal.vcf"),
+        ]
 else:
-    FINAL_VCF = os.path.join(RESULT_OUTDIR, "all_genotyped.snp_hfilter.indel_hfilter.vcf"),
-
+    FINAL_VCFS = [
+        os.path.join(RESULT_OUTDIR, "all_genotyped.snp_hfilter.vcf"),
+        os.path.join(RESULT_OUTDIR, "all_genotyped.indel_hfilter.vcf"),
+    ]
 
 if config['seqtype'] == 'targeted':
     localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter, gatk_recalibrate_bam gatk_recalibrate_info
@@ -48,13 +53,13 @@ else:
     
 rule final:
     input:
-        vcf=FINAL_VCF,
+        FINAL_VCFS,
         report="report.html"
 
 
 rule report:
     input:
-        vcf=FINAL_VCF
+        vcfs=FINAL_VCFS
     output:
         html="report.html"
     params:

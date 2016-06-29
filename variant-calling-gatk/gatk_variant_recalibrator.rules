@@ -4,11 +4,15 @@ Based on rules/variant_calling/gatk_variant_recalibrator.rules from https://bitb
 - original license: MIT
 """
 
+import shutil
 
 assert 'references' in config
 assert 'genome' in config['references']
 
+# one line only
+RECAL_FAIL_MSG = "Variant recalibration failed (there might be a perfectly valid reason for this). Try hard filtering on the input file instead"
 
+        
 def _get_recal_params(wildcards):
     if wildcards.type == "snp":
         return (
@@ -40,16 +44,17 @@ rule gatk_variant_recalibration:
     log:
         "{prefix}.{type,(snp|indel)}.recal.log"
     params:
-        _get_recal_params,
-        config.get("params_gatk", "")
+        recal_params=_get_recal_params,
+        params_gatk=config.get("params_gatk", "")
     threads: 8
     shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+        # might fail due to lack of variants. captured with RECAL_FAIL_MSG
+        "set +e && GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T VariantRecalibrator -R {input.ref} -input {input.vcf}"
         " {params} -nt {threads} -tranche 100.0"
         " -tranche 99.9 -tranche 99.0 -tranche 90.0"
         " -recalFile {output.recal} -tranchesFile {output.tranches}"
-        " -rscriptFile {output.plotting} >& {log}"
+        " -rscriptFile {output.plotting} >& {log} || {{ echo '{RECAL_FAIL_MSG}' > {output.recal}; touch {output}; }}"
 
 
 rule gatk_apply_variant_recalibration:
@@ -66,8 +71,19 @@ rule gatk_apply_variant_recalibration:
         mode=lambda wildcards: wildcards.type.upper(),
         custom=config.get("params_gatk", "")
     threads: 8
-    shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T ApplyRecalibration -R {input.ref} -nt {threads} "
-        "-input {input.vcf} -mode {params.mode} {params.custom} "
-        "-recalFile {input.recal} --ts_filter_level 99.9 "
-        "-tranchesFile {input.tranches} -o {output} >& {log}"
+    run:
+        recal_failed = False
+        with open(input.recal) as fh:
+            for line in fh:
+                if RECAL_FAIL_MSG in line:
+                    recal_failed = True
+                    break
+            import sys; sys.stderr.write("DEBUG: Copying {} to {}\n".format(input.recal, output))
+            if recal_failed:
+                shutil.copyfile(input.recal, str(output))
+            else:
+                shell(" GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T ApplyRecalibration"
+                      " -R {input.ref} -nt {threads} -input {input.vcf}"
+                      " -mode {params.mode} {params.custom} "
+                      "-recalFile {input.recal} --ts_filter_level 99.9 "
+                      "-tranchesFile {input.tranches} -o {output} >& {log}")
