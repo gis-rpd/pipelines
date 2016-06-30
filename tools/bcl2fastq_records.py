@@ -9,6 +9,7 @@ Unless specified by -w or --win, only the 7 most recent days of records are retr
 from argparse import ArgumentParser
 import os
 from pprint import PrettyPrinter
+import subprocess
 import sys
 
 #--- third-party imports
@@ -33,6 +34,17 @@ __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
+
+
+def send_email(email, subject, message):
+    """
+    send_email("rpd@mailman.gis.a-star.edu.sg", "[RPD] " + os.path.basename(__file__), dictionary_checker())
+    """
+    subprocess.getoutput("echo '" + message + "' | mail -s '" + subject + "' " + email)
+
+
+def dictionary_checker():
+    send_email("rpd@mailman.gis.a-star.edu.sg", "[RPD] " + os.path.basename(__file__), "")
 
 
 def instantiate_args():
@@ -86,7 +98,7 @@ def merge_cells(parent_key, child_key, record):
         for key in record[parent_key]:
             if child_key in key:
                 result += str(key[child_key])
-            result += "<br/>"
+            result += "<p/>"
     result += "</td>"
     return result
 
@@ -112,6 +124,7 @@ def form_post():
         result += "<td>"
         if "analysis" in record:
             for key in record["analysis"]:
+
                 if "Status" in key:
                     if(type(key) == dict):
                         if (str(key["Status"]) == "STARTED"):
@@ -124,7 +137,9 @@ def form_post():
                             result += str(key["Status"])
 #                    if(type(key) == str):
 #                        result += key
-                result += "<br/>"        
+                result += "<p/>"
+
+
         result += "</td>"
 
         result += merge_cells("analysis", "analysis_id", record)
@@ -132,17 +147,20 @@ def form_post():
         result += merge_cells("analysis", "out_dir", record)
         result += merge_cells("analysis", "user_name", record)
 
-        result += "<td>"
+#        result += "<td>"
         if "analysis" in record:
             for analysis_set in record["analysis"]:
 
-                if "per_mux_status" in analysis_set:
-                    for mux_set in analysis_set["per_mux_status"]:
-                        if mux_set is not None:
-                            if "mux_id" in mux_set:
-                                result += str(mux_set["mux_id"])
-                        result += "<br/>"
-        result += "</td>"
+                result += merge_cells("per_mux_status", "mux_id", analysis_set)
+                result += merge_cells("per_mux_status", "Status", analysis_set)
+
+#                if "per_mux_status" in analysis_set:
+#                    for mux_set in analysis_set["per_mux_status"]:
+##                        if mux_set is not None:
+#                        if "mux_id" in mux_set:
+#                            result += str(mux_set["mux_id"])
+#                        result += "<p/>"
+#        result += "</td>"
 
         result += "</tr>"
 
