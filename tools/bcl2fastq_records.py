@@ -92,24 +92,20 @@ def instantiate_query(args):
     return instance
 
 
-def merge_cells(parent_key, child_key, record):
+def merge_cells(parent_key, child_key, key):
     result = ""
-#    result = "<td>"
-    if parent_key in record:
-        for key in record[parent_key]:
-            if child_key in key:
-                if (str(key[child_key]) == "STARTED"):
-                    result += ("<span class='label label-pill label-warning'>" + str(key[child_key]) + "</span>")
-                elif (str(key[child_key]) == "FAILED" or str(key[child_key]).upper() == "FALSE"):
-                    result += ("<span class='label label-pill label-danger'>" + str(key[child_key]) + "</span>")
-                elif (str(key[child_key]) == "SUCCESS" or str(key[child_key]).upper() == "TRUE"):
-                    result += ("<span class='label label-pill label-success'>" + str(key[child_key]) + "</span>")
-                elif (str(key[child_key]) == "TODO"):
-                    result += ("<span class='label label-pill label-primary'>" + str(key[child_key]) + "</span>")
-                else:
-                    result += str(key[child_key])
-            result += "<p/>"
-#    result += "</td>"
+    if child_key in key:
+        if (str(key[child_key]) == "STARTED"):
+            result += ("<span class='label label-pill label-warning'>" + str(key[child_key]) + "</span>")
+        elif (str(key[child_key]) == "FAILED" or str(key[child_key]).upper() == "FALSE"):
+            result += ("<span class='label label-pill label-danger'>" + str(key[child_key]) + "</span>")
+        elif (str(key[child_key]) == "SUCCESS" or str(key[child_key]).upper() == "TRUE"):
+            result += ("<span class='label label-pill label-success'>" + str(key[child_key]) + "</span>")
+        elif (str(key[child_key]) == "TODO"):
+            result += ("<span class='label label-pill label-default'>" + str(key[child_key]) + "</span>")
+        else:
+            result += str(key[child_key])
+#    result += "<p/>"
     return result
 
 
@@ -124,16 +120,12 @@ def form_post():
 #    instance[request.form['text'].split(" ")[0]] = request.form['text'].split(" ")[1]
 #    epoch_present, epoch_initial = generate_window(365)
 #    instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
-
     result = ""
     for record in mongo.find():
         result += "<tr>"
-
         result += ("<td>" + str(record["run"]) + "</td>")
         result += ("<td>" + str(record["timestamp"]) + "</td>")
-
         result += "<td>"
-
         result += """
         <table class='table table-bordered table-hover table-fixed'>
             <thead>
@@ -148,17 +140,14 @@ def form_post():
             </thead>
             <tbody>
         """
-
         if "analysis" in record:
-            for key in record["analysis"]:
-                result += "<tr><td>"
-                result += ("<td>" + merge_cells("analysis", "Status", record) + "</td>")
-                result += ("<td>" + merge_cells("analysis", "analysis_id", record) + "</td>")
-                result += ("<td>" + merge_cells("analysis", "end_time", record) + "</td>")
-                result += ("<td>" + merge_cells("analysis", "out_dir", record) + "</td>")
-                result += ("<td>" + merge_cells("analysis", "user_name", record) + "</td>")
-#                result += "</td></tr>"
-                
+            for analysis in record["analysis"]:
+                result += "<tr>"
+                result += ("<td>" + merge_cells("analysis", "Status", analysis) + "</td>")
+                result += ("<td>" + merge_cells("analysis", "analysis_id", analysis) + "</td>")
+                result += ("<td>" + merge_cells("analysis", "end_time", analysis) + "</td>")
+                result += ("<td>" + merge_cells("analysis", "out_dir", analysis) + "</td>")
+                result += ("<td>" + merge_cells("analysis", "user_name", analysis) + "</td>")
                 result += "<td>"
                 result += """
                 <table class='table table-bordered table-hover table-fixed'>
@@ -175,27 +164,21 @@ def form_post():
                     </thead>
                     <tbody>
                 """
-
-                if "analysis" in record:
-                    for analysis_set in record["analysis"]:
-                        result += "<tr>"
-                        result += ("<td>" + merge_cells("per_mux_status", "ArchiveSubmission", analysis_set) + "</td>")
-                        result += ("<td>" + merge_cells("per_mux_status", "DownstreamSubmission", analysis_set) + "</td>")
-                        result += ("<td>" + merge_cells("per_mux_status", "StatsSubmission", analysis_set) + "</td>")
-                        result += ("<td>" + merge_cells("per_mux_status", "Status", analysis_set) + "</td>")
-                        result += ("<td>" + merge_cells("per_mux_status", "email_sent", analysis_set) + "</td>")
-                        result += ("<td>" + merge_cells("per_mux_status", "mux_dir", analysis_set) + "</td>")
-                        result += ("<td>" + merge_cells("per_mux_status", "mux_id", analysis_set) + "</td>")
-                        result += "</tr>"
+                for mux in analysis["per_mux_status"]:
+                    result += "<tr>"
+                    result += ("<td>" + merge_cells("per_mux_status", "ArchiveSubmission", mux) + "</td>")
+                    result += ("<td>" + merge_cells("per_mux_status", "DownstreamSubmission", mux) + "</td>")
+                    result += ("<td>" + merge_cells("per_mux_status", "StatsSubmission", mux) + "</td>")
+                    result += ("<td>" + merge_cells("per_mux_status", "Status", mux) + "</td>")
+                    result += ("<td>" + merge_cells("per_mux_status", "email_sent", mux) + "</td>")
+                    result += ("<td>" + merge_cells("per_mux_status", "mux_dir", mux) + "</td>")
+                    result += ("<td>" + merge_cells("per_mux_status", "mux_id", mux) + "</td>")
+                    result += "</tr>"
                 result += "</tbody></table>"
                 result += "</td>"
-
         result += "</tbody></table>"
-
         result += "</td>"
-
-        result += "</td></tr>"
-
+        result += "</tr>"
         result += "</tr>"
     return render_template("index.html", result=Markup(result))
 
