@@ -163,15 +163,15 @@ rule RSEM:
     params:
         rsemidx=config['references']['rsemidx']
     log:
-        "{dir}/{sample}_ROW{row}_{genome}_RSEM.log"
+        "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.log"
     threads:
-        16    
+        8    
     shell:
         " {{ outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
         " rsem-calculate-expression --bam --output-genome-bam"
+        " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
         " --seed 12345 -p {threads} --forward-prob 0.5"
         " {input.bam} {params.rsemidx} $outpref 2>{log};"
-        #  FIXME produces RSEM.genome.bam but not RSEM.genome.sorted.bam
         " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
         " rsem-plot-model $outpref {output.plot}; }} >& {log}"
         #" export PATH=$PATH:/mnt/software/bin;"# FIXME
@@ -186,7 +186,7 @@ rule rnaseqQC:
     output:
         touch("{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK")
     log:
-        "{dir}/{sample}_ROW{row}_{genome}_RNASeqQC.log"    
+        "{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC.log"    
     params:
         sample=lambda wc: wc.sample + "-ROW" + wc.row
     threads:
@@ -234,7 +234,8 @@ rule star_mapping:
         " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
         " sleep $(shuf -i1-60 -n1);"# sleep random number of seconds to minimize chances of race condition during index loading
         " STAR --genomeDir {input.staridx}"
-        " --outSAMattrRGline 'ID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
+        # yes, RG unescaped:
+        " --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tPU:{params.pu_id}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
         " --outSAMheaderCommentFile {params.commentsheader}"
         " --runThreadN {threads}"
         " --genomeLoad LoadAndKeep"
