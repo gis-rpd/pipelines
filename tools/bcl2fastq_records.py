@@ -133,12 +133,12 @@ def form_post():
                     <th>END_TIME</th>
                     <th>OUT_DIR</th>
                     <th>USER_NAME</th>
+                    <th>MUX</th>
                 </tr>
             </thead>
             <tbody>
         """
 
-#        result += "<td>"
         if "analysis" in record:
             for key in record["analysis"]:
                 result += "<tr><td>"
@@ -158,27 +158,40 @@ def form_post():
                 result += merge_cells("analysis", "end_time", record)
                 result += merge_cells("analysis", "out_dir", record)
                 result += merge_cells("analysis", "user_name", record)
-                result += "</td></tr>"
-#        result += "</td>"
+#                result += "</td></tr>"
+                
+                result += "<td>"
+                result += """
+                <table class='table table-bordered table-hover table-fixed'>
+                    <thead>
+                        <tr>
+                            <th>MUX_ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+
+                if "analysis" in record:
+                    for analysis_set in record["analysis"]:
+                        result += "<tr><td>"
+#                        result += merge_cells("per_mux_status", "mux_id", analysis_set)
+                        
+                        if "per_mux_status" in analysis_set:
+                            for mux_set in analysis_set["per_mux_status"]:
+#                                if mux_set is not None:
+                                if "mux_id" in mux_set:
+                                    result += str(mux_set["mux_id"])
+                                result += "<p/>"
+
+                        result += "</td></tr>"
+                result += "</tbody></table>"
+                result += "</td>"
 
         result += "</tbody></table>"
 
         result += "</td>"
 
-#        result += "<td>"
-#        if "analysis" in record:
-#            for analysis_set in record["analysis"]:
-
-#                result += merge_cells("per_mux_status", "mux_id", analysis_set)
-#                result += merge_cells("per_mux_status", "Status", analysis_set)
-
-#                if "per_mux_status" in analysis_set:
-#                    for mux_set in analysis_set["per_mux_status"]:
-##                        if mux_set is not None:
-#                        if "mux_id" in mux_set:
-#                            result += str(mux_set["mux_id"])
-#                        result += "<p/>"
-#        result += "</td>"
+        result += "</td></tr>"
 
         result += "</tr>"
     return render_template("index.html", result=Markup(result))
