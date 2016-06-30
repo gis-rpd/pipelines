@@ -93,13 +93,23 @@ def instantiate_query(args):
 
 
 def merge_cells(parent_key, child_key, record):
-    result = "<td>"
+    result = ""
+#    result = "<td>"
     if parent_key in record:
         for key in record[parent_key]:
             if child_key in key:
-                result += str(key[child_key])
+                if (str(key[child_key]) == "STARTED"):
+                    result += ("<span class='label label-pill label-warning'>" + str(key[child_key]) + "</span>")
+                elif (str(key[child_key]) == "FAILED" or str(key[child_key]).upper() == "FALSE"):
+                    result += ("<span class='label label-pill label-danger'>" + str(key[child_key]) + "</span>")
+                elif (str(key[child_key]) == "SUCCESS" or str(key[child_key]).upper() == "TRUE"):
+                    result += ("<span class='label label-pill label-success'>" + str(key[child_key]) + "</span>")
+                elif (str(key[child_key]) == "TODO"):
+                    result += ("<span class='label label-pill label-primary'>" + str(key[child_key]) + "</span>")
+                else:
+                    result += str(key[child_key])
             result += "<p/>"
-    result += "</td>"
+#    result += "</td>"
     return result
 
 
@@ -142,22 +152,11 @@ def form_post():
         if "analysis" in record:
             for key in record["analysis"]:
                 result += "<tr><td>"
-                if "Status" in key:
-                    if(type(key) == dict):
-                        if (str(key["Status"]) == "STARTED"):
-                            result += ("<span class='label label-pill label-warning'>" + str(key["Status"]) + "</span>")
-                        elif (str(key["Status"]) == "FAILED"):
-                            result += ("<span class='label label-pill label-danger'>&nbsp&nbsp" + str(key["Status"]) + "!&nbsp&nbsp</span>")
-                        elif (str(key["Status"]) == "SUCCESS"):
-                            result += ("<span class='label label-pill label-success'>" + str(key["Status"]) + "</span>")
-                        else:
-                            result += str(key["Status"])
-#                    if(type(key) == str):
-#                        result += key
-                result += merge_cells("analysis", "analysis_id", record)
-                result += merge_cells("analysis", "end_time", record)
-                result += merge_cells("analysis", "out_dir", record)
-                result += merge_cells("analysis", "user_name", record)
+                result += ("<td>" + merge_cells("analysis", "Status", record) + "</td>")
+                result += ("<td>" + merge_cells("analysis", "analysis_id", record) + "</td>")
+                result += ("<td>" + merge_cells("analysis", "end_time", record) + "</td>")
+                result += ("<td>" + merge_cells("analysis", "out_dir", record) + "</td>")
+                result += ("<td>" + merge_cells("analysis", "user_name", record) + "</td>")
 #                result += "</td></tr>"
                 
                 result += "<td>"
@@ -165,6 +164,12 @@ def form_post():
                 <table class='table table-bordered table-hover table-fixed'>
                     <thead>
                         <tr>
+                            <th>ARCHIVE</th>
+                            <th>DOWNSTREAM</th>
+                            <th>STATS</th>
+                            <th>STATUS</th>
+                            <th>EMAIL</th>
+                            <th>MUX_DIR</th>
                             <th>MUX_ID</th>
                         </tr>
                     </thead>
@@ -173,17 +178,15 @@ def form_post():
 
                 if "analysis" in record:
                     for analysis_set in record["analysis"]:
-                        result += "<tr><td>"
-#                        result += merge_cells("per_mux_status", "mux_id", analysis_set)
-                        
-                        if "per_mux_status" in analysis_set:
-                            for mux_set in analysis_set["per_mux_status"]:
-#                                if mux_set is not None:
-                                if "mux_id" in mux_set:
-                                    result += str(mux_set["mux_id"])
-                                result += "<p/>"
-
-                        result += "</td></tr>"
+                        result += "<tr>"
+                        result += ("<td>" + merge_cells("per_mux_status", "ArchiveSubmission", analysis_set) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "DownstreamSubmission", analysis_set) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "StatsSubmission", analysis_set) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "Status", analysis_set) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "email_sent", analysis_set) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "mux_dir", analysis_set) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "mux_id", analysis_set) + "</td>")
+                        result += "</tr>"
                 result += "</tbody></table>"
                 result += "</td>"
 
