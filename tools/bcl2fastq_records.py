@@ -47,12 +47,16 @@ def instantiate_args():
     instance.add_argument("-m", "--mux", help="filter records by mux_id")
     instance.add_argument("-r", "--run", help="filter records by run")
     instance.add_argument("-w", "--win", type=int, help="filter records up to specified day(s) ago")
+
+#    instance.add_argument("-a", "--arrange", help="arrange records by key and order")
     return instance.parse_args()
 
 
 def instantiate_mongo(testing):
     """
     Instantiates MongoDB database object
+    For Test Server, testing == true
+    For Production Server, testing == false
     """
     return mongodb_conn(testing).gisds.runcomplete
 
@@ -90,36 +94,41 @@ def merge_cells(parent_key, child_key, record):
 @app.route('/')
 @app.route('/', methods=['POST'])
 def form_post():
-    mongo = instantiate_mongo(True)
-    instance = {}
+    """
+    Flask Callback Function
+    """
+    mongo = instantiate_mongo(False)
+#    instance = {}
 #    instance[request.form['text'].split(" ")[0]] = request.form['text'].split(" ")[1]
-    epoch_present, epoch_initial = generate_window(365)
-    instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
+#    epoch_present, epoch_initial = generate_window(365)
+#    instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
 
     result = ""
-    for record in mongo.find(instance):
+    for record in mongo.find():
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
         result += ("<td>" + str(record["timestamp"]) + "</td>")
 
-        result += merge_cells("analysis", "analysis_id", record)
-        result += merge_cells("analysis", "end_time", record)
-        result += merge_cells("analysis", "out_dir", record)
-
         result += "<td>"
         if "analysis" in record:
             for key in record["analysis"]:
-                if "user_name" in key:
-                    result += str(key["user_name"])
-                if "userName" in key:
-                    result += str(key["userName"])
-                result += "<br/>"
+                if "Status" in key:
+                    if(type(key) == dict):
+                        result += str(key["Status"])
+                    if(type(key) == str):
+                        result += key
+                result += "<br/>"        
         result += "</td>"
+
+        result += merge_cells("analysis", "analysis_id", record)
+        result += merge_cells("analysis", "end_time", record)
+        result += merge_cells("analysis", "out_dir", record)
+        result += merge_cells("analysis", "user_name", record)
 
         result += "<td>"
         if "analysis" in record:
             for analysis_set in record["analysis"]:
-                
+
                 if "per_mux_status" in analysis_set:
                     for mux_set in analysis_set["per_mux_status"]:
                         if mux_set is not None:
@@ -148,7 +157,7 @@ def main():
         os.system("flask run --host=0.0.0.0")
         app.run()
     else:
-        for record in mongo.find(query):
+        for record in mongo.find(query).sort([("run", -1), ("timestamp", -1)]):
             PrettyPrinter(indent=2).pprint(record)
 
 if __name__ == "__main__":
