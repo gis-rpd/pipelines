@@ -114,9 +114,16 @@ def form_post():
             for key in record["analysis"]:
                 if "Status" in key:
                     if(type(key) == dict):
-                        result += str(key["Status"])
-                    if(type(key) == str):
-                        result += key
+                        if (str(key["Status"]) == "STARTED"):
+                            result += ("<span class='label label-pill label-warning'>" + str(key["Status"]) + "</span>")
+                        elif (str(key["Status"]) == "FAILED"):
+                            result += ("<span class='label label-pill label-danger'>&nbsp&nbsp" + str(key["Status"]) + "!&nbsp&nbsp</span>")
+                        elif (str(key["Status"]) == "SUCCESS"):
+                            result += ("<span class='label label-pill label-success'>" + str(key["Status"]) + "</span>")
+                        else:
+                            result += str(key["Status"])
+#                    if(type(key) == str):
+#                        result += key
                 result += "<br/>"        
         result += "</td>"
 
@@ -134,7 +141,7 @@ def form_post():
                         if mux_set is not None:
                             if "mux_id" in mux_set:
                                 result += str(mux_set["mux_id"])
-                                result += "<br/>"
+                        result += "<br/>"
         result += "</td>"
 
         result += "</tr>"
