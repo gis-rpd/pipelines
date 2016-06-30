@@ -76,7 +76,7 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
         clustercmd="--drmaa \" $clustercmd -w n\""
     fi
     CLUSTER_ARGS="--cluster-config cluster.yaml $clustercmd --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
-    N_ARG="--jobs 100"
+    N_ARG="--jobs 25"
 else
     # run locally
     CLUSTER_ARGS=""
