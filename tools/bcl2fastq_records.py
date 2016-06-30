@@ -138,12 +138,10 @@ def form_post():
             <tbody>
         """
 
-
-
-        result += "<td>"
+#        result += "<td>"
         if "analysis" in record:
             for key in record["analysis"]:
-
+                result += "<tr><td>"
                 if "Status" in key:
                     if(type(key) == dict):
                         if (str(key["Status"]) == "STARTED"):
@@ -156,12 +154,12 @@ def form_post():
                             result += str(key["Status"])
 #                    if(type(key) == str):
 #                        result += key
-                result += "<p/>"
-        result += "</td>"
-        result += merge_cells("analysis", "analysis_id", record)
-        result += merge_cells("analysis", "end_time", record)
-        result += merge_cells("analysis", "out_dir", record)
-        result += merge_cells("analysis", "user_name", record)
+                result += merge_cells("analysis", "analysis_id", record)
+                result += merge_cells("analysis", "end_time", record)
+                result += merge_cells("analysis", "out_dir", record)
+                result += merge_cells("analysis", "user_name", record)
+                result += "</td></tr>"
+#        result += "</td>"
 
         result += "</tbody></table>"
 
