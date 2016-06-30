@@ -118,8 +118,27 @@ def form_post():
     result = ""
     for record in mongo.find():
         result += "<tr>"
+
         result += ("<td>" + str(record["run"]) + "</td>")
         result += ("<td>" + str(record["timestamp"]) + "</td>")
+
+        result += "<td>"
+
+        result += """
+        <table class='table table-bordered table-hover table-fixed'>
+            <thead>
+                <tr>
+                    <th>STATUS</th>
+                    <th>ANALYSIS_ID</th>
+                    <th>END_TIME</th>
+                    <th>OUT_DIR</th>
+                    <th>USER_NAME</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+
+
 
         result += "<td>"
         if "analysis" in record:
@@ -138,21 +157,22 @@ def form_post():
 #                    if(type(key) == str):
 #                        result += key
                 result += "<p/>"
-
-
         result += "</td>"
-
         result += merge_cells("analysis", "analysis_id", record)
         result += merge_cells("analysis", "end_time", record)
         result += merge_cells("analysis", "out_dir", record)
         result += merge_cells("analysis", "user_name", record)
 
-#        result += "<td>"
-        if "analysis" in record:
-            for analysis_set in record["analysis"]:
+        result += "</tbody></table>"
 
-                result += merge_cells("per_mux_status", "mux_id", analysis_set)
-                result += merge_cells("per_mux_status", "Status", analysis_set)
+        result += "</td>"
+
+#        result += "<td>"
+#        if "analysis" in record:
+#            for analysis_set in record["analysis"]:
+
+#                result += merge_cells("per_mux_status", "mux_id", analysis_set)
+#                result += merge_cells("per_mux_status", "Status", analysis_set)
 
 #                if "per_mux_status" in analysis_set:
 #                    for mux_set in analysis_set["per_mux_status"]:
@@ -163,7 +183,6 @@ def form_post():
 #        result += "</td>"
 
         result += "</tr>"
-
     return render_template("index.html", result=Markup(result))
 
 

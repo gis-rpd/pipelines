@@ -12,7 +12,7 @@
 		<script src="https://cdn.datatables.net/plug-ins/1.10.7/integration/bootstrap/3/dataTables.bootstrap.js"></script>
 		<script>
 			$(document).ready(function() {
-				$("table").dataTable();
+				$("#main").dataTable();
 			});
 		</script>
 
@@ -22,17 +22,13 @@
 			<div class="panel panel-default">
 				<div class="panel-heading">bcl2fastq</div>
 				<div class="panel-body">
-			        <table class="table table-bordered table-hover table-fixed">
+			        <table id="main" class="table table-bordered table-hover table-fixed">
 		    			<thead>
 				            <tr>
 				                <th>RUN</th>
 				                <th>TIMESTAMP</th>
-				                <th>STATUS(ANALYSIS)</th>
-				                <th>ANALYSIS_ID</th>
-				                <th>END_TIME</th>
-				                <th>OUT_DIR</th>
-				                <th>USER_NAME</th>
-				                <th>MUX_ID</th>
+				                <th>ANALYSIS</th>
+
 				            </tr>
 		    			</thead>
 		    			<tbody>
