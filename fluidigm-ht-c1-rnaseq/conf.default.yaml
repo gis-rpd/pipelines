@@ -26,6 +26,7 @@ references: {
     rsem : 1.2.31,
     rnaseqc : 1.1.8,
     prinseq-lite : 0.20.4,
+    R : 3.2.3,
     },
 
     platform: Illumina
