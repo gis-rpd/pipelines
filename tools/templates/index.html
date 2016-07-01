@@ -10,17 +10,63 @@
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 		<script src="https://cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
 		<script src="https://cdn.datatables.net/plug-ins/1.10.7/integration/bootstrap/3/dataTables.bootstrap.js"></script>
-		<script>
-			$(document).ready(function() {
-				$("#main").dataTable();
-			});
-		</script>
 
+		<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+		<script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+		
+
+		<script>
+			$(document).ready(function(){
+				$("#main").DataTable({
+        			"order": [[1, "desc"]]
+				});
+			});
+			$(function() {
+			    $("#from").datepicker({
+			      defaultDate: "+1w",
+			      changeMonth: true,
+			      numberOfMonths: 1,
+			      onClose: function(selectedDate) {
+			        $("#to").datepicker("option", "minDate", selectedDate);
+			      }
+			    });
+			    $("#to").datepicker({
+			      defaultDate: "+1w",
+			      changeMonth: true,
+			      numberOfMonths: 1,
+			      onClose: function(selectedDate) {
+			        $("#from").datepicker("option", "maxDate", selectedDate);
+			      }
+			    });
+			    $("#from").datepicker("option", "dateFormat", "yy-mm-dd");
+			    $("#to").datepicker("option", "dateFormat", "yy-mm-dd");
+			  });
+		</script>
 	</head>
 	<body>
 		<div class="panel-group">
 			<div class="panel panel-default">
-				<div class="panel-heading">bcl2fastq</div>
+				<div class="panel-heading">
+					<div align="center">
+						<form class="form-inline" action="." method="POST">
+							<div class="form-group">
+								<label for="from">&nbspFROM&nbsp</label>
+							</div>
+							<div class="form-group">
+								<input class="form-control" placeholder="Earliest Date" type="text" id="from" name="from">
+							</div>
+							<div class="form-group">
+								<label for="to">&nbspTO&nbsp</label>
+							</div>
+							<div class="form-group">
+								<input class="form-control" placeholder="Latest Date" type="text" id="to" name="to">
+							</div>
+							<div class="form-group">
+								<input class="btn btn-primary-outline" type="submit" name="submit" value="Filter">
+							</div>
+						</form>
+					</div>
+				</div>
 				<div class="panel-body">
 			        <table id="main" class="table table-bordered table-hover table-fixed">
 		    			<thead>
@@ -44,5 +90,6 @@
 				</div>
 			</div>
 		</div>
+
 	</body>
 </html>

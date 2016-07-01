@@ -13,7 +13,9 @@ import subprocess
 import sys
 
 #--- third-party imports
-#/
+#
+from datetime import datetime
+from time import mktime
 from flask import Flask, Markup, request, render_template
 app = Flask(__name__)
 
@@ -105,23 +107,35 @@ def merge_cells(parent_key, child_key, key):
             result += ("<span class='label label-pill label-default'>" + str(key[child_key]) + "</span>")
         else:
             result += str(key[child_key])
-#    result += "<p/>"
     return result
 
 
-@app.route('/')
 @app.route('/', methods=['POST'])
 def form_post():
     """
-    Flask Callback Function
+    Flask callback function for POST requests from FORMS
     """
-    mongo = instantiate_mongo(False)
-#    instance = {}
-#    instance[request.form['text'].split(" ")[0]] = request.form['text'].split(" ")[1]
-#    epoch_present, epoch_initial = generate_window(365)
-#    instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_present}
+    list_from = request.form["from"].split("-")
+    list_to = request.form["to"].split("-")
+    print(list_from)
+    print(list_to)
+    if ( len(list_from) == 3 and len(list_to) == 3 ):
+        epoch_initial = int(mktime(datetime( int(list_from[0]), int(list_from[1]), int(list_from[2]) ).timetuple()) * 1000)
+        epoch_final = int(mktime(datetime( int(list_to[0]), int(list_to[1]), int(list_to[2]) ).timetuple()) * 1000)
+        instance = {}
+        instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_final}
+        return form_none(instantiate_mongo(False).find(instance))
+    else:
+        return form_none(instantiate_mongo(False).find())
+
+
+@app.route('/')
+def form_none(mongo_results = instantiate_mongo(False).find()):
+    """
+    Flask callback function for all requests
+    """
     result = ""
-    for record in mongo.find():
+    for record in mongo_results:
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
         result += ("<td>" + str(record["timestamp"]) + "</td>")
