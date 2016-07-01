@@ -14,35 +14,34 @@
 		<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
 		<script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
 		
-
 		<script>
 			$(document).ready(function(){
 				$("#main").DataTable({
-        			"order": [[1, "desc"]]
+	    			"order": [[1, "desc"]]
 				});
 			});
-			$(function() {
-			    $("#from").datepicker({
-			      defaultDate: "+1w",
-			      changeMonth: true,
-			      changeYear: true,
-			      numberOfMonths: 1,
-			      onClose: function(selectedDate) {
-			        $("#to").datepicker("option", "minDate", selectedDate);
-			      }
+			$(function(){
+				$("#from").datepicker({
+			    	defaultDate: "+1w",
+			    	changeMonth: true,
+			    	changeYear: true,
+			    	numberOfMonths: 1,
+			    	onClose: function(selectedDate){
+			    		$("#to").datepicker("option", "minDate", selectedDate);
+			    	}
 			    });
 			    $("#to").datepicker({
-			      defaultDate: "+1w",
-			      changeMonth: true,
-			      changeYear: true,
-			      numberOfMonths: 1,
-			      onClose: function(selectedDate) {
-			        $("#from").datepicker("option", "maxDate", selectedDate);
-			      }
+			    	defaultDate: "+1w",
+			    	changeMonth: true,
+			    	changeYear: true,
+			    	numberOfMonths: 1,
+			    	onClose: function(selectedDate){
+			    		$("#from").datepicker("option", "maxDate", selectedDate);
+			    	}
 			    });
 			    $("#from").datepicker("option", "dateFormat", "yy-mm-dd");
 			    $("#to").datepicker("option", "dateFormat", "yy-mm-dd");
-			  });
+			});
 		</script>
 	</head>
 	<body>
