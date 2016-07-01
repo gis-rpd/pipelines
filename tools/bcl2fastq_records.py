@@ -119,24 +119,24 @@ def form_post():
     list_to = request.form["to"].split("-")
     if ("-".join(list_from) != "" or "-".join(list_to) != ""):
         if (len(list_from) == 3 and len(list_to) == 3):
-            print("-".join(list_from))
-            print("-".join(list_to))
+            print("DATE FILTER: FROM " + "-".join(list_from) + " TO " + "-".join(list_to))
             epoch_initial = int(mktime(datetime( int(list_from[0]), int(list_from[1]), int(list_from[2]) ).timetuple()) * 1000)
             epoch_final = int(mktime(datetime( int(list_to[0]), int(list_to[1]), int(list_to[2]) ).timetuple()) * 1000)
             instance = {}
             instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_final}
             instance["analysis"] = {"$exists": True}
-            return form_none(instantiate_mongo(False).find(instance))
+            return form_none(instantiate_mongo(False).find(instance), "Showing entries from " + "-".join(list_from) + " to " + "-".join(list_to))
 
     return form_none(instantiate_mongo(False).find())
 
 
 @app.route('/')
-def form_none(mongo_results = instantiate_mongo(False).find()):
+def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
     """
     Flask callback function for all requests
     """
     result = ""
+    result += ("<div align='center'><a>" + date_filter + "</a></div>")
     for record in mongo_results:
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
