@@ -7,7 +7,7 @@ Unless specified by -w or --win, only the 7 most recent days of records are retr
 #--- standard library imports
 #
 from argparse import ArgumentParser
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from pprint import PrettyPrinter
 import subprocess
@@ -120,12 +120,12 @@ def form_post():
     if ("-".join(list_from) != "" or "-".join(list_to) != ""):
         if (len(list_from) == 3 and len(list_to) == 3):
             print("DATE FILTER: FROM " + "-".join(list_from) + " TO " + "-".join(list_to))
-            epoch_initial = int(mktime(datetime( int(list_from[0]), int(list_from[1]), int(list_from[2]) ).timetuple()) * 1000)
-            epoch_final = int(mktime(datetime( int(list_to[0]), int(list_to[1]), int(list_to[2]) ).timetuple()) * 1000)
+            epoch_initial = int(mktime(datetime(int(list_from[0]), int(list_from[1]), int(list_from[2])).timetuple()) * 1000)
+            epoch_final = int(mktime((datetime(int(list_to[0]), int(list_to[1]), int(list_to[2])) + timedelta(days=1)).timetuple()) * 1000)
             instance = {}
-            instance["timestamp"] = {"$gt": epoch_initial, "$lt": epoch_final}
-            instance["analysis"] = {"$exists": True}
-            return form_none(instantiate_mongo(False).find(instance), "Showing entries from " + "-".join(list_from) + " to " + "-".join(list_to))
+            instance["timestamp"] = {"$gte": epoch_initial, "$lt": epoch_final}
+#            instance["analysis"] = {"$exists": True}
+            return form_none(instantiate_mongo(False).find(instance), "Showing entries with TIMESTAMP from " + "-".join(list_from) + " to " + "-".join(list_to))
 
     return form_none(instantiate_mongo(False).find())
 
@@ -142,14 +142,14 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
         result += ("<td>" + str(record["run"]) + "</td>")
 
         if (len(str(record["timestamp"])) == 13):
-            result += ("<td>" + "<span class='label label-pill label-primary'>" + str(record["timestamp"]) + "</span>" + "<br/>" + str(datetime.fromtimestamp(record["timestamp"] / 1000).isoformat()).replace(":", "-") + "</td>")
+            result += ("<td>" + str(datetime.fromtimestamp(record["timestamp"] / 1000).isoformat()).replace(":", "-") + "</td>")
         else:
             result += ("<td>" + str(record["timestamp"]) + "</td>")    
-        
+
         result += "<td>"
         if "analysis" in record:
             result += """
-            <table class='table table-bordered table-hover table-fixed'>
+            <table class='table table-bordered table-hover table-fixed table-nowrap table-compact'>
                 <thead>
                     <tr>
                         <th>ANALYSIS_ID</th>
@@ -168,30 +168,49 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
                 result += ("<td>" + merge_cells("analysis", "out_dir", analysis) + "</td>")
                 result += ("<td>" + merge_cells("analysis", "Status", analysis) + "</td>")
                 result += "<td>"
-                result += """
-                <table class='table table-bordered table-hover table-fixed'>
-                    <thead>
-                        <tr>
-                            <th>MUX_ID</th>
-                            <th>ARCHIVE</th>
-                            <th>DOWNSTREAM</th>
-                            <th>STATS</th>
-                            <th>STATUS</th>
-                            <th>EMAIL</th>                            
-                        </tr>
-                    </thead>
-                    <tbody>
-                """
-                for mux in analysis["per_mux_status"]:
-                    result += "<tr>"
-                    result += ("<td>" + merge_cells("per_mux_status", "mux_id", mux) + "</td>")
-                    result += ("<td>" + merge_cells("per_mux_status", "ArchiveSubmission", mux) + "</td>")
-                    result += ("<td>" + merge_cells("per_mux_status", "DownstreamSubmission", mux) + "</td>")
-                    result += ("<td>" + merge_cells("per_mux_status", "StatsSubmission", mux) + "</td>")
-                    result += ("<td>" + merge_cells("per_mux_status", "Status", mux) + "</td>")
-                    result += ("<td>" + merge_cells("per_mux_status", "email_sent", mux) + "</td>")
-                    result += "</tr>"
-                result += "</tbody></table>"
+
+                if "per_mux_status" in analysis:
+                    result += """
+                    <table class='table table-bordered table-hover table-fixed'>
+                        <thead>
+                            <tr>
+                                <th>MUX_ID</th>
+                                <th>ARCHIVE</th>
+                                <th>DOWNSTREAM</th>
+                                <th>STATS</th>
+                                <th>STATUS</th>
+                                <th>EMAIL</th>                            
+                            </tr>
+                        </thead>
+                        <tbody>
+                    """
+                    for mux in analysis["per_mux_status"]:
+                        result += "<tr>"
+                        result += ("<td>" + merge_cells("per_mux_status", "mux_id", mux) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "ArchiveSubmission", mux) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "DownstreamSubmission", mux) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "StatsSubmission", mux) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "Status", mux) + "</td>")
+                        result += ("<td>" + merge_cells("per_mux_status", "email_sent", mux) + "</td>")
+                        result += "</tr>"
+                    result += "</tbody></table>"
+                else:
+                    result += """
+                    <table class='table table-bordered table-hover table-fixed invisible'>
+                        <thead>
+                            <tr>
+                                <th>MUX_ID</th>
+                                <th>ARCHIVE</th>
+                                <th>DOWNSTREAM</th>
+                                <th>STATS</th>
+                                <th>STATUS</th>
+                                <th>EMAIL</th>                            
+                            </tr>
+                        </thead>
+                        <tbody>
+                    """
+                    result += "</tbody></table>"
+                    
                 result += "</td>"
             result += "</tbody></table>"
         
