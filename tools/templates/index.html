@@ -41,7 +41,6 @@
 			    });
 			    $("#from").datepicker("option", "dateFormat", "yy-mm-dd");
 			    $("#to").datepicker("option", "dateFormat", "yy-mm-dd");
-			    $("#from").datepicker("setDate", new Date());
 			    $("#to").datepicker("setDate", new Date());
 			});
 		</script>
@@ -58,7 +57,7 @@
 					<div align="center">
 						<form class="form-inline" action="." method="POST">
 							<div class="form-group">
-								<label for="from">&nbspFROM&nbsp</label>
+								<label for="from">RUNS FROM&nbsp</label>
 							</div>
 							<div class="form-group">
 								<input class="form-control" placeholder="Earliest Date" type="text" id="from" name="from">
@@ -76,7 +75,7 @@
 					</div>
 				</div>
 				<div class="panel-body">
-			        <table id="main" class="table table-bordered table-hover table-fixed">
+			        <table id="main" class="table table-bordered table-hover table-fixed table-compact">
 		    			<thead>
 				            <tr>
 				                <th>RUN</th>

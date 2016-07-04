@@ -125,7 +125,7 @@ def form_post():
             instance = {}
             instance["timestamp"] = {"$gte": epoch_initial, "$lt": epoch_final}
 #            instance["analysis"] = {"$exists": True}
-            return form_none(instantiate_mongo(False).find(instance), "Showing entries with TIMESTAMP from " + "-".join(list_from) + " to " + "-".join(list_to))
+            return form_none(instantiate_mongo(False).find(instance), "Showing RUN entries with TIMESTAMP from " + "-".join(list_from) + " to " + "-".join(list_to))
 
     return form_none(instantiate_mongo(False).find())
 
@@ -149,7 +149,7 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
         result += "<td>"
         if "analysis" in record:
             result += """
-            <table class='table table-bordered table-hover table-fixed table-nowrap table-compact'>
+            <table class='table table-bordered table-hover table-fixed table-compact'>
                 <thead>
                     <tr>
                         <th>ANALYSIS_ID</th>
@@ -171,7 +171,7 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
 
                 if "per_mux_status" in analysis:
                     result += """
-                    <table class='table table-bordered table-hover table-fixed'>
+                    <table class='table table-bordered table-hover table-fixed table-compact'>
                         <thead>
                             <tr>
                                 <th>MUX_ID</th>
@@ -196,7 +196,7 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
                     result += "</tbody></table>"
                 else:
                     result += """
-                    <table class='table table-bordered table-hover table-fixed invisible'>
+                    <table class='table table-bordered table-hover table-fixed table-compact invisible'>
                         <thead>
                             <tr>
                                 <th>MUX_ID</th>
@@ -210,7 +210,7 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
                         <tbody>
                     """
                     result += "</tbody></table>"
-                    
+
                 result += "</td>"
             result += "</tbody></table>"
         
