@@ -7,7 +7,6 @@
     samtools : 1.3,
     samblaster : 0.1.22,
     bedtools: 2.25.0,
-    bcftools: 1.3
     },
 
   references: {  

@@ -4,6 +4,8 @@ Based on rules/variant_calling/gatk_haplotype_caller.rules from https://bitbucke
 - original license: MIT
 """
 
+
+
 assert 'num_chroms' in config
 assert 'references' in config
 assert 'genome' in config["references"]
@@ -85,7 +87,7 @@ rule gatk_catvariants:
         # split_gvcfs = rules.gatk_haplotype_caller.output.gvcf
         # Hence we use the first with a ruleorder (see above)
     output:
-        cat_gvcf=temp("{sample}.concat.gvcf",)
+        cat_gvcf="{sample}.concat.gvcf",
         #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
     log:
         "{sample}.concat.gvcf.log"
@@ -96,7 +98,23 @@ rule gatk_catvariants:
         #shell("cat {} > {}; grep -v '^#' {} >> {}".format(input.split_gvcfs[0],
         #   output.cat_gvcf, ' '.join(input.split_gvcfs[1:])), output.cat_gvcf)
         # simple cat which keeps hashes seems to work as well
-        shell("cat {} > {} 2> {{log}}".format(input.split_gvcfs, output.cat_gvcf))
+        #shutil.copy(input.split_gvcfs[0], output.cat_gvcf)
+        #for f in input.split_gvcfs[1:]:
+        #    shell("sed -e  '/^#/d' {} >> {} 2>{{log}}".format(f, output.cat_gvcf))
+        header_printed = False
+        with open(output.cat_gvcf, 'w') as fhout:
+            for f in input.split_gvcfs:
+                with open(f) as fhin:
+                    had_header = False
+                    for line in fhin:
+                        if line.startswith('#'):
+                            if not header_printed:
+                                had_header = True
+                                fhout.write(line)
+                        else:
+                            fhout.write(line)
+                    if had_header:
+                        header_printed = True
 
 
 rule gatk_genotyping:

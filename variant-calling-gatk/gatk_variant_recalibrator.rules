@@ -78,7 +78,7 @@ rule gatk_apply_variant_recalibration:
                 if RECAL_FAIL_MSG in line:
                     recal_failed = True
                     break
-            import sys; sys.stderr.write("DEBUG: Copying {} to {}\n".format(input.recal, output))
+            #import sys; sys.stderr.write("DEBUG: Copying {} to {}\n".format(input.recal, output))
             if recal_failed:
                 shutil.copyfile(input.recal, str(output))
             else:
