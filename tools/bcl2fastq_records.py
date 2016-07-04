@@ -7,15 +7,15 @@ Unless specified by -w or --win, only the 7 most recent days of records are retr
 #--- standard library imports
 #
 from argparse import ArgumentParser
+from datetime import datetime
 import os
 from pprint import PrettyPrinter
 import subprocess
 import sys
+from time import mktime
 
 #--- third-party imports
 #
-from datetime import datetime
-from time import mktime
 from flask import Flask, Markup, request, render_template
 app = Flask(__name__)
 
@@ -140,7 +140,12 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
     for record in mongo_results:
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
-        result += ("<td>" + str(record["timestamp"]) + "</td>")
+
+        if (len(str(record["timestamp"])) == 13):
+            result += ("<td>" + "<span class='label label-pill label-primary'>" + str(record["timestamp"]) + "</span>" + "<br/>" + str(datetime.fromtimestamp(record["timestamp"] / 1000).isoformat()).replace(":", "-") + "</td>")
+        else:
+            result += ("<td>" + str(record["timestamp"]) + "</td>")    
+        
         result += "<td>"
         if "analysis" in record:
             result += """
