@@ -196,8 +196,8 @@ rule rnaseqQC:
         "Running RNASeqQC"            
     shell:
         "outpref=`dirname {output}`;"
-        " RNSEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s \"{params.sample}|{input.bam}|RNASeqQC\""
-        " -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+        " RNSEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
+        " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
 
         
 def rg_id_for_star(wc):
