@@ -295,6 +295,8 @@ def main():
         os.path.dirname(sys.argv[0]), "generate_bcl2fastq_cfg.py")
     assert os.path.exists(generate_bcl2fastq)
     cmd = [generate_bcl2fastq, '-r', rundir, '-o', outdir]
+    if args.testing:
+        cmd.append("-t")
     logger.debug("Executing {}".format(' ' .join(cmd)))
     try:
         res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)

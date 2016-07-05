@@ -148,7 +148,7 @@ def main():
                                 logger.fatal("Output: %s", e.output.decode())
                                 logger.fatal("Exiting")
                                 #send_status_mail
-                                send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
+                                send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.join(out_dir, LOG_DIR_REL, "mapping_submission.log"))
                                 sys.exit(1)
                             num_triggers += 1
                             check_break_status(args.break_after_first)

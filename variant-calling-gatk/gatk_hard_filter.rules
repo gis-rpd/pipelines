@@ -26,7 +26,7 @@ rule gatk_hard_filter_snps:
         vcf='{prefix}.snp.vcf',
         ref=config["references"]["genome"],
     output:
-        vcf=temp('{prefix}.snp_hfilter.vcf')
+        vcf='{prefix}.snp_hfilter.vcf'
     log:
         '{prefix}.snp_hfilter.vcf.log'
     params:
@@ -47,7 +47,7 @@ rule gatk_hard_filter_indels:
         vcf='{prefix}.indel.vcf',
         ref=config["references"]["genome"],
     output:
-        vcf=temp('{prefix}.indel_hfilter.vcf')
+        vcf='{prefix}.indel_hfilter.vcf'
     log:
         '{prefix}.indel_hfilter.vcf.log'
     params:
@@ -62,26 +62,3 @@ rule gatk_hard_filter_indels:
         " -o {output.vcf} --filterExpression '{params.filter_expr}'"
         " --filterName {params.filter_name} >& {log}"
 
-
-# avoid ambiguity or wrong order (indels extract from snps etc
-ruleorder: gatk_hardfilter > gatk_hard_filter_indels > gatk_hard_filter_snps
-rule gatk_hardfilter:
-    """
-    Mix of
-    1. '(howto) Apply hard filters to a call set': https://www.broadinstitute.org/gatk/guide/article?id=2806
-    and
-    2: 'I am unable to use VQSR (recalibration) to filter variants': https://www.broadinstitute.org/gatk/guide/article?id=3225
-    """
-    input:
-        vcf_snp='{prefix}.snp_hfilter.vcf',
-        vcf_indel='{prefix}.indel_hfilter.vcf'
-    output:
-        vcf='{prefix}.snp_hfilter.indel_hfilter.vcf'
-    log:
-        '{prefix}.snp_hfilter.indel_hfilter.vcf.log'
-    message:
-        "Merging SNP and Indels"
-    threads:
-        1
-    shell:
-        "bcftools concat {input.vcf_snp} {input.vcf_indel} -O v -o {output.vcf} >& {log}"

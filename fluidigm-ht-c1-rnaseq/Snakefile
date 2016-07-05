@@ -1,9 +1,8 @@
 # standard library imports
 #
 import os
-import subprocess
-import shutil
 from itertools import chain
+import hashlib
 
 # third party imports
 #
@@ -16,38 +15,67 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
+from readunits import fastqs_from_unit
 
 
 RESULT_OUTDIR = './out'
-SAMPLE_MERGE_OUTDIR = os.path.join(RESULT_OUTDIR, 'merged')
-FDEMUX_OUTDIR = os.path.join(RESULT_OUTDIR, 'fdemux')
+FDEMUX_SUBDIR = 'fdemux'
 
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 
-assert len(config['samples'])==1
-# include: "../rules/logging.rules"
+# should work for many now
+# assert len(config['samples'])==1
+
+include: "../rules/logging.rules"
+include: "../rules/samtools.rules"
 
 
-GENOME_BASENAME = os.path.splitext(os.path.basename(config['references']['genome']))[0]
+GENOME_BASENAME = os.path.splitext(os.path.basename(
+    config['references']['genome']))[0].replace("_", "-")
+# replace "_" which is used as delimiter for other things here
+
     
+NUM_ROWS = 40
+
 
 rule final:
     input:
-        expand('{dir}/{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam',
-               dir=RESULT_OUTDIR,
-               genome=GENOME_BASENAME,
+        # sample here is our typical component library
+        expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
                sample=config['samples'], 
-               row=["{:02d}".format(x) for x in range(1, 41)]),
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK'),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results'),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
+        #expand('{dir}/{sample}_ROW{row}/cuffdiff/{sample}_ROW{row}_{genome}_genes_FPKM_Rawreadcount_GIS.txt',
+        #       dir=RESULT_OUTDIR,
+        #       genome=GENOME_BASENAME,
+        #       sample=config['samples'], 
+        #       row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
+        #expand('{dir}/{sample}_ROW{row}/dexseq/{sample}_ROW{row}_{genome}_dexseq_exoncount.txt',
+        #       dir=RESULT_OUTDIR,
+        #       genome=GENOME_BASENAME,
+        #       sample=config['samples'], 
+        #       row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
         report="report.html"
 
 
 rule report:
     input:
-        "Snakefile"# FIXME FAKE!
+        # dep on rnaseqc and hence star
+        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK'),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
     output:
         html="report.html"
     params:
@@ -74,31 +102,148 @@ Version Info
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch to have at least something
 
+#rule DEXSeq:
+#    input:
+#        bam = expand("{dir}/{{sample}}_ROW{{row}}/star/{{sample}}_ROW{{row}}_{genome}_Aligned.sortedByCoord.out.bam",
+#            dir=RESULT_OUTDIR,
+#            genome=GENOME_BASENAME),
+#        gff = config['references']['dexseqgff'],
+#    output:
+#        "{dir}/{sample}_ROW{row}_{genome}_dexseq_exoncount.txt"
+#    message: "Running DEXSeq"    
+#    run:
+#        shell("""export PATH=$PATH:/mnt/software/bin;
+#            /mnt/software/bin/python2.7 /home/userrig/pipelines_tools/DEXSeq/inst/python_scripts/dexseq_count.py -f bam -s no -r pos {input.gff} {input.bam} {output};""")
+#
+#
+#rule cuffdiff:
+#    input:
+#        bam = expand("{dir}/{{sample}}_ROW{{row}}/star/{{sample}}_ROW{{row}}_{genome}_Aligned.sortedByCoord.out.bam",
+#            dir=RESULT_OUTDIR,
+#            genome=GENOME_BASENAME),
+#        gtf = config['references']['gtfsourcefile'],
+#        gtfmask = config['references']['gtfmaskfile'],
+#        ref = config['references']['genome']
+#    output:
+#        matrix = "{dir}/{sample}_ROW{row}_{genome}_genes_FPKM_Rawreadcount_GIS.txt",
+#    message: "Running cuffdiff"
+#    params:
+#        biascorr = "--frag-bias-correct",
+#        mask = "--mask-file"
+#    log:
+#        "{dir}/{sample}_ROW{row}_{genome}_cufflinks.log"
+#    threads: 18    
+#    #run:
+#    shell:
+#        " outpref=`dirname {output.matrix}`; "
+#        " /mnt/AnalysisPool/libraries/tools/cufflinks2/cufflinks-2.2.1.Linux_x86_64/cuffdiff -p {threads} --quiet"
+#        " --no-update-check"
+#        " --dispersion-method blind"
+#        " --library-norm-method classic-fpkm"
+#        " --compatible-hits-norm"
+#        " --max-bundle-frags 100000000"
+#        " --library-type fr-unstranded"
+#        " --max-frag-multihits 1"
+#        " --no-diff {input.gtf} {params.mask} {input.gtfmask} {params.biascorr} {input.ref} {input.bam} {input.bam} --output-dir $outpref 2>{log};"
+#        "cut -f1,5,7,10 $outpref/genes.fpkm_tracking |grep -v tracking_id |sort > $outpref/genes.fpkm_tracking.col15710;"
+#        "grep -E -w -v \"tracking_id|q2\" $outpref/genes.read_group_tracking |cut -f1,4 |sort | cut -f1-4,6 | paste - $outpref/genes.fpkm_tracking.col15710 | awk 'BEGIN {{ FS = \"\\t\" }} ;{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $4, $5, $2, $6}}' >{output.matrix};"
+#        "sed -i '1s/^/Gene_Id\\tGene_Name\\tLocus\\tReadCount\\tFPKM\\n/' {output.matrix};"
 
+
+rule RSEM:
+    input:
+        bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
+        rsemidx = config['references']['rsemidx'] + ".seq"
+    output:
+        genecount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results",
+        isocount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results",
+        gbam = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam",
+        wig = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig",
+        plot = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.pdf"
+    message:
+        "Running RSEM"
+    params:
+        rsemidx=config['references']['rsemidx']
+    log:
+        "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.log"
+    threads:
+        4 
+    shell:
+        " {{ outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
+        " rsem-calculate-expression --bam --output-genome-bam"
+        " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
+        " --seed 12345 -p {threads} --forward-prob 0.5"
+        " {input.bam} {params.rsemidx} $outpref 2>{log};"
+        " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
+        " rsem-plot-model $outpref {output.plot}; }} >& {log}"
+
+        
+rule rnaseqQC:
+    input:
+        bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam",
+        bamidx = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai",
+        rnaseqc_annotation = config['references']['rnaseqc_annotation'],
+        ref = config['references']['genome']
+    output:
+        touch("{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK")
+    log:
+        "{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC.log"    
+    params:
+        sample=lambda wc: wc.sample + "-ROW" + wc.row
+    threads:
+        4
+    message:
+        "Running RNASeqQC"            
+    shell:
+        "outpref=`dirname {output}`;"
+        " RNSEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
+        " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+
+        
+def rg_id_for_star(wc):
+    m = hashlib.md5()
+    m.update("%s-%s".format(wc.sample, wc.row).encode())
+    return m.hexdigest()[:8]
+          
+        
 rule star_mapping:
     input:
-        r2 = expand("{fdemux_outdir}/{{sample}}_ROW{{row}}_merged_R2.trimmed.fastq.gz", 
-            fdemux_outdir=FDEMUX_OUTDIR),
+        r2 = os.path.join(RESULT_OUTDIR, "{sample}",
+                          FDEMUX_SUBDIR, "{sample}_ROW{row}_merged_R2.trimmed.fastq.gz"),
         staridx = config['references']['staridx']
     output:
         bam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam",
         transbam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
         counts = "{dir}/{sample}_ROW{row}_{genome}_ReadsPerGene.out.tab",
         wig = "{dir}/{sample}_ROW{row}_{genome}_Signal.Unique.str1.out.wig",
-    #log:
+    log:
+        "{dir}/star.log"
+    message: "Running STAR"
     params:
-        rg_id="FIXME-RG",
-        lib_id="FIXME-libid",
-        pu_id="FIXME-pu",
-        sample=lambda wc: wc.sample + "-ROW" + wc.row,
-        commentsheader=lambda wc: wc.dir + "/commentsheader.txt"
-    #message:
-    threads: 16# FIXME need optimization
+        # rg_id just a input specific hash
+        rg_id = rg_id_for_star,
+        lib_id = lambda wc: wc.sample,
+        sample = lambda wc: wc.sample + "-ROW" + wc.row,
+        commentsheader = lambda wc: wc.dir + "/commentsheader.txt",
+        outSAMmapqUnique = 50,
+        outFilterMultimapNmax = 1,
+        outFilterMismatchNmax = 999,
+        outFilterMismatchNoverLmax = 0.04,
+        alignSJoverhangMin = 8,
+        alignSJDBoverhangMin = 1,
+        alignIntronMin = 20,
+        alignIntronMax = 1000000,
+        alignMatesGapMax = 1000000,
+        limitBAMsortRAM = 20016346648
+    threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
     shell:
-        "echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > {params.commentsheader};"
+        "{{ echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > {params.commentsheader};"
         " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
+        " sleep $(shuf -i1-60 -n1);"# sleep random number of seconds to minimize chances of race condition during index loading
         " STAR --genomeDir {input.staridx}"
-        " --outSAMattrRGline 'ID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
+        # yes, RG unescaped:
+        #" --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tPU:{params.pu_id}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
+        " --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
         " --outSAMheaderCommentFile {params.commentsheader}"
         " --runThreadN {threads}"
         " --genomeLoad LoadAndKeep"
@@ -106,25 +251,25 @@ rule star_mapping:
         " --outFilterType BySJout"
         " --outSAMtype BAM SortedByCoordinate"
         " --quantMode TranscriptomeSAM GeneCounts"
-        " --outSAMmapqUnique 50"
+        " --outSAMmapqUnique {params.outSAMmapqUnique}"
         " --outSAMattributes NH HI AS nM NM MD"
         " --outBAMsortingThreadN {threads}"
         " --outSAMstrandField intronMotif"
         " --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
-        " --outFilterMultimapNmax 1"
-        " --outFilterMismatchNmax 999"
-        " --outFilterMismatchNoverLmax 0.04"
+        " --outFilterMultimapNmax {params.outFilterMultimapNmax}"
+        " --outFilterMismatchNmax {params.outFilterMismatchNmax}"
+        " --outFilterMismatchNoverLmax {params.outFilterMismatchNoverLmax}"
         " --outFilterIntronMotifs RemoveNoncanonical"
         " --alignEndsType EndToEnd"
-        " --alignSJoverhangMin 8"
-        " --alignSJDBoverhangMin 1"
-        " --alignIntronMin 20"
-        " --alignIntronMax 1000000"
-        " --alignMatesGapMax 1000000"
-        " --limitBAMsortRAM 20016346648"
+        " --alignSJoverhangMin {params.alignSJoverhangMin}"
+        " --alignSJDBoverhangMin {params.alignSJDBoverhangMin}"
+        " --alignIntronMin {params.alignIntronMin}"
+        " --alignIntronMax {params.alignIntronMax}"
+        " --alignMatesGapMax {params.alignMatesGapMax}"
+        " --limitBAMsortRAM {params.limitBAMsortRAM}"
         " --outFileNamePrefix $outpref"
         " --readFilesIn {input.r2};"
-        " STAR --genomeDir {input.staridx} --genomeLoad Remove;"
+        " STAR --genomeDir {input.staridx} --genomeLoad Remove; }} >& {log}"
 
 
 rule trimming:
@@ -140,48 +285,53 @@ rule trimming:
         trim_tail_right=1,
         min_len=20
     shell:
-        "zcat {input.fq} | prinseq-lite.pl -trim_tail_right {params.trim_tail_right}"
-         " -min_len {params.min_len} -fastq stdin -out_good stdout 2>{log} " 
-         " | gzip > {output.fq}"
-    # later: subshell {} 2>log
-    #run:
-    # threads, log, params, benchmark
+        "{{ zcat {input.fq} | prinseq-lite.pl -trim_tail_right {params.trim_tail_right}"
+         " -min_len {params.min_len} -fastq stdin -out_good stdout -out_bad null | gzip > {output.fq}; }} >& {log}" 
 
 
 rule fluidigm_demux:
-    # careful: fdemux splits after first _ so prefix should not contain underscore
+    # WARNING:
+    # - fdemux splits after first _ so prefix should not contain underscore
+    # - input files actually not used, but dir. make sure nothing else is in this dir.
+    #   this is the reason whywe initially only ran one sample at the time.
+    #   current way is to use one dir per sample (component library)
+    # 
     input:
-        expand("{dir}/{{sample}}_merged_R{end}.fastq.gz", 
-            dir=SAMPLE_MERGE_OUTDIR, 
-            end=["1", "2"])
+        expand(os.path.join(RESULT_OUTDIR, "{{sample}}", "{{sample}}_merged_R{end}.fastq.gz"), 
+               end=["1", "2"])
     output:
-        # COL01_ROW36_S1-TGATAGAG_S100_L001_R2.fastq.gz
-        temp(expand("{dir}/{{sample}}_ROW{row}_merged_R{end}.fastq.gz", 
-            dir=FDEMUX_OUTDIR, 
-            row=["{:02d}".format(x) for x in range(1, 41)], 
-            end=["1", "2"]))
+        expand(os.path.join(RESULT_OUTDIR, "{{sample}}",
+                            FDEMUX_SUBDIR, "{{sample}}_ROW{row}_merged_R{end}.fastq.gz"),
+                    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)], 
+                    end=["1", "2"]),
+        os.path.join(RESULT_OUTDIR, "{sample}",
+                            FDEMUX_SUBDIR, "demultiplex_report.xls")
     message:
         "Running fluidigm_demux"
-    params:
-        indir=SAMPLE_MERGE_OUTDIR,
-        outdir=FDEMUX_OUTDIR
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}", FDEMUX_SUBDIR, "fdemux.log")
     shell:
-        #'perl /home/userrig/pipelines/fluidigmdemux/mRNASeqHT_demultiplex_v2.pl -i {params.indir} -o {params.outdir}; '
-        'perl /mnt/projects/rpd/devs/andreas/fluidigm_800_singlecell/mrnaseqht_demux.git/mRNASeqHT_demultiplex.pl -i {params.indir} -o {params.outdir}; '
+        '{{ idir=$(dirname {input[0]});'
+        '  odir=$(dirname {output[0]});'
+        '  mRNASeqHT_demultiplex.pl -i $idir -o $odir; }} >& {log};'
         
 
+# a sample refers to a component library i.e. post bcl2fastq
+# fastqs. they can be split into multiple lanes or runs (as readunits)
+# hence we merge them first so that the demux only runs once. merge
+# prex fdemux.
 rule readunit_merge:
     input:
         lambda wc: list(chain.from_iterable(
             [fastqs_from_unit(config["readunits"][ru]) for ru in config["samples"][wc.sample]]))
     output:
-        r1=temp(expand("{dir}/{{sample}}_merged_R1.fastq.gz",  
-            dir=SAMPLE_MERGE_OUTDIR)),
-        r2=temp(expand("{dir}/{{sample}}_merged_R2.fastq.gz",  
-            dir=SAMPLE_MERGE_OUTDIR))
+        r1=temp(os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged_R1.fastq.gz")),
+        r2=temp(os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged_R2.fastq.gz"))
     message:
-        "Merging read units (e.g. lanes)"
-    #log:
+        "Merging fastqs per sample, i.e. read units (e.g. split across lanes or runs)"
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}", "merge.log")
     shell:
-        'ls {input} | grep "_R1_" | sort | xargs cat > {output.r1};'
-        ' ls {input} | grep "_R2_" | sort | xargs cat > {output.r2}'
+        # cat magically works for gzipped files
+        '{{ ls {input} | grep "_R1_" | sort | xargs cat > {output.r1};'
+        ' ls {input} | grep "_R2_" | sort | xargs cat > {output.r2}; }} >& {log}'

@@ -81,7 +81,7 @@ rule report:
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.md")) as fh:
+        with open(os.path.join(workflow_home, "README.rst")) as fh:
             readme = fh.read()
             
         report("""

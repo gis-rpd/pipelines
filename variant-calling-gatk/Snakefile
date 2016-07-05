@@ -34,10 +34,16 @@ include: "gatk_variant_recalibrator.rules"
 include: "gatk_hard_filter.rules"
 
 
+# always hard filter
+FINAL_VCFS = [
+    os.path.join(RESULT_OUTDIR, "all_genotyped.snp_hfilter.vcf"),
+    os.path.join(RESULT_OUTDIR, "all_genotyped.indel_hfilter.vcf")]
+# try recal only for WGS
 if config['seqtype']=='WGS':
-    FINAL_VCF = os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.indel_recal.vcf"),
-else:
-    FINAL_VCF = os.path.join(RESULT_OUTDIR, "all_genotyped.snp_hfilter.indel_hfilter.vcf"),
+    FINAL_VCFS.extend([
+        os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.vcf"),
+        os.path.join(RESULT_OUTDIR, "all_genotyped.indel_recal.vcf"),
+        ])
 
 
 if config['seqtype'] == 'targeted':
@@ -48,13 +54,13 @@ else:
     
 rule final:
     input:
-        vcf=FINAL_VCF,
+        FINAL_VCFS,
         report="report.html"
 
 
 rule report:
     input:
-        vcf=FINAL_VCF
+        vcfs=FINAL_VCFS
     output:
         html="report.html"
     params:
@@ -62,7 +68,7 @@ rule report:
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.md")) as fh:
+        with open(os.path.join(workflow_home, "README.rst")) as fh:
             readme = fh.read()
             
         report("""
@@ -73,7 +79,7 @@ Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
 Version Info
 ------------
 
-{config[ELM][pipeline_version]}) 
+{config[ELM][pipeline_version]} 
 
 """ + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
                conf="conf.yaml")
