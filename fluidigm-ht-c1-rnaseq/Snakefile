@@ -199,7 +199,7 @@ rule rnaseqQC:
         "Running RNASeqQC"            
     shell:
         "outpref=`dirname {output}`;"
-        " RNSEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s \"{params.sample}|{input.bam}|RNASeqQC\""
+        " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s \"{params.sample}|{input.bam}|RNASeqQC\""
         " -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
 
         
@@ -267,7 +267,9 @@ rule star_mapping:
     run:
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as fh:
             commentsheader = fh.name
-            fh.write('@CO\tANNOTATIONFILE:%s'.format(config['references']['gtfsourcefile']))
+            # resolve link to gtfsourcefile
+            gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
+            fh.write('@CO\tANNOTATIONFILE:%s'.format(gtfsourcefile))
         
         cmd = "STAR --genomeDir {} --genomeLoad LoadAndExit > {} 2>&1 ".format(input.staridx, log)
         shell(cmd)
@@ -361,8 +363,12 @@ rule trimming:
         trim_tail_right=1,
         min_len=20
     shell:
+        # if fed with rubbish prinseq prints an error and happily
+        # exits with code. we are therefore checking the output file
+        # size separately
         "{{ zcat {input.fq} | prinseq-lite.pl -trim_tail_right {params.trim_tail_right}"
-         " -min_len {params.min_len} -fastq stdin -out_good stdout -out_bad null | gzip > {output.fq}; }} >& {log}" 
+         " -min_len {params.min_len} -fastq stdin -out_good stdout -out_bad null | gzip > {output.fq};"
+         " test -z $(gzip -cd {output.fq} | head -c1) && false }} >& {log}"
 
 
 rule fluidigm_demux:
