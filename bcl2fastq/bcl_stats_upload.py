@@ -22,6 +22,8 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from rest import rest_services
+from pipelines import get_machine_run_flowcell_id
+
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -81,7 +83,9 @@ def main():
     with open(confinfo) as fh_cfg:
         yaml_data = yaml.safe_load(fh_cfg)
         assert "run_num" in yaml_data
-        run_num = yaml_data["run_num"]
+        runid_with_flowcellid = yaml_data["run_num"]
+        _, runid, _ = get_machine_run_flowcell_id(
+            runid_with_flowcellid)
         assert "modules" in yaml_data
         soft_ver = yaml_data["modules"].get('bcl2fastq')
         if not soft_ver:
@@ -106,7 +110,7 @@ def main():
                     logger.info("Uploading stats for completed bcl2fastq %s", mux_dir)
                     data['path'] = index_html
                     data['software'] = soft_ver
-                    data['runid'] = run_num
+                    data['runid'] = runid
                     test_json = json.dumps(data)
                     data_json = test_json.replace("\\", "")
                     headers = {'content-type': 'application/json'}
