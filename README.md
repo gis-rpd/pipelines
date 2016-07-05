@@ -35,7 +35,10 @@ the
   run.sh >> logs/submission.log`. Upon restart, partially created
   files will be automatically deleted and the pipeline will skip
   already completed steps
-
+- Output: results can be found in the respective `./out/`
+  sub-directory.  In addition a file called `report.html` will be
+  generated containing some basic information about the analysis.
+  
 ## How it works
 
 - All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
@@ -45,8 +48,8 @@ the
   necessary configuration files, run scripts etc.
 - After creation of this folder the pipeline is automatically
   started/scheduled
-- Log files can be found in the respective `./logs/` sub-directory
-- Results files can be found in the respective `./out/` sub-directory
+- The main log file is `./logs/snakemake.log` (use `tail -f` to follow live progress)
+- Cluster log files can be found in the respective `./logs/` sub-directory
 
 
 ## Contact
