@@ -45,10 +45,8 @@ the
   necessary configuration files, run scripts etc.
 - After creation of this folder the pipeline is automatically
   started/scheduled
-- Log files can be found in the respectives `./logs/` sub-directory
-- Results files can be found in the respectives `./out/` sub-directory
-
-[![Snakemake](https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
+- Log files can be found in the respective `./logs/` sub-directory
+- Results files can be found in the respective `./out/` sub-directory
 
 
 ## Contact
