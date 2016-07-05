@@ -97,20 +97,20 @@ if [ "$DEBUG" -eq 1 ]; then
 fi
 
 
-args="-s $SNAKEFILE"
-args="$args $N_ARG"
-args="$args $DEFAULT_SNAKEMAKE_ARGS"
-args="$args $EXTRA_SNAKEMAKE_ARGS"
+sm_args="-s $SNAKEFILE"
+sm_args="$sm_args $N_ARG"
+sm_args="$sm_args $DEFAULT_SNAKEMAKE_ARGS"
+sm_args="$sm_args $EXTRA_SNAKEMAKE_ARGS"
 
 # warn if we received any args from outside that match used ones
-args_tokenized=$(echo "$args" | tr ' ' '\n' | grep '^-' | sort)
-dups=$(echo -e "$args_tokenized" | uniq -d)
+sm_args_tokenized=$(echo "$sm_args" | tr ' ' '\n' | grep '^-' | sort)
+dups=$(echo -e "$sm_args_tokenized" | uniq -d)
 if [[ $dups ]]; then
     echo "WARNING: duplicated args: $dups" 1>&2
 fi
 
 # now okay to add CLUSTER_ARGS (allows repeated -l)
-args="$args $CLUSTER_ARGS"
+sm_args="$sm_args $CLUSTER_ARGS"
 
 
 # dotkit setup
@@ -124,7 +124,7 @@ source rc/snakemake_init.rc || exit 1
 test -d $LOGDIR || mkdir $LOGDIR
 
 
-cmd="snakemake $args >> @MASTERLOG@ 2>&1"
+cmd="snakemake $sm_args >> @MASTERLOG@ 2>&1"
 if [ $DEBUG -eq 1 ]; then
     echo $cmd
 else
