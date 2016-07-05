@@ -153,7 +153,8 @@ Version Info
 rule RSEM:
     input:
         bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
-        rsemidx = config['references']['rsemidx'] + ".seq"
+        rsemidx = config['references']['rsemidx'] + ".seq",
+        gtfdesc = config['references']['gtfsourcefile']
     output:
         genecount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results",
         isocount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results",
@@ -175,7 +176,11 @@ rule RSEM:
         " --seed 12345 -p {threads} --forward-prob 0.5"
         " {input.bam} {params.rsemidx} $outpref 2>{log};"
         " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
-        " rsem-plot-model $outpref {output.plot}; }} >& {log}"
+        " rsem-plot-model $outpref {output.plot}; }} >& {log};"
+        " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc > {output.genecount}.desc;"
+        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc > {output.isocount}.desc;"
+        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' ;"
+        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' "
 
         
 rule rnaseqQC:
