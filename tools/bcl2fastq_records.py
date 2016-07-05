@@ -85,7 +85,7 @@ def instantiate_query(args):
     if args.mux:
         instance["analysis.per_mux_status.mux_id"] = args.mux
     if args.run:
-        instance["run"] = args.run
+        instance["run"] = {"$regex": "^" + args.run}
     if args.win:
         epoch_present, epoch_initial = generate_window(args.win)
     else:
@@ -144,7 +144,7 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
         if (len(str(record["timestamp"])) == 13):
             result += ("<td>" + str(datetime.fromtimestamp(record["timestamp"] / 1000).isoformat()).replace(":", "-") + "</td>")
         else:
-            result += ("<td>" + str(record["timestamp"]) + "</td>")    
+            result += ("<td>" + str(record["timestamp"]) + "</td>")
 
         result += "<td>"
         if "analysis" in record:
@@ -235,8 +235,13 @@ def main():
         os.system("flask run --host=0.0.0.0")
         app.run()
     else:
-        for record in mongo.find(query).sort([("run", -1), ("timestamp", -1)]):
-            PrettyPrinter(indent=2).pprint(record)
+        for record in mongo.find(query).sort([("timestamp", 1)]):
+            result = record
+            if (len(str(record["timestamp"])) == 13):
+                result["timestamp"] = str(datetime.fromtimestamp(record["timestamp"] / 1000).isoformat()).replace(":", "-")
+            else:
+                result["timestamp"] = str(record["timestamp"])
+            PrettyPrinter(indent=2).pprint(result)
 
 if __name__ == "__main__":
 #    app.run(debug=True)
