@@ -46,13 +46,13 @@ the
   and loaded via dotkit
 - Pipeline wrappers create a run directory which contains all
   necessary configuration files, run scripts etc.
-- After creation of this folder the pipeline is automatically
-  started/scheduled
+- After creation of this folder, the pipeline is automatically
+  scheduled (unless `--no-run` was used)
 - The main log file is `./logs/snakemake.log` (use `tail -f` to follow live progress)
 - Cluster log files can be found in the respective `./logs/` sub-directory
 
 
-## Contact
+## Comments, Questions, Bug reports
 
-Writes us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu.sg)
+Contact us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu.sg)
 
