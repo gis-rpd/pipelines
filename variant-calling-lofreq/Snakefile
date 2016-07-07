@@ -67,6 +67,8 @@ rule final:
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
                sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.bamstats/stats.txt'),
+               sample=config['samples']),
         "report.html"
 
 
