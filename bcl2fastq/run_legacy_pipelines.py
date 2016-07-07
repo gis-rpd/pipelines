@@ -53,11 +53,6 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
-def check_break_status(break_after_first):
-    if break_after_first:
-        logger.warning("Stopping after first sequencing run")
-        sys.exit(0)
-
 
 def main():
     """main function"""
@@ -135,7 +130,6 @@ def main():
                             logger.warning("Skipped following run: %s", cmd)
                             #Remove config txt
                             os.remove(os.path.join(out_dir, "config_casava-1.8.2.txt".format()))
-                            check_break_status(args.break_after_first)
                         else:
                             try:
                                 #ananlysisReport into submission log
@@ -151,7 +145,10 @@ def main():
                                 send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.join(out_dir, LOG_DIR_REL, "mapping_submission.log"))
                                 sys.exit(1)
                             num_triggers += 1
-                            check_break_status(args.break_after_first)
+
+                        if args.break_after_first:
+                            logger.info("Stopping after first sequencing run")
+                            sys.exit(0)
                     else:
                         #send_status_mail
                         logger.info("samplesheet.csv missing for %s under %s", run_number, out_dir)
