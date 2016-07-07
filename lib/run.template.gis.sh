@@ -97,6 +97,15 @@ if [ "$DEBUG" -eq 1 ]; then
 fi
 
 
+# dotkit setup
+source rc/dk_init.rc || exit 1
+
+# snakemake setup
+source rc/snakemake_init.rc || exit 1
+
+test -d $LOGDIR || mkdir $LOGDIR
+
+
 sm_args="-s $SNAKEFILE"
 sm_args="$sm_args $N_ARG"
 sm_args="$sm_args $DEFAULT_SNAKEMAKE_ARGS"
@@ -111,17 +120,6 @@ fi
 
 # now okay to add CLUSTER_ARGS (allows repeated -l)
 sm_args="$sm_args $CLUSTER_ARGS"
-
-
-# dotkit setup
-source rc/dk_init.rc || exit 1
-
-
-# snakemake setup
-source rc/snakemake_init.rc || exit 1
-
-
-test -d $LOGDIR || mkdir $LOGDIR
 
 
 cmd="snakemake $sm_args >> @MASTERLOG@ 2>&1"
