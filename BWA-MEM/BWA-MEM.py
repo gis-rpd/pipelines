@@ -112,10 +112,6 @@ def main():
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
     aux_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
-    if os.path.exists(args.outdir):
-        logger.fatal("Output directory %s already exists", args.outdir)
-        sys.exit(1)
-
     if not os.path.exists(args.reffa):
         logger.fatal("Reference '%s' doesn't exist", args.reffa)
         sys.exit(1)
@@ -142,21 +138,26 @@ def main():
                 logger.fatal("Non-existing input file %s", f)
                 sys.exit(1)
 
+    if os.path.exists(args.outdir):
+        logger.fatal("Output directory %s already exists", args.outdir)
+        sys.exit(1)
+
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail}
     user_data['readunits'] = dict()
-    for k, ru in read_units.items():
+    for ru in read_units:
+        k = key_for_read_unit(ru)
         user_data['readunits'][k] = dict(ru._asdict())
     user_data['references'] = {'genome' : os.path.abspath(args.reffa)}
     user_data['mark_dups'] = not args.dont_mark_dups
 
-    # samples is a dictionary with sample names as key
+    # samples is a dictionary with sample names as key (here just one)
     # each value is a list of readunits
-    user_data['samples'] = samples
+    user_data['samples'] = dict()
+    user_data['samples'][args.sample] = list(user_data['readunits'].keys())
 
-    pipeline_handler = PipelineHandler(
-        PIPELINE_NAME, PIPELINE_BASEDIR, args.outdir, user_data, 
-        site=site, master_q=args.master_q, slave_q=args.slave_q)
+    pipeline_handler = PipelineHandler(PIPELINE_NAME, PIPELINE_BASEDIR,
+                                       args.outdir, user_data, site=site, master_q=args.master_q, slave_q=args.slave_q)
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
 
