@@ -42,9 +42,6 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.stderr.write("FATAL: need exactly only run id\n")
         sys.exit(1)
-<<<<<<< HEAD
-    main(sys.argv[1])
-=======
     run_num = sys.argv[1]
     main(run_num)
->>>>>>> ede07dbb41dff553dbb4425b83cd119c304af92d
+
