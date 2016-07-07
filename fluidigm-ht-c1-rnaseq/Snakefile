@@ -3,6 +3,7 @@
 import os
 from itertools import chain
 import hashlib
+import tempfile
 
 # third party imports
 #
@@ -40,6 +41,8 @@ GENOME_BASENAME = os.path.splitext(os.path.basename(
     
 NUM_ROWS = 40
 
+
+assert len(config['samples'])==1, ("Pipeline optimized for one sample, i.e. componenent-library")
 
 rule final:
     input:
@@ -83,7 +86,7 @@ rule report:
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.md")) as fh:
+        with open(os.path.join(workflow_home, "README.rst")) as fh:
             readme = fh.read()
             
         report("""
@@ -204,35 +207,60 @@ rule rnaseqQC:
         "Running RNASeqQC"            
     shell:
         "outpref=`dirname {output}`;"
-        " RNSEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
+        " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s \"{params.sample}|{input.bam}|RNASeqQC\""
         " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
 
         
-def rg_id_for_star(wc):
-    m = hashlib.md5()
-    m.update("%s-%s".format(wc.sample, wc.row).encode())
-    return m.hexdigest()[:8]
+#def rg_id_for_star(wc):
+#    m = hashlib.md5()
+#    m.update("%s-%s".format(wc.sample, wc.row).encode())
+#    return m.hexdigest()[:8]
           
-        
+
+# star is very fast, esp for single cell data. parallel jobs create
+# all sorts of trouble, e.g race conditions during index loading and
+# unloading. just run in series
 rule star_mapping:
     input:
-        r2 = os.path.join(RESULT_OUTDIR, "{sample}",
-                          FDEMUX_SUBDIR, "{sample}_ROW{row}_merged_R2.trimmed.fastq.gz"),
+        # parallel:
+        #r2 = os.path.join(RESULT_OUTDIR, "{sample}",
+        #                  FDEMUX_SUBDIR, "{sample}_ROW{row}_merged_R2.trimmed.fastq.gz"),
+        # in series (per sample, which is why it is a wildcard)
+        r2s = expand(os.path.join(RESULT_OUTDIR, "{{sample}}", FDEMUX_SUBDIR,
+                                  "{{sample}}_ROW{row}_merged_R2.trimmed.fastq.gz"),
+                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
         staridx = config['references']['staridx']
     output:
-        bam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam",
-        transbam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
-        counts = "{dir}/{sample}_ROW{row}_{genome}_ReadsPerGene.out.tab",
-        wig = "{dir}/{sample}_ROW{row}_{genome}_Signal.Unique.str1.out.wig",
+        # parallel:
+        #bam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam",
+        #transbam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
+        #counts = "{dir}/{sample}_ROW{row}_{genome}_ReadsPerGene.out.tab",
+        #wig = "{dir}/{sample}_ROW{row}_{genome}_Signal.Unique.str1.out.wig",
+        # in series:
+        bams = expand(os.path.join(RESULT_OUTDIR,
+                                   "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                      genome=GENOME_BASENAME),
+        transbams = expand(os.path.join(RESULT_OUTDIR,
+                                        "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam"),
+                           row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                           genome=GENOME_BASENAME),
+        counts = expand(os.path.join(RESULT_OUTDIR,
+                                     "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_ReadsPerGene.out.tab"),
+                        row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                        genome=GENOME_BASENAME),
+        wigs = expand(os.path.join(RESULT_OUTDIR,
+                                   "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Signal.Unique.str1.out.wig"),
+                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                      genome=GENOME_BASENAME),
     log:
-        "{dir}/star.log"
-    message: "Running STAR"
+        #"{dir}/star.log"
+        os.path.join(RESULT_OUTDIR, "star.log")
+    message:
+        "Running STAR against all {} sub libraries".format(NUM_ROWS)
     params:
-        # rg_id just a input specific hash
-        rg_id = rg_id_for_star,
+        sample = lambda wc: wc.sample,
         lib_id = lambda wc: wc.sample,
-        sample = lambda wc: wc.sample + "-ROW" + wc.row,
-        commentsheader = lambda wc: wc.dir + "/commentsheader.txt",
         outSAMmapqUnique = 50,
         outFilterMultimapNmax = 1,
         outFilterMismatchNmax = 999,
@@ -244,41 +272,91 @@ rule star_mapping:
         alignMatesGapMax = 1000000,
         limitBAMsortRAM = 20016346648
     threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
-    shell:
-        "{{ echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > {params.commentsheader};"
-        " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
-        " sleep $(shuf -i1-60 -n1);"# sleep random number of seconds to minimize chances of race condition during index loading
-        " STAR --genomeDir {input.staridx}"
-        # yes, RG unescaped:
-        #" --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tPU:{params.pu_id}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
-        " --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
-        " --outSAMheaderCommentFile {params.commentsheader}"
-        " --runThreadN {threads}"
-        " --genomeLoad LoadAndKeep"
-        " --readFilesCommand zcat"
-        " --outFilterType BySJout"
-        " --outSAMtype BAM SortedByCoordinate"
-        " --quantMode TranscriptomeSAM GeneCounts"
-        " --outSAMmapqUnique {params.outSAMmapqUnique}"
-        " --outSAMattributes NH HI AS nM NM MD"
-        " --outBAMsortingThreadN {threads}"
-        " --outSAMstrandField intronMotif"
-        " --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
-        " --outFilterMultimapNmax {params.outFilterMultimapNmax}"
-        " --outFilterMismatchNmax {params.outFilterMismatchNmax}"
-        " --outFilterMismatchNoverLmax {params.outFilterMismatchNoverLmax}"
-        " --outFilterIntronMotifs RemoveNoncanonical"
-        " --alignEndsType EndToEnd"
-        " --alignSJoverhangMin {params.alignSJoverhangMin}"
-        " --alignSJDBoverhangMin {params.alignSJDBoverhangMin}"
-        " --alignIntronMin {params.alignIntronMin}"
-        " --alignIntronMax {params.alignIntronMax}"
-        " --alignMatesGapMax {params.alignMatesGapMax}"
-        " --limitBAMsortRAM {params.limitBAMsortRAM}"
-        " --outFileNamePrefix $outpref"
-        " --readFilesIn {input.r2};"
-        " STAR --genomeDir {input.staridx} --genomeLoad Remove; }} >& {log}"
+    run:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as fh:
+            commentsheader = fh.name
+            # resolve link to gtfsourcefile
+            gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
+            fh.write('@CO\tANNOTATIONFILE:%s'.format(gtfsourcefile))
+        
+        cmd = "STAR --genomeDir {} --genomeLoad LoadAndExit > {} 2>&1 ".format(input.staridx, log)
+        shell(cmd)
+        for r2, bam in zip(input.r2s, output.bams):
+            # rg_id just a input specific hash
+            m = hashlib.md5()
+            m.update("%s".format(r2).encode())
+            rg_id = m.hexdigest()[:8]
+            
+            outpref = bam.replace("Aligned.sortedByCoord.out.bam", "")
+            cmd = "STAR --genomeDir {}".format(input.staridx)
+            cmd += " --outSAMattrRGline ID:{}\tPL:{}\tLB:{}\tSM:{}\tCN:GIS".format(
+                rg_id, config['platform'], params.lib_id, params.sample)
+            cmd += " --outSAMheaderCommentFile {}".format(commentsheader)
+            cmd += " --runThreadN {threads}"
+            cmd += " --readFilesCommand zcat"
+            cmd += " --outFilterType BySJout"
+            cmd += " --outSAMtype BAM SortedByCoordinate"
+            cmd += " --quantMode TranscriptomeSAM GeneCounts"
+            cmd += " --outSAMmapqUnique {}".format(params.outSAMmapqUnique)
+            cmd += " --outSAMattributes NH HI AS nM NM MD"
+            cmd += " --outBAMsortingThreadN {threads}"
+            cmd += " --outSAMstrandField intronMotif"
+            cmd += " --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
+            cmd += " --outFilterMultimapNmax {}".format(params.outFilterMultimapNmax)
+            cmd += " --outFilterMismatchNmax {}".format(params.outFilterMismatchNmax)
+            cmd += " --outFilterMismatchNoverLmax {}".format(params.outFilterMismatchNoverLmax)
+            cmd += " --outFilterIntronMotifs RemoveNoncanonical"
+            cmd += " --alignEndsType EndToEnd"
+            cmd += " --alignSJoverhangMin {}".format(params.alignSJoverhangMin)
+            cmd += " --alignSJDBoverhangMin {}".format(params.alignSJDBoverhangMin)
+            cmd += " --alignIntronMin {}".format(params.alignIntronMin)
+            cmd += " --alignIntronMax {}".format(params.alignIntronMax)
+            cmd += " --alignMatesGapMax {}".format(params.alignMatesGapMax)
+            cmd += " --limitBAMsortRAM {}".format(params.limitBAMsortRAM)
+            cmd += " --outFileNamePrefix {}".format(outpref)
+            cmd += " --readFilesIn {}".format(r2)
+            cmd += " >> {} 2>&1".format(log)
+            shell(cmd)
+            
+        cmd = "STAR --genomeDir {} --genomeLoad Remove > {} 2>&1 || echo 'OK'".format(input.staridx, log)
+        shell(cmd)
 
+        os.unlink(commentsheader)
+# in parallel
+#        "{{ echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > {params.commentsheader};"
+#        " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
+#        " sleep $(shuf -i1-60 -n1);"# sleep random number of seconds to minimize chances of race condition during index loading
+#        " STAR --genomeDir {input.staridx}"
+#        # yes, RG unescaped:
+#        #" --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tPU:{params.pu_id}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
+#        " --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
+#        " --outSAMheaderCommentFile {params.commentsheader}"
+#        " --runThreadN {threads}"
+#        " --genomeLoad LoadAndKeep"
+#        " --readFilesCommand zcat"
+#        " --outFilterType BySJout"
+#        " --outSAMtype BAM SortedByCoordinate"
+#        " --quantMode TranscriptomeSAM GeneCounts"
+#        " --outSAMmapqUnique {params.outSAMmapqUnique}"
+#        " --outSAMattributes NH HI AS nM NM MD"
+#        " --outBAMsortingThreadN {threads}"
+#        " --outSAMstrandField intronMotif"
+#        " --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
+#        " --outFilterMultimapNmax {params.outFilterMultimapNmax}"
+#        " --outFilterMismatchNmax {params.outFilterMismatchNmax}"
+#        " --outFilterMismatchNoverLmax {params.outFilterMismatchNoverLmax}"
+#        " --outFilterIntronMotifs RemoveNoncanonical"
+#        " --alignEndsType EndToEnd"
+#        " --alignSJoverhangMin {params.alignSJoverhangMin}"
+#        " --alignSJDBoverhangMin {params.alignSJDBoverhangMin}"
+#        " --alignIntronMin {params.alignIntronMin}"
+#        " --alignIntronMax {params.alignIntronMax}"
+#        " --alignMatesGapMax {params.alignMatesGapMax}"
+#        " --limitBAMsortRAM {params.limitBAMsortRAM}"
+#        " --outFileNamePrefix $outpref"
+#        " --readFilesIn {input.r2};"
+#        " STAR --genomeDir {input.staridx} --genomeLoad Remove; }} >& {log}"
+#
 
 rule trimming:
     input:
@@ -293,8 +371,12 @@ rule trimming:
         trim_tail_right=1,
         min_len=20
     shell:
+        # if fed with rubbish prinseq prints an error and happily
+        # exits with code. we are therefore checking the output file
+        # size separately
         "{{ zcat {input.fq} | prinseq-lite.pl -trim_tail_right {params.trim_tail_right}"
-         " -min_len {params.min_len} -fastq stdin -out_good stdout -out_bad null | gzip > {output.fq}; }} >& {log}" 
+         " -min_len {params.min_len} -fastq stdin -out_good stdout -out_bad null | gzip > {output.fq};"
+         " test -z $(gzip -cd {output.fq} | head -c1) && false }} >& {log}"
 
 
 rule fluidigm_demux:

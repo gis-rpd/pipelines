@@ -27,7 +27,6 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version
 from pipelines import ref_is_indexed
-from pipelines import chroms_from_fasta
 from pipelines import get_site
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger

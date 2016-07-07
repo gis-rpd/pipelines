@@ -1,22 +1,17 @@
+from pipelines import chroms_and_lens_from_from_fasta, parse_regions_from_bed
+
+
 assert 'references' in config
 assert 'genome' in config['references']
 
 
+
 # this is the global bed file, if given
-def _get_intervals_arg():
-    intervals = config.get("intervals")
-    if intervals:
-        assert os.path.exists(intervals)
-        return "-l {}".format(intervals)
-    else:
-        return ""
-
-
 
 rule lofreq_massage_sort:
     """Runs BAM through full LoFreq preprocessing pipeline,
     i.e. viterbi, alnqual, indelqual, followed by sort (required by
-    viterbi). 
+    viterbi).
 
     WARNING: running this on unsorted input files will be inefficient
     because of constant reloading of the reference
@@ -30,7 +25,7 @@ rule lofreq_massage_sort:
     output:
         bam='{prefix}.lofreq.bam'
     log:
-        '{prefix}.lofreq.log'        
+        '{prefix}.lofreq.log'
     params:
         sort_mem='500M'
     message: "Preprocessing BAMs with LoFreq"
@@ -41,24 +36,45 @@ rule lofreq_massage_sort:
         " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
 
 
+rule intervals_wo_excl:
+    input:
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".fai"
+    output:
+        bed = os.path.join(RESULT_OUTDIR, "interval_wo_excl.bed")
+    log:
+        os.path.join(RESULT_OUTDIR, "interval_wo_excl.log")
+    message:
+        "Creating intervals/bed file for variant calling"
+    run:
+        with open(output.bed, 'w') as fhout:
+            bed = config.get('intervals')# user arg
+            if bed:
+                for (chrom, start, end) in parse_regions_from_bed(bed):
+                    if chrom not in config['references']['excl_chrom']:
+                        fhout.write("{}\t{}\t{}\n".format(chrom, start, end))
+            else:# no bed? use ref.fai
+                for (chrom, end) in chroms_and_lens_from_from_fasta(input.reffa):
+                    if chrom not in config['references']['excl_chrom']:
+                        fhout.write("{}\t{}\t{}\n".format(chrom, 0, end))
+
+
 rule lofreq_call:
     input:
         bam = '{prefix}.bam',
         bai = '{prefix}.bam.bai',
         reffa = config['references']['genome'],
-        reffai = config['references']['genome'] + ".pac"
+        refidx = config['references']['genome'] + ".pac",
+        bed = os.path.join(RESULT_OUTDIR, "interval_wo_excl.bed")
     output:
         vcf = '{prefix}.both.vcf.gz'
     log:
         '{prefix}.both.vcf.log'
     message:
         "Calling variants with LoFreq"
-    params:
-        intervals_arg=_get_intervals_arg(),
     threads:
         16
     shell:
         "lofreq call-parallel --pp-threads {threads} --call-indels"
-        " {params.intervals_arg} -f {input.reffa} -o {output.vcf}"
+        " -l {input.bed} -f {input.reffa} -o {output.vcf}"
         " {input.bam} >& {log}"
-
