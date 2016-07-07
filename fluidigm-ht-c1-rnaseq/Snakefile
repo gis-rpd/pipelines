@@ -277,7 +277,8 @@ rule star_mapping:
         " --limitBAMsortRAM {params.limitBAMsortRAM}"
         " --outFileNamePrefix $outpref"
         " --readFilesIn {input.r2};"
-        " STAR --genomeDir {input.staridx} --genomeLoad Remove; }} >& {log}"
+        " STAR --genomeDir {input.staridx} --genomeLoad Remove; }} >& {log};"
+        " paste <(sort -k1,1 {config[references][gtfsourcefile]}.genesdesc) {output.counts} > {output.counts}.desc"
 
 
 rule trimming:
