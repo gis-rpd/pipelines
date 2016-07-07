@@ -27,6 +27,22 @@ RSEM and RNASeqQC amongst others:
 - STAR: https://github.com/alexdobin/STAR 
 - RNA-SeQC: https://www.broadinstitute.org/cancer/cga/rna-seqc
 
+Deliverables::
+star:
+mapped genome bam - <library>_<assembly>_Aligned.sortedByCoord.out.bam
+mapped transcriptome bam (required to run RSEM) - <library>_<assembly>_Aligned.toTranscriptome.out.bam
+visualization - .wig
+Read count (genes) - <library>_<assembly>_ReadsPerGene.out.tab
+Mappability - <library>_<assembly>_Log.final.out
+rsem:
+genes expression values with annotation - <library>_<assembly>_RSEM.genes.results
+isoforms expression values with annotation - <library>_<assembly>_RSEM.isoforms.results
+visualization - .wig
+plots - <library>_<assembly>_RSEM.pdf
+rnaseqQC:
+qc and rate of rRNA and distribution of reads on transcripts 
+-countMetrics.html
+-metrics.tsv
 
 All runtime variables including program versions etc. can be found in
 ``conf.yaml``
