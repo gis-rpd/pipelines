@@ -108,12 +108,15 @@ Version Info
 #            dir=RESULT_OUTDIR,
 #            genome=GENOME_BASENAME),
 #        gff = config['references']['dexseqgff'],
+#        gtfdesc = config['references']['gtfsourcefile']
 #    output:
 #        "{dir}/{sample}_ROW{row}_{genome}_dexseq_exoncount.txt"
 #    message: "Running DEXSeq"    
 #    run:
 #        shell("""export PATH=$PATH:/mnt/software/bin;
-#            /mnt/software/bin/python2.7 /home/userrig/pipelines_tools/DEXSeq/inst/python_scripts/dexseq_count.py -f bam -s no -r pos {input.gff} {input.bam} {output};""")
+#            /mnt/software/bin/python2.7 /home/userrig/pipelines_tools/DEXSeq/inst/python_scripts/dexseq_count.py -f bam -s no -r pos {input.gff} {input.bam} {output};
+#            paste {output} {input.gtfdesc}.genesdesc > {output}.desc""")
+
 #
 #
 #rule cuffdiff:
@@ -153,7 +156,8 @@ Version Info
 rule RSEM:
     input:
         bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
-        rsemidx = config['references']['rsemidx'] + ".seq"
+        rsemidx = config['references']['rsemidx'] + ".seq",
+        gtfdesc = config['references']['gtfsourcefile']
     output:
         genecount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results",
         isocount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results",
@@ -167,7 +171,7 @@ rule RSEM:
     log:
         "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.log"
     threads:
-        4 
+        4
     shell:
         " {{ outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
         " rsem-calculate-expression --bam --output-genome-bam"
@@ -175,7 +179,11 @@ rule RSEM:
         " --seed 12345 -p {threads} --forward-prob 0.5"
         " {input.bam} {params.rsemidx} $outpref 2>{log};"
         " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
-        " rsem-plot-model $outpref {output.plot}; }} >& {log}"
+        " rsem-plot-model $outpref {output.plot}; }} >& {log};"
+        " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc > {output.genecount}.desc;"
+        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc |awk '{{print $1\\t$2\\t$3\\t$4\\t$5\\t$6\\t$7\\t$8\\t$10\\t$11\\t$12}}' > {output.isocount}.desc;"
+        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' {output.genecount}.desc;"
+        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' {output.isocount}.desc"
 
         
 rule rnaseqQC:

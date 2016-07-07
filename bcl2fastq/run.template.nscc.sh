@@ -97,27 +97,27 @@ if [ "$DEBUG" -eq 1 ]; then
 fi
 
 
-args="-s $SNAKEFILE"
-args="$args $N_ARG"
-args="$args $DEFAULT_SNAKEMAKE_ARGS"
-args="$args $EXTRA_SNAKEMAKE_ARGS"
+sm_args="-s $SNAKEFILE"
+sm_args="$sm_args $N_ARG"
+sm_args="$sm_args $DEFAULT_SNAKEMAKE_ARGS"
+sm_args="$sm_args $EXTRA_SNAKEMAKE_ARGS"
 
 # warn if we received any args from outside that match used ones
-args_tokenized=$(echo "$args" | tr ' ' '\n' | grep '^-' | sort)
-dups=$(echo -e "$args_tokenized" | uniq -d)
+sm_args_tokenized=$(echo "$sm_args" | tr ' ' '\n' | grep '^-' | sort)
+dups=$(echo -e "$sm_args_tokenized" | uniq -d)
 if [[ $dups ]]; then
     echo "WARNING: duplicated args: $dups" 1>&2
 fi
 
 # now okay to add CLUSTER_ARGS (allows repeated -l)
-args="$args $CLUSTER_ARGS"
+sm_args="$sm_args $CLUSTER_ARGS"
 
 # ANALYSIS_ID created here so that each run gets its own Id
 # iso8601ms timestamp as corresponding python function
 iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
 iso8601ms=${iso8601ns:0:26}
 ANALYSIS_ID=$iso8601ms
-args="$args --config ANALYSIS_ID=$ANALYSIS_ID"
+sm_args="$sm_args --config ANALYSIS_ID=$ANALYSIS_ID"
 
 # dotkit setup
 source rc/dk_init.rc || exit 1
@@ -136,8 +136,8 @@ test -d $LOGDIR || mkdir $LOGDIR
 # stuck in queue will be rerun. but don't update if running in dryrun
 # mode
 is_dryrun=0
-args_tokenized=$(echo "$args" | tr ' ' '\n' | grep '^-' | sort)
-for arg in $args_tokenized; do
+sm_args_tokenized=$(echo "$sm_args" | tr ' ' '\n' | grep '^-' | sort)
+for arg in $sm_args_tokenized; do
     if [ $arg == "-n" ] || [ $arg == "--dryrun" ]; then
         is_dryrun=1
         break
@@ -151,7 +151,7 @@ else
 fi
 
 
-cmd="snakemake $args >> @MASTERLOG@ 2>&1"
+cmd="snakemake $sm_args >> @MASTERLOG@ 2>&1"
 if [ $DEBUG -eq 1 ]; then
     echo $cmd
 else

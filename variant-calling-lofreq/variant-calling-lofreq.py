@@ -27,7 +27,7 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version
 from pipelines import ref_is_indexed
-from pipelines import chroms_from_fasta
+from pipelines import chroms_and_lens_from_from_fasta
 from pipelines import get_site
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
@@ -88,6 +88,10 @@ def main():
     parser.add_argument('-r', "--reffa", default=default,
                         help="Reference fasta file to use."
                         " Needs to be bwa and samtools indexed (default: {})".format(default))
+    # needed here because we overwrite all entries in references
+    default = default_cfg['references']['excl_chrom']
+    parser.add_argument('-e', "--excl-chrom", default=default,
+                        help=argparse.SUPPRESS)
     parser.add_argument('-d', '--mark-dups', action='store_true',
                         help="Mark duplicate reads")
     parser.add_argument('-c', "--config",
@@ -162,6 +166,7 @@ def main():
                 sys.exit(1)
             logger.warn("Compatilibity between interval file and reference not checked")# FIXME
 
+
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail,
                  'seqtype': args.seqtype,
@@ -169,7 +174,8 @@ def main():
     # WARNING: this currently only works because these two are the only members in reference dict
     # Should normally only write to root level
     user_data['references'] = {'genome' : os.path.abspath(args.reffa),
-                               'num_chroms' : len(list(chroms_from_fasta(args.reffa)))}
+                               'num_chroms' : len(list(chroms_and_lens_from_from_fasta(args.reffa))),
+                               'excl_chrom' : args.excl_chrom}
     user_data['readunits'] = dict()
     for ru in read_units:
         k = key_for_read_unit(ru)
