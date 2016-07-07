@@ -114,7 +114,7 @@ def main():
                 continue
 
         if args.break_after_first:
-            logger.warning("Stopping after first sequencing run")
+            logger.info("Stopping after first sequencing run")
             break
 
     # close the connection to MongoDB
