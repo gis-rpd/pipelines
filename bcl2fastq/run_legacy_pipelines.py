@@ -18,7 +18,7 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from mongo_status import mongodb_conn
+from pipelines import mongodb_conn
 from pipelines import send_status_mail, generate_timestamp, generate_window
 
 
@@ -52,11 +52,6 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-
-def check_break_status(break_after_first):
-    if break_after_first:
-        logger.warning("Stopping after first sequencing run")
-        sys.exit(0)
 
 
 def main():
@@ -135,7 +130,6 @@ def main():
                             logger.warning("Skipped following run: %s", cmd)
                             #Remove config txt
                             os.remove(os.path.join(out_dir, "config_casava-1.8.2.txt".format()))
-                            check_break_status(args.break_after_first)
                         else:
                             try:
                                 #ananlysisReport into submission log
@@ -151,7 +145,10 @@ def main():
                                 send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.join(out_dir, LOG_DIR_REL, "mapping_submission.log"))
                                 sys.exit(1)
                             num_triggers += 1
-                            check_break_status(args.break_after_first)
+
+                        if args.break_after_first:
+                            logger.info("Stopping after first sequencing run")
+                            sys.exit(0)
                     else:
                         #send_status_mail
                         logger.info("samplesheet.csv missing for %s under %s", run_number, out_dir)

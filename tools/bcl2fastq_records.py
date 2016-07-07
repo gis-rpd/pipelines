@@ -26,10 +26,10 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import generate_window
+from pipelines import generate_window, mongodb_conn
 # FIXME: that function should go into lib
-sys.path.insert(0, os.path.join(LIB_PATH, "..", "bcl2fastq"))
-from mongo_status import mongodb_conn
+#sys.path.insert(0, os.path.join(LIB_PATH, "..", "bcl2fastq"))
+#from mongo_status import mongodb_conn
 
 
 __author__ = "Andreas Wilm"
@@ -240,7 +240,12 @@ def main():
         os.system("flask run --host=0.0.0.0")
         app.run()
     else:
-        for record in mongo.find(query).sort(list((j[0], 1) if j[1] == "asc" else (j[0], -1) for j in list(zip([i for i in args.arrange if args.arrange.index(i) % 2 == 0], [i for i in args.arrange if args.arrange.index(i) % 2 == 1])))):
+        if args.arrange:
+            mongo_found = mongo.find(query).sort(list((j[0], 1) if j[1] == "asc" else (j[0], -1) for j in list(zip([i for i in args.arrange if args.arrange.index(i) % 2 == 0], [i for i in args.arrange if args.arrange.index(i) % 2 == 1]))))
+        else:
+            mongo_found = mongo.find(query)
+
+        for record in mongo_found:
             result = record
             if len(str(record["timestamp"])) == 13:
                 result["timestamp"] = str(datetime.fromtimestamp(record["timestamp"] / 1000).isoformat()).replace(":", "-")

@@ -97,6 +97,15 @@ if [ "$DEBUG" -eq 1 ]; then
 fi
 
 
+# dotkit setup
+source rc/dk_init.rc || exit 1
+
+# snakemake setup
+source rc/snakemake_init.rc || exit 1
+
+test -d $LOGDIR || mkdir $LOGDIR
+
+
 sm_args="-s $SNAKEFILE"
 sm_args="$sm_args $N_ARG"
 sm_args="$sm_args $DEFAULT_SNAKEMAKE_ARGS"
@@ -118,17 +127,6 @@ iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
 iso8601ms=${iso8601ns:0:26}
 ANALYSIS_ID=$iso8601ms
 sm_args="$sm_args --config ANALYSIS_ID=$ANALYSIS_ID"
-
-# dotkit setup
-source rc/dk_init.rc || exit 1
-
-
-# snakemake setup
-source rc/snakemake_init.rc || exit 1
-
-
-test -d $LOGDIR || mkdir $LOGDIR
-
 
 
 # mongodb update has to happen here because at this stage we know the
