@@ -133,7 +133,7 @@ rule unit_merge:
                                  prefix=wildcards.prefix,
                                  unit=config['samples'][wildcards.sample])
     output:
-        '{prefix}/sample-{sample}.bwamem.lofreq.bam'
+        temp('{prefix}/sample-{sample}.bwamem.lofreq.bam')
     log:
         '{prefix}/sample-{sample}.bwamem.lofreq.bam.unit_merge.log'        
     message:

@@ -21,7 +21,7 @@ references: {
   modules: {
     # name : version
     samtools : 1.3,
-    mrnaseqht-demux : ad8499f,
+    mrnaseqht-demux : b2712be,
     star : 2.5.2a,
     rsem : 1.2.31,
     rnaseqc : 1.1.8,

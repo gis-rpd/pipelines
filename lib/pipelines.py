@@ -461,27 +461,25 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
     - outdir: directory where results are found
     """
 
+    body = "Pipeline {} (version {}) for {} ".format(
+        pipeline_name, get_pipeline_version(), analysis_id)
     if success:
         status_str = "completed"
-        body = "Pipeline {} (version {}) {} for {}.".format(
-            pipeline_name, get_pipeline_version(), status_str, analysis_id)
+        body += status_str
         body += "\n\nResults can be found in {}\n".format(outdir)
     else:
         status_str = "failed"
-        body = "Pipeline {} {} for {}".format(pipeline_name, status_str, analysis_id)
-        # FIXME ugly inference of log folder
-        if pipeline_name == "Mapping":
-            logdir = outdir
-        else:
-            logdir = os.path.normpath(os.path.join(outdir, "..", 'logs'))
-        body += "\nSorry about this. Please check log files in {}".format(logdir)
+        body += status_str
+        masterlog = os.path.normpath(os.path.join(outdir, "..", PipelineHandler.MASTERLOG))
+        body += "\n\nSorry about this."
+        body += "\n\nThe following log file provides more information: {}".format(masterlog)
     if extra_text:
         body = body + "\n" + extra_text + "\n"
     body += "\n\nThis is an automatically generated email\n"
     body += RPD_SIGNATURE
 
-    subject = "Pipeline {} {} for {}".format(
-        pipeline_name, status_str, analysis_id)
+    subject = "Pipeline {} for {} {}".format(
+        pipeline_name, analysis_id, status_str)
 
     msg = MIMEText(body)
     msg['Subject'] = subject
@@ -559,7 +557,20 @@ def generate_window(days=7):
     return (epoch_present, epoch_back)
 
 
-def chroms_from_fasta(fasta):
+def parse_regions_from_bed(bed):
+    """yields regions from bed as three tuple
+    """
+
+    with open(bed) as fh:
+        for line in fh:
+            if line.startswith('#') or not len(line.strip()):
+                continue
+            chrom, start, end = line.split()[:3]
+            start, end = int(start), int(end)
+            yield (chrom, start, end)
+
+
+def chroms_and_lens_from_from_fasta(fasta):
     """return sequence and their length as two tuple. derived from fai
     """
 

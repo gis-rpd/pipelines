@@ -1,3 +1,5 @@
+*nohup.out
+
 # snakemake cluster logs
 snakejob*.sh.[eo][0-9]*
 .snakemake/
@@ -7,6 +9,7 @@ snakejob*.sh.[eo][0-9]*
 # backup files
 *~
 \#*
+*.tmp
 
 # github generated Python .gitignore:
 #------------------------------------
