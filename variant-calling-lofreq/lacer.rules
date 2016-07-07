@@ -52,6 +52,9 @@ rule lacer_table:
         intervals_arg=_get_intervals_arg(),
         stopbases = 3000000
     run:
+        # delete left over output from killed jobs
+        if os.path.exists(output.table):
+            os.unlink(output.table)    
         if config['seqtype'] == 'targeted':
             shell("echo 'Skipped because targeted resequencing' | tee {output.table} > {log}")
         else:
