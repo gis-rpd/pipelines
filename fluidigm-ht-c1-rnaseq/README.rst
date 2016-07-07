@@ -34,11 +34,13 @@ mapped transcriptome bam (required to run RSEM) - <library>_<assembly>_Aligned.t
 visualization - .wig
 Read count (genes) - <library>_<assembly>_ReadsPerGene.out.tab
 Mappability - <library>_<assembly>_Log.final.out
+
 rsem:
 genes expression values with annotation - <library>_<assembly>_RSEM.genes.results
 isoforms expression values with annotation - <library>_<assembly>_RSEM.isoforms.results
 visualization - .wig
 plots - <library>_<assembly>_RSEM.pdf
+
 rnaseqQC:
 qc and rate of rRNA and distribution of reads on transcripts 
 -countMetrics.html
