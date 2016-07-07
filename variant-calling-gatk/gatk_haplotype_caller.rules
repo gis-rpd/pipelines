@@ -33,6 +33,10 @@ rule gatk_haplotype_caller:
         bais = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.realn.recal.bam.bai',
                                         prefix=wildcards.prefix,
                                         unit=config['samples'][wildcards.sample]),
+        # stats awkward here but also awkward in BAM agnostic final. introduces samtools rule dep
+        stats = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.realn.recal.bamstats/stats.txt',
+                                        prefix=wildcards.prefix,
+                                        unit=config['samples'][wildcards.sample]),
         ref=config["references"]["genome"],
         # see prep_bed_files
         # split by chrom and intersect with intervals already if needed

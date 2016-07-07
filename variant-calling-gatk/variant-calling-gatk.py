@@ -28,7 +28,7 @@ from pipelines import get_pipeline_version
 from pipelines import get_site
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
-from pipelines import chroms_from_fasta
+from pipelines import chroms_and_lens_from_from_fasta
 from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 
@@ -157,7 +157,7 @@ def main():
             
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail,
-                 'num_chroms' : len(list(chroms_from_fasta(args.reffa))),
+                 'num_chroms' : len(list(chroms_and_lens_from_from_fasta(args.reffa))),
                  'seqtype': args.seqtype,
                  'intervals': args.intervals}# always safe, might be used for WGS as well
     user_data['readunits'] = dict()
