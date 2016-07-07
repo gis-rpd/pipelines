@@ -94,7 +94,7 @@ def get_reads_unit_from_cfgfile(cfgfile):
 
             ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id,
                                  rg_id, fq1, fq2])
-            if rg_id == 'None':
+            if not rg_id or rg_id == 'None':
                 ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
             read_units.append(ru)
     return read_units
