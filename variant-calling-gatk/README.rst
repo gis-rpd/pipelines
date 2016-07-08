@@ -38,6 +38,11 @@ Note, VQSR can fail for perfectly valid reasons (e.g. too few uniq variants). In
 a fake vcf file will be produced which contains one line indicating
 the problem. In such cases, resort to the hard filtered files.
 
+
+Please also note, that the best practices do not recommend to use a
+minimum depth filter and hence it's not used here either.
+
+
 All runtime variables including program versions etc. can be found in
 ``conf.yaml``
 

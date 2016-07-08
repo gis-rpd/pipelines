@@ -9,7 +9,7 @@
   
     "lofreq_call" :
     {
-      "time" : "12:00:00",
+      "time" : "18:00:00",
       "mem" : 8G,
     },
 
@@ -28,7 +28,7 @@
     "lofreq_massage_sort" :
     {
       "time" : "08:00:00",
-      "mem" : 8G,
+      "mem" : 4G,
     },
         
     "map_mdups_split" :
@@ -36,7 +36,6 @@
       "time" : "12:00:00",
       "mem" : 12G,
     },
-
 
 }    
 
