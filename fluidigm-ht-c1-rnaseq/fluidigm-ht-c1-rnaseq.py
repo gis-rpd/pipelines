@@ -12,7 +12,6 @@ import sys
 import os
 import argparse
 import logging
-from copy import deepcopy
 
 #--- third-party imports
 #

@@ -181,7 +181,7 @@ rule RSEM:
         " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
         " rsem-plot-model $outpref {output.plot}; }} >& {log};"
         " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc > {output.genecount}.desc;"
-        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc |awk '{{print $1\\t$2\\t$3\\t$4\\t$5\\t$6\\t$7\\t$8\\t$10\\t$11\\t$12}}' > {output.isocount}.desc;"
+        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $10, $11, $12}}' > {output.isocount}.desc;"
         " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' {output.genecount}.desc;"
         " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' {output.isocount}.desc"
 
