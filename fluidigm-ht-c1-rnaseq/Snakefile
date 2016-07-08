@@ -83,7 +83,7 @@ rule report:
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.md")) as fh:
+        with open(os.path.join(workflow_home, "README.rst")) as fh:
             readme = fh.read()
             
         report("""
@@ -277,7 +277,8 @@ rule star_mapping:
         " --limitBAMsortRAM {params.limitBAMsortRAM}"
         " --outFileNamePrefix $outpref"
         " --readFilesIn {input.r2};"
-        " STAR --genomeDir {input.staridx} --genomeLoad Remove; }} >& {log}"
+        " STAR --genomeDir {input.staridx} --genomeLoad Remove; }} >& {log};"
+        " paste <(sort -k1,1 {config[references][gtfsourcefile]}.genesdesc) {output.counts} > {output.counts}.desc"
 
 
 rule trimming:
