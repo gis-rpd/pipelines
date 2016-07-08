@@ -68,8 +68,8 @@ def instantiate_args():
 def instantiate_mongo(testing):
     """
     Instantiates MongoDB database object
-    For Test Server, testing == true
-    For Production Server, testing == false
+    For Test Server, testing == True
+    For Production Server, testing == False
     """
     return mongodb_conn(testing).gisds.runcomplete
 
