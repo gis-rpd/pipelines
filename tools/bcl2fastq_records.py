@@ -127,7 +127,7 @@ def form_post():
             instance = {}
             instance["timestamp"] = {"$gte": epoch_initial, "$lt": epoch_final}
 #            instance["analysis"] = {"$exists": True}
-            return form_none(instantiate_mongo(False).find(instance), "Showing RUN entries with TIMESTAMP from " + "-".join(list_from) + " to " + "-".join(list_to))
+            return form_none(instantiate_mongo(False).find(instance), "RUNS FROM " + "-".join(list_from) + " TO " + "-".join(list_to))
 
     return form_none(instantiate_mongo(False).find())
 
@@ -138,7 +138,8 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
     Flask callback function for all requests
     """
     result = ""
-    result += ("<div align='center'><a>" + date_filter + "</a></div>")
+    result += ("<script>$(function(){$('#datefilter').replaceWith('" + date_filter + "');});</script>")
+#    result += ("<div align='center'><a>" + date_filter + "</a></div>")
     for record in mongo_results:
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
