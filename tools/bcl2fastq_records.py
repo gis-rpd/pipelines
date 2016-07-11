@@ -146,9 +146,11 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
     Flask callback function for all requests
     """
     result = ""
-    result += ("<script>$(function(){$('#datefilter').replaceWith('" + date_filter \
+    result += ("<script>$(function(){$('.datefilter').replaceWith('" + date_filter \
         + "');});</script>")
-#    result += ("<div align='center'><a>" + date_filter + "</a></div>")
+    analysis_none = 0
+    analysis_started = 0
+    analysis_failed = 0
     for record in mongo_results:
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
@@ -175,6 +177,13 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
                 <tbody>
             """
             for analysis in record["analysis"]:
+
+                if "Status" in analysis:
+                    if analysis["Status"] == "STARTED":
+                        analysis_started += 1
+                    if analysis["Status"] == "FAILED":
+                        analysis_failed += 1
+
                 result += "<tr>"
                 result += ("<td>" + merge_cells("analysis_id", analysis) + "</td>")
                 result += ("<td>" + merge_cells("end_time", analysis) + "</td>")
@@ -228,10 +237,19 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
 
                 result += "</td>"
             result += "</tbody></table>"
-
+        else:
+            analysis_none += 1
         result += "</td>"
         result += "</tr>"
         result += "</tr>"
+
+        result += ("<script>$(function(){$('#analysis_none').attr('data-badge', '" \
+            + str(analysis_none) + "');});</script>")
+        result += ("<script>$(function(){$('#analysis_started').attr('data-badge', '" \
+            + str(analysis_started) + "');});</script>")
+        result += ("<script>$(function(){$('#analysis_failed').attr('data-badge', '" \
+            + str(analysis_failed) + "');});</script>")
+
     return render_template("index.html", result=Markup(result))
 
 
