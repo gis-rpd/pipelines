@@ -117,8 +117,9 @@ def check_mongo():
     count_warnings = 0
     for record in mongo:
 #        PrettyPrinter(indent=2).pprint(record)
-        warnings += ("[started >= " + str(MAX_RUN) + " days]:\t" + str(record["run"]) + "\n")
-        count_warnings += 1
+        if record["analysis"][-1]["Status"] != "SUCCESS":
+            warnings += ("[started >= " + str(MAX_RUN) + " days]:\t" + str(record["run"]) + "\n")
+            count_warnings += 1
     if count_warnings > 0:
         warnings += ("[started >= " + str(MAX_RUN) + " days]:\t" + str(count_warnings) + "\n\n")
 
