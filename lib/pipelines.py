@@ -616,3 +616,17 @@ def mongodb_conn(use_test_server=False):
         return None
     logger.debug("Database connection established")
     return connection
+
+
+def path_to_url(out_path):
+    """convert path to qlap33 server url"""
+    
+    # FIXME change for testing, gis, NSCC
+    if out_path.startswith("/mnt/projects/userrig/solexa/"):
+        return out_path.replace("/mnt/projects/userrig/solexa/", \
+            "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects/")
+    else:
+        #raise ValueError(out_path)
+        return out_path
+    
+

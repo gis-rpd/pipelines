@@ -25,6 +25,7 @@ if LIB_PATH not in sys.path:
 from pipelines import mongodb_conn
 from pipelines import generate_window, send_mail
 from pipelines import is_devel_version
+from pipelines import path_to_url
 
 
 __author__ = "Lavanya Veeravalli"
@@ -48,15 +49,6 @@ def update_mongodb_email(db, run_number, analysis_id, email_sent, Status):
     except pymongo.errors.OperationFailure:
         logger.fatal("MongoDB OperationFailure")
         sys.exit(0)
-
-
-def outpath_url(out_path):
-    if out_path.startswith("/mnt/projects/userrig/solexa/"):
-        return out_path.replace("/mnt/projects/userrig/solexa/", \
-            "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects/")
-    else:
-        #raise ValueError(out_path)
-        return out_path
 
 
 def get_requestor(mux_id, cfg_file):
@@ -164,7 +156,7 @@ def main():
 
                 elif mux_status.get('Status', None) == "SUCCESS":
                     out_path = os.path.join(out_dir, 'out', mux_status.get('mux_dir'), 'html/index.html')
-                    out = outpath_url(out_path)
+                    out = path_to_url(out_path)
                     body = "bcl2fastq for {} from {} successfully completed.".format(
                         mux_id, run_number)
                     body += "\n\nPlease check the output under {}".format(out)
