@@ -35,6 +35,17 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
+def outpath_url(out_path):
+    """
+    OUT_DIR to URL
+    """
+    if out_path.startswith("/mnt/projects/userrig/solexa/"):
+        return out_path.replace("/mnt/projects/userrig/solexa/", \
+            "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects")
+    else:
+        return out_path
+
+
 def send_email(email, subject, message):
     """
     Send alert email for inconsistent MongoDB records
@@ -61,7 +72,8 @@ def instantiate_args():
     instance.add_argument("-m", "--mux", help="filter records by mux_id")
     instance.add_argument("-r", "--run", help="filter records by run")
     instance.add_argument("-w", "--win", type=int, help="filter records up to specified day(s) ago")
-    instance.add_argument("-a", "--arrange", nargs="*", help="arrange records by key and order (e.g. --arrange timestamp dsc end_time asc ...)")
+    instance.add_argument("-a", "--arrange", nargs="*", \
+        help="arrange records by key and order (e.g. --arrange timestamp dsc end_time asc ...)")
     return instance.parse_args()
 
 
@@ -100,13 +112,17 @@ def merge_cells(child_key, key):
     result = ""
     if child_key in key:
         if str(key[child_key]) == "STARTED":
-            result += ("<span class='label label-pill label-warning'>" + str(key[child_key]) + "</span>")
+            result += ("<span class='label label-pill label-warning'>" \
+                + str(key[child_key]) + "</span>")
         elif str(key[child_key]) == "FAILED" or str(key[child_key]).upper() == "FALSE":
-            result += ("<span class='label label-pill label-danger'>" + str(key[child_key]).upper() + "</span>")
+            result += ("<span class='label label-pill label-danger'>" \
+                + str(key[child_key]).upper() + "</span>")
         elif str(key[child_key]) == "SUCCESS" or str(key[child_key]).upper() == "TRUE":
-            result += ("<span class='label label-pill label-success'>" + str(key[child_key]).upper() + "</span>")
+            result += ("<span class='label label-pill label-success'>" \
+                + str(key[child_key]).upper() + "</span>")
         elif str(key[child_key]) == "TODO":
-            result += ("<span class='label label-pill label-default'>" + str(key[child_key]) + "</span>")
+            result += ("<span class='label label-pill label-default'>" \
+                + str(key[child_key]) + "</span>")
         else:
             result += str(key[child_key])
     return result
@@ -122,12 +138,15 @@ def form_post():
     if "-".join(list_from) != "" or "-".join(list_to) != "":
         if len(list_from) == 3 and len(list_to) == 3:
             print("DATE FILTER: FROM " + "-".join(list_from) + " TO " + "-".join(list_to))
-            epoch_initial = int(mktime(datetime(int(list_from[0]), int(list_from[1]), int(list_from[2])).timetuple()) * 1000)
-            epoch_final = int(mktime((datetime(int(list_to[0]), int(list_to[1]), int(list_to[2])) + timedelta(days=1)).timetuple()) * 1000)
+            epoch_initial = int(mktime(datetime(int(list_from[0]), int(list_from[1]), \
+                int(list_from[2])).timetuple()) * 1000)
+            epoch_final = int(mktime((datetime(int(list_to[0]), int(list_to[1]), int(list_to[2])) \
+                + timedelta(days=1)).timetuple()) * 1000)
             instance = {}
             instance["timestamp"] = {"$gte": epoch_initial, "$lt": epoch_final}
 #            instance["analysis"] = {"$exists": True}
-            return form_none(instantiate_mongo(False).find(instance), "RUNS FROM " + "-".join(list_from) + " TO " + "-".join(list_to))
+            return form_none(instantiate_mongo(False).find(instance), \
+                "RUNS FROM " + "-".join(list_from) + " TO " + "-".join(list_to))
 
     return form_none(instantiate_mongo(False).find())
 
@@ -138,14 +157,16 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
     Flask callback function for all requests
     """
     result = ""
-    result += ("<script>$(function(){$('#datefilter').replaceWith('" + date_filter + "');});</script>")
+    result += ("<script>$(function(){$('#datefilter').replaceWith('" + date_filter \
+        + "');});</script>")
 #    result += ("<div align='center'><a>" + date_filter + "</a></div>")
     for record in mongo_results:
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
 
         if len(str(record["timestamp"])) == 13:
-            result += ("<td>" + str(datetime.fromtimestamp(record["timestamp"] / 1000).isoformat()).replace(":", "-") + "</td>")
+            result += ("<td>" + str(datetime.fromtimestamp(
+                record["timestamp"] / 1000).isoformat()).replace(":", "-") + "</td>")
         else:
             result += ("<td>" + str(record["timestamp"]) + "</td>")
 
@@ -168,7 +189,8 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
                 result += "<tr>"
                 result += ("<td>" + merge_cells("analysis_id", analysis) + "</td>")
                 result += ("<td>" + merge_cells("end_time", analysis) + "</td>")
-                result += ("<td>" + merge_cells("out_dir", analysis) + "</td>")
+                result += ("<td><a href='" + outpath_url(merge_cells("out_dir", analysis)) + "'>" \
+                    + merge_cells("out_dir", analysis) + "</a></td>")
                 result += ("<td>" + merge_cells("Status", analysis) + "</td>")
                 result += "<td>"
 
@@ -239,14 +261,17 @@ def main():
         app.run()
     else:
         if args.arrange:
-            mongo_found = mongo.find(query).sort(list((j[0], 1) if j[1] == "asc" else (j[0], -1) for j in list(zip([i for i in args.arrange if args.arrange.index(i) % 2 == 0], [i for i in args.arrange if args.arrange.index(i) % 2 == 1]))))
+            mongo_found = mongo.find(query).sort(list((j[0], 1) if j[1] == "asc" else (j[0], -1) \
+                for j in list(zip([i for i in args.arrange if args.arrange.index(i) % 2 == 0], \
+                    [i for i in args.arrange if args.arrange.index(i) % 2 == 1]))))
         else:
             mongo_found = mongo.find(query)
 
         for record in mongo_found:
             result = record
             if len(str(record["timestamp"])) == 13:
-                result["timestamp"] = str(datetime.fromtimestamp(record["timestamp"] / 1000).isoformat()).replace(":", "-")
+                result["timestamp"] = str(datetime.fromtimestamp(
+                    record["timestamp"] / 1000).isoformat()).replace(":", "-")
             else:
                 result["timestamp"] = str(record["timestamp"])
             PrettyPrinter(indent=2).pprint(result)
