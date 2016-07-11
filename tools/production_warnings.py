@@ -73,8 +73,10 @@ def check_qstat():
                 count_eqw += 1
             if status == 'r':
                 submit = datetime.datetime.strptime(str(line.split()[5], "utf-8"), "%m/%d/%Y")
-                if ((datetime.date.today() - datetime.date(submit.year, submit.month, submit.day)).days) > MAX_AGE:
-                    warnings += ("[age > " + str(MAX_AGE) + " days]:\t" + "job-ID " + str(line.split()[0], "utf-8") + "\n")
+                if ((datetime.date.today() - datetime.date(submit.year, submit.month, \
+                    submit.day)).days) > MAX_AGE:
+                    warnings += ("[age > " + str(MAX_AGE) + " days]:\t" + "job-ID " + \
+                        str(line.split()[0], "utf-8") + "\n")
     if count_qw > MAX_QW:
         warnings += ("[qw > " + str(MAX_QW) + " jobs]:\t" + str(count_qw) + "\n")
     if count_eqw > MAX_EQW:
@@ -117,8 +119,9 @@ def check_mongo():
     count_warnings = 0
     for record in mongo:
 #        PrettyPrinter(indent=2).pprint(record)
-        warnings += ("[started >= " + str(MAX_RUN) + " days]:\t" + str(record["run"]) + "\n")
-        count_warnings += 1
+        if record["analysis"][-1]["Status"] != "SUCCESS":
+            warnings += ("[started >= " + str(MAX_RUN) + " days]:\t" + str(record["run"]) + "\n")
+            count_warnings += 1
     if count_warnings > 0:
         warnings += ("[started >= " + str(MAX_RUN) + " days]:\t" + str(count_warnings) + "\n\n")
 

@@ -15,6 +15,10 @@
 		<script src="https://cdn.datatables.net/plug-ins/1.10.12/integration/bootstrap/3/dataTables.bootstrap.min.js"></script>
 		<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
 
+		<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+		<link rel="stylesheet" href="https://code.getmdl.io/1.1.3/material.indigo-pink.min.css">
+		<script defer src="https://code.getmdl.io/1.1.3/material.min.js"></script>
+
 		<script>
 			$(document).ready(function(){
 				$("#main").DataTable({
@@ -49,55 +53,162 @@
 			.invisible {
 			    visibility: hidden
 			}
+			#ui-datepicker-div {
+				z-index: 10
+			}
 		</style>
 	</head>
 	<body>
-		<div class="panel-group">
-			<div class="panel panel-default">
-				<div class="panel-heading">
-					<div align="center">
-						<form class="form-inline" action="." method="POST">
-							<div class="form-group">
-								<label for="from">RUNS FROM&nbsp</label>
-							</div>
-							<div class="form-group">
-								<input class="form-control" placeholder="Earliest Date" type="text" id="from" name="from">
-							</div>
-							<div class="form-group">
-								<label for="to">&nbspTO&nbsp</label>
-							</div>
-							<div class="form-group">
-								<input class="form-control" placeholder="Latest Date" type="text" id="to" name="to">
-							</div>
-							<div class="form-group">
-								<input class="btn btn-primary-outline" type="submit" name="submit" value="Retrieve">
-							</div>
-						</form>
-					</div>
+		<div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+			<header class="mdl-layout__header">
+				<div class="mdl-layout__header-row">
+					<form class="form-inline" action="." method="POST">
+						<div class="form-group">
+							<label for="from">RUNS FROM&nbsp</label>
+						</div>
+						<div class="form-group">
+							<input class="form-control" placeholder="Earliest Date" type="text" id="from" name="from">
+						</div>
+						<div class="form-group">
+							<label for="to">&nbspTO&nbsp</label>
+						</div>
+						<div class="form-group">
+							<input class="form-control" placeholder="Latest Date" type="text" id="to" name="to">
+						</div>
+						<div class="form-group">
+							<input class="btn btn-primary-outline" type="submit" name="submit" value="Retrieve">
+						</div>
+					</form>
+					<div class="mdl-layout-spacer" align="center"><span id="datefilter"></span></div>
+					<nav class="mdl-navigation mdl-layout--large-screen-only">
+						<a class="mdl-navigation__link" href="#"><span class="mdl-badge" data-badge="?">ANALYSIS NONE</span></a>
+						<a class="mdl-navigation__link" href="#"><span class="mdl-badge" data-badge="?">ANALYSIS STARTED</span></a>
+						<a class="mdl-navigation__link" href="#"><span class="mdl-badge" data-badge="?">ANALYSIS FAILED</span></a>
+					</nav>
 				</div>
-				<div class="panel-body">
-			        <table id="main" class="table table-bordered table-hover table-fixed table-compact">
-		    			<thead>
-				            <tr>
-				                <th>RUN</th>
-				                <th>TIMESTAMP</th>
-				                <th>ANALYSIS</th>
-
-				            </tr>
-		    			</thead>
-		    			<tbody>
-							{% if result %}
-								{{ result }}
-							{% else %}
-								<script>
-									alert("No data available in table")
-								</script>
-							{% endif %}
-						</tbody>
-					</table>
-				</div>
+			</header>
+			<div class="mdl-layout__drawer">
+				<span class="mdl-badge mdl-layout-title">FAQ</span>
+				<nav class="mdl-navigation">					
+					<ul class='mdl-list'>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">What do I do if the page is not displaying any results?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">Click on the RETRIEVE button to retrieve all entries in the database.</span>
+								</div>
+							</div>
+						</li>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">Does the page shows all entries by default?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">Yes, it displays all analyses of run entries in the database.</span>
+								</div>
+							</div>
+						</li>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">What are those major columns in the page?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">
+										RUN – run id with flowcell<br/>
+										<br>TIMESTAMP – completion time of the sequencing run</br>
+										<br>ANALYSIS – bcl to fastq analysis details</br>
+									</span>
+								</div>
+							</div>
+						</li>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">What are those fields in the ANALYSIS column?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">
+										ANALYSIS_ID – bcl to fastq analysis start time<br/>
+										<br>TIME – bcl to fastq analysis completed time</br>
+										<br>OUT_DIR – bcl to fastq results directory</br>
+										<br>STATUS – SUCCESS/FAILED if the bcl to fastq analysis of the entire run is completed successfully/not successfully, or STARTED if the analysis in progress</br>
+										<br>MUX – details of the bcl to fastq analysis of the MUX or non-MUX library</br>
+									</span>
+								</div>
+							</div>
+						</li>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">What are those fields in the MUX column?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">
+										MUX_ID – MUX id/Library id of the bcl to fastq analysis<br/>
+										<br>ARCHIVE – SUCCESS/FAILED if the fastq reads of the library is successfully/not successfully archived to SRA, and TODO if yet to start</br>
+										<br>DOWNSTREAM – not informative at the moment</br>
+										<br>STATS – SUCCESS/FAILED if the demux stats of the library is successfully/not successfully updated to the webserver, and TODO if yet to start</br>
+										<br>STATUS – SUCCESS/FAILED if the bcl to fastq analysis of the MUX/library is completed successfully/not successfully</br>
+										<br>EMAIL – TRUE/FALSE if the end status of the analysis is sent to RPD and NGSP via email, and TODO if no emails are sent yet</br>
+									</span>
+								</div>
+							</div>
+						</li>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">What may be entered in the SEARCH text box?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">It could be anything retrieved within the specified date range that may be displayed on the page.</span>
+								</div>
+							</div>
+						</li>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">What needs to be entered in the RUNS FROM and TO fields?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">Click on the text box and select a date via the pop-up calendar for both FROM and TO text boxes, followed by clicking on the RETRIEVE button.</span>
+								</div>
+							</div>
+						</li>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">Can the results be sorted by ascending or descending order?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">Yes, the results can be sorted by clicking on the rightmost icon in either the RUN, TIMESTAMP or ANALYSIS column headers.</span>
+								</div>
+							</div>
+						</li>
+						<li class="mdl-list__item">
+							<div class="mdl-card">
+								<div class="mdl-card__title">What do the values -1 and 0 in the TIMESTAMP column mean?</div>
+								<div class="mdl-card__supporting-text">
+									<span class="mdl-list__item-primary-content">They refer to runs which are aborted or contain errors.</span>
+								</div>
+							</div>
+						</li>
+					</ul>
+				</nav>
 			</div>
+			<main class="mdl-layout__content">
+				<div class="page-content">
+		    		<div class="panel-group">
+						<div class="panel-body">
+					        <table id="main" class="table table-bordered table-hover table-fixed table-compact">
+				    			<thead>
+						            <tr>
+						                <th>RUN</th>
+						                <th>TIMESTAMP</th>
+						                <th>ANALYSIS</th>
+						            </tr>
+				    			</thead>
+				    			<tbody>
+									{% if result %}
+										{{ result }}
+									{% else %}
+										<script>
+											alert("No data available in table")
+										</script>
+									{% endif %}
+								</tbody>
+							</table>
+						</div>
+					</div>
+		    	</div>
+			</main>
 		</div>
-
 	</body>
 </html>
