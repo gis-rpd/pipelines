@@ -50,6 +50,9 @@
 			});
 		</script>
 		<style>
+			main.mdl-layout__content {
+				overflow-x: scroll;
+			}
 			.invisible {
 			    visibility: hidden
 			}
@@ -62,7 +65,7 @@
 		<div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
 			<header class="mdl-layout__header">
 				<div class="mdl-layout__header-row">
-					<form class="form-inline" action="." method="POST">
+					<form class="form-inline visible-lg visible-md visible-sm" action="." method="POST">
 						<div class="form-group">
 							<label for="from">RUNS FROM&nbsp</label>
 						</div>

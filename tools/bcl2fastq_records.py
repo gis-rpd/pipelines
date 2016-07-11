@@ -26,24 +26,13 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import generate_window, mongodb_conn
+from pipelines import generate_window, mongodb_conn, path_to_url
 
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
-
-
-def outpath_url(out_path):
-    """
-    OUT_DIR to URL
-    """
-    if out_path.startswith("/mnt/projects/userrig/solexa/"):
-        return out_path.replace("/mnt/projects/userrig/solexa/", \
-            "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects")
-    else:
-        return out_path
 
 
 def send_email(email, subject, message):
@@ -189,8 +178,9 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
                 result += "<tr>"
                 result += ("<td>" + merge_cells("analysis_id", analysis) + "</td>")
                 result += ("<td>" + merge_cells("end_time", analysis) + "</td>")
-                result += ("<td><a href='" + outpath_url(merge_cells("out_dir", analysis)) + "'>" \
-                    + merge_cells("out_dir", analysis) + "</a></td>")
+                result += ("<td><a href='" + path_to_url(
+                    merge_cells("out_dir", analysis)).replace("//", "/").replace(":/", "://") \
+                    + "'>" + merge_cells("out_dir", analysis).replace("//", "/") + "</a></td>")
                 result += ("<td>" + merge_cells("Status", analysis) + "</td>")
                 result += "<td>"
 
