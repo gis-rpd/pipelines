@@ -1,0 +1,306 @@
+# standard library imports
+#
+import os
+from itertools import chain
+import hashlib
+
+# third party imports
+#
+from snakemake.utils import report
+
+#####
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from readunits import fastqs_from_unit
+
+
+RESULT_OUTDIR = './out'
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+# should work for many now
+# assert len(config['samples'])==1
+
+include: "../rules/logging.rules"
+include: "../rules/samtools.rules"
+
+
+GENOME_BASENAME = os.path.splitext(os.path.basename(
+    config['references']['genome']))[0].replace("_", "-")
+# replace "_" which is used as delimiter for other things here
+
+    
+
+rule final:
+    input:
+        # sample here is our typical component library
+        expand(os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam"),
+               sample=config['samples'],
+               genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/rnaseqQC/{sample}_{genome}_RNASeqQC_complete.OK'),
+               sample=config['samples'], 
+               genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/rsem/{sample}_{genome}_RSEM.genes.results'),
+               sample=config['samples'], 
+               genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/cuffdiff/{sample}_{genome}_genes_FPKM_Rawreadcount_GIS.txt'),
+               genome=GENOME_BASENAME,
+               sample=config['samples']),
+        report="report.html"
+        #expand('{dir}/{sample}_ROW{row}/dexseq/{sample}_ROW{row}_{genome}_dexseq_exoncount.txt',
+        #       dir=RESULT_OUTDIR,
+        #       genome=GENOME_BASENAME,
+        #       sample=config['samples'], 
+        #       row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
+
+
+rule report:
+    input:
+        # dep on rnaseqc (and hence star) as shortcut
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/rnaseqQC/{sample}_{genome}_RNASeqQC_complete.OK'),
+               sample=config['samples'], 
+               genome=GENOME_BASENAME),
+    output:
+        html="report.html"
+    params:
+        samplenames=', '.join(config['samples'].keys())
+    run:
+        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
+        readme = "EMPTY"
+        with open(os.path.join(workflow_home, "README.rst")) as fh:
+            readme = fh.read()
+            
+        report("""
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+=================================================================
+
+Version Info
+------------
+
+{config[ELM][pipeline_version]}) 
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch to have at least something
+
+        
+#rule DEXSeq:
+#    input:
+#        bam = expand("{dir}/{{sample}}_ROW{{row}}/star/{{sample}}_ROW{{row}}_{genome}_Aligned.sortedByCoord.out.bam",
+#            dir=RESULT_OUTDIR,
+#            genome=GENOME_BASENAME),
+#        gff = config['references']['dexseqgff'],
+#        gtfdesc = config['references']['gtfsourcefile']
+#    output:
+#        "{dir}/{sample}_ROW{row}_{genome}_dexseq_exoncount.txt"
+#    message: "Running DEXSeq"    
+#    run:
+#        shell("""export PATH=$PATH:/mnt/software/bin;
+#            /mnt/software/bin/python2.7 /home/userrig/pipelines_tools/DEXSeq/inst/python_scripts/dexseq_count.py -f bam -s no -r pos {input.gff} {input.bam} {output};
+#            paste {output} {input.gtfdesc}.genesdesc > {output}.desc""")
+
+
+
+rule cuffdiff:
+    input:
+        bam = "{rootdir}/star/{sample}_{GENOME_BASENAME}_Aligned.sortedByCoord.out.bam",
+        gtf = config['references']['gtfsourcefile'],
+        gtfmask = config['references']['gtfmaskfile'],
+        ref = config['references']['genome']
+    output:
+        matrix = "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}_genes_FPKM_Rawreadcount_GIS.txt",
+    message: "Running cuffdiff"
+    params:
+        libtype = 'fr-firststrand' if config['stranded'] else 'fr-unstranded'
+    log:
+        "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}_cuffdiff.log"
+    threads: 4# never saw actual use going much higher even when set to 16
+    shell:
+        # FIXME output needs doc
+        " outpref=`dirname {output.matrix}`;"
+        " cuffdiff -p {threads} --quiet --no-update-check"
+        " --dispersion-method blind"
+        " --library-norm-method classic-fpkm"
+        " --compatible-hits-norm"
+        " --max-bundle-frags 100000000"
+        " --library-type {params.libtype}"
+        " --max-frag-multihits 1"
+        " --no-diff {input.gtf} --mask-file {input.gtfmask} --frag-bias-correct {input.ref} {input.bam} {input.bam} --output-dir $outpref 2>{log};"
+        " cut -f 1,5,7,10 $outpref/genes.fpkm_tracking | grep -v tracking_id | sort > $outpref/genes.fpkm_tracking.col15710;"
+        " grep -E -w -v \"tracking_id|q2\" $outpref/genes.read_group_tracking | cut -f 1,4 |sort | cut -f 1-4,6 | paste - $outpref/genes.fpkm_tracking.col15710 | awk 'BEGIN {{ FS = \"\\t\" }} ;{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $4, $5, $2, $6}}' > {output.matrix};"
+        " sed -i '1s/^/Gene_Id\\tGene_Name\\tLocus\\tReadCount\\tFPKM\\n/' {output.matrix};"
+
+
+rule RSEM:
+    input:
+        bam = "{dir}/star/{sample}_{genome}_Aligned.toTranscriptome.out.bam",
+        rsemidx = config['references']['rsemidx'] + ".seq",
+        gtfdesc = config['references']['gtfsourcefile']
+    output:
+        genecount = "{dir}/rsem/{sample}_{genome}_RSEM.genes.results",
+        isocount = "{dir}/rsem/{sample}_{genome}_RSEM.isoforms.results",
+        gbam = "{dir}/rsem/{sample}_{genome}_RSEM.genome.sorted.bam",
+        wig = "{dir}/rsem/{sample}_{genome}_RSEM.sorted.wig",
+        plot = "{dir}/rsem/{sample}_{genome}_RSEM.pdf"
+    message:
+        "Running RSEM"
+    params:
+        rsemidx = config['references']['rsemidx'],
+        paired_end = '--paired-end' if config['paired_end'] else '',
+        fw_prob = 1 if config['stranded'] else 0.5    
+    log:
+        "{dir}/rsem/{sample}_{genome}_RSEM.log"
+    threads:
+        4
+    shell:
+        " {{ outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
+        " rsem-calculate-expression --bam --output-genome-bam"
+        " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
+        " --seed 12345 -p {threads} --forward-prob {params.fw_prob} {params.paired_end}"
+        " {input.bam} {params.rsemidx} $outpref 2>{log};"
+        " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
+        " rsem-plot-model $outpref {output.plot}; }} >& {log};"
+        " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc > {output.genecount}.desc;"
+        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc |awk '{{print $1\\t$2\\t$3\\t$4\\t$5\\t$6\\t$7\\t$8\\t$10\\t$11\\t$12}}' > {output.isocount}.desc;"
+        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' {output.genecount}.desc;"
+        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' {output.isocount}.desc"
+
+        
+rule rnaseqQC:
+    input:
+        bam = "{dir}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam",
+        bamidx = "{dir}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam.bai",
+        rnaseqc_annotation = config['references']['rnaseqc_annotation'],
+        ref = config['references']['genome']
+    output:
+        touch("{dir}/rnaseqQC/{sample}_{genome}_RNASeqQC_complete.OK")
+    log:
+        "{dir}/rnaseqQC/{sample}_{genome}_RNASeqQC.log"    
+    params:
+        sample=lambda wc: wc.sample
+    threads:
+        4
+    message:
+        "Running RNASeqQC"            
+    shell:
+        "outpref=`dirname {output}`;"
+        " RNSEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
+        " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+
+        
+def rg_id_for_star(wc):
+    m = hashlib.md5()
+    m.update("%s".format(wc.sample).encode())
+    return m.hexdigest()[:8]
+
+
+def fastqs_for_sample(sample):
+    """wrapper around fastqs_from_unit which is awkward to use when
+    splitting into fq1 and fq2.
+
+    """
+
+    fqs1 = []
+    fqs2 = []
+    for ru in config["samples"][sample]:
+        fqs = fastqs_from_unit(config["readunits"][ru])
+        if isinstance(fqs, tuple):
+            fqs1.append(fqs[0])
+            fqs2.append(fqs[1])
+        elif isinstance(fqs, str):
+            fqs1.append(fqs)
+        else:
+            raise ValueError(fqs)
+    return fqs1, fqs2
+
+
+def flattened_fastqs_for_sample(wildcards):
+    fqs1, fqs2 = fastqs_for_sample(wildcards.sample)
+    if not fqs2:
+        return fqs1
+    else:
+        return fqs1 + fqs2
+
+
+def star_fmt_fastqs_for_sample(wildcards):
+    fqs1, fqs2 = fastqs_for_sample(wildcards.sample)
+    if not fqs2:
+        return "{}".format(",".join(fqs1))
+    else:
+        return "{} {}".format(",".join(fqs1), ",".join(fqs2))
+
+
+rule star_mapping:
+    input:
+        fqs = flattened_fastqs_for_sample,
+        staridx = config['references']['staridx']
+    output:
+        bam = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam"),
+        transbam = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.toTranscriptome.out.bam"),
+        counts = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_ReadsPerGene.out.tab"),
+        wig = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Signal.Unique.str1.out.wig"),
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}/star/star.log")
+    message: "Running STAR"
+    params:
+        # rg_id just a input specific hash
+        fmt_fq_list = star_fmt_fastqs_for_sample,
+        rg_id = rg_id_for_star,
+        lib_id = lambda wc: wc.sample,# SAME
+        sample = lambda wc: wc.sample,# SAME
+        outSAMmapqUnique = 50,
+        outFilterMultimapNmax = 1,
+        outFilterMismatchNmax = 999,
+        outFilterMismatchNoverLmax = 0.04,
+        alignSJoverhangMin = 8,
+        alignSJDBoverhangMin = 1,
+        alignIntronMin = 20,
+        alignIntronMax = 1000000,
+        alignMatesGapMax = 1000000,
+        limitBAMsortRAM = 20016346648,
+        stranded = '' if config['stranded'] else '--outSAMstrandField intronMotif'
+    threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
+    shell:
+        "{{ commentsheader=$(mktemp);"
+        " echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > $commentsheader;"
+        " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
+        " STAR --genomeDir {input.staridx}"
+        # yes, RG unescaped:
+        #" --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tPU:{params.pu_id}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
+        " --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
+        " --outSAMheaderCommentFile $commentsheader"
+        " --runThreadN {threads}"
+        " --genomeLoad LoadAndRemove"
+        " --readFilesCommand zcat"
+        " --outFilterType BySJout"
+        " --outSAMtype BAM SortedByCoordinate"
+        " --quantMode TranscriptomeSAM GeneCounts"
+        " --outSAMmapqUnique {params.outSAMmapqUnique}"
+        " --outSAMattributes NH HI AS nM NM MD"
+        " --outBAMsortingThreadN {threads}"
+        " {params.stranded}"
+        " --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
+        " --outFilterMultimapNmax {params.outFilterMultimapNmax}"
+        " --outFilterMismatchNmax {params.outFilterMismatchNmax}"
+        " --outFilterMismatchNoverLmax {params.outFilterMismatchNoverLmax}"
+        " --outFilterIntronMotifs RemoveNoncanonical"
+        " --alignEndsType EndToEnd"
+        " --alignSJoverhangMin {params.alignSJoverhangMin}"
+        " --alignSJDBoverhangMin {params.alignSJDBoverhangMin}"
+        " --alignIntronMin {params.alignIntronMin}"
+        " --alignIntronMax {params.alignIntronMax}"
+        " --alignMatesGapMax {params.alignMatesGapMax}"
+        " --limitBAMsortRAM {params.limitBAMsortRAM}"
+        " --outFileNamePrefix $outpref"
+        " --readFilesIn {params.fmt_fq_list}; rm $commentsheader; }} >& {log}"

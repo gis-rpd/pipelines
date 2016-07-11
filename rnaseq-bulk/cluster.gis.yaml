@@ -1,0 +1,16 @@
+{
+    # default rules applied to all rules, but overriden by rule-specific settings
+    "__default__":
+    {
+      "time" : "08:00:00",
+      "mem" : 24G,
+    },
+
+    "star_mapping":
+    {
+      "time" : "06:00:00",
+      "mem" : 42G,
+    },
+}    
+
+
