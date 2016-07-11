@@ -5,6 +5,10 @@ assert 'references' in config
 assert 'genome' in config['references']
 
 
+MAXDEPTH = {'targeted': 100000,
+             'WES': 10000,
+             'WGS': 1000}
+
 
 # this is the global bed file, if given
 
@@ -74,7 +78,9 @@ rule lofreq_call:
         "Calling variants with LoFreq"
     threads:
         16
+    params:
+        maxdepth = MAXDEPTH[config['seqtype']]
     shell:
         "lofreq call-parallel --pp-threads {threads} --call-indels"
         " -l {input.bed} -f {input.reffa} -o {output.vcf}"
-        " {input.bam} >& {log}"
+        " -d {params.maxdepth} {input.bam} >& {log}"
