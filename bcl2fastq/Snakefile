@@ -199,7 +199,7 @@ Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
 Version Info
 ------------
 
-{config[ELM][pipeline_version]}) 
+{config[ELM][pipeline_version]}
 
 """ + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
                conf="conf.yaml")
