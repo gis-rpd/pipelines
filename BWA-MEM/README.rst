@@ -4,8 +4,6 @@ Description
 This pipeline maps your reads with BWA-MEM to a reference. Duplicate
 reads will be marked by default if not requested otherwise
 
-All runtime variables including program versions etc. can be found in
-``conf.yaml``
 
 How to
 ------
@@ -20,8 +18,9 @@ Output
 ------
 
 - The main log file is ``./logs/snakemake.log``
-- All output files can be found in ``./out/``
-
-
+- Each sample will have its own subfolder under ``./out/``
+- BAM file(s): ``./out/<sample>/<sample>.bwamem.bam``
+- BAM stats: ``./out/<sample>/<sample>.bwamem.bamstats/``
+- Parameters including program versions etc. can be found in ``conf.yaml``
 
 

@@ -27,9 +27,6 @@ RSEM and RNASeqQC amongst others:
 - RNA-SeQC: https://www.broadinstitute.org/cancer/cga/rna-seqc
 
 
-All runtime variables including program versions etc. can be found in
-``conf.yaml``
-
 
 How to
 ------
@@ -38,7 +35,9 @@ How to
 - If called correctly, jobs will be run on the cluster automatically
 - Using ``-v`` is recommended to get some more information
 - Should the pipeline 'crash', it can be restarted by simply running
-  ``bash run.sh`` (for local mode) or ``qsub run.sh`` (for cluster mode).
+  ``bash run.sh`` (for local mode) or ``qsub run.sh`` (for cluster
+  mode).  Note that a crash due to input file or parameter issues can
+  not be resolved in this fashion.
 
 
 Output
@@ -46,23 +45,25 @@ Output
 
 - The main log file is ``./logs/snakemake.log``
 - All output files can be found in ``./out/``
+- Parameters including program versions etc. can be found in ``conf.yaml``
 
+  
 STAR:
 `````
 
-- mapped genome bam: <sample>_<genome>_Aligned.sortedByCoord.out.bam
-- mapped transcriptome bam (RSEM input): <sample>_<genome>_Aligned.toTranscriptome.out.bam
-- visualization: wiggle file (\*.wig)
+- Mapped genome BAM: <sample>_<genome>_Aligned.sortedByCoord.out.bam
+- Mapped transcriptome BAM (RSEM input): <sample>_<genome>_Aligned.toTranscriptome.out.bam
+- Visualization: Wiggle file (\*.wig)
 - Read count (genes): <sample>_<genome>_ReadsPerGene.out.tab
 - Mappability: <sample>_<genome>_Log.final.out
 
 RSEM:
 `````
 
-- genes expression values with annotation: <sample>_<genome>_RSEM.genes.results
-- isoforms expression values with annotation: <sample>_<genome>_RSEM.isoforms.results
-- visualization: .wig
-- plots: <sample>_<genome>_RSEM.pdf
+- Genes expression values with annotation: <sample>_<genome>_RSEM.genes.results
+- Isoforms expression values with annotation: <sample>_<genome>_RSEM.isoforms.results
+- Visualization: .wig
+- Plots: <sample>_<genome>_RSEM.pdf
 
 RNA-SeQC:
 `````````

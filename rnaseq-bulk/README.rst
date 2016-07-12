@@ -1,10 +1,8 @@
 Description
 -----------
 
-This pipeline ...
-
-All runtime variables including program versions etc. can be found in
-``conf.yaml``
+This pipeline is for RNASeq bulk analysis and runs STAR, followed by
+RNASeQC, RSEM and optionally cuffdiff
 
 
 How to
@@ -22,6 +20,7 @@ Output
 
 - The main log file is ``./logs/snakemake.log``
 - All output files can be found in ``./out/``
+- Parameters including program versions etc. can be found in ``conf.yaml``
 
 
 

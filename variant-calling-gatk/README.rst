@@ -38,13 +38,8 @@ Note, VQSR can fail for perfectly valid reasons (e.g. too few uniq variants). In
 a fake vcf file will be produced which contains one line indicating
 the problem. In such cases, resort to the hard filtered files.
 
-
 Please also note, that the best practices do not recommend to use a
 minimum depth filter and hence it's not used here either.
-
-
-All runtime variables including program versions etc. can be found in
-``conf.yaml``
 
 
 How to
@@ -53,10 +48,10 @@ How to
 - Run ``variant-calling-gatk.py -h`` to get basic usage information.
 - If called correctly, jobs will be run on the cluster automatically
 - Using ``-v`` is recommended to get some more information
-- Should the pipeline 'crash' for technical reasons, it can be restarted by simply running
-  ``bash run.sh`` (for local mode) or ``qsub run.sh`` (for cluster mode).
-  Note that a crash due to input file or parameter issues can not be resolved in this fashion.
-
+- Should the pipeline 'crash', it can be restarted by simply running
+  ``bash run.sh`` (for local mode) or ``qsub run.sh`` (for cluster
+  mode).  Note that a crash due to input file or parameter issues can
+  not be resolved in this fashion.
 
 
 Output
@@ -64,6 +59,8 @@ Output
 
 - The main log file is ``./logs/snakemake.log``
 - All output files can be found in ``./out/``
+- Parameters including program versions etc. can be found in ``conf.yaml``
+
 
 
 
