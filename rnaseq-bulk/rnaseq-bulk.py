@@ -80,6 +80,9 @@ def main():
                         " unless read groups is set in last column. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
+    parser.add_argument('-C', "--cuffdiff", action='store_true',
+                        dest="run_cuffdiff",
+                        help="Also run cuffdiff")
     parser.add_argument('-S', '--stranded', action='store_true',
                         help="Stranded library prep (default is unstranded)")
     parser.add_argument('--no-mail', action='store_true',
@@ -136,7 +139,8 @@ def main():
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail,
-                 'stranded': args.stranded}
+                 'stranded': args.stranded,
+                 'run_cuffdiff': args.run_cuffdiff}
     user_data['readunits'] = dict()
     user_data['paired_end'] = read_units[0].fq2 is not None
     for ru in read_units:

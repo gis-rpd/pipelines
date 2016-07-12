@@ -8,7 +8,6 @@ import hashlib
 #
 from snakemake.utils import report
 
-#####
 # project specific imports
 #
 LIB_PATH = os.path.abspath(
@@ -37,35 +36,35 @@ GENOME_BASENAME = os.path.splitext(os.path.basename(
     config['references']['genome']))[0].replace("_", "-")
 # replace "_" which is used as delimiter for other things here
 
-    
+
+
+results = dict()
+results['star'] = expand(os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam"),
+                         sample=config['samples'],
+                         genome=GENOME_BASENAME)
+results['rnaseqc'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/rnaseqc/{sample}_{genome}_rnaseqc_complete.OK'),
+                            sample=config['samples'], 
+                            genome=GENOME_BASENAME)
+results['rsem'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/rsem/{sample}_{genome}_RSEM.pdf'),
+                         sample=config['samples'], 
+                         genome=GENOME_BASENAME)
+results['cuffdiff'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/cuffdiff/{sample}_{genome}_genes_FPKM_Rawreadcount_GIS.txt'),
+                             genome=GENOME_BASENAME,
+                             sample=config['samples'])
+all_results = results['star'] + results['rnaseqc'] + results['rsem']
+if config.get('run_cuffdiff'):
+    all_results += results['cuffdiff']
 
 rule final:
     input:
-        # sample here is our typical component library
-        expand(os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam"),
-               sample=config['samples'],
-               genome=GENOME_BASENAME),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/rnaseqQC/{sample}_{genome}_RNASeqQC_complete.OK'),
-               sample=config['samples'], 
-               genome=GENOME_BASENAME),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/rsem/{sample}_{genome}_RSEM.genes.results'),
-               sample=config['samples'], 
-               genome=GENOME_BASENAME),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/cuffdiff/{sample}_{genome}_genes_FPKM_Rawreadcount_GIS.txt'),
-               genome=GENOME_BASENAME,
-               sample=config['samples']),
+        all_results,
         report="report.html"
-        #expand('{dir}/{sample}_ROW{row}/dexseq/{sample}_ROW{row}_{genome}_dexseq_exoncount.txt',
-        #       dir=RESULT_OUTDIR,
-        #       genome=GENOME_BASENAME,
-        #       sample=config['samples'], 
-        #       row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
 
 
 rule report:
     input:
         # dep on rnaseqc (and hence star) as shortcut
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/rnaseqQC/{sample}_{genome}_RNASeqQC_complete.OK'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/rnaseqc/{sample}_{genome}_rnaseqc_complete.OK'),
                sample=config['samples'], 
                genome=GENOME_BASENAME),
     output:
@@ -86,7 +85,7 @@ Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
 Version Info
 ------------
 
-{config[ELM][pipeline_version]}) 
+{config[ELM][pipeline_version]} 
 
 """ + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
                conf="conf.yaml")
@@ -146,13 +145,10 @@ rule RSEM:
     input:
         bam = "{dir}/star/{sample}_{genome}_Aligned.toTranscriptome.out.bam",
         rsemidx = config['references']['rsemidx'] + ".seq",
-        gtfdesc = config['references']['gtfsourcefile']
     output:
+        gbam = "{dir}/rsem/{sample}_{genome}_RSEM.genome.sorted.bam",
         genecount = "{dir}/rsem/{sample}_{genome}_RSEM.genes.results",
         isocount = "{dir}/rsem/{sample}_{genome}_RSEM.isoforms.results",
-        gbam = "{dir}/rsem/{sample}_{genome}_RSEM.genome.sorted.bam",
-        wig = "{dir}/rsem/{sample}_{genome}_RSEM.sorted.wig",
-        plot = "{dir}/rsem/{sample}_{genome}_RSEM.pdf"
     message:
         "Running RSEM"
     params:
@@ -164,38 +160,57 @@ rule RSEM:
     threads:
         4
     shell:
-        " {{ outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
+        " outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
         " rsem-calculate-expression --bam --output-genome-bam"
         " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
         " --seed 12345 -p {threads} --forward-prob {params.fw_prob} {params.paired_end}"
-        " {input.bam} {params.rsemidx} $outpref 2>{log};"
-        " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
-        " rsem-plot-model $outpref {output.plot}; }} >& {log};"
-        " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc > {output.genecount}.desc;"
-        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc |awk '{{print $1\\t$2\\t$3\\t$4\\t$5\\t$6\\t$7\\t$8\\t$10\\t$11\\t$12}}' > {output.isocount}.desc;"
-        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' {output.genecount}.desc;"
-        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' {output.isocount}.desc"
+        " {input.bam} {params.rsemidx} $outpref >& {log};"
 
         
-rule rnaseqQC:
+rule RSEM_postprocessing:
+    input: 
+        gtfdesc = config['references']['gtfsourcefile'],
+        gbam = "{dir}/rsem/{sample}_{genome}_RSEM.genome.sorted.bam",
+        genecount = "{dir}/rsem/{sample}_{genome}_RSEM.genes.results",
+        isocount = "{dir}/rsem/{sample}_{genome}_RSEM.isoforms.results",
+    output:
+        wig = "{dir}/rsem/{sample}_{genome}_RSEM.sorted.wig",
+        plot = "{dir}/rsem/{sample}_{genome}_RSEM.pdf"
+    message:
+        "Post-processing RSEM results"
+    log:
+        "{dir}/rsem/{sample}_{genome}_RSEM.log"
+    threads:
+        1
+    shell:
+        " {{ outpref=$(echo {output.wig} | sed -e 's,.sorted.wig,,'); "
+        " rsem-bam2wig {input.gbam} {output.wig} $outpref;"
+        " rsem-plot-model $outpref {output.plot};"
+        " grep -v gene_id {input.genecount} | paste - {input.gtfdesc}.genesdesc > {input.genecount}.desc;"
+        " grep -v gene_id {input.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $10, $11, $12}}' > {input.isocount}.desc;"
+        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' {input.genecount}.desc;"
+        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' {input.isocount}.desc; }} >& {log};"
+
+        
+rule rnaseqc:
     input:
         bam = "{dir}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam",
         bamidx = "{dir}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam.bai",
         rnaseqc_annotation = config['references']['rnaseqc_annotation'],
         ref = config['references']['genome']
     output:
-        touch("{dir}/rnaseqQC/{sample}_{genome}_RNASeqQC_complete.OK")
+        touch("{dir}/rnaseqc/{sample}_{genome}_rnaseqc_complete.OK")
     log:
-        "{dir}/rnaseqQC/{sample}_{genome}_RNASeqQC.log"    
+        "{dir}/rnaseqc/{sample}_{genome}_rnaseqc.log"    
     params:
         sample=lambda wc: wc.sample
     threads:
         4
     message:
-        "Running RNASeqQC"            
+        "Running RNASeQC"            
     shell:
         "outpref=`dirname {output}`;"
-        " RNSEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
+        " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeQC'"
         " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
 
         
