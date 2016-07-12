@@ -56,8 +56,8 @@ def instantiate_args():
     instance = ArgumentParser(description=__doc__)
     instance.add_argument("-f", "--flask", action="store_true", help="use web server")
     instance.add_argument("-t", "--testing", action="store_true", help="use MongoDB test-server")
-    instance.add_argument(
-        "-s", "--status", help="filter records by analysis status (STARTED/FAILED/SUCCESS)")
+    instance.add_argument("-s", "--status", \
+        help="filter records by analysis status (STARTED/FAILED/SEQRUNFAILED/SUCCESS)")
     instance.add_argument("-m", "--mux", help="filter records by mux_id")
     instance.add_argument("-r", "--run", help="filter records by run")
     instance.add_argument("-w", "--win", type=int, help="filter records up to specified day(s) ago")
@@ -103,7 +103,7 @@ def merge_cells(child_key, key):
         if str(key[child_key]) == "STARTED":
             result += ("<span class='label label-pill label-warning'>" \
                 + str(key[child_key]) + "</span>")
-        elif str(key[child_key]) == "FAILED" or str(key[child_key]).upper() == "FALSE":
+        elif str(key[child_key]).find("FAILED") != -1 or str(key[child_key]).upper() == "FALSE":
             result += ("<span class='label label-pill label-danger'>" \
                 + str(key[child_key]).upper() + "</span>")
         elif str(key[child_key]) == "SUCCESS" or str(key[child_key]).upper() == "TRUE":
@@ -168,7 +168,7 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
             if "Status" in record["analysis"][-1]:
                 if record["analysis"][-1]["Status"] == "STARTED":
                     analysis_started += 1
-                if record["analysis"][-1]["Status"] == "FAILED":
+                if record["analysis"][-1]["Status"].find("FAILED") != -1:
                     analysis_failed += 1
                 if record["analysis"][-1]["Status"] == "SUCCESS":
                     analysis_success += 1
