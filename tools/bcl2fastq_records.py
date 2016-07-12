@@ -151,6 +151,7 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
     analysis_none = 0
     analysis_started = 0
     analysis_failed = 0
+    analysis_success = 0
     for record in mongo_results:
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
@@ -163,6 +164,15 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
 
         result += "<td>"
         if "analysis" in record:
+
+            if "Status" in record["analysis"][-1]:
+                if record["analysis"][-1]["Status"] == "STARTED":
+                    analysis_started += 1
+                if record["analysis"][-1]["Status"] == "FAILED":
+                    analysis_failed += 1
+                if record["analysis"][-1]["Status"] == "SUCCESS":
+                    analysis_success += 1
+
             result += """
             <table class='table table-bordered table-hover table-fixed table-compact'>
                 <thead>
@@ -177,13 +187,6 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
                 <tbody>
             """
             for analysis in record["analysis"]:
-
-                if "Status" in analysis:
-                    if analysis["Status"] == "STARTED":
-                        analysis_started += 1
-                    if analysis["Status"] == "FAILED":
-                        analysis_failed += 1
-
                 result += "<tr>"
                 result += ("<td>" + merge_cells("analysis_id", analysis) + "</td>")
                 result += ("<td>" + merge_cells("end_time", analysis) + "</td>")
@@ -249,6 +252,8 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
             + str(analysis_started) + "');});</script>")
         result += ("<script>$(function(){$('#analysis_failed').attr('data-badge', '" \
             + str(analysis_failed) + "');});</script>")
+        result += ("<script>$(function(){$('#analysis_success').attr('data-badge', '" \
+            + str(analysis_success) + "');});</script>")
 
     return render_template("index.html", result=Markup(result))
 
