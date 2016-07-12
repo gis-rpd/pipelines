@@ -9,7 +9,7 @@
 		<link href="https://cdn.datatables.net/plug-ins/1.10.12/integration/bootstrap/3/dataTables.bootstrap.css" rel="stylesheet">
 		<link href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.min.css" rel="stylesheet">
 
-		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 		<script src="https://netdna.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 		<script src="https://cdn.datatables.net/1.10.12/js/jquery.dataTables.min.js"></script>
 		<script src="https://cdn.datatables.net/plug-ins/1.10.12/integration/bootstrap/3/dataTables.bootstrap.min.js"></script>
@@ -27,7 +27,7 @@
 			});
 			$(function(){
 				$("#from").datepicker({
-			    	defaultDate: "+1w",
+			    	minDate: new Date(2016, 5 - 1, 27),
 			    	changeMonth: true,
 			    	changeYear: true,
 			    	numberOfMonths: 1,
@@ -36,7 +36,7 @@
 			    	}
 			    });
 			    $("#to").datepicker({
-			    	defaultDate: "+1w",
+			    	minDate: new Date(2016, 5 - 1, 27),
 			    	changeMonth: true,
 			    	changeYear: true,
 			    	numberOfMonths: 1,
@@ -46,17 +46,18 @@
 			    });
 			    $("#from").datepicker("option", "dateFormat", "yy-mm-dd");
 			    $("#to").datepicker("option", "dateFormat", "yy-mm-dd");
+			    $("#from").datepicker("setDate", "2016-05-27");
 			    $("#to").datepicker("setDate", new Date());
 			});
 		</script>
 		<style>
-			main.mdl-layout__content {
+			main.mdl-layout__content{
 				overflow-x: scroll;
 			}
-			.invisible {
+			.invisible{
 			    visibility: hidden
 			}
-			#ui-datepicker-div {
+			#ui-datepicker-div{
 				z-index: 10
 			}
 		</style>
@@ -85,10 +86,11 @@
 					<div class="mdl-layout-spacer visible-lg visible-md" align="center"><span class="datefilter"></span></div>
 					<div class="visible-lg">
 						<nav class="mdl-navigation mdl-layout--large-screen-only">
-							<a class="mdl-navigation__link" href="#"><span id="analysis_none" class="mdl-badge" data-badge="?">ANALYSIS NONE</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_started" class="mdl-badge" data-badge="?">ANALYSIS STARTED</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_failed" class="mdl-badge" data-badge="?">ANALYSIS FAILED</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_success" class="mdl-badge" data-badge="?">ANALYSIS SUCCESS</span></a>
+							<label for="from">ANALYSIS STATUS</label>
+							<a class="mdl-navigation__link" href="#"><span id="analysis_none" class="mdl-badge" data-badge="?">NONE</span></a>
+							<a class="mdl-navigation__link" href="#"><span id="analysis_started" class="mdl-badge" data-badge="?">STARTED</span></a>
+							<a class="mdl-navigation__link" href="#"><span id="analysis_failed" class="mdl-badge" data-badge="?">FAILED</span></a>
+							<a class="mdl-navigation__link" href="#"><span id="analysis_success" class="mdl-badge" data-badge="?">SUCCESS</span></a>
 						</nav>
 					</div>
 				</div>
