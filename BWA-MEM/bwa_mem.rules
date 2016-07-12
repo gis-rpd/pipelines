@@ -69,9 +69,9 @@ rule unit_merge:
                                  prefix=wildcards.prefix,
                                  unit=config['samples'][wildcards.sample])
     output:
-        '{prefix}/sample-{sample}.bwamem.bam'
+        '{prefix}/{sample}/{sample}.bwamem.bam'
     log:
-        '{prefix}/sample-{sample}.bwamem.bam.merge.log'
+        '{prefix}/{sample}/{sample}.bwamem.bam.merge.log'
     message:
         "Merging files"
     threads:
@@ -98,21 +98,21 @@ rule map_mdups_sort:
     - This originated from the equally named SG10K rule
     """
     input:
-        reffa=config['references']['genome'],
-        bwaindex=config['references']['genome'] + ".pac",# incomplete but should do
-        fastqs=lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
+        reffa = config['references']['genome'],
+        bwaindex = config['references']['genome'] + ".pac",# incomplete but should do
+        fastqs = lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
-        bam=temp('{prefix}/unit-{unit}.bwamem.bam')
+        bam = temp('{prefix}/unit-{unit}.bwamem.bam')
     log:
         '{prefix}/unit-{unit}.bwamem.bam.log'
     params:
-        mark_short_splits=MARK_SHORT_SPLITS,
-        bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
-        sort_mem='250M',
-        rg_id=lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
-        lib_id=lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
-        pu_id=lambda wildcards: gen_rg_pu_id(config["readunits"][wildcards.unit]),
-        sample=lambda wildcards: get_sample_for_unit(wildcards.unit, config)
+        mark_short_splits = MARK_SHORT_SPLITS,
+        bwa_mem_custom_args = config.get("bwa_mem_custom_args", ""),
+        sort_mem = '250M',
+        rg_id = lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
+        lib_id = lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
+        pu_id = lambda wildcards: gen_rg_pu_id(config["readunits"][wildcards.unit]),
+        sample = lambda wildcards: get_sample_for_unit(wildcards.unit, config)
     message:
         'Aligning PE reads, fixing mate information, marking duplicates (if set) and converting to BAM'
     threads:

@@ -50,6 +50,7 @@ RANDR1WDUPS=$NA12878_DIR/ERR091571_1_rand1k.dups.fastq.gz
 RANDR2WDUPS=$NA12878_DIR/ERR091571_2_rand1k.dups.fastq.gz
 SPLIT1KONLY_PE_CFG=$NA12878_DIR/split1konly_pe.yaml
 SPLIT1KONLY_SR_CFG=$NA12878_DIR/split1konly_sr.yaml
+SAMPLE=NA12878
 
 REFFA=$RPD_ROOT/genomes.testing/human_g1k_v37/human_g1k_v37.fasta
 
@@ -79,7 +80,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: PE on command line" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -1 $R1S1 -2 $R2S1 -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -1 $R1S1 -2 $R2S1 -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -87,7 +88,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: PE through config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -c $SPLIT1KONLY_PE_CFG -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -c $SPLIT1KONLY_PE_CFG -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -95,7 +96,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: SR on command line" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -1 $R1S1 -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -1 $R1S1 -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -103,7 +104,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     
     echo "Dryrun: SR through config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -c $SPLIT1KONLY_SR_CFG -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -c $SPLIT1KONLY_SR_CFG -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -119,11 +120,11 @@ fi
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run: checking whether SE reads in == reads out (-secondary)" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -1 $R1S1 -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -1 $R1S1 -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    bam=$(ls $odir/out/*bam)
+    bam=$(ls $odir/out/$SAMPLE/*bam)
     # remove secondary alignments (assuming -M otherwise it's supplementary)
     nreadsbam=$(samtools view -F 0x100 -c $bam)
     nreadsfq=$(echo $(zcat $R1S1 | wc -l)/4 | bc)
@@ -137,11 +138,11 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: checking whether PE reads in == reads out (-secondary)" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -1 $R1S1 -2 $R2S1 -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -1 $R1S1 -2 $R2S1 -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    bam=$(ls $odir/out/*bam)
+    bam=$(ls $odir/out/$SAMPLE/*bam)
     # remove secondary alignments (assuming -M otherwise it's supplementary)
     nreadsbam=$(samtools view -F 0x100 -c $bam)
     nreadsfq=$(echo $(zcat $R1S1 $R2S1 | wc -l)/4 | bc)
@@ -155,11 +156,11 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: checking whether PE dup reads are removed" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-mdups.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s NA12878 -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    bam=$(ls $odir/out/*bam)
+    bam=$(ls $odir/out/$SAMPLE/*bam)
     # count only dups in bam
     ndups=$(samtools view -f 0x400 -c $bam)
     # nondups from non dup input
@@ -176,11 +177,11 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: no dups marking should not mark dups" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-no-mdups.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s NA12878 -r $REFFA -D -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s $SAMPLE -r $REFFA -D -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    bam=$(ls $odir/out/*bam)
+    bam=$(ls $odir/out/$SAMPLE/*bam)
     ndups=$(samtools view -f 0x400 -c $bam)
     if [ $ndups -gt 0 ]; then
         echo "ERROR number of dups ($ndups) should have been zero in $bam" | tee -a $log
