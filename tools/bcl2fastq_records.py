@@ -137,11 +137,11 @@ def form_post():
             return form_none(instantiate_mongo(False).find(instance), \
                 "RUNS FROM " + "-".join(list_from) + " TO " + "-".join(list_to))
 
-    return form_none(instantiate_mongo(False).find({}))
+    return form_none(instantiate_mongo(False).find({"": ""}))
 
 
 @app.route('/')
-def form_none(mongo_results=instantiate_mongo(False).find({}), nav_caption=""):
+def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption=""):
     """
     Flask callback function for all requests
     """
