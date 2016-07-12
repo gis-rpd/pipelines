@@ -33,17 +33,19 @@ localrules: final, report, prep_bed_files
 
 rule final:
     input:
-        expand(os.path.join(RESULT_OUTDIR, "sample-{sample}.bwamem.lofreq.both.ann.vcf.gz"),
+        expand(os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem.lofreq.both.ann.vcf.gz"),
                            sample=config['samples']),
         "report.html"
         
 rule report:
     input:
-        ann_vcfs=expand(os.path.join(RESULT_OUTDIR, "sample-{sample}.bwamem.lofreq.both.ann.vcf.gz"),
-                           sample=config['samples'])
+        ann_vcfs=expand(os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem.lofreq.both.ann.vcf.gz"),
+                        sample=config['samples'])
 
-    output: html="report.html"
-    params: samplenames=', '.join(config['samples'].keys())
+    output:
+        html="report.html"
+    params:
+        samplenames=', '.join(config['samples'].keys())
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"

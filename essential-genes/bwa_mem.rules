@@ -69,9 +69,9 @@ rule unit_merge:
                                  prefix=wildcards.prefix,
                                  unit=config['samples'][wildcards.sample])
     output:
-        temp('{prefix}/sample-{sample}.bwamem.bam')
+        temp('{prefix}/{sample}/{sample}.bwamem.bam')
     log:
-        '{prefix}/sample-{sample}.bwamem.bam.merge.log'
+        '{prefix}/{sample}/{sample}.bwamem.bam.merge.log'
     message:
         "Merging files"
     threads:

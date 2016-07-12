@@ -73,7 +73,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-pe-cmdline.XXXXXXXXXX) && rmdir $odir
+    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
     ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005  --no-run --no-mail -o $odir >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -89,12 +89,12 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-se-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
+    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-mail -o $odir >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    rm -rf $odir
+    #rm -rf $odir
     
 else
     echo "Real-run test skipped"
