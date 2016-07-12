@@ -125,10 +125,11 @@ def get_reads_unit_from_args(fqs1, fqs2):
             
     if len(fqs1) != len(set(fqs1)):
         logger.warning("Looks like the same files was given twice?")
-    if fqs2:
+        #logger.debug("len(fqs1)={} len(set(fqs1))={}".format(len(fqs1), len(set(fqs1))))
+    if paired:
         if len(fqs2) != len(set(fqs2)):
             logger.warning("Looks like the same files was given twice?")
-        
+            #logger.debug("len(fqs2)={} len(set(fqs2))={}".format(len(fqs2), len(set(fqs2))))
     read_units = []
     fq_pairs = list(zip_longest(fqs1, fqs2))
     for (fq1, fq2) in fq_pairs:
