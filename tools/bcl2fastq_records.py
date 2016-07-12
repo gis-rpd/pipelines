@@ -26,24 +26,13 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import generate_window, mongodb_conn
+from pipelines import generate_window, mongodb_conn, path_to_url
 
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
-
-
-def outpath_url(out_path):
-    """
-    OUT_DIR to URL
-    """
-    if out_path.startswith("/mnt/projects/userrig/solexa/"):
-        return out_path.replace("/mnt/projects/userrig/solexa/", \
-            "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects")
-    else:
-        return out_path
 
 
 def send_email(email, subject, message):
@@ -157,9 +146,12 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
     Flask callback function for all requests
     """
     result = ""
-    result += ("<script>$(function(){$('#datefilter').replaceWith('" + date_filter \
+    result += ("<script>$(function(){$('.datefilter').replaceWith('" + date_filter \
         + "');});</script>")
-#    result += ("<div align='center'><a>" + date_filter + "</a></div>")
+    analysis_none = 0
+    analysis_started = 0
+    analysis_failed = 0
+    analysis_success = 0
     for record in mongo_results:
         result += "<tr>"
         result += ("<td>" + str(record["run"]) + "</td>")
@@ -172,6 +164,15 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
 
         result += "<td>"
         if "analysis" in record:
+
+            if "Status" in record["analysis"][-1]:
+                if record["analysis"][-1]["Status"] == "STARTED":
+                    analysis_started += 1
+                if record["analysis"][-1]["Status"] == "FAILED":
+                    analysis_failed += 1
+                if record["analysis"][-1]["Status"] == "SUCCESS":
+                    analysis_success += 1
+
             result += """
             <table class='table table-bordered table-hover table-fixed table-compact'>
                 <thead>
@@ -189,8 +190,9 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
                 result += "<tr>"
                 result += ("<td>" + merge_cells("analysis_id", analysis) + "</td>")
                 result += ("<td>" + merge_cells("end_time", analysis) + "</td>")
-                result += ("<td><a href='" + outpath_url(merge_cells("out_dir", analysis)) + "'>" \
-                    + merge_cells("out_dir", analysis) + "</a></td>")
+                result += ("<td><a href='" + path_to_url(
+                    merge_cells("out_dir", analysis)).replace("//", "/").replace(":/", "://") \
+                    + "'>" + merge_cells("out_dir", analysis).replace("//", "/") + "</a></td>")
                 result += ("<td>" + merge_cells("Status", analysis) + "</td>")
                 result += "<td>"
 
@@ -238,10 +240,21 @@ def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
 
                 result += "</td>"
             result += "</tbody></table>"
-
+        else:
+            analysis_none += 1
         result += "</td>"
         result += "</tr>"
         result += "</tr>"
+
+        result += ("<script>$(function(){$('#analysis_none').attr('data-badge', '" \
+            + str(analysis_none) + "');});</script>")
+        result += ("<script>$(function(){$('#analysis_started').attr('data-badge', '" \
+            + str(analysis_started) + "');});</script>")
+        result += ("<script>$(function(){$('#analysis_failed').attr('data-badge', '" \
+            + str(analysis_failed) + "');});</script>")
+        result += ("<script>$(function(){$('#analysis_success').attr('data-badge', '" \
+            + str(analysis_success) + "');});</script>")
+
     return render_template("index.html", result=Markup(result))
 
 

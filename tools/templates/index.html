@@ -50,6 +50,9 @@
 			});
 		</script>
 		<style>
+			main.mdl-layout__content {
+				overflow-x: scroll;
+			}
 			.invisible {
 			    visibility: hidden
 			}
@@ -62,7 +65,7 @@
 		<div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
 			<header class="mdl-layout__header">
 				<div class="mdl-layout__header-row">
-					<form class="form-inline" action="." method="POST">
+					<form class="form-inline visible-lg visible-md visible-sm" action="." method="POST">
 						<div class="form-group">
 							<label for="from">RUNS FROM&nbsp</label>
 						</div>
@@ -79,14 +82,18 @@
 							<input class="btn btn-primary-outline" type="submit" name="submit" value="Retrieve">
 						</div>
 					</form>
-					<div class="mdl-layout-spacer" align="center"><span id="datefilter"></span></div>
-					<nav class="mdl-navigation mdl-layout--large-screen-only">
-						<a class="mdl-navigation__link" href="#"><span class="mdl-badge" data-badge="?">ANALYSIS NONE</span></a>
-						<a class="mdl-navigation__link" href="#"><span class="mdl-badge" data-badge="?">ANALYSIS STARTED</span></a>
-						<a class="mdl-navigation__link" href="#"><span class="mdl-badge" data-badge="?">ANALYSIS FAILED</span></a>
-					</nav>
+					<div class="mdl-layout-spacer visible-lg visible-md" align="center"><span class="datefilter"></span></div>
+					<div class="visible-lg">
+						<nav class="mdl-navigation mdl-layout--large-screen-only">
+							<a class="mdl-navigation__link" href="#"><span id="analysis_none" class="mdl-badge" data-badge="?">ANALYSIS NONE</span></a>
+							<a class="mdl-navigation__link" href="#"><span id="analysis_started" class="mdl-badge" data-badge="?">ANALYSIS STARTED</span></a>
+							<a class="mdl-navigation__link" href="#"><span id="analysis_failed" class="mdl-badge" data-badge="?">ANALYSIS FAILED</span></a>
+							<a class="mdl-navigation__link" href="#"><span id="analysis_success" class="mdl-badge" data-badge="?">ANALYSIS SUCCESS</span></a>
+						</nav>
+					</div>
 				</div>
 			</header>
+			<div class="mdl-layout-spacer visible-sm visible-xs" align="center"><span class="datefilter"></span></div>
 			<div class="mdl-layout__drawer">
 				<span class="mdl-badge mdl-layout-title">FAQ</span>
 				<nav class="mdl-navigation">					
