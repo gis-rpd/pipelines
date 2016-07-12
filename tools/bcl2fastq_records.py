@@ -137,16 +137,16 @@ def form_post():
             return form_none(instantiate_mongo(False).find(instance), \
                 "RUNS FROM " + "-".join(list_from) + " TO " + "-".join(list_to))
 
-    return form_none(instantiate_mongo(False).find())
+    return form_none(instantiate_mongo(False).find({}))
 
 
 @app.route('/')
-def form_none(mongo_results=instantiate_mongo(False).find(), date_filter=""):
+def form_none(mongo_results=instantiate_mongo(False).find({}), nav_caption=""):
     """
     Flask callback function for all requests
     """
     result = ""
-    result += ("<script>$(function(){$('.datefilter').replaceWith('" + date_filter \
+    result += ("<script>$(function(){$('.nav_caption').replaceWith('" + nav_caption \
         + "');});</script>")
     analysis_none = 0
     analysis_started = 0

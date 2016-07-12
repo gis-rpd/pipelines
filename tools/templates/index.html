@@ -57,7 +57,8 @@
 			.invisible{
 			    visibility: hidden
 			}
-			#ui-datepicker-div{
+			#from, #to{
+				position: relative; 
 				z-index: 10
 			}
 		</style>
@@ -66,7 +67,7 @@
 		<div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
 			<header class="mdl-layout__header">
 				<div class="mdl-layout__header-row">
-					<form class="form-inline visible-lg visible-md visible-sm" action="." method="POST">
+					<form class="form-inline visible-lg visible-md visible-sm" method="POST">
 						<div class="form-group">
 							<label for="from">RUNS FROM&nbsp</label>
 						</div>
@@ -83,19 +84,19 @@
 							<input class="btn btn-primary-outline" type="submit" name="submit" value="Retrieve">
 						</div>
 					</form>
-					<div class="mdl-layout-spacer visible-lg visible-md" align="center"><span class="datefilter"></span></div>
+					<div class="mdl-layout-spacer visible-lg visible-md" align="center"><span class="nav_caption"></span></div>
 					<div class="visible-lg">
 						<nav class="mdl-navigation mdl-layout--large-screen-only">
 							<label for="from">ANALYSIS STATUS</label>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_none" class="mdl-badge" data-badge="?">NONE</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_started" class="mdl-badge" data-badge="?">STARTED</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_failed" class="mdl-badge" data-badge="?">FAILED</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_success" class="mdl-badge" data-badge="?">SUCCESS</span></a>
+							<a class="mdl-navigation__link" href=""><span id="analysis_none" class="mdl-badge" data-badge="?">NONE</span></a>
+							<a class="mdl-navigation__link" href=""><span id="analysis_started" class="mdl-badge" data-badge="?">STARTED</span></a>
+							<a class="mdl-navigation__link" href=""><span id="analysis_failed" class="mdl-badge" data-badge="?">FAILED</span></a>
+							<a class="mdl-navigation__link" href=""><span id="analysis_success" class="mdl-badge" data-badge="?">SUCCESS</span></a>
 						</nav>
 					</div>
 				</div>
 			</header>
-			<div class="mdl-layout-spacer visible-sm visible-xs" align="center"><span class="datefilter"></span></div>
+			<div class="mdl-layout-spacer visible-sm visible-xs" align="center"><span class="nav_caption"></span></div>
 			<div class="mdl-layout__drawer">
 				<span class="mdl-badge mdl-layout-title">FAQ</span>
 				<nav class="mdl-navigation">					
