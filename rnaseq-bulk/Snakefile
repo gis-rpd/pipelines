@@ -186,10 +186,10 @@ rule RSEM_postprocessing:
         " {{ outpref=$(echo {output.wig} | sed -e 's,.sorted.wig,,'); "
         " rsem-bam2wig {input.gbam} {output.wig} $outpref;"
         " rsem-plot-model $outpref {output.plot};"
-        " grep -v gene_id {input.genecount} | paste - {input.gtfdesc}.genesdesc > {input.genecount}.desc;"
-        " grep -v gene_id {input.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $10, $11, $12}}' > {input.isocount}.desc;"
-        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' {input.genecount}.desc;"
-        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' {input.isocount}.desc; }} >& {log};"
+        " grep -v gene_id {input.genecount} | paste - {input.gtfdesc}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $9, $10}}'> {input.genecount}.desc;"
+        " grep -v gene_id {input.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $11, $12}}' > {input.isocount}.desc;"
+        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tgene_type\\tgene_name\\n/' {input.genecount}.desc;"
+        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\tgene_type\\tgene_name\\n/' {input.isocount}.desc; }} >& {log};"
 
         
 rule rnaseqc:
@@ -318,4 +318,6 @@ rule star_mapping:
         " --alignMatesGapMax {params.alignMatesGapMax}"
         " --limitBAMsortRAM {params.limitBAMsortRAM}"
         " --outFileNamePrefix $outpref"
-        " --readFilesIn {params.fmt_fq_list}; rm $commentsheader; }} >& {log}"
+        " --readFilesIn {params.fmt_fq_list}; rm $commentsheader;"
+        " paste <(sort -k1,1 {output.counts}) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {output.counts}.desc;"
+        " sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' {output.counts}.desc; }} >& {log};"
