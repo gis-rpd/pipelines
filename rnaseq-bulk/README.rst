@@ -22,8 +22,9 @@ raw fragment count of genes and isoforms in addition to cufflinks fpkm.
 By this method the pipeline supports strand specific analysis if the 
 library type is "fr-firststrand" by default "fr-unstranded ".
 
-http://www.nature.com/nprot/journal/v7/n3/fig_tab/nprot.2012.016_T1.html
-http://onetipperday.sterding.com/2012/07/how-to-tell-which-library-type-to-use.html
+ http://www.nature.com/nprot/journal/v7/n3/fig_tab/nprot.2012.016_T1.html
+
+ http://onetipperday.sterding.com/2012/07/how-to-tell-which-library-type-to-use.html
 
 The expression values of genes and isoforms are provided with annotation 
 in all the methods.
