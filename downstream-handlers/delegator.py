@@ -13,6 +13,7 @@ from collections import namedtuple
 #--- third party imports
 #
 import requests
+import pymongo
 #--- project specific imports
 #
 # add lib dir for this pipeline installation to PYTHONPATH
