@@ -252,7 +252,11 @@ rule star_mapping:
             cmd += " --readFilesIn {}".format(r2)
             cmd += " >> {} 2>&1".format(log)
             shell(cmd)
-            
+        
+        #cmd = "paste <(sort -k1,1 {output.counts}) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {output.counts}.desc"
+        #shell(cmd)
+        #cmd = "sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' {output.counts}.desc; }} >& {log}"    
+        #shell(cmd)
         cmd = "STAR --genomeDir {} --genomeLoad Remove > {} 2>&1 || echo 'OK'".format(input.staridx, log)
         shell(cmd)
         os.unlink(commentsheader)
