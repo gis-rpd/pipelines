@@ -119,6 +119,7 @@ rule cuffdiff:
         ref = config['references']['genome']
     output:
         matrix = "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}_genes_FPKM_Rawreadcount_GIS.txt",
+        matrixisoforms = "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}_isoforms_FPKM_Rawreadcount_GIS.txt"
     message: "Running cuffdiff"
     params:
         libtype = 'fr-firststrand' if config['stranded'] else 'fr-unstranded'
@@ -137,8 +138,11 @@ rule cuffdiff:
         " --max-frag-multihits 1"
         " --no-diff {input.gtf} --mask-file {input.gtfmask} --frag-bias-correct {input.ref} {input.bam} {input.bam} --output-dir $outpref 2>{log};"
         " cut -f 1,5,7,10 $outpref/genes.fpkm_tracking | grep -v tracking_id | sort > $outpref/genes.fpkm_tracking.col15710;"
+        " cut -f 1,4,5,7,10 $outpref/isoforms.fpkm_tracking | grep -v tracking_id | sort > $outpref/isoforms.fpkm_tracking.col145710;"
         " grep -E -w -v \"tracking_id|q2\" $outpref/genes.read_group_tracking | cut -f 1,4 |sort | cut -f 1-4,6 | paste - $outpref/genes.fpkm_tracking.col15710 | awk 'BEGIN {{ FS = \"\\t\" }} ;{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $4, $5, $2, $6}}' > {output.matrix};"
+        " grep -E -w -v \"tracking_id|q2\" $outpref/isoforms.read_group_tracking | cut -f 1,4 |sort | cut -f 1-4,6 | paste - $outpref/isoforms.fpkm_tracking.col145710 | awk 'BEGIN {{ FS = \"\\t\" }} ;{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $4, $5, $6, $2, $7}}' > {output.matrixisoforms};"
         " sed -i '1s/^/Gene_Id\\tGene_Name\\tLocus\\tReadCount\\tFPKM\\n/' {output.matrix};"
+        " sed -i '1s/^/Transcript_Id\\tGene_Id\\tGene_Name\\tLocus\\tReadCount\\tFPKM\\n/' {output.matrixisoforms};"
 
 
 rule RSEM:
