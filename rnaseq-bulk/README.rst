@@ -34,6 +34,16 @@ in all the methods.
 - RNA-SeQC: https://www.broadinstitute.org/cancer/cga/rna-seqc
 - CUFFDIFF: http://cole-trapnell-lab.github.io/cufflinks/manual/
 
+Note that STAR is very memory hungry. We use its shared memory option
+with the goal of reducing the memory burden. However, with many jobs
+running on the cluster, loading and unloading of genome indices on the
+same node can lead to race conditions. In such cases workflow will
+fail, but can simply be rerun (see below). Worst case is shared memory
+not being freed on nodes. In such cases (run ``ipcs`` to find out) manual
+unloading (``STAR --genomeLoad Remove`` or ``ipcrm -M``)
+
+
+
 
 How to
 ------
