@@ -67,7 +67,7 @@ SKIP_REAL_WGS=1
 
 WRAPPER=./variant-calling-gatk.py
 targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -s NA12878-targeted -t targeted -l $DUMMY_BED"
-wge_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $DUMMY_BED"
+wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $DUMMY_BED"
 wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS"
 
 # dryruns
@@ -82,8 +82,8 @@ if [ $skip_dry_runs -ne 1 ]; then
     popd >> $log
     
     echo "Dryrun: WES" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wge.XXXXXXXXXX) && rmdir $odir
-    eval $wge_cmd_base -o $odir -v --no-run >> $log 2>&1
+    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -114,8 +114,8 @@ if [ $skip_real_runs -ne 1 ]; then
     
     if [ $SKIP_REAL_WES -eq 0 ]; then
         echo "Realrun: WES" | tee -a $log
-        odir=$(mktemp -d ${test_outdir_base}-wge.XXXXXXXXXX) && rmdir $odir
-        eval $wge_cmd_base -o $odir -v >> $log 2>&1
+        odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+        eval $wes_cmd_base -o $odir -v >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
         echo "Started $jid writing to $odir. You will receive an email"

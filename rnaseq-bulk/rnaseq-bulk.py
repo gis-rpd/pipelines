@@ -28,7 +28,8 @@ from pipelines import get_pipeline_version
 from pipelines import ref_is_indexed
 from pipelines import get_site
 from pipelines import PipelineHandler
-from pipelines import logger as aux_logger
+from pipelines import logger as pipelines_logger
+from readunits import logger as readunits_logger
 from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 
@@ -110,7 +111,8 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
-    aux_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+    pipelines_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+    readunits_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     # FIXME checks on reffa index (currently not exposed via args)
     

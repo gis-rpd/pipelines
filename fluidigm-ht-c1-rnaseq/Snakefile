@@ -27,9 +27,6 @@ shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 
-# should work for many now
-# assert len(config['samples'])==1
-
 include: "../rules/logging.rules"
 include: "../rules/samtools.rules"
 

@@ -65,11 +65,11 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 
 WRAPPER=./rnaseq-bulk.py
 # SE command resulting in 1M reads total
-CMD_1_SE_1M="$WRAPPER -1 $R1_1M -s $SAMPLE"
-CMD_2_SE_500K="$WRAPPER -1 $R1_500K_1 $R1_500K_2 -s $SAMPLE"
+CMD_1_SE_1M="$WRAPPER -C -1 $R1_1M -s $SAMPLE"
+CMD_2_SE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -s $SAMPLE"
 # PE command resulting in 2M reads total
-CMD_1_PE_1M="$WRAPPER -1 $R1_1M -2 $R2_1M -s $SAMPLE"
-CMD_2_PE_500K="$WRAPPER -1 $R1_500K_1 $R1_500K_2 -2 $R2_500K_1 $R2_500K_2 -s $SAMPLE"
+CMD_1_PE_1M="$WRAPPER -C -1 $R1_1M -2 $R2_1M -s $SAMPLE"
+CMD_2_PE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -2 $R2_500K_1 $R2_500K_2 -s $SAMPLE"
 
 
 
@@ -100,35 +100,65 @@ fi
 # real runs
 #
 if [ $skip_real_runs -ne 1 ]; then
-    echo "Dryrun: 1 1M SE fastq" | tee -a $log
+    echo "Real run: 1 1M SE fastq" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
     eval $CMD_1_SE_1M -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
-    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
-    echo "Started job $jid writing to $odir. You will receive an email"
-
-    echo "Dryrun: 2 500K SE fastqs" | tee -a $log
+    jid1=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+    echo "Started job $jid1 writing to $odir. You will receive an email"
+    bam1=$odir/out/$SAMPLE/star/${SAMPLE}_hg19_Aligned.sortedByCoord.out.bam
+    
+    echo "Real run: 2 500K SE fastqs" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
     eval $CMD_2_SE_500K -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
-    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
-    echo "Started job $jid writing to $odir. You will receive an email"
+    jid2=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+    echo "Started job $jid2 writing to $odir. You will receive an email"
+    bam2=$odir/out/$SAMPLE/star/${SAMPLE}_hg19_Aligned.sortedByCoord.out.bam
 
-    echo "Dryrun: 1 1M PE fastq pair" | tee -a $log
+    jobname="${pipeline}.${MYNAME}.check.SE"
+    mailopt="-M $(toaddr) -m bea"
+    if qstat --version 2>&1 | grep -q PBSPro; then
+        # -cwd not available but all paths are absolute so no need
+        # using bash after -- doesn't work: binary expected
+        qsub="qsub -q production -l select=1:ncpus=1 -l select=1:mem=1g -l walltime=175:00:00 -j oe -V $mailopt -N $jobname -W depend=afterok:$jid1:$jid2 --"
+    else
+        qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -b y -cwd -V $mailopt -N $jobname -hold_jid $jid1,$jid2"
+    fi
+    echo "Starting comparison between outputs" | tee -a $log
+    echo "Will run (hold job) $(pwd)/test_num_reads.sh $bam1 $bam2 500000 1000000" | tee -a $log
+    $qsub "$(pwd)/test_num_reads.sh $bam1 $bam2 500000 1000000" >> $log 2>&1
+
+
+    
+    echo "Real run: 1 1M PE fastq pair" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
     eval $CMD_1_PE_1M -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
-    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
-    echo "Started job $jid writing to $odir. You will receive an email"    
+    jid1=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+    echo "Started job $jid1 writing to $odir. You will receive an email"    
+    bam1=$odir/out/$SAMPLE/star/${SAMPLE}_hg19_Aligned.sortedByCoord.out.bam
 
-    echo "Dryrun: 2 500K PE fastq pairs" | tee -a $log
+    echo "Real run: 2 500K PE fastq pairs" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
     eval $CMD_2_PE_500K -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
-    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
-    echo "Started job $jid writing to $odir. You will receive an email"
+    jid2=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+    echo "Started job $jid2 writing to $odir. You will receive an email"
+    bam2=$odir/out/$SAMPLE/star/${SAMPLE}_hg19_Aligned.sortedByCoord.out.bam
 
-    echo "FIXME check number of reads in output"
+    jobname="${pipeline}.${MYNAME}.check.PE"
+    mailopt="-M $(toaddr) -m bea"
+    if qstat --version 2>&1 | grep -q PBSPro; then
+        # -cwd not available but all paths are absolute so no need
+        # using bash after -- doesn't work: binary expected
+        qsub="qsub -q production -l select=1:ncpus=1 -l select=1:mem=1g -l walltime=175:00:00 -j oe -V $mailopt -N $jobname -W depend=afterok:$jid1:$jid2 --"
+    else
+        qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -b y -cwd -V $mailopt -N $jobname -hold_jid $jid1,$jid2"
+    fi
+    echo "Starting comparison between outputs" | tee -a $log
+    echo "Will run (hold job) $(pwd)/test_num_reads.sh $bam1 $bam2 1000000 2000000" | tee -a $log
+    $qsub "$(pwd)/test_num_reads.sh $bam1 $bam2 1000000 2000000" >> $log 2>&1
 else
     echo "Real-run test skipped"
 fi

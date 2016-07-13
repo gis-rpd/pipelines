@@ -84,3 +84,7 @@ done
 echo "Done"
 set -e   
 
+
+echo
+echo "*** All tests completed/started"
+
