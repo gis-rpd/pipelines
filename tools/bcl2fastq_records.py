@@ -146,14 +146,14 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
     Flask callback function for all requests
     """
     result = ""
-    result += ("<script>$(function(){$('.nav_caption').replaceWith('" + nav_caption \
-        + "');});</script>")
+    result += ("<script>$(function(){$('.nav_caption').replaceWith('" \
+        + '<span class="nav_caption">' + nav_caption + "</span>" + "');});</script>")
     analysis_none = 0
     analysis_started = 0
     analysis_failed = 0
     analysis_success = 0
     for record in mongo_results:
-        result += "<tr>"
+        result += "<tr class='run_row'>"
         result += ("<td>" + str(record["run"]) + "</td>")
 
         if len(str(record["timestamp"])) == 13:
@@ -222,6 +222,7 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
                         result += "</tr>"
                     result += "</tbody></table>"
                 else:
+                    result += "<span class='label label-pill label-default'>NONE</span>"
                     result += """
                     <table class='table table-bordered table-hover table-fixed table-compact invisible'>
                         <thead>
@@ -242,6 +243,7 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
             result += "</tbody></table>"
         else:
             analysis_none += 1
+            result += "<span class='label label-pill label-default'>NONE</span>"
         result += "</td>"
         result += "</tr>"
         result += "</tr>"
