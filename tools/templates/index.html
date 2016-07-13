@@ -6,7 +6,7 @@
 		<meta http-equiv="x-ua-compatible" content="ie=edge">
 
 		<link href="https://netdna.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
-		<link href="https://cdn.datatables.net/plug-ins/1.10.12/integration/bootstrap/3/dataTables.bootstrap.css" rel="stylesheet">
+		<link href="https://cdn.datatables.net/1.10.12/css/dataTables.bootstrap.min.css" rel="stylesheet">
 		<link href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.min.css" rel="stylesheet">
 
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
@@ -21,13 +21,18 @@
 
 		<script>
 			$(document).ready(function(){
+				var table = 
 				$("#main").DataTable({
-	    			"order": [[1, "desc"]]
+	    			"order": [[1, "desc"]],
+	    			"pagingType": "full_numbers",
+//	    			"scrollX": true,
+	    			stateSave: true,
+//	    			"lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
 				});
-			});
-			$(function(){
+
 				$("#from").datepicker({
 			    	minDate: new Date(2016, 5 - 1, 27),
+			    	maxDate: new Date(),
 			    	changeMonth: true,
 			    	changeYear: true,
 			    	numberOfMonths: 1,
@@ -37,6 +42,7 @@
 			    });
 			    $("#to").datepicker({
 			    	minDate: new Date(2016, 5 - 1, 27),
+			    	maxDate: new Date(),
 			    	changeMonth: true,
 			    	changeYear: true,
 			    	numberOfMonths: 1,
@@ -48,6 +54,24 @@
 			    $("#to").datepicker("option", "dateFormat", "yy-mm-dd");
 			    $("#from").datepicker("setDate", "2016-05-27");
 			    $("#to").datepicker("setDate", new Date());
+
+
+			    $('#main tbody').on( 'click', 'tr', function () {
+			        if ( $(this).hasClass('selected') ) {
+			            $(this).removeClass('selected');
+			        }
+			        else {
+			            table.$('tr.selected').removeClass('selected');
+			            $(this).addClass('selected');
+			        }
+			    } );
+			    $("#analysis_failed").click(function(){
+					//alert("FAILED");
+					//table.draw();
+					//table.row('.selected').remove().draw( false );
+					$("tr:contains('FAILED'), tr:contains('SEQRUNFAILED')").children().css("background-color", "red");
+					//$('tr:not(:contains(FAILED)):not(:contains(SEQRUNFAILED))').hide(); 
+				});
 			});
 		</script>
 		<style>
@@ -57,7 +81,8 @@
 			.invisible{
 			    visibility: hidden
 			}
-			#ui-datepicker-div{
+			#from, #to{
+				position: relative; 
 				z-index: 10
 			}
 		</style>
@@ -66,7 +91,7 @@
 		<div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
 			<header class="mdl-layout__header">
 				<div class="mdl-layout__header-row">
-					<form class="form-inline visible-lg visible-md visible-sm" action="." method="POST">
+					<form class="form-inline visible-lg visible-md visible-sm" method="POST">
 						<div class="form-group">
 							<label for="from">RUNS FROM&nbsp</label>
 						</div>
@@ -83,19 +108,19 @@
 							<input class="btn btn-primary-outline" type="submit" name="submit" value="Retrieve">
 						</div>
 					</form>
-					<div class="mdl-layout-spacer visible-lg visible-md" align="center"><span class="datefilter"></span></div>
+					<div class="mdl-layout-spacer visible-lg visible-md" align="center"><span class="nav_caption"></span></div>
 					<div class="visible-lg">
 						<nav class="mdl-navigation mdl-layout--large-screen-only">
 							<label for="from">ANALYSIS STATUS</label>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_none" class="mdl-badge" data-badge="?">NONE</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_started" class="mdl-badge" data-badge="?">STARTED</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_failed" class="mdl-badge" data-badge="?">FAILED</span></a>
-							<a class="mdl-navigation__link" href="#"><span id="analysis_success" class="mdl-badge" data-badge="?">SUCCESS</span></a>
+							<a class="mdl-navigation__link"><span id="analysis_none" class="mdl-badge" data-badge="?">NONE</span></a>
+							<a class="mdl-navigation__link"><span id="analysis_started" class="mdl-badge" data-badge="?">STARTED</span></a>
+							<a class="mdl-navigation__link"><span id="analysis_failed" class="mdl-badge" data-badge="?">FAILED</span></a>
+							<a class="mdl-navigation__link"><span id="analysis_success" class="mdl-badge" data-badge="?">SUCCESS</span></a>
 						</nav>
 					</div>
 				</div>
 			</header>
-			<div class="mdl-layout-spacer visible-sm visible-xs" align="center"><span class="datefilter"></span></div>
+			<div class="mdl-layout-spacer visible-sm visible-xs" align="center"><span class="nav_caption"></span></div>
 			<div class="mdl-layout__drawer">
 				<span class="mdl-badge mdl-layout-title">FAQ</span>
 				<nav class="mdl-navigation">					

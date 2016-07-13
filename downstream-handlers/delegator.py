@@ -26,7 +26,7 @@ from pipelines import generate_window, send_mail
 from pipelines import get_machine_run_flowcell_id
 
 LibUnit = namedtuple('LibUnit', ['mux_id', 'run_id', 'fastqs', 'pipeline_name',
-                                 'pipeline_version', 'pipeline_params', 'out_dir', 'site'])
+                                 'pipeline_version', 'pipeline_params', 'out_dir', 'site', 'ctime'])
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
@@ -48,6 +48,8 @@ def check_fastq(fastq_data_dir, libid):
         return (True, fastq_data)
     else:
         return (False, None)
+
+
 def mongodb_update_runcomplete(run_num_flowcell, analysis_id, mux_id, insert_id, connection):
     """Change the status to DELEGATED in runcomplete collection of MongoDB
     """
@@ -63,16 +65,16 @@ def mongodb_update_runcomplete(run_num_flowcell, analysis_id, mux_id, insert_id,
     else:
         return True
 
+
 def mongodb_insert_libjob(lib, lib_info, connection):
     """Insert records into pipeline_runs collection of MongoDB
     """
     try:
         db = connection.gisds.pipeline_runs
-        ctime, _ = generate_window(1)
         db.insert_one({"lib_id": lib, \
             "mux_id":lib_info.mux_id, \
             "run_id":lib_info.run_id, \
-            "ctime":ctime, \
+            "ctime":lib_info.ctime, \
             "fastqs":lib_info.fastqs, \
             "pipeline_name":lib_info.pipeline_name, \
             "pipeline_version":lib_info.pipeline_version, \
@@ -85,6 +87,19 @@ def mongodb_insert_libjob(lib, lib_info, connection):
         return False
     else:
         return True
+
+
+def mongodb_remove_muxjob(mux_id, run_id, ctime, connection):
+    """Delete libraries from MUX, runID and ctime
+    """
+    try:
+        db = connection.gisds.runcomplete
+        db.remove({"run_id": run_id, "mux_id": mux_id, "ctime": ctime})
+    except pymongo.errors.OperationFailure:
+        logger.fatal("mongoDB OperationFailure")
+        sys.exit(1)
+
+
 def get_lib_details(run_num_flowcell, mux_list, testing):
     """Lib info collection from ELM per run
     """
@@ -102,18 +117,16 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
     rest_data = response.json()
     logger.debug("rest_data from %s: %s", rest_url, rest_data)
     pipeline_params_dict = {}
-    if rest_data.get('runId', None) == None:
+    if rest_data.get('runId') is None:
         logger.info("JSON data is empty for run num %s", run_num)
         return pipeline_params_dict
-    for mux in mux_list:
-        mux_id = mux[0]
-        out_dir = mux[1]
-        str1 = ''.join(out_dir)
-        fastq_data_dir = os.path.join(str(str1), 'out', "Project_"+mux_id)
+    for mux_id, out_dir in mux_list:
+        fastq_data_dir = os.path.join(out_dir[0], 'out', "Project_"+mux_id)
         if os.path.exists(fastq_data_dir):
             for rows in rest_data['lanes']:
                 if mux_id in rows['libraryId']:
                     params = {}
+                    ctime, _ = generate_window(1)
                     if "MUX" in rows['libraryId']:
                         for child in rows['Children']:
                             params['genome'] = child['genome']
@@ -123,8 +136,8 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                             status, fastq_list = check_fastq(fastq_data_dir, child['libraryId'])
                             if status:
                                 info = LibUnit(rows['libraryId'], run_num_flowcell, \
-                                    fastq_list, child['Analysis'], None, params, \
-                                    run_num_flowcell, 'gis')
+                                    fastq_list, child['Analysis'], None, params,  \
+                                    run_num_flowcell, 'gis', ctime)
                                 pipeline_params_dict[child['libraryId']] = info
                     else:
                         params['genome'] = rows['genome']
@@ -135,9 +148,10 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                         if status:
                             info = LibUnit(rows['libraryId'], run_num_flowcell, \
                                     fastq_list, rows['Analysis'], None, params, \
-                                    run_num_flowcell, 'gis')
+                                    run_num_flowcell, 'gis', ctime)
                             pipeline_params_dict[rows['libraryId']] = info
     return pipeline_params_dict
+
 
 def main():
     """main function
@@ -228,11 +242,12 @@ def main():
         update_status = True
         pipeline_params_dict = get_lib_details(run_num_flowcell, mux_list, args.testing)
         if not bool(pipeline_params_dict):
-            logger.info("pipeline_paramas_dict is empty for run num %s", run_num_flowcell)
+            logger.warning("pipeline_paramas_dict is empty for run num %s", run_num_flowcell)
             continue
         for lib, lib_info in pipeline_params_dict.items():
             if args.dry_run:
-                logger.warning("Skipping analysis")
+                logger.warning("Skipping job delegation for %s from %s", \
+                    lib_info.mux_id, lib_info.run_id)
                 continue
             res = mongodb_insert_libjob(lib, lib_info, connection)
             if not res:
@@ -246,6 +261,10 @@ def main():
                     "{}".format(lib_info.mux_id)
                 send_mail(subject, body, toaddr='veeravallil', ccaddr=None)
                 update_status = False
+                logger.warning("Clean up the database for mux %s from run %s and ctime %s", \
+                    lib_info.mux_id, lib_info.run_id, lib_info.ctime)
+                mongodb_remove_muxjob(lib_info.mux_id, lib_info.run_id, \
+                    lib_info.ctime, connection)
                 break
         if not args.dry_run and update_status:
             value = mongo_db_ref[run_num_flowcell]
@@ -267,8 +286,8 @@ def main():
                     send_mail(subject, body, toaddr='veeravallil', ccaddr=None)
                     update_status = False
                     break
-        else:
-            logger.warning("Clean up the database for mux %s from run %s", mux_id, run_num_flowcell)
+    connection.close()
+
 if __name__ == "__main__":
     logger.info("Send email to Users and NGSP")
     main()
