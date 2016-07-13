@@ -2,7 +2,7 @@ Description
 -----------
 
 This pipeline is for RNASeq bulk analysis and runs STAR, followed by
-RNASeQC, RSEM and optionally cuffdiff. It's most suitable for almost 
+RNASeQC, RSEM and optionally cuffdiff. It's most suitable for 
 all types of RNASeq except small RNASeq.
 
 Reads are aligned to given reference genome using the STAR mapper. Output of
@@ -57,7 +57,7 @@ STAR:
 - Mapped genome BAM: <sample>_<genome>_Aligned.sortedByCoord.out.bam
 - Mapped transcriptome BAM (RSEM input): <sample>_<genome>_Aligned.toTranscriptome.out.bam
 - Visualization: Wiggle file (\*.wig)
-- Read count (genes): <sample>_<genome>_ReadsPerGene.out.tab
+- Read count (genes): <sample>_<genome>_ReadsPerGene.out.tab.desc
 - Mappability: <sample>_<genome>_Log.final.out
 
 RSEM:
