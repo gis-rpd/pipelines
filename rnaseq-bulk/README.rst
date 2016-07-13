@@ -11,6 +11,8 @@ file (used as input for RSEM), gene based read count matrix, wiggle
 files and mappability. For running STAR we follow recipes given at
 http://www.rna-seqblog.com/optimizing-rna-seq-mapping-with-star/
 
+https://groups.google.com/forum/#!topic/rna-star/gZRJx3ElRNo
+
 The transcripts/genes expression abundance are estimated by STAR and
 RSEM. The RSEM results matrix contains mapped reads count and TPM
 (normalized value) of genes and isoforms. The pipeline also provides
