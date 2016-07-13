@@ -10,7 +10,6 @@ import glob
 #
 from snakemake.utils import report
 
-#####
 # project specific imports
 #
 LIB_PATH = os.path.abspath(
@@ -124,10 +123,10 @@ rule RSEM:
         " ls ${{outpref}}*bam | grep -v genome.sorted.bam | xargs -r rm;"
         " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
         " rsem-plot-model $outpref {output.plot}; }} >& {log};"
-        " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc > {output.genecount}.desc;"
-        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $10, $11, $12}}' > {output.isocount}.desc;"
-        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' {output.genecount}.desc;"
-        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' {output.isocount}.desc"
+        " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $9, $10}}'> {output.genecount}.desc;"
+        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $11, $12}}' > {output.isocount}.desc;"
+        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tgene_type\\tgene_name\\n/' {output.genecount}.desc;"
+        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\tgene_type\\tgene_name\\n/' {output.isocount}.desc"
 
         
 rule rnaseqQC:
@@ -253,10 +252,18 @@ rule star_mapping:
             cmd += " --readFilesIn {}".format(r2)
             cmd += " >> {} 2>&1".format(log)
             shell(cmd)
+
+            # FIXME test and activate
+            # add counts to zip command above. replace config[references][gtfsourcefile] with  gtfsourcefile. add description to README
+            #cmd = "paste <(sort -k1,1 {output.counts}) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {output.counts}.desc"
+            #shell(cmd)
+            #cmd = "sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' {output.counts}.desc; }} >& {log}"    
+            #shell(cmd)
+            
             # cleanup
             for f in glob.glob(os.path.join(os.path.dirname(bam), "*UniqueMultiple.str1.out.wig")):
                 os.unlink(f)
-            
+
         cmd = "STAR --genomeDir {} --genomeLoad Remove > {} 2>&1 || echo 'OK'".format(input.staridx, log)
         shell(cmd)
         os.unlink(commentsheader)

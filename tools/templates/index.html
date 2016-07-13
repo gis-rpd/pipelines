@@ -22,12 +22,16 @@
 		<script>
 			$(document).ready(function(){
 				var table = 
-				$("#main").DataTable({
+				$("#run_table").DataTable({
 	    			"order": [[1, "desc"]],
 	    			"pagingType": "full_numbers",
 //	    			"scrollX": true,
-	    			stateSave: true,
-//	    			"lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
+//	    			stateSave: true,
+	    			"lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+					"search":{
+						"regex": true,
+						"smart": false
+					}
 				});
 
 				$("#from").datepicker({
@@ -55,22 +59,28 @@
 			    $("#from").datepicker("setDate", "2016-05-27");
 			    $("#to").datepicker("setDate", new Date());
 
-
-			    $('#main tbody').on( 'click', 'tr', function () {
-			        if ( $(this).hasClass('selected') ) {
-			            $(this).removeClass('selected');
-			        }
-			        else {
-			            table.$('tr.selected').removeClass('selected');
-			            $(this).addClass('selected');
-			        }
-			    } );
+			    $("#analysis_none").click(function(){
+			    	$(".mdl-badge").css("color", "white");
+					$(this).css("color", "yellow");
+//					table.column(2).search("NONE").draw();
+					table.column(2).search("^((?!STARTED|FAILED|SUCCESS).)*$", true).draw();
+			    });
+			    $("#analysis_started").click(function(){
+					$(".mdl-badge").css("color", "white");
+					$(this).css("color", "yellow");
+//					table.column(2).search("STARTED").draw();
+					table.column(2).search("^((?!NONE|FAILED|SUCCESS).)*$", true).draw();
+				});
 			    $("#analysis_failed").click(function(){
-					//alert("FAILED");
-					//table.draw();
-					//table.row('.selected').remove().draw( false );
-					$("tr:contains('FAILED'), tr:contains('SEQRUNFAILED')").children().css("background-color", "red");
-					//$('tr:not(:contains(FAILED)):not(:contains(SEQRUNFAILED))').hide(); 
+					$(".mdl-badge").css("color", "white");
+					$(this).css("color", "yellow");
+//					table.column(2).search("FAILED").draw();
+					table.column(2).search("^((?!NONE|STARTED|SUCCESS).)*$", true).draw();
+				});
+				$("#analysis_success").click(function(){
+					$(".mdl-badge").css("color", "white");
+					$(this).css("color", "yellow");
+					table.column(2).search("SUCCESS").draw();
 				});
 			});
 		</script>
@@ -122,7 +132,7 @@
 			</header>
 			<div class="mdl-layout-spacer visible-sm visible-xs" align="center"><span class="nav_caption"></span></div>
 			<div class="mdl-layout__drawer">
-				<span class="mdl-badge mdl-layout-title">FAQ</span>
+				<span class="mdl-layout-title">FAQ</span>
 				<nav class="mdl-navigation">					
 					<ul class='mdl-list'>
 						<li class="mdl-list__item">
@@ -221,7 +231,7 @@
 				<div class="page-content">
 		    		<div class="panel-group">
 						<div class="panel-body">
-					        <table id="main" class="table table-bordered table-hover table-fixed table-compact">
+					        <table id="run_table" class="table table-bordered table-hover table-fixed table-compact">
 				    			<thead>
 						            <tr>
 						                <th>RUN</th>
