@@ -61,6 +61,9 @@ log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
+if [ $skip_real_runs -ne 1 ]; then
+    echo "Also check log if the check against expected output hold jobs fail"
+fi
 
 
 WRAPPER=./rnaseq-bulk.py

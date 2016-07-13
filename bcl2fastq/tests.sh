@@ -77,8 +77,9 @@ COMPLETE_MSG="*** All tests completed ***"
 echo "Starting tests"
 echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
-echo "Also check log if the check against expected output hold jobs fail"
-
+if [ $skip_real_runs -ne 1 ]; then
+    echo "Also check log if the check against expected output hold jobs fail"
+fi
 
 # dryruns
 #
