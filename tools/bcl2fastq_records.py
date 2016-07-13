@@ -222,7 +222,7 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
                         result += "</tr>"
                     result += "</tbody></table>"
                 else:
-                    result += "<span class='label label-pill label-default'>NONE</span>"
+#                    result += "<span class='label label-pill label-default'>NONE</span>"
                     result += """
                     <table class='table table-bordered table-hover table-fixed table-compact invisible'>
                         <thead>

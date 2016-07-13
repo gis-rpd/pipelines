@@ -62,19 +62,20 @@
 			    $("#analysis_none").click(function(){
 			    	$(".mdl-badge").css("color", "white");
 					$(this).css("color", "yellow");
-					table.column(2).search("NONE").draw();
+//					table.column(2).search("NONE").draw();
+					table.column(2).search("^((?!STARTED|FAILED|SUCCESS).)*$", true).draw();
 			    });
 			    $("#analysis_started").click(function(){
 					$(".mdl-badge").css("color", "white");
 					$(this).css("color", "yellow");
-					table.column(2).search("STARTED").draw();
-					table.column(2).search("^((?!SUCCESS).)*$", true).draw();
+//					table.column(2).search("STARTED").draw();
+					table.column(2).search("^((?!NONE|FAILED|SUCCESS).)*$", true).draw();
 				});
 			    $("#analysis_failed").click(function(){
 					$(".mdl-badge").css("color", "white");
 					$(this).css("color", "yellow");
-					table.column(2).search("FAILED").draw();
-					table.column(2).search("^((?!SUCCESS).)*$", true).draw();
+//					table.column(2).search("FAILED").draw();
+					table.column(2).search("^((?!NONE|STARTED|SUCCESS).)*$", true).draw();
 				});
 				$("#analysis_success").click(function(){
 					$(".mdl-badge").css("color", "white");
