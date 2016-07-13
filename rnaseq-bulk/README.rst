@@ -5,36 +5,31 @@ This pipeline is for RNASeq bulk analysis and runs STAR, followed by
 RNASeQC, RSEM and optionally cuffdiff. It's most suitable for 
 all types of RNASeq except small RNASeq.
 
-Reads are aligned to given reference genome using the STAR mapper. Output of
-STAR is the uniquely mapped genome bam file, transcripts mapped bam
-file (used as input for RSEM), gene based read count matrix, wiggle
-files and mappability. For running STAR we follow recipes given at
+Reads aligned to
+given reference genome using the `STAR mapper
+<https://github.com/alexdobin/STAR>`_. Output of STAR is the uniquely
+mapped genome bam file, transcripts mapped bam file, gene based read
+count matrix, wiggle files and mappability. For running STAR we follow
+recipes given at
 http://www.rna-seqblog.com/optimizing-rna-seq-mapping-with-star/
 
-https://groups.google.com/forum/#!topic/rna-star/gZRJx3ElRNo
+
 
 The transcripts/genes expression abundance are estimated by STAR and
-RSEM. The RSEM results matrix contains mapped reads count and TPM
-(normalized value) of genes and isoforms. The pipeline also provides
-generic stats, coverage, mappability, QC and other analysis. 
+`RSEM <//deweylab.github.io/RSEM/>`_ (reusing STAR's BAM file). The
+RSEM results matrix contains mapped reads count and TPM (normalized
+value) of genes and isoforms. The pipeline also provides generic
+stats, coverage, mappability, QC e.g. by running `RNA-SeQC
+<https://www.broadinstitute.org/cancer/cga/rna-seqc>`_.
 
-The cuffdiff method is slow compare to default method, actually it 
-runs in cufflinks mode with no differential analysis carried out to get 
-raw fragment count of genes and isoforms in addition to cufflinks fpkm. 
-By this method the pipeline supports strand specific analysis if the 
-library type is "fr-firststrand" by default "fr-unstranded ".
+Cuffdiff can be run optionally (slow!): it will run in cufflinks mode
+,with no differential analysis carried out, to get raw fragment count of
+genes and isoforms in addition to cufflinks fpkm. If the ``stranded`` option was used cuffdiff is run with 
+``fr-firststrand``, otherwise ``fr-unstranded`` by default
 
- http://www.nature.com/nprot/journal/v7/n3/fig_tab/nprot.2012.016_T1.html
+Expression values of genes and isoforms are provided with annotation 
+in all run methods.
 
- http://onetipperday.sterding.com/2012/07/how-to-tell-which-library-type-to-use.html
-
-The expression values of genes and isoforms are provided with annotation 
-in all the methods.
-
-- RSEM: http://deweylab.github.io/RSEM/
-- STAR: https://github.com/alexdobin/STAR 
-- RNA-SeQC: https://www.broadinstitute.org/cancer/cga/rna-seqc
-- CUFFDIFF: http://cole-trapnell-lab.github.io/cufflinks/manual/
 
 Note that STAR is very memory hungry. We use its shared memory option
 with the goal of reducing the memory burden. However, with many jobs
@@ -43,8 +38,6 @@ same node can lead to race conditions. In such cases workflow will
 fail, but can simply be rerun (see below). Worst case is shared memory
 not being freed on nodes. In such cases (run ``ipcs`` to find out) manual
 unloading (``STAR --genomeLoad Remove`` or ``ipcrm -M``)
-
-
 
 
 How to
@@ -82,6 +75,9 @@ RSEM:
 - Isoforms expression values with annotation: <sample>_<genome>_RSEM.isoforms.results.desc
 - Visualization: .wig
 - Plots: <sample>_<genome>_RSEM.pdf
+- Alignment with genome coordinates: <sample>_<genome>_RSEM.genome.sorted.bam
+
+
 
 RNA-SeQC:
 `````````
@@ -91,7 +87,9 @@ QC and rate of rRNA and distribution of reads on transcripts:
 - countMetrics.html
 - metrics.tsv
 
+  
 Cuffdiff:
 `````````
 
-- Genes expression values with annotation: <sample>_<genome>_genes_FPKM_Rawreadcount_GIS.txt
+- Genes expression values with annotation: \*genes_FPKM_Rawreadcount_GIS.txt
+- Genes with raw fragment and fpkm value: \*genes.read_group_tracking
