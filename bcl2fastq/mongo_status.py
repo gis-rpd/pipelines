@@ -20,7 +20,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import generate_timestamp, get_site
-from pipelines import mongodb_conn
+from mongodb import mongodb_conn
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"

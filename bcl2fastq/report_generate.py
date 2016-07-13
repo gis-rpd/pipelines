@@ -19,7 +19,7 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import mongodb_conn
+from mongodb import mongodb_conn
 from pipelines import generate_window, isoformat_to_epoch_time
 from pipelines import send_mail
 

@@ -26,7 +26,8 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import generate_window, mongodb_conn, path_to_url
+from pipelines import generate_window, path_to_url
+from mongodb import mongodb_conn
 
 
 __author__ = "Andreas Wilm"

@@ -20,7 +20,6 @@ import json
 #--- third-party imports
 #
 import yaml
-import pymongo
 
 #--- project specific imports
 #/
@@ -597,25 +596,6 @@ def chroms_and_lens_from_from_fasta(fasta):
             (s, l) = line.split()[:2]
             l = int(l)
             yield (s, l)
-
-def mongodb_conn(use_test_server=False):
-    """Return connection to MongoDB server"""
-    site = get_site()
-    assert site in CONMAP
-    if use_test_server:
-        logger.info("Using test MongoDB server")
-        constr = CONMAP[site]['test']
-    else:
-        logger.info("Using production MongoDB server")
-        constr = CONMAP[site]['production']
-
-    try:
-        connection = pymongo.MongoClient(constr)
-    except pymongo.errors.ConnectionFailure:
-        logger.fatal("Could not connect to the MongoDB server")
-        return None
-    logger.debug("Database connection established")
-    return connection
 
 
 def path_to_url(out_path):

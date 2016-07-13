@@ -21,7 +21,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from rest import rest_services
-from pipelines import mongodb_conn
+from mongodb import mongodb_conn
 from pipelines import generate_window, send_mail
 from pipelines import get_machine_run_flowcell_id
 
