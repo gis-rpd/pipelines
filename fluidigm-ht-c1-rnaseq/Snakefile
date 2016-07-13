@@ -4,6 +4,7 @@ import os
 from itertools import chain
 import hashlib
 import tempfile
+import glob
 
 # third party imports
 #
@@ -95,6 +96,7 @@ Version Info
 
 
 rule RSEM:
+    # FIXME some code duplication with rnaseq-bulk. sync often
     input:
         bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
         rsemidx = config['references']['rsemidx'] + ".seq",
@@ -112,17 +114,18 @@ rule RSEM:
     log:
         "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.log"
     threads:
-        4
+        6# using 5 in practice after loading is complete
     shell:
         " {{ outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
         " rsem-calculate-expression --bam --output-genome-bam"
         " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
         " --seed 12345 -p {threads} --forward-prob 0.5"
-        " {input.bam} {params.rsemidx} $outpref 2>{log};"
+        " {input.bam} {params.rsemidx} $outpref >& {log};"
+        " ls ${{outpref}}*bam | grep -v genome.sorted.bam | xargs -r rm;"
         " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
         " rsem-plot-model $outpref {output.plot}; }} >& {log};"
         " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc > {output.genecount}.desc;"
-        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $10, $11, $12}}' > {output.isocount}.desc;"
+        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $10, $11, $12}}' > {output.isocount}.desc;"
         " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\n/' {output.genecount}.desc;"
         " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\n/' {output.isocount}.desc"
 
@@ -145,8 +148,9 @@ rule rnaseqQC:
         "Running RNASeqQC"            
     shell:
         "outpref=`dirname {output}`;"
-        " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s \"{params.sample}|{input.bam}|RNASeqQC\""
+        " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
         " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+        " find $(dirname {output}) -name \*tmp.txt\* -type f | xargs -r rm"
 
         
 # star is very fast, esp for single cell data. parallel jobs create
@@ -249,6 +253,9 @@ rule star_mapping:
             cmd += " --readFilesIn {}".format(r2)
             cmd += " >> {} 2>&1".format(log)
             shell(cmd)
+            # cleanup
+            for f in glob.glob(os.path.join(os.path.dirname(bam), "*UniqueMultiple.str1.out.wig")):
+                os.unlink(f)
             
         cmd = "STAR --genomeDir {} --genomeLoad Remove > {} 2>&1 || echo 'OK'".format(input.staridx, log)
         shell(cmd)

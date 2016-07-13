@@ -142,6 +142,7 @@ rule cuffdiff:
 
 
 rule RSEM:
+    # FIXME some code duplication with fluidigm-ht-c1-rnaseq. sync often
     input:
         bam = "{dir}/star/{sample}_{genome}_Aligned.toTranscriptome.out.bam",
         rsemidx = config['references']['rsemidx'] + ".seq",
@@ -158,13 +159,14 @@ rule RSEM:
     log:
         "{dir}/rsem/{sample}_{genome}_RSEM.log"
     threads:
-        4
+        6# using 5 in practice after loading is complete
     shell:
         " outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
         " rsem-calculate-expression --bam --output-genome-bam"
         " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
         " --seed 12345 -p {threads} --forward-prob {params.fw_prob} {params.paired_end}"
         " {input.bam} {params.rsemidx} $outpref >& {log};"
+        " ls ${{outpref}}*bam | grep -v genome.sorted.bam | xargs -r rm;"
 
         
 rule RSEM_postprocessing:
@@ -212,6 +214,7 @@ rule rnaseqc:
         "outpref=`dirname {output}`;"
         " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeQC'"
         " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+        " find $(dirname {output}) -name \*tmp.txt\* -type f | xargs -r rm"
 
         
 def rg_id_for_star(wc):
@@ -320,4 +323,6 @@ rule star_mapping:
         " --outFileNamePrefix $outpref"
         " --readFilesIn {params.fmt_fq_list}; rm $commentsheader;"
         " paste <(sort -k1,1 {output.counts}) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {output.counts}.desc;"
-        " sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' {output.counts}.desc; }} >& {log};"
+        " sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' {output.counts}.desc;"
+        " rm ${{outpref}}*UniqueMultiple.str1.out.wig; }} >& {log};"
+ 
