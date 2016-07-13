@@ -55,6 +55,9 @@ all_results = results['star'] + results['rnaseqc'] + results['rsem']
 if config.get('run_cuffdiff'):
     all_results += results['cuffdiff']
 
+
+localrules: final, report, RSEM_postprocessing
+
 rule final:
     input:
         all_results,

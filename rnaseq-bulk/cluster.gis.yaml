@@ -8,9 +8,28 @@
 
     "star_mapping":
     {
-      "time" : "06:00:00",
-      "mem" : 42G,
+      # on ENCFF001RDF and ENCFF001RCX
+      "time" : "02:00:00",
+      "mem" : 54G,
     },
+    
+    "RSEM":
+    {
+      "time" : "24:00:00",
+      "mem" : 8G,
+    },
+
+    "cuffdiff":
+    {
+      "time" : "24:00:00",
+      "mem" : 8G,
+    },
+
+    "rnaseqc":
+      "time" : "02:00:00",
+      "mem" : 20G,
+    },
+
 }    
 
 

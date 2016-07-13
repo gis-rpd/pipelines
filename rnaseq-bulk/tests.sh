@@ -48,6 +48,8 @@ R1_500K_2=$FQDIR/ENCFF001RDF_NA_NA_R1_001_500K-2.fastq.gz
 R2_1M=$FQDIR/ENCFF001RCX_NA_NA_R2_001_1M.fastq.gz
 R2_500K_1=$FQDIR/ENCFF001RCX_NA_NA_R2_001_500K-1.fastq.gz
 R2_500K_2=$FQDIR/ENCFF001RCX_NA_NA_R2_001_500K-2.fastq.gz
+R1_FULL=$FQDIR/ENCFF001RDF_NA_NA_R1_001.fastq.gz
+R2_FULL=$FQDIR/ENCFF001RCX_NA_NA_R2_001.fastq.gz
 SAMPLE=ENCFF001
 
 cd $(dirname $0)
@@ -73,7 +75,10 @@ CMD_2_SE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -s $SAMPLE"
 # PE command resulting in 2M reads total
 CMD_1_PE_1M="$WRAPPER -C -1 $R1_1M -2 $R2_1M -s $SAMPLE"
 CMD_2_PE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -2 $R2_500K_1 $R2_500K_2 -s $SAMPLE"
+CMD_FULL="$WRAPPER -1 $R1_FULL -2 $R2_FULL -s $SAMPLE"
 
+
+SKIP_REAL_FULL=1
 
 
 # dryruns
@@ -90,6 +95,14 @@ if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: 2 500K PE fastq pairs" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
     eval $CMD_2_PE_500K -o $odir -v --no-run >> $log 2>&1
+    pushd $odir >> $log
+    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+    rm -rf $odir
+    popd >> $log
+
+    echo "Dryrun: Full" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    eval $CMD_FULL -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -162,6 +175,19 @@ if [ $skip_real_runs -ne 1 ]; then
     echo "Starting comparison between outputs" | tee -a $log
     echo "Will run (hold job) $(pwd)/test_num_reads.sh $bam1 $bam2 1000000 2000000" | tee -a $log
     $qsub "$(pwd)/test_num_reads.sh $bam1 $bam2 1000000 2000000" >> $log 2>&1
+
+
+    if [ $SKIP_REAL_FULL -eq 0 ]; then
+        echo "Real run: Full" | tee -a $log
+        odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+        eval $CMD_FULL -o $odir -v >> $log 2>&1
+        # magically works even if line just contains id as in the case of pbspro
+        jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+        echo "Started job $jid writing to $odir. You will receive an email"
+    else
+        echo "Skipping real full run due to config"
+    fi
+        
 else
     echo "Real-run test skipped"
 fi
