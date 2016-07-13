@@ -2,9 +2,11 @@ Description
 -----------
 
 This pipeline implements the GATK best practices variant calling
-workflow.
+workflow for single samples. If you are interested in more specialized
+(e.g. cohort or trio) analyses, please reuse the gVCF file (or
+realigned and recalibrated BAM file), also produced by this workflow.
 
-Settings are automatically changed according to the given sequencing
+Workflow settings are automatically changed according to the given sequencing
 type, in particular 'base quality recalibration' (BQSR) and 'variant
 quality recalibration' (VQSR) as explained in the following sections.
 
@@ -58,7 +60,16 @@ Output
 ------
 
 - The main log file is ``./logs/snakemake.log``
+- After a successful run the last line in the snakemake log file will say ``(100%) done``
 - All output files can be found in ``./out/``
+- Furthermore a simple report have been generated (``./out/report.html``)
+- Each read unit will have its own realigned, recalibrated BAM file, e.g. ``./out/unit-e5b71e98.bwamem.realn.recal.bam``
+- Note that BQSR is skipped for targeted sequencing but the ``recal`` file name extension is maintained
+- See ``conf.yaml`` for a defintion of readunits
+- Raw genotype calls: ``./out/all_genotyped.vcf``
+- gVCF: ``./out/<sample>.concat.gvcf``
+- Hard-filtered snp/indel calls: ``./out/all_genotyped.<snp|indel>_hfilter.vcf``
+- Recalibrated snp/indel calls (for WGS only): ``./out/all_genotyped.<snp|indel>_recal.vcf``
 - Parameters including program versions etc. can be found in ``conf.yaml``
 
 

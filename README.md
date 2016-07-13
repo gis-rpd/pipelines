@@ -22,6 +22,9 @@ the
 - Each pipeline has its own folder and the corresponding starter
   script has the same name
   (e.g. `variant-calling-gatk/variant-calling-gatk.py`)
+- All wrappers require Python3. If required, add the RPD Python
+  installation to your PATH: `export
+  PATH=/mnt/projects/rpd/apps/miniconda3/bin/:$PATH`
 - Invoking the starter script with `-h` will display its usage
   information
 - Each pipeline folder contains a README file describing the pipeline

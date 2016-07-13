@@ -3,8 +3,9 @@ Description
 
 This pipeline maps your reads to a given reference, marks duplicate
 reads (if not instructed otherwise), realigns your reads with ``lofreq
-vitberi``, recalibrates base qualities with Lacer and calls SNVs and
-indels with LoFreq.
+viterbi``, recalibrates base qualities with Lacer (author:
+`Swaine Chen <mailto:slchen@gis.a-star.edu.sg>`_) and calls SNVs and indels with `LoFreq
+<http://csb5.github.io/lofreq/>`_.
 
 
 How to
@@ -23,7 +24,9 @@ Output
 ------
 
 - The main log file is ``./logs/snakemake.log``
+- After a successful run the last line in the snakemake log file will say ``(100%) done``
 - All output files can be found in ``./out/``
+- Furthermore a simple report have been generated (``./out/report.html``)
 - Parameters including program versions etc. can be found in ``conf.yaml``
 
 

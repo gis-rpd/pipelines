@@ -1,12 +1,11 @@
 Description
 -----------
 
-This pipeline runs bcl2fastq on the raw Illumina sequencer
-output. Each MUX is processed individually.
+This pipeline runs bcl2fastq on the Illumina sequencer
+output, by processing MUXes are in parallel.
 
-End-users will most likely not want to use this pipeline! The
-directory contains plenty of auxiliary scripts used for operations
-only.
+End-users will not want to use this pipeline! The directory contains
+auxiliary scripts used for operations only.
 
 
 How to
@@ -21,13 +20,13 @@ How to
   not be resolved in this fashion.
 
 
-  Output
+Output
 ------
 
 - The main log file is ``./logs/snakemake.log``
+- After a successful run the last line in the snakemake log file will say ``(100%) done``
 - All output files can be found in ``./out/``
+- Furthermore a simple report have been generated (``./out/report.html``)
+- Each MUX will have it's own folder there (i.e. ``./out/Project_<MUX>``)
+- Each component library of a MUX has its own sub-folder (e.g. ``./out/Project_<MUX>/Sample_<library>``)
 - Parameters including program versions etc. can be found in ``conf.yaml``
-
-
-
-

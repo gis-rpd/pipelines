@@ -30,7 +30,9 @@ Output
 ------
 
 - The main log file is ``./logs/snakemake.log``
+- After a successful run the last line in the snakemake log file will say ``(100%) done``
 - All output files can be found in ``./out/``
+- Furthermore a simple report have been generated (``./out/report.html``)
 - Parameters including program versions etc. can be found in ``conf.yaml``
 
 

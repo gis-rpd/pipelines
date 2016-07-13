@@ -5,26 +5,21 @@ This pipeline analyses RNA sequencing data from `fluidigm single cell
 sequencing C1 mRNA Seq HT
 <https://www.fluidigm.com/c1openapp/scripthub/script/2015-08/mrna-seq-ht-1440105180550-2>`_.
 
-Following the bcl2fastq demultiplexing it uses fluidigm API script for
-demultiplexing the row barcodes (N=40) of column samples using R1
-reads. Subsequently R2 reads are poly-A trimmed (prinseq-lite) and
-aligned to given reference genome using the STAR mapper. Output of
-STAR is the uniquely mapped genome bam file, transcripts mapped bam
-file (used as input for RSEM), gene based read count matrix, wiggle
-files and mappability. For running STAR we follow recipes given at
+Following conventional bcl2fastq demultiplexing it uses fluidigm API
+script for demultiplexing the row barcodes (N=40) of column samples
+using R1 reads. Subsequently R2 reads are poly-A trimmed
+(with `prinseq-lite <http://prinseq.sourceforge.net/>`_) and aligned to
+given reference genome using the `STAR mapper
+<https://github.com/alexdobin/STAR>`_. Output of STAR is the uniquely
+mapped genome bam file, transcripts mapped bam file, gene based read
+count matrix, wiggle files and mappability. For running STAR we follow
+recipes given at
 http://www.rna-seqblog.com/optimizing-rna-seq-mapping-with-star/
 
 The transcripts/genes expression abundance are estimated by STAR and
-RSEM. The RSEM results matrix contains mapped reads count and TPM
+`RSEM <//deweylab.github.io/RSEM/>`_ (reusing STAR's BAM file). The RSEM results matrix contains mapped reads count and TPM
 (normalized value) of genes and isoforms. The pipeline also provides
-generic stats, coverage, mappability, QC and other analysis.
-
-Tools and methods used in the pipelines are Fluidigm API script, STAR,
-RSEM and RNASeqQC amongst others:
-
-- RSEM: http://deweylab.github.io/RSEM/
-- STAR: https://github.com/alexdobin/STAR 
-- RNA-SeQC: https://www.broadinstitute.org/cancer/cga/rna-seqc
+generic stats, coverage, mappability, QC e.g. by running `RNA-SeQC <https://www.broadinstitute.org/cancer/cga/rna-seqc>`_.
 
 
 
@@ -44,7 +39,9 @@ Output
 ------
 
 - The main log file is ``./logs/snakemake.log``
+- After a successful run the last line in the snakemake log file will say ``(100%) done``
 - All output files can be found in ``./out/``
+- Furthermore a simple report have been generated (``./out/report.html``)
 - Parameters including program versions etc. can be found in ``conf.yaml``
 
   

@@ -1,8 +1,8 @@
 Description
 -----------
 
-This pipeline maps your reads with BWA-MEM to a reference. Duplicate
-reads will be marked by default if not requested otherwise
+This pipeline maps reads with BWA-MEM to a given reference. Duplicate
+reads will be marked by default, if not requested otherwise.
 
 
 How to
@@ -18,7 +18,9 @@ Output
 ------
 
 - The main log file is ``./logs/snakemake.log``
+- After a successful run the last line in the snakemake log file will say ``(100%) done``
 - Each sample will have its own subfolder under ``./out/``
+- Furthermore a simple report have been generated (``./out/report.html``)
 - BAM file(s): ``./out/<sample>/<sample>.bwamem.bam``
 - BAM stats: ``./out/<sample>/<sample>.bwamem.bamstats/``
 - Parameters including program versions etc. can be found in ``conf.yaml``

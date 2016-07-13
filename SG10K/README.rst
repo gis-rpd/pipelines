@@ -2,8 +2,8 @@ Description
 -----------
 
 This workflow aligns SG10K samples and pre-processes them (including
-base quality recalibratio and contamination check) for later analysis
-with gotcloud .
+base quality recalibration and contamination check) for later analysis
+with gotcloud.
 
 
 How to
@@ -21,7 +21,9 @@ Output
 ------
 
 - The main log file is ``./logs/snakemake.log``
+- After a successful run the last line in the snakemake log file will say ``(100%) done``
 - All output files can be found in ``./out/``
+- Furthermore a simple report have been generated (``./out/report.html``)
 - Parameters including program versions etc. can be found in ``conf.yaml``
 
 
