@@ -46,7 +46,7 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 
 # same as folder name. also used for cluster job names
-PIPELINE_NAME = "rnaseq-bulk"
+PIPELINE_NAME = "rnaseq"
 
 DEFAULT_SLAVE_Q = {'gis': None,
                    'nscc': 'production'}

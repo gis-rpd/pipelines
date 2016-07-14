@@ -95,7 +95,7 @@ Version Info
 
 
 rule RSEM:
-    # FIXME some code duplication with rnaseq-bulk. sync often
+    # FIXME some code duplication with rnaseq. sync often
     input:
         bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
         rsemidx = config['references']['rsemidx'] + ".seq",

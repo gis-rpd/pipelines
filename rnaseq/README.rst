@@ -1,7 +1,7 @@
 Description
 -----------
 
-This pipeline is for RNASeq bulk analysis and runs STAR, followed by
+This pipeline is for RNASeq analysis and runs STAR, followed by
 RNASeQC, RSEM and optionally cuffdiff. It's most suitable for 
 all types of RNASeq except small RNASeq.
 
@@ -43,7 +43,7 @@ unloading (``STAR --genomeLoad Remove`` or ``ipcrm -M``)
 How to
 ------
 
-- Run ``rnaseq-bulk.py -h`` to get basic usage information.
+- Run ``rnaseq.py -h`` to get basic usage information.
 - If called correctly, jobs will be run on the cluster automatically
 - Using ``-v`` is recommended to get some more information
 - Should the pipeline 'crash', it can be restarted by simply running
