@@ -66,8 +66,8 @@ STAR:
 RSEM:
 `````
 
-- Genes expression values with annotation: <sample>_<genome>_RSEM.genes.results
-- Isoforms expression values with annotation: <sample>_<genome>_RSEM.isoforms.results
+- Genes expression values with annotation: <sample>_<genome>_RSEM.genes.results.desc
+- Isoforms expression values with annotation: <sample>_<genome>_RSEM.isoforms.results.desc
 - Visualization: .wig
 - Plots: <sample>_<genome>_RSEM.pdf
 
