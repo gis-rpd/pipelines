@@ -17,7 +17,9 @@ from time import mktime
 #--- third-party imports
 #
 from flask import Flask, Markup, request, render_template
+from flask.ext.runner import Runner
 app = Flask(__name__)
+runner = Runner(app)
 
 #--- project specific imports
 #
