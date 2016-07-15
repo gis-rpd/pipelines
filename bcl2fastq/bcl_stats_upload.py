@@ -21,7 +21,7 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from rest import rest_services
+from services import rest_services
 from pipelines import get_machine_run_flowcell_id
 
 
