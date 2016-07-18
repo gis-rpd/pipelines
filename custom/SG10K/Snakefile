@@ -9,7 +9,7 @@ from snakemake.utils import report
 # project specific imports
 #
 LIB_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
@@ -30,8 +30,8 @@ shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 
-include: "../rules/logging.rules"
-include: "../rules/samtools.rules"
+include: "../../rules/logging.rules"
+include: "../../rules/samtools.rules"
 
 
 localrules: final, report

@@ -12,7 +12,6 @@ import sys
 import os
 import argparse
 import logging
-from copy import deepcopy
 
 #--- third-party imports
 #
@@ -22,15 +21,15 @@ import yaml
 #
 # add lib dir for this pipeline installation to PYTHONPATH
 LIB_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import get_pipeline_version
 from pipelines import ref_is_indexed
-from pipelines import chroms_and_lens_from_from_fasta
 from pipelines import get_site
 from pipelines import PipelineHandler
-from pipelines import logger as aux_logger
+from pipelines import logger as pipelines_logger
+from readunits import logger as readunits_logger
 from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
 
 
@@ -47,7 +46,7 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 
 # same as folder name. also used for cluster job names
-PIPELINE_NAME = "variant-calling-lofreq"
+PIPELINE_NAME = "star-rsem"
 
 DEFAULT_SLAVE_Q = {'gis': None,
                    'nscc': 'production'}
@@ -76,30 +75,17 @@ def main():
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample", required=True,
                         help="Sample name")
-    parser.add_argument('-t', "--seqtype", required=True,
-                        choices=['WGS', 'WES', 'targeted'], 
-                        help="Sequencing type")
-    parser.add_argument('-l', "--intervals",
-                        help="Intervals file (e.g. bed file) listing regions of interest."
-                        " Required for WES and targeted sequencing.")
-    fake_pipeline_handler = PipelineHandler("FAKE", PIPELINE_BASEDIR, "FAKE", None)
-    default_cfg = fake_pipeline_handler.read_default_config()
-    default = default_cfg['references']['genome']
-    parser.add_argument('-r', "--reffa", default=default,
-                        help="Reference fasta file to use."
-                        " Needs to be bwa and samtools indexed (default: {})".format(default))
-    # needed here because we overwrite all entries in references
-    default = default_cfg['references']['excl_chrom']
-    parser.add_argument('-e', "--excl-chrom", default=default,
-                        help=argparse.SUPPRESS)
-    parser.add_argument('-d', '--mark-dups', action='store_true',
-                        help="Mark duplicate reads")
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
                         " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
                         " unless read groups is set in last column. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
+    parser.add_argument('-C', "--cuffdiff", action='store_true',
+                        dest="run_cuffdiff",
+                        help="Also run cuffdiff")
+    parser.add_argument('-S', '--stranded', action='store_true',
+                        help="Stranded library prep (default is unstranded)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
     site = get_site()
@@ -125,15 +111,11 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
-    aux_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
-    if not os.path.exists(args.reffa):
-        logger.fatal("Reference '%s' doesn't exist", args.reffa)
-        sys.exit(1)
-    for p in ['bwa', 'samtools']:
-        if not ref_is_indexed(args.reffa, p):
-            logger.fatal("Reference '%s' doesn't appear to be indexed with %s", args.reffa, p)
-            sys.exit(1)
+    pipelines_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+    readunits_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
+    # FIXME checks on reffa index (currently not exposed via args)
+    
     if args.config:
         if any([args.fq1, args.fq2]):
             logger.fatal("Config file overrides fastq input arguments. Use one or the other")
@@ -156,32 +138,22 @@ def main():
         logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
 
-    if args.seqtype in ['WES', 'targeted']:
-        if not args.intervals:
-            logger.fatal("Analysis of exome and targeted sequence runs requires a bed file")
-            sys.exit(1)
-        else:
-            if not os.path.exists(args.intervals):
-                logger.fatal("Intervals file %s does not exist", args.config)
-                sys.exit(1)
-            logger.warn("Compatilibity between interval file and reference not checked")# FIXME
-
 
     # turn arguments into user_data that gets merged into pipeline config
     user_data = {'mail_on_completion': not args.no_mail,
-                 'seqtype': args.seqtype,
-                 'intervals': args.intervals}
-    # WARNING: this currently only works because these two are the only members in reference dict
-    # Should normally only write to root level
-    user_data['references'] = {'genome' : os.path.abspath(args.reffa),
-                               'num_chroms' : len(list(chroms_and_lens_from_from_fasta(args.reffa))),
-                               'excl_chrom' : args.excl_chrom}
+                 'stranded': args.stranded,
+                 'run_cuffdiff': args.run_cuffdiff}
     user_data['readunits'] = dict()
+    user_data['paired_end'] = read_units[0].fq2 is not None
     for ru in read_units:
         k = key_for_read_unit(ru)
         user_data['readunits'][k] = dict(ru._asdict())
-    user_data['mark_dups'] = args.mark_dups
-
+        # consistency check
+        if ru.fq2:
+            assert user_data['paired_end']
+        else:
+            assert not user_data['paired_end']
+            
     # samples is a dictionary with sample names as key (here just one)
     # each value is a list of readunits
     user_data['samples'] = dict()

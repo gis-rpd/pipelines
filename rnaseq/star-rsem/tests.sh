@@ -68,7 +68,7 @@ if [ $skip_real_runs -ne 1 ]; then
 fi
 
 
-WRAPPER=./rnaseq.py
+WRAPPER=./star-rsem.py
 # SE command resulting in 1M reads total
 CMD_1_SE_1M="$WRAPPER -C -1 $R1_1M -s $SAMPLE"
 CMD_2_SE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -s $SAMPLE"

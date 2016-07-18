@@ -7,15 +7,14 @@ import os
 from snakemake.utils import report
 
 # project specific imports
-# /
-
-
+#
 LIB_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "lib"))
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
+from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
 
-    
+
 RESULT_OUTDIR = './out'
 
 
@@ -23,38 +22,26 @@ RESULT_OUTDIR = './out'
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
-
-include: "../rules/logging.rules"
-include: "../rules/samtools.rules"
+include: "../../rules/samtools.rules"
+include: "../../rules/logging.rules"
 include: "bwa_mem.rules"
+include: "lofreq.rules"
 
-                    
-localrules: final, report
+
+localrules: final, report, prep_bed_files
 
 
 rule final:
     input:
-        # NOTE changes here will likely have to be reflected in the report rule as well
-        idxstats=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.idxstats.txt'),
-               sample=config['samples']),
-        bams=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.bam'),
-               sample=config['samples']),
-        bamstats=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.bamstats/stats_plot.html'),
-               sample=config['samples']),
-        report="report.html"
-    message:
-        """
-        Pipeline run successfully completed
-        """
-    # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
-
+        expand(os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem.lofreq.both.ann.vcf.gz"),
+                           sample=config['samples']),
+        "report.html"
         
 rule report:
     input:
-        bams = expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.bam'),
-                      sample=config['samples']),
-        bamstats = expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.bamstats/stats_plot.html'),
-                          sample=config['samples']),
+        ann_vcfs=expand(os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem.lofreq.both.ann.vcf.gz"),
+                        sample=config['samples'])
+
     output:
         html="report.html"
     params:
@@ -73,10 +60,34 @@ Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
 Version Info
 ------------
 
-{config[ELM][pipeline_version]}
+{config[ELM][pipeline_version]}) 
 
 """ + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
                conf="conf.yaml")
         # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch to have at least something
+
+        
+rule snpeff:
+    input:
+        vcfgz="{prefix}.vcf.gz",
+    output:
+        vcfgz="{prefix}.ann.vcf.gz",
+        stats="{prefix}.stats",
+        #statscsv="{prefix}_stats.csv"
+    log:
+        "{prefix}.ann.vcf.log"
+    params:
+        genome=config['references']['snpeff_genome']
+    message:
+        "Running SNPeff"
+    shell:
+        "SNPEFF_THREADS={threads} SNPEFF_MEM=8g snpeff_wrapper"
+        " -c $(dirname $(which snpeff_wrapper))/snpEff.config"
+        " -noStats -csvStats {output.stats} -no-downstream -no-upstream -nodownload -v"
+        " {params.genome} {input.vcfgz} 2>{log} | bgzip > {output.vcfgz}"
+    
+
+
+        
