@@ -48,7 +48,7 @@ fi
 cd $(dirname $0)
 commit=$(git describe --always --dirty)
 
-for sh in $(find . -maxdepth 2 -mindepth 2 -name tests.sh); do
+for sh in $(find * -maxdepth 3 -mindepth 1 -name tests.sh); do
     echo "------------------------------------------------------------"
     echo "Running $sh"
     echo "------------------------------------------------------------"

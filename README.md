@@ -21,17 +21,19 @@ the
 
 ## Overview
 
-- Each pipeline has its own folder and the corresponding starter
+- Pipelines are organized into directories of specific category,
+  e.g. `variant-calling`
+- Each pipeline has its own subfolder there and the corresponding starter
   script has the same name
-  (e.g. `variant-calling-gatk/variant-calling-gatk.py`)
-- All wrappers require Python3. If required, add the RPD Python
+  (e.g. `variant-calling/gatk/gatk.py`)
+- All wrappers require Python3. Should it be required, add the RPD Python
   installation to your PATH: `export
   PATH=/mnt/projects/rpd/apps/miniconda3/bin/:$PATH`
 - Invoking the starter script with `-h` will display its usage
   information
 - Each pipeline folder contains a README file (`README.rst` and/or
   `README.html`) describing the pipeline
-  (e.g. `variant-calling-gatk/README.rst`)
+  (e.g. `variant-calling/gatk/README.rst`)
 - All pipelines are designed to work either on aquila (UGE) or
   the NSCC (PBSPro) out of the box
 - Upon completion (success or error) an email will be send to the user
