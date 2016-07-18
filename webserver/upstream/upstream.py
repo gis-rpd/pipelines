@@ -23,7 +23,7 @@ app = Flask(__name__)
 #
 # add lib dir for this pipeline installation to PYTHONPATH
 LIB_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import generate_window, path_to_url
