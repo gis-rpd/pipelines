@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# to run this submission script on the cluster use:
+# to run this submission script on aquila use:
 #   qsub run.sh
 # or to run locally use
 #   bash run.sh
@@ -13,10 +13,15 @@
 # or alternatively:
 #   export EXTRA_SNAKEMAKE_ARGS="--dryrun"
 #   bash|qsub run.sh
+#
 # The environment variable SLAVE_Q will be used to specify a queue for
 # the "worker processes" (otherwise DEFAULT_SLAVE_Q set here will be used
 # or scheduler decides if empty)
 #
+# The environment variable DRMAA_OFF will disable DRMAA if set to 1
+# 
+# If the environment variable DEBUG is set the snakemake command will
+# be printed but not exectuted
 #
 # Potentially useful arguments:
 # --keep-going : irritating. best to fail immediately
@@ -154,4 +159,3 @@ if [ $DEBUG -eq 1 ]; then
 else
     eval $cmd
 fi
-
