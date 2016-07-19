@@ -10,7 +10,7 @@ if [ ! -e $flagfile ]; then
 fi
 which rst2html.py >/dev/null || exit 1
 
-for rst in $(find $BASE_DIR -maxdepth 2 -name README.rst); do
+for rst in $(find $BASE_DIR -maxdepth 3 -name README.rst); do
     html=${rst%.rst}.html
     rst2html.py $rst > $html && echo "Created $html"
     
