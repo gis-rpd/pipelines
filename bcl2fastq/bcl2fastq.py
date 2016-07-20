@@ -49,22 +49,22 @@ PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "bcl2fastq"
 
-DEFAULT_SLAVE_Q = {'gis': None,
-                   'nscc': 'production'}
-DEFAULT_MASTER_Q = {'gis': None,
-                    'nscc': 'production'}
+DEFAULT_SLAVE_Q = {'GIS': None,
+                   'NSCC': 'production'}
+DEFAULT_MASTER_Q = {'GIS': None,
+                    'NSCC': 'production'}
 
 OUTDIR_BASE = {
-    'gis': {
+    'GIS': {
         'devel': '/mnt/projects/rpd/testing/output/bcl2fastq',
         'production': '/mnt/projects/userrig/solexa/'},
-    'nscc': {
+    'NSCC': {
         'devel': '/seq/astar/gis/rpd/testing/output/bcl2fastq/',
         'production': '/seq/astar/gis/seq/'}
 }
 SEQDIR_BASE = {
-    'gis': '/mnt/seq/userrig/',
-    'nscc': '/seq/astar/gis/userrig/'
+    'GIS': '/mnt/seq/userrig/',
+    'NSCC': '/seq/astar/gis/userrig/'
 }
 
 
