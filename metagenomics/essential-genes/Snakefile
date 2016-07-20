@@ -35,7 +35,9 @@ rule final:
     input:
         expand(os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem.lofreq.both.ann.vcf.gz"),
                            sample=config['samples']),
-        "report.html"
+        expand(os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem.lofreq.bam.cov.txt.gz"),
+                           sample=config['samples']),
+        "report.html",
         
 rule report:
     input:
@@ -67,6 +69,19 @@ Version Info
         # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch to have at least something
+
+
+rule coverage:
+    input:
+        bam='{prefix}.bam'
+    output:
+        cov='{prefix}.bam.cov.txt.gz'
+    log:
+        '{prefix}.bam.cov.log'
+    message:
+        'Computing coverage'
+    shell:
+        'genomeCoverageBed -d -ibam {input.bam} | gzip > {output}'
 
         
 rule snpeff:
