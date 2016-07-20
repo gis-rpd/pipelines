@@ -47,8 +47,8 @@ logger.addHandler(handler)
 
 INIT = {
     # FIXME make env instead? because caller knows, right?
-    'gis': "/mnt/projects/rpd/init",
-    'nscc': "/seq/astar/gis/rpd/init"
+    'GIS': "/mnt/projects/rpd/init",
+    'NSCC': "/seq/astar/gis/rpd/init"
 }
 
 # from address, i.e. users should reply to to this
@@ -352,10 +352,10 @@ def get_site():
     """
     # gis detection is a bit naive... but socket.getfqdn() doesn't help here
     # also possible: ip a | grep -q 192.168.190 && NSCC=1
-    if os.path.exists('/home/astar/gis'):# 'nscc' in socket.getfqdn():
-        return "nscc"
+    if os.path.exists('/home/astar/gis'):# 'NSCC' in socket.getfqdn():
+        return "NSCC"
     elif os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
-        return "gis"
+        return "GIS"
     else:
         raise ValueError("unknown site (fqdn was {})".format(socket.getfqdn()))
 
