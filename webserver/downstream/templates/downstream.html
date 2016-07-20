@@ -23,7 +23,7 @@
 			$(document).ready(function(){
 				var table = 
 				$("#run_table").DataTable({
-	    			"order": [[1, "desc"]],
+	    			"order": [[0, "desc"], [1, "desc"], [2, "desc"]],
 	    			"pagingType": "full_numbers",
 //	    			"scrollX": true,
 //	    			stateSave: true,
@@ -34,30 +34,13 @@
 					}
 				});
 
-				$("#from").datepicker({
-			    	minDate: new Date(2016, 5 - 1, 27),
-			    	maxDate: new Date(),
-			    	changeMonth: true,
-			    	changeYear: true,
-			    	numberOfMonths: 1,
-			    	onClose: function(selectedDate){
-			    		$("#to").datepicker("option", "minDate", selectedDate);
-			    	}
+			    $("span.toggle-vis").on("click", function(e){
+			        e.preventDefault();
+			        var column = table.column($(this).attr("data-column"));
+			        column.visible(!column.visible());
 			    });
-			    $("#to").datepicker({
-			    	minDate: new Date(2016, 5 - 1, 27),
-			    	maxDate: new Date(),
-			    	changeMonth: true,
-			    	changeYear: true,
-			    	numberOfMonths: 1,
-			    	onClose: function(selectedDate){
-			    		$("#from").datepicker("option", "maxDate", selectedDate);
-			    	}
-			    });
-			    $("#from").datepicker("option", "dateFormat", "yy-mm-dd");
-			    $("#to").datepicker("option", "dateFormat", "yy-mm-dd");
-			    $("#from").datepicker("setDate", "2016-05-27");
-			    $("#to").datepicker("setDate", new Date());
+
+
 
 			    $("#analysis_none").click(function(){
 			    	$(".mdl-badge").css("color", "white");
@@ -103,22 +86,19 @@
 				<div class="mdl-layout__header-row">
 					<form class="form-inline visible-lg visible-md visible-sm" method="POST">
 						<div class="form-group">
-							<label for="from">RUNS FROM&nbsp</label>
+							<input class="form-control" placeholder="LIB_ID" type="text" id="lib" name="lib">
 						</div>
 						<div class="form-group">
-							<input class="form-control" placeholder="Earliest Date" type="text" id="from" name="from">
+							<input class="form-control" placeholder="MUX_ID" type="text" id="mux" name="mux">
 						</div>
 						<div class="form-group">
-							<label for="to">&nbspTO&nbsp</label>
-						</div>
-						<div class="form-group">
-							<input class="form-control" placeholder="Latest Date" type="text" id="to" name="to">
+							<input class="form-control" placeholder="RUN_ID" type="text" id="run" name="run">
 						</div>
 						<div class="form-group">
 							<input class="btn btn-primary-outline" type="submit" name="submit" value="Retrieve">
 						</div>
 					</form>
-					<div class="mdl-layout-spacer visible-lg visible-md" align="center"><span class="nav_caption"></span></div>
+					<div class="mdl-layout-spacer visible-lg visible-md" align="center"><div class="nav_caption"></div></div>
 					<div class="visible-lg">
 						<nav class="mdl-navigation mdl-layout--large-screen-only">
 							<label for="from">ANALYSIS STATUS</label>
@@ -130,7 +110,7 @@
 					</div>
 				</div>
 			</header>
-			<div class="mdl-layout-spacer visible-sm visible-xs" align="center"><span class="nav_caption"></span></div>
+			<div class="mdl-layout-spacer visible-sm visible-xs" align="center"><div class="nav_caption"></div></div>
 			<div class="mdl-layout__drawer">
 				<span class="mdl-layout-title">FAQ</span>
 				<nav class="mdl-navigation">					
@@ -234,17 +214,17 @@
 					        <table id="run_table" class="table table-bordered table-hover table-fixed table-compact">
 				    			<thead>
 						            <tr>
-						                <th>LIB_ID</th>
-						                <th>MUX_ID</th>
-						                <th>RUN_ID</th>
-						                <th>CTIME</th>
-						                <th>ANALYSIS_ID</th>
-						                <th>FASTQS</th>
-						                <th>PIPELINE_NAME</th>
-						                <th>PIPELINE_VERSION</th>
-						                <th>PIPELINE_PARAMS</th>
-						                <th>SITE</th>
-						                <th>OUT_DIR</th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="0"></span>&nbspLIB_ID</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="1"></span>&nbspMUX_ID</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="2"></span>&nbspRUN_ID</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="3"></span>&nbspCTIME</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="4"></span>&nbspANALYSIS_ID</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="5"></span>&nbspFASTQS</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="6"></span>&nbspPIPELINE_NAME</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="7"></span>&nbspPIPELINE_VERSION</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="8"></span>&nbspPIPELINE_PARAMS</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="9"></span>&nbspSITE</div></th>
+						                <th><div class="btn btn-default"><span class="toggle-vis glyphicon glyphicon-remove-circle" aria-hidden="true" data-column="10"></span>&nbspOUT_DIR</div></th>
 						            </tr>
 				    			</thead>
 				    			<tbody>

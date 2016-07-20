@@ -103,8 +103,21 @@ def form_post():
     """
     Flask callback function for POST requests from FORMS
     """
-    result = ""
-    return form_none(mongodb_conn(TEST_SERVER).gisds.pipeline_runs_copy.find())
+    if request.form["lib"] != "" or request.form["mux"] != "" or request.form["run"] != "":
+        query = {}
+        nav_caption = ""
+        if request.form["lib"] != "":
+            query["lib_id"] = request.form["lib"]
+            nav_caption += query["lib_id"] + "&nbsp&nbsp&nbsp"
+        if request.form["mux"] != "":    
+            query["mux_id"] = request.form["mux"]
+            nav_caption += query["mux_id"] + "&nbsp&nbsp&nbsp"
+        if request.form["run"] != "":    
+            query["run_id"] = request.form["run"]
+            nav_caption += query["run_id"]
+        return form_none(mongodb_conn(TEST_SERVER).gisds.pipeline_runs_copy.find(query), nav_caption)
+    else:
+        return form_none(mongodb_conn(TEST_SERVER).gisds.pipeline_runs_copy.find())
 
 
 @app.route('/')
@@ -115,7 +128,7 @@ def form_none(mongo_results=mongodb_conn(TEST_SERVER).gisds.pipeline_runs_copy.f
     """
     result = ""
     result += ("<script>$(function(){$('.nav_caption').replaceWith('" \
-        + '<span class="nav_caption">' + nav_caption + "</span>" + "');});</script>")
+        + '<div class="nav_caption">' + nav_caption + "</div>" + "');});</script>")
     for record in mongo_results:
         result += "<tr class='run_row'>"
         result += ("<td>" + str(record["lib_id"]) + "</td>")
