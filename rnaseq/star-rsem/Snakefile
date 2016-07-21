@@ -331,5 +331,5 @@ rule star_mapping:
         " --readFilesIn {params.fmt_fq_list}; rm $commentsheader;"
         " paste <(sort -k1,1 {output.counts}) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {output.counts}.desc;"
         " sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' {output.counts}.desc;"
-        " rm ${{outpref}}*UniqueMultiple.str1.out.wig; }} >& {log};"
+        " rm ${{outpref}}*UniqueMultiple.str*.out.wig; }} >& {log};"
  
