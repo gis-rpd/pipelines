@@ -69,7 +69,7 @@ the
 - custom
   - SG10K
 - mapping
-  BWA-MEM
+  - BWA-MEM
 - metagenomics
   - essential-genes
 - rnaseq
