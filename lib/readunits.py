@@ -4,6 +4,9 @@ following
 http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
 """
 
+# FIXME move read units into own class
+# treated as pure dicts from within snakemake though
+
 
 #--- standard library imports
 #
@@ -27,8 +30,8 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
-                                   'lane_id', 'rg_id', 'fq1', 'fq2'])
+ReadUnit = namedtuple('ReadUnit',
+    ['run_id', 'flowcell_id', 'library_id', 'lane_id', 'rg_id', 'fq1', 'fq2'])
 
 
 # global logger
@@ -72,44 +75,84 @@ def fastqs_from_unit(unit):
         return unit['fq1']
 
 
-def get_reads_unit_from_cfgfile(cfgfile):
-    """Parse each ReadUnit in cfgfile and return as list"""
-    read_units = []
+def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
+    """Parse each ReadUnit in cfgfile and return as list
+    """
+
     with open(cfgfile) as fh_cfg:
-        for entry in yaml.safe_load(fh_cfg):
-            if len(entry) == 6:
-                rg_id = None
-                [run_id, flowcell_id, library_id, lane_id, fq1, fq2] = entry
-            elif len(entry) == 7:
-                [run_id, flowcell_id, library_id, lane_id, fq1, fq2, rg_id] = entry
-            else:
-                logger.fatal("Couldn't parse read unit from '%s'", entry)
-                raise ValueError(entry)
+        yaml_data = yaml.safe_load(fh_cfg)
 
-            # if we have relative paths, make them abs relative to cfgfile
-            if fq1 and not os.path.isabs(fq1):
-                fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
-            if fq2 and not os.path.isabs(fq2):
-                fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
+    unknown_keys = set(yaml_data.keys()) - set(['samples', 'readunits'])
+    if unknown_keys:
+        logger.critical("Found unexpected keys in {}: {}".format(
+            cfgfile, unknown_keys))
+        if not raise_off:
+            raise ValueError(cfgfile)
+    samples, readunits_plain =  yaml_data['samples'] , yaml_data['readunits']
 
-            ru = ReadUnit._make([run_id, flowcell_id, library_id, lane_id,
-                                 rg_id, fq1, fq2])
-            if not rg_id or rg_id == 'None':
-                ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-            read_units.append(ru)
-    return read_units
+    #logger.debug("samples: {}".format(samples))
+    #logger.debug("readunits_plain keys: {}".format(readunits_plain.keys()))
+    for sample_key, sample_rus in samples.items():
+        for ru_key in sample_rus:
+            if ru_key not in readunits_plain.keys():
+                logger.critical("readunit {} of sample {} not found"
+                                " in config file".format(ru_key, sample_key))
+                if not raise_off:
+                    raise ValueError(cfgfile)
+
+    readunits = dict()# actual namedtuples instead of dict
+    for ru_key, ru in readunits_plain.items():
+        for f in ['run_id', 'flowcell_id', 'library_id', 'lane_id']:
+            if f not in ru:
+                logger.fatal("Missing field %s in config file %s", f, cfgfile)
+                if not raise_off:
+                    raise ValueError(cfgfile)
+        run_id = ru.get('run_id')
+        flowcell_id = ru.get('flowcell_id')
+        library_id = ru.get('library_id')
+        lane_id = ru.get('lane_id')
+        rg_id = ru.get('rg_id')# allowed to be none or missing
+        fq1 =  ru.get('fq1')
+        fq2 =  ru.get('fq2')
+
+        for f in [fq1, fq2]:
+            if f and not os.path.exists(f):
+                logger.fatal("Non-existing input file %s in config file", f, cfgfile)
+                if not raise_off:
+                    raise ValueError(cfgfile)
+        # if we have relative paths, make them abs relative to cfgfile
+        if not os.path.isabs(fq1):
+            fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
+        if fq2 and not os.path.isabs(fq2):
+            fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
+                
+        ru_nt = ReadUnit._make([run_id, flowcell_id, library_id, 
+                                lane_id, rg_id, fq1, fq2])
+        if not rg_id:
+            ru_nt = ru_nt._replace(rg_id=create_rg_id_from_ru(ru_nt))
+        readunits[ru_key] = ru_nt
+
+    return samples, readunits
 
 
-def get_reads_unit_from_args(fqs1, fqs2):
-    """Turn fastq arguments into fake ReadUnits"""
+def get_readunits_from_args(fqs1, fqs2):
+    """Turn fastq arguments into fake ReadUnits
+    """
+
     if fqs1:
         assert isinstance(fqs1, list)
+
     if fqs2:
         assert isinstance(fqs2, list)
         paired = True
     else:
         fqs2 = len(fqs1)*[None]
         paired = False
+
+    for f in fqs1 + fqs2:
+        if f and not os.path.exists(f):
+            logger.fatal("Non-existing input file %s", f)
+            sys.exit(1)
 
     if paired:
         print_fq_sort_warning = False
@@ -130,7 +173,8 @@ def get_reads_unit_from_args(fqs1, fqs2):
         if len(fqs2) != len(set(fqs2)):
             logger.warning("Looks like the same files was given twice?")
             #logger.debug("len(fqs2)={} len(set(fqs2))={}".format(len(fqs2), len(set(fqs2))))
-    read_units = []
+
+    readunits = dict()
     fq_pairs = list(zip_longest(fqs1, fqs2))
     for (fq1, fq2) in fq_pairs:
         run_id = flowcell_id = library_id = lane_id = rg_id = None
@@ -140,9 +184,9 @@ def get_reads_unit_from_args(fqs1, fqs2):
         ru = ReadUnit._make(
             [run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-        read_units.append(ru)
+        readunits[key_for_readunit(ru)] = ru
         
-    return read_units
+    return readunits
 
 
 def hash_for_fastq(fq1, fq2=None):
@@ -155,7 +199,7 @@ def hash_for_fastq(fq1, fq2=None):
     return m.hexdigest()[:8]
 
 
-def key_for_read_unit(ru):
+def key_for_readunit(ru):
     """used for file nameing hence made unique based on fastq file names
     """
     return hash_for_fastq(ru.fq1, ru.fq2)

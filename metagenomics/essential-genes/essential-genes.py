@@ -29,7 +29,7 @@ from pipelines import ref_is_indexed
 from pipelines import get_site
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
-from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
+from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_readunit
 
 
 __author__ = "Andreas Wilm"
@@ -152,7 +152,7 @@ def main():
                                'snpeff_genome' : args.snpeff_genome}
     user_data['readunits'] = dict()
     for ru in read_units:
-        k = key_for_read_unit(ru)
+        k = key_for_readunit(ru)
         user_data['readunits'][k] = dict(ru._asdict())
     user_data['mark_dups'] = MARK_DUPS
 

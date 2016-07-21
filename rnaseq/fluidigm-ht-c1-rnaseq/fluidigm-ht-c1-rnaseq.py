@@ -29,7 +29,7 @@ from pipelines import ref_is_indexed
 from pipelines import get_site
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
-from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
+from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_readunit
 
 
 __author__ = "Andreas Wilm"
@@ -136,7 +136,7 @@ def main():
     user_data = {'mail_on_completion': not args.no_mail}
     user_data['readunits'] = dict()
     for ru in read_units:
-        k = key_for_read_unit(ru)
+        k = key_for_readunit(ru)
         user_data['readunits'][k] = dict(ru._asdict())
 
     # samples is a dictionary with sample names as key (here just one)

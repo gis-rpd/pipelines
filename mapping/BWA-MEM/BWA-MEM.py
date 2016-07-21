@@ -29,7 +29,7 @@ from pipelines import PipelineHandler
 from pipelines import ref_is_indexed
 from pipelines import get_site
 from pipelines import logger as aux_logger
-from readunits import get_reads_unit_from_cfgfile, get_reads_unit_from_args, key_for_read_unit
+from readunits import get_samples_and_readunits_from_cfgfile, get_readunits_from_args, key_for_readunit
 
 
 __author__ = "Andreas Wilm"
@@ -73,8 +73,8 @@ def main():
                         " Collides with -c.")
     parser.add_argument('-2', "--fq2", nargs="+",
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
-    parser.add_argument('-s', "--sample", required=True,
-                        help="Sample name")
+    parser.add_argument('-s', "--sample",
+                        help="Sample name. Collides with -c.")
     parser.add_argument('-r', "--reffa", required=True,
                         help="Reference fasta file to use. Needs to be indexed already (bwa index)")
     parser.add_argument('-D', '--dont-mark-dups', action='store_true',
@@ -82,7 +82,7 @@ def main():
     parser.add_argument('-c', "--config",
                         help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
                         " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
-                        " unless read groups is set in last column. Collides with -1, -2")
+                        " unless read groups is set in last column. Collides with -1, -2 and -s")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
     parser.add_argument('--no-mail', action='store_true',
@@ -112,52 +112,68 @@ def main():
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
     aux_logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
+    if os.path.exists(args.outdir):
+        logger.fatal("Output directory %s already exists", args.outdir)
+        sys.exit(1)
+
     if not os.path.exists(args.reffa):
         logger.fatal("Reference '%s' doesn't exist", args.reffa)
         sys.exit(1)
     for p in ['bwa', 'samtools']:
         if not ref_is_indexed(args.reffa, p):
-            logger.fatal("Reference '%s' doesn't appear to be indexed with %s", args.reffa, p)
+            logger.fatal("Reference '%s' doesn't appear to be indexed"
+                         " with %s", args.reffa, p)
             sys.exit(1)
 
+    logger.critical("FIXME samples and readunits cleanup")
+    # samples is a dictionary with sample names as key (mostly just one) and readunit keys as value
+    # readunits is a dict with readunits as value
+    # FIXME has to happen in below functions now  
+    #    for ru in readunits:
+    #        k = key_for_readunit(ru)
+    #        user_data['readunits'][k] = dict(ru._asdict())
     if args.config:
-        if any([args.fq1, args.fq2]):
-            logger.fatal("Config file overrides fastq input arguments. Use one or the other")
+        if any([args.fq1, args.fq2, args.sample]):
+            logger.fatal("Config file overrides fastq and sample input arguments."
+                         " Use one or the other")
             sys.exit(1)
         if not os.path.exists(args.config):
             logger.fatal("Config file %s does not exist", args.config)
             sys.exit(1)
-        read_units = get_reads_unit_from_cfgfile(args.config)
+        samples, readunits = get_samples_and_readunits_from_cfgfile(args.config)
     else:
-        read_units = get_reads_unit_from_args(args.fq1, args.fq2)
+        if not all([args.fq1, args.sample]):
+            logger.fatal("Need at least fq1 and sample without config file")
+            sys.exit(1)
 
-    for i, ru in enumerate(read_units):
-        logger.debug("Checking read unit #%d: %s", i, ru)
-        for f in [ru.fq1, ru.fq2]:
-            if f and not os.path.exists(f):
-                logger.fatal("Non-existing input file %s", f)
-                sys.exit(1)
+        readunits = get_readunits_from_args(args.fq1, args.fq2)
+        # all readunits go into this one sample specified on the command-line
+        samples = dict()
+        samples[args.sample] = list(readunits.keys())
 
-    if os.path.exists(args.outdir):
-        logger.fatal("Output directory %s already exists", args.outdir)
-        sys.exit(1)
+    # check existance of read unit files: FIXME do in resp function
+    #
+    raise NotImplementedError("fq checks should happen in resp. function")
+    #for i, ru in enumerate(readunits.values()):
+    #    logger.debug("Checking read unit #%d: %s", i, ru)
+    #    for f in [ru.fq1, ru.fq2]:
+    #        if f and not os.path.exists(f):
+    #            logger.fatal("Non-existing input file %s", f)
+    #            sys.exit(1)
 
     # turn arguments into user_data that gets merged into pipeline config
+    #
     user_data = {'mail_on_completion': not args.no_mail}
-    user_data['readunits'] = dict()
-    for ru in read_units:
-        k = key_for_read_unit(ru)
-        user_data['readunits'][k] = dict(ru._asdict())
-    user_data['references'] = {'genome' : os.path.abspath(args.reffa)}
+    user_data['readunits'] = readunits
+    user_data['samples'] = samples
+    user_data['references'] = {
+        'genome' : os.path.abspath(args.reffa)}
     user_data['mark_dups'] = not args.dont_mark_dups
 
-    # samples is a dictionary with sample names as key (here just one)
-    # each value is a list of readunits
-    user_data['samples'] = dict()
-    user_data['samples'][args.sample] = list(user_data['readunits'].keys())
-
-    pipeline_handler = PipelineHandler(PIPELINE_NAME, PIPELINE_BASEDIR,
-                                       args.outdir, user_data, site=site, master_q=args.master_q, slave_q=args.slave_q)
+    pipeline_handler = PipelineHandler(
+        PIPELINE_NAME, PIPELINE_BASEDIR,
+        args.outdir, user_data, site=site, 
+        master_q=args.master_q, slave_q=args.slave_q)
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
 
