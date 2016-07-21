@@ -212,7 +212,8 @@ rule rnaseqc:
     log:
         "{dir}/rnaseqc/{sample}_{genome}_rnaseqc.log"    
     params:
-        sample=lambda wc: wc.sample
+        sample=lambda wc: wc.sample,
+        single_end = '-singleEnd' if not config['paired_end'] else ''
     threads:
         4
     message:
@@ -220,7 +221,7 @@ rule rnaseqc:
     shell:
         "outpref=`dirname {output}`;"
         " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeQC'"
-        " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+        " {params.single_end} -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
         " find $(dirname {output}) -name \*tmp.txt\* -type f | xargs -r rm"
 
         
