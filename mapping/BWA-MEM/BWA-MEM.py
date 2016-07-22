@@ -151,15 +151,7 @@ def main():
         samples = dict()
         samples[args.sample] = list(readunits.keys())
 
-    # check existance of read unit files: FIXME do in resp function
-    #
-    raise NotImplementedError("fq checks should happen in resp. function")
-    #for i, ru in enumerate(readunits.values()):
-    #    logger.debug("Checking read unit #%d: %s", i, ru)
-    #    for f in [ru.fq1, ru.fq2]:
-    #        if f and not os.path.exists(f):
-    #            logger.fatal("Non-existing input file %s", f)
-    #            sys.exit(1)
+
 
     # turn arguments into user_data that gets merged into pipeline config
     #

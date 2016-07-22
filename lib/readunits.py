@@ -101,19 +101,19 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
                     raise ValueError(cfgfile)
 
     readunits = dict()# actual namedtuples instead of dict
-    for ru_key, ru in readunits_plain.items():
+    for ru_key, ru_plain in readunits_plain.items():
         for f in ['run_id', 'flowcell_id', 'library_id', 'lane_id']:
-            if f not in ru:
+            if f not in ru_plain:
                 logger.fatal("Missing field %s in config file %s", f, cfgfile)
                 if not raise_off:
                     raise ValueError(cfgfile)
-        run_id = ru.get('run_id')
-        flowcell_id = ru.get('flowcell_id')
-        library_id = ru.get('library_id')
-        lane_id = ru.get('lane_id')
-        rg_id = ru.get('rg_id')# allowed to be none or missing
-        fq1 =  ru.get('fq1')
-        fq2 =  ru.get('fq2')
+        run_id = ru_plain.get('run_id')
+        flowcell_id = ru_plain.get('flowcell_id')
+        library_id = ru_plain.get('library_id')
+        lane_id = ru_plain.get('lane_id')
+        rg_id = ru_plain.get('rg_id')# allowed to be none or missing
+        fq1 =  ru_plain.get('fq1')
+        fq2 =  ru_plain.get('fq2')
 
         for f in [fq1, fq2]:
             if f and not os.path.exists(f):
@@ -126,11 +126,11 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
         if fq2 and not os.path.isabs(fq2):
             fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
                 
-        ru_nt = ReadUnit._make([run_id, flowcell_id, library_id, 
-                                lane_id, rg_id, fq1, fq2])
+        ru = ReadUnit._make([run_id, flowcell_id, library_id, 
+                             lane_id, rg_id, fq1, fq2])
         if not rg_id:
-            ru_nt = ru_nt._replace(rg_id=create_rg_id_from_ru(ru_nt))
-        readunits[ru_key] = ru_nt
+            ru = ru_nt._replace(rg_id=create_rg_id_from_ru(ru))
+        readunits[ru_key] = dict(ru._asdict())
 
     return samples, readunits
 
@@ -184,7 +184,7 @@ def get_readunits_from_args(fqs1, fqs2):
         ru = ReadUnit._make(
             [run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
-        readunits[key_for_readunit(ru)] = ru
+        readunits[key_for_readunit(ru)] = dict(ru._asdict())
         
     return readunits
 
