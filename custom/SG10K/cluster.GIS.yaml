@@ -39,7 +39,7 @@
     
     "contamination_check" :
     {
-      "time" : "03:00:00",
+      "time" : "06:00:00",
       "mem" : 2G,
     }
 }    

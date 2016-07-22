@@ -47,10 +47,10 @@ PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "BWA-MEM"
 
-DEFAULT_SLAVE_Q = {'gis': None,
-                   'nscc': 'production'}
-DEFAULT_MASTER_Q = {'gis': None,
-                    'nscc': 'production'}
+DEFAULT_SLAVE_Q = {'GIS': None,
+                   'NSCC': 'production'}
+DEFAULT_MASTER_Q = {'GIS': None,
+                    'NSCC': 'production'}
 
 # global logger
 logger = logging.getLogger(__name__)

@@ -47,10 +47,10 @@ PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "fluidigm-ht-c1-rnaseq"
 
-DEFAULT_SLAVE_Q = {'gis': None,
-                   'nscc': 'production'}
-DEFAULT_MASTER_Q = {'gis': None,
-                    'nscc': 'production'}
+DEFAULT_SLAVE_Q = {'GIS': None,
+                   'NSCC': 'production'}
+DEFAULT_MASTER_Q = {'GIS': None,
+                    'NSCC': 'production'}
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()

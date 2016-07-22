@@ -125,5 +125,5 @@ rule map_mdups_sort:
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         + mark_dups_pipe_cmd() +
-        " samtools view -bu -o - |"
+        " samtools view -F 0x4 -bu -o - |"
         " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"

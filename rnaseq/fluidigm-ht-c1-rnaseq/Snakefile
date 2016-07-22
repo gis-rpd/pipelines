@@ -261,7 +261,7 @@ rule star_mapping:
             #shell(cmd)
             
             # cleanup
-            for f in glob.glob(os.path.join(os.path.dirname(bam), "*UniqueMultiple.str1.out.wig")):
+            for f in glob.glob(os.path.join(os.path.dirname(bam), "*UniqueMultiple.str*.out.wig")):
                 os.unlink(f)
 
         cmd = "STAR --genomeDir {} --genomeLoad Remove > {} 2>&1 || echo 'OK'".format(input.staridx, log)
