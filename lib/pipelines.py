@@ -474,8 +474,9 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
     body += "\n\nThis is an automatically generated email\n"
     body += RPD_SIGNATURE
 
-    subject = "Pipeline {} for {} {}".format(
-        pipeline_name, analysis_id, status_str)
+    site = get_site()
+    subject = "Pipeline {} for {} {} (@{})".format(
+        pipeline_name, analysis_id, status_str, site)
 
     msg = MIMEText(body)
     msg['Subject'] = subject
@@ -484,7 +485,6 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
 
     # Send the mail
     try:
-        site = get_site()
         server = smtplib.SMTP(SMTP_SERVER[site])
         server.send_message(msg)
         server.quit()
