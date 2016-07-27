@@ -39,10 +39,8 @@
 #PBS -j oe
 # snakemake control job run time: 175h == 1 week
 #PBS -l walltime=@MASTER_WALLTIME_H@:00:00
-# memory: shoots up for heavily multiplexed libraries
-#PBS -l select=1:mem=16g
-# cpu
-#PBS -l select=1:ncpus=1
+# cpu & memory: memory shoots up for heavily multiplexed libraries
+#PBS -l select=1:mem=16g:ncpus=1
 # keep env so that qsub works
 #PBS -V
 # Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
@@ -67,7 +65,7 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
-    clustercmd="-l select=1:ncpus={threads} -l select=1:mem={cluster.mem} -l walltime={cluster.time}"
+    clustercmd="-l select=1:ncpus={threads}:mem={cluster.mem} -l walltime={cluster.time}"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     clustercmd="$clustercmd -e $LOGDIR -o $LOGDIR"
     # PBS: cwd (workaround for missing SGE option "-cwd")
