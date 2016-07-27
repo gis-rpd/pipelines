@@ -212,7 +212,7 @@ rule star_mapping:
             commentsheader = fh.name
             # resolve link to gtfsourcefile
             gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
-            fh.write('@CO\tANNOTATIONFILE:%s'.format(gtfsourcefile))
+            fh.write('@CO\tANNOTATIONFILE:{}\n'.format(gtfsourcefile))
         
         cmd = "STAR --genomeDir {} --genomeLoad LoadAndExit > {} 2>&1 ".format(input.staridx, log)
         shell(cmd)
