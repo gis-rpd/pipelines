@@ -138,7 +138,7 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                             if status:
                                 info = LibUnit(rows['libraryId'], run_num_flowcell, \
                                     fastq_list, child['Analysis'], None, params,  \
-                                    run_num_flowcell, 'gis', ctime)
+                                    run_num_flowcell, 'GIS', ctime)
                                 pipeline_params_dict[child['libraryId']] = info
                     else:
                         params['genome'] = rows['genome']
@@ -149,7 +149,7 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                         if status:
                             info = LibUnit(rows['libraryId'], run_num_flowcell, \
                                     fastq_list, rows['Analysis'], None, params, \
-                                    run_num_flowcell, 'gis', ctime)
+                                    run_num_flowcell, 'GIS', ctime)
                             pipeline_params_dict[rows['libraryId']] = info
     return pipeline_params_dict
 
