@@ -126,8 +126,8 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
         if fq2 and not os.path.isabs(fq2):
             fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
                 
-        ru = ReadUnit._make([run_id, flowcell_id, library_id, 
-                             lane_id, rg_id, fq1, fq2])
+        ru = ReadUnit(run_id, flowcell_id, library_id, lane_id, rg_id,
+                      fq1, fq2)
         if not rg_id:
             ru = ru_nt._replace(rg_id=create_rg_id_from_ru(ru))
         readunits[ru_key] = dict(ru._asdict())
@@ -181,8 +181,8 @@ def get_readunits_from_args(fqs1, fqs2):
         fq1 = os.path.abspath(fq1)
         if fq2 is not None:
             fq2 = os.path.abspath(fq2)
-        ru = ReadUnit._make(
-            [run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
+        ru = ReadUnit(run_id, flowcell_id, library_id, lane_id, rg_id,
+                      fq1, fq2)
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         readunits[key_for_readunit(ru)] = dict(ru._asdict())
         

@@ -125,13 +125,9 @@ def main():
                          " with %s", args.reffa, p)
             sys.exit(1)
 
-    logger.critical("FIXME samples and readunits cleanup")
-    # samples is a dictionary with sample names as key (mostly just one) and readunit keys as value
-    # readunits is a dict with readunits as value
-    # FIXME has to happen in below functions now  
-    #    for ru in readunits:
-    #        k = key_for_readunit(ru)
-    #        user_data['readunits'][k] = dict(ru._asdict())
+    # samples is a dictionary with sample names as key (mostly just
+    # one) and readunit keys as value. readunits is a dict with
+    # readunits (think: fastq pairs with attributes) as value
     if args.config:
         if any([args.fq1, args.fq2, args.sample]):
             logger.fatal("Config file overrides fastq and sample input arguments."
@@ -151,11 +147,10 @@ def main():
         samples = dict()
         samples[args.sample] = list(readunits.keys())
 
-
-
     # turn arguments into user_data that gets merged into pipeline config
     #
-    user_data = {'mail_on_completion': not args.no_mail}
+    user_data = dict()
+    user_data['mail_on_completion'] = not args.no_mail
     user_data['readunits'] = readunits
     user_data['samples'] = samples
     user_data['references'] = {
