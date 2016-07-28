@@ -4,14 +4,14 @@
 #--- standard library imports
 #
 import os
-import sys
+#import sys
 import subprocess
 import logging
 import shutil
 import smtplib
 from email.mime.text import MIMEText
 from getpass import getuser
-import socket
+#import socket
 import time
 from datetime import datetime, timedelta
 import calendar
@@ -47,8 +47,8 @@ logger.addHandler(handler)
 
 INIT = {
     # FIXME make env instead? because caller knows, right?
-    'gis': "/mnt/projects/rpd/init",
-    'nscc': "/seq/astar/gis/rpd/init"
+    'GIS': "/mnt/projects/rpd/init",
+    'NSCC': "/seq/astar/gis/rpd/init"
 }
 
 # from address, i.e. users should reply to to this
@@ -352,10 +352,10 @@ def get_site():
     """
     # gis detection is a bit naive... but socket.getfqdn() doesn't help here
     # also possible: ip a | grep -q 192.168.190 && NSCC=1
-    if os.path.exists('/home/astar/gis'):# 'nscc' in socket.getfqdn():
-        return "nscc"
+    if os.path.exists('/home/astar/gis'):# 'NSCC' in socket.getfqdn():
+        return "NSCC"
     elif os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
-        return "gis"
+        return "GIS"
     else:
         raise ValueError("unknown site (fqdn was {})".format(socket.getfqdn()))
 
@@ -449,7 +449,8 @@ def email_for_user():
     return toaddr
 
 
-def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=None):
+def send_status_mail(pipeline_name, success, analysis_id, outdir,
+                     extra_text=None, pass_exception=True):
     """analysis_id should be unique identifier for this analysis
 
     - success: bool
@@ -482,19 +483,20 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir, extra_text=Non
     msg['From'] = RPD_MAIL
     msg['To'] = email_for_user()
 
-    # Send the mail
+    site = get_site()
+    server = smtplib.SMTP(SMTP_SERVER[site])
     try:
-        site = get_site()
-        server = smtplib.SMTP(SMTP_SERVER[site])
         server.send_message(msg)
         server.quit()
-    except Exception:
-        logger.fatal("Sending mail failed")
-        # FIXME consider exit 0 if pipeline breaks
-        sys.exit(1)
+    except Exception as err:
+        logger.fatal("Sending mail failed: %s", err)
+        if not pass_exception:
+            raise
 
 
-def send_mail(subject, body, toaddr=None, ccaddr=None):
+
+def send_mail(subject, body, toaddr=None, ccaddr=None,
+              pass_exception=True):
     """
     Generic mail function
 
@@ -519,15 +521,15 @@ def send_mail(subject, body, toaddr=None, ccaddr=None):
             ccaddr += "@gis.a-star.edu.sg"
         msg['Cc'] = ccaddr
 
-    # Send the mail
+    site = get_site()
+    server = smtplib.SMTP(SMTP_SERVER[site])
     try:
-        site = get_site()
-        server = smtplib.SMTP(SMTP_SERVER[site])
         server.send_message(msg)
         server.quit()
     except Exception:
-        logger.fatal("Sending mail failed")
-        sys.exit(1)
+        logger.fatal("Sending mail failed: %s", err)
+        if not pass_exception:
+            raise
 
 
 def ref_is_indexed(ref, prog="bwa"):
@@ -581,7 +583,7 @@ def chroms_and_lens_from_from_fasta(fasta):
 
 def path_to_url(out_path):
     """convert path to qlap33 server url"""
-    
+
     # FIXME change for testing, gis, NSCC
     if out_path.startswith("/mnt/projects/userrig/solexa/"):
         return out_path.replace("/mnt/projects/userrig/solexa/", \
@@ -589,5 +591,3 @@ def path_to_url(out_path):
     else:
         #raise ValueError(out_path)
         return out_path
-    
-

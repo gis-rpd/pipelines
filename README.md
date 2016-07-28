@@ -62,6 +62,23 @@ the
 - Cluster log files can be found in the respective `./logs/` sub-directory
 
 
+## List of Pipelines
+
+
+- bcl2fastq
+- custom
+  - SG10K
+- mapping
+  - BWA-MEM
+- metagenomics
+  - essential-genes
+- rnaseq
+  - star-rsem
+  - fluidigm-ht-c1-rnaseq
+- variant-calling
+  - gatk
+  - lacer-lofreq
+
 ## Comments, Questions, Bug reports
 
 Contact us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu.sg)

@@ -212,7 +212,8 @@ rule rnaseqc:
     log:
         "{dir}/rnaseqc/{sample}_{genome}_rnaseqc.log"    
     params:
-        sample=lambda wc: wc.sample
+        sample=lambda wc: wc.sample,
+        single_end = '-singleEnd' if not config['paired_end'] else ''
     threads:
         4
     message:
@@ -220,7 +221,7 @@ rule rnaseqc:
     shell:
         "outpref=`dirname {output}`;"
         " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeQC'"
-        " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+        " {params.single_end} -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
         " find $(dirname {output}) -name \*tmp.txt\* -type f | xargs -r rm"
 
         
@@ -331,5 +332,5 @@ rule star_mapping:
         " --readFilesIn {params.fmt_fq_list}; rm $commentsheader;"
         " paste <(sort -k1,1 {output.counts}) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {output.counts}.desc;"
         " sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' {output.counts}.desc;"
-        " rm ${{outpref}}*UniqueMultiple.str1.out.wig; }} >& {log};"
+        " rm ${{outpref}}*UniqueMultiple.str*.out.wig; }} >& {log};"
  
