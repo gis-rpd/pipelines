@@ -24,12 +24,13 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
+from readunits import get_samples_and_readunits_from_cfgfile
+from readunits import get_readunits_from_args
 from pipelines import get_pipeline_version
 from pipelines import PipelineHandler
-from pipelines import ref_is_indexed
 from pipelines import get_site
 from pipelines import logger as aux_logger
-from readunits import get_samples_and_readunits_from_cfgfile, get_readunits_from_args, key_for_readunit
+from pipelines import ref_is_indexed
 
 
 __author__ = "Andreas Wilm"
@@ -66,23 +67,11 @@ def main():
 
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
-    parser.add_argument('-1', "--fq1", nargs="+",
-                        help="FastQ file/s (gzip only)."
-                        " Multiple input files supported (auto-sorted)."
-                        " Note: each file gets a unique read group id assigned."
-                        " Collides with -c.")
-    parser.add_argument('-2', "--fq2", nargs="+",
-                        help="FastQ file/s (if paired) (gzip only). See also --fq1")
-    parser.add_argument('-s', "--sample",
-                        help="Sample name. Collides with -c.")
-    parser.add_argument('-r', "--reffa", required=True,
-                        help="Reference fasta file to use. Needs to be indexed already (bwa index)")
-    parser.add_argument('-D', '--dont-mark-dups', action='store_true',
-                        help="Don't mark duplicate reads")
+
+    # generic args
     parser.add_argument('-c', "--config",
-                        help="Config file (YAML) listing: run-, flowcell-, sample-id, lane"
-                        " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
-                        " unless read groups is set in last column. Collides with -1, -2 and -s")
+                        help="Config file (YAML) listing samples and readunits."
+                        " Collides with -1, -2 and -s")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (may not exist)")
     parser.add_argument('--no-mail', action='store_true',
@@ -95,8 +84,25 @@ def main():
     parser.add_argument('-m', '--master-q', default=default,
                         help="Queue to use for master job (default: {})".format(default))
     parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=0)
-    parser.add_argument('-q', '--quiet', action='count', default=0)
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                        help="Decrease verbosity")
+
+    # pipeline specific args
+    parser.add_argument('-1', "--fq1", nargs="+",
+                        help="FastQ file/s (gzip only)."
+                        " Multiple input files supported (auto-sorted)."
+                        " Note: each file (or pair) gets a unique read-group id."
+                        " Collides with -c.")
+    parser.add_argument('-2', "--fq2", nargs="+",
+                        help="FastQ file/s (if paired) (gzip only). See also --fq1")
+    parser.add_argument('-s', "--sample",
+                        help="Sample name. Collides with -c.")
+    parser.add_argument('-r', "--reffa", required=True,
+                        help="Reference fasta file to use. Needs to be indexed already (bwa index)")
+    parser.add_argument('-D', '--dont-mark-dups', action='store_true',
+                        help="Don't mark duplicate reads")
 
     args = parser.parse_args()
 
@@ -115,15 +121,6 @@ def main():
     if os.path.exists(args.outdir):
         logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
-
-    if not os.path.exists(args.reffa):
-        logger.fatal("Reference '%s' doesn't exist", args.reffa)
-        sys.exit(1)
-    for p in ['bwa', 'samtools']:
-        if not ref_is_indexed(args.reffa, p):
-            logger.fatal("Reference '%s' doesn't appear to be indexed"
-                         " with %s", args.reffa, p)
-            sys.exit(1)
 
     # samples is a dictionary with sample names as key (mostly just
     # one) and readunit keys as value. readunits is a dict with
@@ -147,19 +144,31 @@ def main():
         samples = dict()
         samples[args.sample] = list(readunits.keys())
 
+    if not os.path.exists(args.reffa):
+        logger.fatal("Reference '%s' doesn't exist", args.reffa)
+        sys.exit(1)
+
+    for p in ['bwa', 'samtools']:
+        if not ref_is_indexed(args.reffa, p):
+            logger.fatal("Reference '%s' doesn't appear to be indexed"
+                         " with %s", args.reffa, p)
+            sys.exit(1)
+
     # turn arguments into user_data that gets merged into pipeline config
     #
+    # generic data first
     user_data = dict()
     user_data['mail_on_completion'] = not args.no_mail
     user_data['readunits'] = readunits
     user_data['samples'] = samples
+
     user_data['references'] = {
         'genome' : os.path.abspath(args.reffa)}
     user_data['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data, site=site, 
+        args.outdir, user_data, site=site,
         master_q=args.master_q, slave_q=args.slave_q)
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
