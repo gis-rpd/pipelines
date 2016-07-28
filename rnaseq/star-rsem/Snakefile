@@ -307,7 +307,7 @@ rule star_mapping:
         " --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
         " --outSAMheaderCommentFile $commentsheader"
         " --runThreadN {threads}"
-        " --genomeLoad LoadAndRemove"
+        " --genomeLoad NoSharedMemory"
         " --readFilesCommand zcat"
         " --outFilterType BySJout"
         " --outSAMtype BAM SortedByCoordinate"
