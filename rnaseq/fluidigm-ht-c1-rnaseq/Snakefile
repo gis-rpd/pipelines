@@ -212,7 +212,7 @@ rule star_mapping:
             commentsheader = fh.name
             # resolve link to gtfsourcefile
             gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
-            fh.write('@CO\tANNOTATIONFILE:%s'.format(gtfsourcefile))
+            fh.write('@CO\tANNOTATIONFILE:{}\n'.format(gtfsourcefile))
         
         cmd = "STAR --genomeDir {} --genomeLoad LoadAndExit > {} 2>&1 ".format(input.staridx, log)
         shell(cmd)
@@ -255,9 +255,9 @@ rule star_mapping:
 
             # FIXME test and activate
             # add counts to zip command above. replace config[references][gtfsourcefile] with  gtfsourcefile. add description to README
-            #shell("paste <(sort -k1,1 {outpref}"ReadsPerGene.out.tab") {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {outpref}"ReadsPerGene.out.tab".desc;")
-            cmd = "paste <(sort -k1,1 "+ outpref +"ReadsPerGene.out.tab) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > "+ outpref +"ReadsPerGene.out.tab.desc"
-            shell(cmd)
+            shell("paste <(sort -k1,1 {outpref}ReadsPerGene.out.tab) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {outpref}ReadsPerGene.out.tab.desc ;")
+            #cmd = "paste <(sort -k1,1 "+ outpref +"ReadsPerGene.out.tab) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > "+ outpref +"ReadsPerGene.out.tab.desc"
+            #shell(cmd)
             cmd = "sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' "+ outpref +"ReadsPerGene.out.tab.desc"
             shell(cmd)
             

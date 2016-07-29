@@ -295,11 +295,12 @@ rule star_mapping:
         alignIntronMax = 1000000,
         alignMatesGapMax = 1000000,
         limitBAMsortRAM = 20016346648,
-        stranded = '' if config['stranded'] else '--outSAMstrandField intronMotif'
+        stranded = '' if config['stranded'] else '--outSAMstrandField intronMotif',
+        gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
     threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
     shell:
         "{{ commentsheader=$(mktemp);"
-        " echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > $commentsheader;"
+        " echo -e '@CO\tANNOTATIONFILE:{params.gtfsourcefile}' > $commentsheader;"
         " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
         " STAR --genomeDir {input.staridx}"
         # yes, RG unescaped:
