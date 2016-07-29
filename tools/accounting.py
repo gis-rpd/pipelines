@@ -35,23 +35,35 @@ def main():
     """
     instance = ArgumentParser(description=__doc__)
     instance.add_argument("-j", "--jobNo", nargs="*", help="filter records by jobNo of jobs")
+    instance.add_argument("-o", "--owner", nargs="*", help="filter records by owner of jobs")
     args = instance.parse_args()
 
-    if args.jobNo:
-        projection = {}
-        projection["jobs"] = 1
-        for jobNo in args.jobNo:
-            selection = {}
-            selection["jobs.jobNo"] = jobNo
-#            print("SELECTION:\t" + str(selection))
-#            print("PROJECTION:\t" + str(projection))
-            for document in mongodb_conn(False).gisds.accountinglogs.find(selection, projection):
-                for job in document["jobs"]:
-                    if job["jobNo"] == jobNo:
-                        job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
-                        job["submissionTime"] = str(datetime.fromtimestamp(
-                            job["submissionTime"]).isoformat()).replace(":", "-")
-                        PrettyPrinter(indent=2).pprint(job)
+    if (not args.jobNo) and (args.owner):
+        for document in mongodb_conn(False).gisds.accountinglogs.find({"jobs.owner": {"$in": args.owner}}):
+            for job in document["jobs"]:
+                if job["owner"] in args.owner:
+                    job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
+                    job["submissionTime"] = str(datetime.fromtimestamp(
+                        job["submissionTime"]).isoformat()).replace(":", "-")
+                    PrettyPrinter(indent=2).pprint(job)
+
+    if (args.jobNo) and (not args.owner):
+        for document in mongodb_conn(False).gisds.accountinglogs.find({"jobs.jobNo": {"$in": args.jobNo}}):
+            for job in document["jobs"]:
+                if job["jobNo"] in args.jobNo:
+                    job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
+                    job["submissionTime"] = str(datetime.fromtimestamp(
+                        job["submissionTime"]).isoformat()).replace(":", "-")
+                    PrettyPrinter(indent=2).pprint(job)
+
+    if args.jobNo and args.owner:
+        for document in mongodb_conn(False).gisds.accountinglogs.find({"jobs.jobNo": {"$in": args.jobNo}, "jobs.owner": {"$in": args.owner}}):
+            for job in document["jobs"]:
+                if (job["jobNo"] in args.jobNo) and (job["owner"] in args.owner):
+                    job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
+                    job["submissionTime"] = str(datetime.fromtimestamp(
+                        job["submissionTime"]).isoformat()).replace(":", "-")
+                    PrettyPrinter(indent=2).pprint(job)
 
 
 if __name__ == "__main__":
