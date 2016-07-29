@@ -163,11 +163,6 @@ def main():
         assert all(ru.get('fq2') for ru in readunits.values()), (
             "Can't handle mix of paired-end and single-end")
 
-    # samples is a dictionary with sample names as key (here just one)
-    # each value is a list of readunits
-    user_data['samples'] = dict()
-    user_data['samples'][args.sample] = list(user_data['readunits'].keys())
-
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
         args.outdir, user_data, site=site,
