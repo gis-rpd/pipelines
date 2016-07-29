@@ -34,29 +34,24 @@ def main():
     Main function
     """
     instance = ArgumentParser(description=__doc__)
-    instance.add_argument("-j", "--jobNo", help="filter records by jobNo of jobs")
-    instance.add_argument("-o", "--owner", help="filter records by owner of jobs")
+    instance.add_argument("-j", "--jobNo", nargs="*", help="filter records by jobNo of jobs")
     args = instance.parse_args()
 
-    selection = {}
     if args.jobNo:
-        selection["jobs.jobNo"] = args.jobNo
-    if args.owner:
-        selection["jobs.owner"] = args.owner
-
-    projection = {}
-    projection["jobs"] = 1
-
-#    print("SELECTION:\t" + str(selection))
-#    print("PROJECTION:\t" + str(projection))
-
-    for document in mongodb_conn(False).gisds.accountinglogs.find(selection, projection):
-        for job in document["jobs"]:
-            if job["jobNo"] == args.jobNo:
-                job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
-                job["submissionTime"] = str(datetime.fromtimestamp(
-                    job["submissionTime"]).isoformat()).replace(":", "-")
-                PrettyPrinter(indent=2).pprint(job)
+        projection = {}
+        projection["jobs"] = 1
+        for jobNo in args.jobNo:
+            selection = {}
+            selection["jobs.jobNo"] = jobNo
+#            print("SELECTION:\t" + str(selection))
+#            print("PROJECTION:\t" + str(projection))
+            for document in mongodb_conn(False).gisds.accountinglogs.find(selection, projection):
+                for job in document["jobs"]:
+                    if job["jobNo"] == jobNo:
+                        job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
+                        job["submissionTime"] = str(datetime.fromtimestamp(
+                            job["submissionTime"]).isoformat()).replace(":", "-")
+                        PrettyPrinter(indent=2).pprint(job)
 
 
 if __name__ == "__main__":
