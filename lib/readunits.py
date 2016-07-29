@@ -31,7 +31,7 @@ __license__ = "The MIT License (MIT)"
 
 
 ReadUnit = namedtuple('ReadUnit',
-    ['run_id', 'flowcell_id', 'library_id', 'lane_id', 'rg_id', 'fq1', 'fq2'])
+                      ['run_id', 'flowcell_id', 'library_id', 'lane_id', 'rg_id', 'fq1', 'fq2'])
 
 
 # global logger
@@ -43,6 +43,7 @@ logger.addHandler(handler)
 
 
 def gen_rg_lib_id(unit):
+    """generate read group lib id from readunit"""
     if unit['library_id']:
         return unit['library_id']
     else:
@@ -57,7 +58,7 @@ def get_sample_for_unit(unitname, config):
             return samplename
     raise ValueError(unitname)
 
-    
+
 def gen_rg_pu_id(unit):
     """https://www.biostars.org/p/50349/"""
     if unit['run_id'] and unit['flowcell_id'] and unit['lane_id']:
@@ -84,19 +85,19 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
 
     unknown_keys = set(yaml_data.keys()) - set(['samples', 'readunits'])
     if unknown_keys:
-        logger.critical("Found unexpected keys in {}: {}".format(
-            cfgfile, unknown_keys))
+        logger.critical("Found unexpected keys in %s: %s",
+                        cfgfile, unknown_keys)
         if not raise_off:
             raise ValueError(cfgfile)
-    samples, readunits_plain =  yaml_data['samples'] , yaml_data['readunits']
+    samples, readunits_plain = yaml_data['samples'], yaml_data['readunits']
 
     #logger.debug("samples: {}".format(samples))
     #logger.debug("readunits_plain keys: {}".format(readunits_plain.keys()))
     for sample_key, sample_rus in samples.items():
         for ru_key in sample_rus:
             if ru_key not in readunits_plain.keys():
-                logger.critical("readunit {} of sample {} not found"
-                                " in config file".format(ru_key, sample_key))
+                logger.critical("readunit %s of sample %s not found"
+                                " in config file", ru_key, sample_key)
                 if not raise_off:
                     raise ValueError(cfgfile)
 
@@ -112,24 +113,25 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
         library_id = ru_plain.get('library_id')
         lane_id = ru_plain.get('lane_id')
         rg_id = ru_plain.get('rg_id')# allowed to be none or missing
-        fq1 =  ru_plain.get('fq1')
-        fq2 =  ru_plain.get('fq2')
+        fq1 = ru_plain.get('fq1')
+        fq2 = ru_plain.get('fq2')
 
-        for f in [fq1, fq2]:
-            if f and not os.path.exists(f):
-                logger.fatal("Non-existing input file %s in config file", f, cfgfile)
-                if not raise_off:
-                    raise ValueError(cfgfile)
         # if we have relative paths, make them abs relative to cfgfile
         if not os.path.isabs(fq1):
             fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
         if fq2 and not os.path.isabs(fq2):
             fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
-                
+
+        for f in [fq1, fq2]:
+            if f and not os.path.exists(f):
+                logger.fatal("Non-existing input file %s in config file %s", f, cfgfile)
+                if not raise_off:
+                    raise ValueError(cfgfile)
+
         ru = ReadUnit(run_id, flowcell_id, library_id, lane_id, rg_id,
                       fq1, fq2)
         if not rg_id:
-            ru = ru_nt._replace(rg_id=create_rg_id_from_ru(ru))
+            ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         readunits[ru_key] = dict(ru._asdict())
 
     return samples, readunits
@@ -152,7 +154,7 @@ def get_readunits_from_args(fqs1, fqs2):
     for f in fqs1 + fqs2:
         if f and not os.path.exists(f):
             logger.fatal("Non-existing input file %s", f)
-            sys.exit(1)
+            raise ValueError(f)
 
     if paired:
         print_fq_sort_warning = False
@@ -165,7 +167,7 @@ def get_readunits_from_args(fqs1, fqs2):
                 break
         if print_fq_sort_warning:
             logger.warning("Are you sure paired-end reads are in correct order?")
-            
+
     if len(fqs1) != len(set(fqs1)):
         logger.warning("Looks like the same files was given twice?")
         #logger.debug("len(fqs1)={} len(set(fqs1))={}".format(len(fqs1), len(set(fqs1))))
@@ -185,7 +187,7 @@ def get_readunits_from_args(fqs1, fqs2):
                       fq1, fq2)
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         readunits[key_for_readunit(ru)] = dict(ru._asdict())
-        
+
     return readunits
 
 
