@@ -18,6 +18,7 @@ ETC_PATH = os.path.abspath(
     
 REST_CFG = os.path.join(ETC_PATH, 'rest.yaml')
 MAIL_CFG = os.path.join(ETC_PATH, 'mail.yaml')
+MONGO_CFG = os.path.join(ETC_PATH, 'mongo.yaml')
 
 
 # global logger
@@ -42,3 +43,10 @@ with open(MAIL_CFG, 'r') as stream:
         logger.fatal("Error in loading %s", MAIL_CFG)
         raise
 
+with open(MONGO_CFG, 'r') as stream:
+    try:
+        mongo_conns = yaml.load(stream)
+    except yaml.YAMLError as exc:
+        logger.fatal("Error in loading %s", MONGO_CFG)
+        raise
+    
