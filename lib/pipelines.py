@@ -527,7 +527,7 @@ def send_mail(subject, body, toaddr=None, ccaddr=None,
     try:
         server.send_message(msg)
         server.quit()
-    except Exception:
+    except Exception as err:
         logger.fatal("Sending mail failed: %s", err)
         if not pass_exception:
             raise
