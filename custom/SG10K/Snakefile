@@ -67,30 +67,32 @@ rule report:
                                sample=config['samples']),
         cont_results=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
                             race=config['references']['cont_vcfs'], sample=config['samples']),
-    output: html="report.html"
+    output:
+        html="report.html"
+    params:
+        samplenames=', '.join(config['samples'].keys())
     run:
-    	# FIXME duplication with README
+        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
+        readme = "EMPTY"
+        with open(os.path.join(workflow_home, "README.rst")) as fh:
+            readme = fh.read()
+            
         report("""
-        ===========================================================================================
-        {config[ELM][pipeline_name]} ({config[ELM][pipeline_version]}) report for {config[samples]}
-        ===========================================================================================
-        
-        This is the mapping pipeline for the SG10K project workflow. It is
-        specifically tailored for SG10K samples and therefore not recommended
-        to use it for anything else. Specifically, it's designed for shallow
-        WGS, uses the gotcloud reference bundles and performs contamination
-        checks against the three major ethnicities in Singapore.
-        
-        - All results can be found in the directory called {RESULT_OUTDIR}
-        - Main output is a BAM file (with base qualities recalibrated): {input.bam}
-        - Basic mapping statistics can be found in {input.bam_stats}
-        - Contamination results can be found in {input.cont_results}
-        - The full configfile_ containing all parameters, including program versions and settings is attached to this report
-        """, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)", configfile="conf.yaml")
-        # doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+=================================================================
+
+Version Info
+------------
+
+{config[ELM][pipeline_version]}) 
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
-        # Attaching configfile is more a crutch
-        # FIXME hardcoded path to configfile
+        # Attaching configfile is more a crutch to have at least something
+
         
 
 rule contamination_check:

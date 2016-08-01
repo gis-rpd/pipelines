@@ -1,5 +1,8 @@
 *nohup.out
 
+# configs in separate repo
+etc/*yaml
+
 # created on the fly from README.rst's
 *README.html
 
