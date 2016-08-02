@@ -63,20 +63,20 @@ else:
 
 rule final:
     input:
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),
                sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
                sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.bamstats/stats.txt'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.bamstats/stats.txt'),
                sample=config['samples']),
         "report.html"
 
 
 rule report:
     input:
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),
                sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
                sample=config['samples']),
     output: html="report.html"
     params: samplenames=', '.join(config['samples'].keys())
@@ -133,9 +133,9 @@ rule unit_merge:
                                  prefix=wildcards.prefix,
                                  unit=config['samples'][wildcards.sample])
     output:
-        temp('{prefix}/sample-{sample}.bwamem.lofreq.bam')
+        temp('{prefix}/{sample}.bwamem.lofreq.bam')
     log:
-        '{prefix}/sample-{sample}.bwamem.lofreq.bam.unit_merge.log'        
+        '{prefix}/{sample}.bwamem.lofreq.bam.unit_merge.log'        
     message:
         "Merging units to samples"
     threads:
