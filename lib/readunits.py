@@ -54,7 +54,7 @@ def get_sample_for_unit(unitname, config):
             return samplename
     raise ValueError(unitname)
 
-    
+
 def gen_rg_pu_id(unit):
     """https://www.biostars.org/p/50349/"""
     if unit['run_id'] and unit['flowcell_id'] and unit['lane_id']:
@@ -122,7 +122,7 @@ def get_reads_unit_from_args(fqs1, fqs2):
                 break
         if print_fq_sort_warning:
             logger.warning("Are you sure paired-end reads are in correct order?")
-            
+
     if len(fqs1) != len(set(fqs1)):
         logger.warning("Looks like the same files was given twice?")
         #logger.debug("len(fqs1)={} len(set(fqs1))={}".format(len(fqs1), len(set(fqs1))))
@@ -141,7 +141,7 @@ def get_reads_unit_from_args(fqs1, fqs2):
             [run_id, flowcell_id, library_id, lane_id, rg_id, fq1, fq2])
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         read_units.append(ru)
-        
+
     return read_units
 
 

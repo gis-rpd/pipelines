@@ -357,7 +357,7 @@ def get_site():
     elif os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
         return "GIS"
     else:
-        raise ValueError("unknown site (fqdn was {})".format(socket.getfqdn()))
+        raise ValueError("unknown site")
 
 
 def get_init_call():
