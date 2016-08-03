@@ -114,7 +114,7 @@ def main():
     if is_devel_version() or args.testing:
         mail_to = 'veeravallil'# domain added in mail function
     else:
-        mail_to = 'ngsp@mailman.gis.a-star.edu.sg'
+        mail_to = 'ongct1@gis.a-star.edu.sg'
 
 
     for record in results:
@@ -174,19 +174,17 @@ def main():
                         subject += ' devel'
                     subject += ': ' + mux_id
                     send_mail(subject, body, mail_to, ccaddr="rpd")# mail_to already set
-                    num_emails += 1
-                    update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
 
                     if not args.testing and not is_devel_version:
                         requestor = get_requestor(mux_id, confinfo)
                         if requestor is not None:
-                            #FIXME change to requestor
-                            requestor = "rpd"
-                            subject += " (instead of requestor)"
-                            # FIXME send twice. once send_mail supports multiple
-                            # recipients use that instead
+                            #requestor = "rpd"
+                            #subject += " (instead of requestor)"
                             send_mail(subject, body, requestor)
-                            # don't incr num_emails. sent to ngsp already
+
+                     num_emails += 1
+                     update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
+
 
     # close the connection to MongoDB
     connection.close()
