@@ -58,33 +58,6 @@ def mark_dups_pipe_cmd(before="", after=""):
         return ""
 
 
-rule unit_merge:
-    """
-    Merge bam files for multiple units into one for the given sample
-    (or copy if just one).
-    """
-    input:
-        # switch expand and wildcards and funny things happen
-        lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.bam',
-                                 prefix=wildcards.prefix,
-                                 unit=config['samples'][wildcards.sample])
-    output:
-        temp('{prefix}/sample-{sample}.bwamem.bam')
-    log:
-        '{prefix}/sample-{sample}.bwamem.bam.merge.log'
-    message:
-        "Merging files"
-    threads:
-        # FIXME waste for ln
-        8
-    run:
-        # not running mark_dups_pipe_cmd again since not read name sorted anymore
-        if len(input) > 1:
-            shell("samtools merge -@ {threads} {output} {input} >& {log};")
-        else:
-            shell("ln {input} {output} >& {log};")
-
-
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
 rule map_mdups_sort:
     """
