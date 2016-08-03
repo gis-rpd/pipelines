@@ -7,6 +7,7 @@ collection: gisds.accountinglogs
 #
 from argparse import ArgumentParser
 from datetime import datetime
+from math import pow
 import os
 from pprint import PrettyPrinter
 import sys
@@ -42,6 +43,8 @@ def main():
         for document in mongodb_conn(False).gisds.accountinglogs.find({"jobs.owner": {"$in": args.owner}}):
             for job in document["jobs"]:
                 if job["owner"] in args.owner:
+                    job["cpu"] = strftime("%Hh%Mm%Ss", gmtime(job["cpu"]))
+                    job["maxvmem"] = str(job["maxvmem"] / pow(2, 30)) + " GB"
                     job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
                     job["submissionTime"] = str(datetime.fromtimestamp(
                         job["submissionTime"]).isoformat()).replace(":", "-")
@@ -51,6 +54,8 @@ def main():
         for document in mongodb_conn(False).gisds.accountinglogs.find({"jobs.jobNo": {"$in": args.jobNo}}):
             for job in document["jobs"]:
                 if job["jobNo"] in args.jobNo:
+                    job["cpu"] = strftime("%Hh%Mm%Ss", gmtime(job["cpu"]))
+                    job["maxvmem"] = str(job["maxvmem"] / pow(2, 30)) + " GB"
                     job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
                     job["submissionTime"] = str(datetime.fromtimestamp(
                         job["submissionTime"]).isoformat()).replace(":", "-")
@@ -60,6 +65,8 @@ def main():
         for document in mongodb_conn(False).gisds.accountinglogs.find({"jobs.jobNo": {"$in": args.jobNo}, "jobs.owner": {"$in": args.owner}}):
             for job in document["jobs"]:
                 if (job["jobNo"] in args.jobNo) and (job["owner"] in args.owner):
+                    job["cpu"] = strftime("%Hh%Mm%Ss", gmtime(job["cpu"]))
+                    job["maxvmem"] = str(job["maxvmem"] / pow(2, 30)) + " GB"
                     job["ruWallClock"] = strftime("%Hh%Mm%Ss", gmtime(job["ruWallClock"]))
                     job["submissionTime"] = str(datetime.fromtimestamp(
                         job["submissionTime"]).isoformat()).replace(":", "-")
