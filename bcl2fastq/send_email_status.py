@@ -182,8 +182,8 @@ def main():
                             #subject += " (instead of requestor)"
                             send_mail(subject, body, requestor)
 
-                     num_emails += 1
-                     update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
+                    num_emails += 1
+                    update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
 
 
     # close the connection to MongoDB
