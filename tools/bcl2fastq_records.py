@@ -47,7 +47,7 @@ def dictionary_checker():
     """
     Ensures dictionary format is correct
     """
-    send_email("rpd@mailman.gis.a-star.edu.sg", "[RPD] " + os.path.basename(__file__), "")
+    send_email("rpd@gis.a-star.edu.sg", "[RPD] " + os.path.basename(__file__), "")
 
 
 def instantiate_args():

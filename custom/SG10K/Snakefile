@@ -86,7 +86,7 @@ rule report:
         - Basic mapping statistics can be found in {input.bam_stats}
         - Contamination results can be found in {input.cont_results}
         - The full configfile_ containing all parameters, including program versions and settings is attached to this report
-        """, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)", configfile="conf.yaml")
+        """, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)", configfile="conf.yaml")
         # doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch

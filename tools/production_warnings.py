@@ -157,7 +157,7 @@ def main():
     warnings += check_mongo()
     if len(warnings):
         print(warnings)
-#        send_email("rpd@mailman.gis.a-star.edu.sg", "[RPD] Production Warnings", warnings)
+#        send_email("rpd@gis.a-star.edu.sg", "[RPD] Production Warnings", warnings)
 
 if __name__ == "__main__":
     main()
