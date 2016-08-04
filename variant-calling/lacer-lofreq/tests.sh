@@ -47,6 +47,7 @@ WES_FQ2=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/SRR098401_2.fastq
 WGS_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_1.fastq.gz
 WGS_FQ2=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_2.fastq.gz
 DUMMY_BED=$RPD_ROOT/testing/data/illumina-platinum-NA12878/human_g1k_v37_decoy_chr21.bed
+TRUSEQ_BED=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/truseq-exome-targeted-regions-manifest-v1-2.nochr.bed
 
 cd $(dirname $0)
 pipeline=$(pwd | sed -e 's,.*/,,')
@@ -66,7 +67,7 @@ SKIP_REAL_WGS=1
 
 WRAPPER=./lacer-lofreq.py
 targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -s NA12878-targeted -l $DUMMY_BED -t targeted"
-wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -l $DUMMY_BED -t WES"
+wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -l $TRUSEQ_BED -t WES"
 wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS"
 
 # dryruns
