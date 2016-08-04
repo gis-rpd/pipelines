@@ -134,7 +134,8 @@ rule gatk_genotyping:
         "{prefix}/all_genotyped.log"
     params:
         custom=config.get("params_gatk", "")
-    threads: 24
+    threads:
+        8
     run:
         gvcfs = _gatk_multi_arg("--variant", input.gvcfs)
         shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"

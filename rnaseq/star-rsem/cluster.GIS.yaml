@@ -16,7 +16,7 @@
     "RSEM":
     {
       "time" : "24:00:00",
-      "mem" : 8G,
+      "mem" : 16G,
     },
 
     "cuffdiff":
