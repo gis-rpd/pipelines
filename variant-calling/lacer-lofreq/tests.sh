@@ -9,7 +9,7 @@ MYNAME=$(basename $(readlink -f $0))
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
-        echo "rpd@mailman.gis.a-star.edu.sg";
+        echo "rpd@gis.a-star.edu.sg";
     else
         echo "$(whoami)@gis.a-star.edu.sg";
     fi

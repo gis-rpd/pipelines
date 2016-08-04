@@ -86,7 +86,7 @@ Version Info
 
 {config[ELM][pipeline_version]}
 
-""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
                conf="conf.yaml")
         # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
@@ -189,8 +189,7 @@ rule star_mapping:
                       row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                       genome=GENOME_BASENAME),
     log:
-        #"{dir}/star.log"
-        os.path.join(RESULT_OUTDIR, "star.log")
+        os.path.join(RESULT_OUTDIR, "{sample}/star.log")
     message:
         "Running STAR against all {} sub libraries".format(NUM_ROWS)
     params:

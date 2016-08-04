@@ -99,7 +99,7 @@ def main():
                         " as well as fastq1 and fastq2 per line. Will create a new RG per line,"
                         " unless read groups is set in last column. Collides with -1, -2")
     parser.add_argument('-o', "--outdir", required=True,
-                        help="Output directory (may not exist)")
+                        help="Output directory (must not exist)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
     site = get_site()

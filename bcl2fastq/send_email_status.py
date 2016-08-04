@@ -183,8 +183,8 @@ def main():
                             #send_mail(subject, body, requestor, ccaddr="rpd")
                             send_mail(subject, body, requestor)
 
-                     num_emails += 1
-                     update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
+                    num_emails += 1
+                    update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
 
 
     # close the connection to MongoDB
