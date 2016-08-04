@@ -175,11 +175,12 @@ def main():
                     subject += ': ' + mux_id
                     send_mail(subject, body, mail_to, ccaddr="rpd")# mail_to already set
 
-                    if not args.testing and not is_devel_version:
+                    if not args.testing and not is_devel_version():
                         requestor = get_requestor(mux_id, confinfo)
                         if requestor is not None:
                             #requestor = "rpd"
                             #subject += " (instead of requestor)"
+                            #send_mail(subject, body, requestor, ccaddr="rpd")
                             send_mail(subject, body, requestor)
 
                     num_emails += 1
