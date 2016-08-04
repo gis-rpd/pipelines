@@ -209,7 +209,7 @@ rule map_mdups_split:
         'Aligning, marking duplicates (if set) and splitting per chrom'
     threads:
         # see also BWA-MEM
-        32
+        16
     shell:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
