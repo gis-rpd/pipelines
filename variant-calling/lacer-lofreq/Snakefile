@@ -96,7 +96,7 @@ Version Info
 
 {config[ELM][pipeline_version]}
 
-""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
                conf="conf.yaml")
         # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
@@ -209,7 +209,7 @@ rule map_mdups_split:
         'Aligning, marking duplicates (if set) and splitting per chrom'
     threads:
         # see also BWA-MEM
-        32
+        16
     shell:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"

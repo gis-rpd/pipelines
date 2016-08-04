@@ -27,7 +27,7 @@ rule lofreq_massage_sort:
         reffa = config['references']['genome'],
         reffai = config['references']['genome'] + ".fai"
     output:
-        bam='{prefix}.lofreq.bam'
+        bam=temp('{prefix}.lofreq.bam')# tmp because postprocess by lacer
     log:
         '{prefix}.lofreq.log'
     params:

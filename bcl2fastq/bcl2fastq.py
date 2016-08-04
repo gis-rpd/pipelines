@@ -194,7 +194,7 @@ def main():
     parser.add_argument('-d', "--rundir",
                         help="BCL input directory (clashes with -r)")
     parser.add_argument('-o', "--outdir",
-                        help="Output directory (may not exist; required if called by user)")
+                        help="Output directory (must not exist; required if called by user)")
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test server")
     parser.add_argument('--no-archive', action='store_true',
