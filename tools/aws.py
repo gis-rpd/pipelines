@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from collections import OrderedDict
 from gzip import open
 from os import path, remove
+from re import findall
 from sqlite3 import connect
 from sys import argv
 
@@ -47,10 +48,10 @@ db.execute('''CREATE TABLE accounting(
 	io			INTEGER		NOT NULL,
 	category		INTEGER		NOT NULL,
 	maxvmem			INTEGER		NOT NULL,
-	h_rt			INTEGER		NOT NULL,
-	h_vmem			INTEGER		NOT NULL,
-	mem_free		INTEGER		NOT NULL,
-	openmp			INTEGER		NOT NULL	
+	h_rt			INTEGER,
+	h_vmem			INTEGER,
+	mem_free		INTEGER,
+	openmp			INTEGER
 );''')
 db.close()
 
@@ -80,9 +81,26 @@ if args.file:
 					b = (b + ", '" + j + "'")
 
 				c = ''
-				for k in [l[39].split(" ")[7].split(",")[0][5:].replace("G", ""), l[39].split(" ")[7].split(",")[1][7:].replace("G", ""), l[39].split(" ")[7].split(",")[2][9:].replace("G", ""), l[39].split(" ")[10]]:
-					c = (c + ", '" + k + "'")
+				if len(findall("h_rt=\d+", l[39])) > 0:
+					c = (c + ", '" + findall("h_rt=\d+", l[39])[0][5:] + "'")
+				else:
+					c = (c + ", ''")
 
+				if len(findall("h_vmem=\d+", l[39])) > 0:
+					c = (c + ", '" + findall("h_vmem=\d+", l[39])[0][7:] + "'")
+				else:
+					c = (c + ", ''")
+
+				if len(findall("mem_free=\d+", l[39])) > 0:
+					c = (c + ", '" + findall("mem_free=\d+", l[39])[0][9:] + "'")
+				else:
+					c = (c + ", ''")
+
+				if len(findall("OpenMP\s\d+", l[39])) > 0:
+					c = (c + ", '" + findall("OpenMP\s\d+", l[39])[0].split(" ")[1] + "'")
+				else:
+					c = (c + ", ''")
+#				print(c[2:])
 				db = connect("aws.db")
 				db.execute("INSERT INTO accounting (" + a[2:] + ") VALUES (" + b[2:] + c + ");")
 				db.commit()
