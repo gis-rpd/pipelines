@@ -71,25 +71,24 @@ if args.accounting and args.database:
 
 	db = connect(args.database)
 	db.execute('''CREATE TABLE accounting(
-		qname			TEXT		NOT NULL,
-		hostname		TEXT		NOT NULL,
-		owner			TEXT		NOT NULL,
-		job_name		TEXT		NOT NULL,
-		job_number		INTEGER		NOT NULL,
-		submission_time		INTEGER		NOT NULL,
-		start_time		INTEGER		NOT NULL,
-		end_time		INTEGER		NOT NULL,
-		failed			INTEGER		NOT NULL,
-		exit_status		INTEGER		NOT NULL,
-		ru_wallclock		INTEGER		NOT NULL,
-		io			INTEGER		NOT NULL,
-		category		INTEGER		NOT NULL,
-		maxvmem			INTEGER		NOT NULL,
-		h_rt			INTEGER,
-		h_vmem			INTEGER,
-		mem_free		INTEGER,
-		openmp			INTEGER
-	);''')
+	qname			TEXT		NOT NULL,
+	hostname		TEXT		NOT NULL,
+	owner			TEXT		NOT NULL,
+	job_name		TEXT		NOT NULL,
+	job_number		INTEGER		NOT NULL,
+	submission_time		INTEGER		NOT NULL,
+	start_time		INTEGER		NOT NULL,
+	end_time		INTEGER		NOT NULL,
+	failed			INTEGER		NOT NULL,
+	exit_status		INTEGER		NOT NULL,
+	ru_wallclock		INTEGER		NOT NULL,
+	io			INTEGER		NOT NULL,
+	category		INTEGER		NOT NULL,
+	maxvmem			INTEGER		NOT NULL,
+	h_rt			INTEGER,
+	h_vmem			INTEGER,
+	mem_free		INTEGER,
+	openmp			INTEGER);''')
 	db.close()
 
 	acct_count = 0
@@ -120,6 +119,8 @@ if args.accounting and args.database:
 
 	db = connect(args.database)
 	db.execute("CREATE VIEW duplicate_jobs AS SELECT job_number, COUNT(*) FROM accounting GROUP BY job_number HAVING COUNT(*) > 1;")
+	db.execute('CREATE VIEW master_slave_jobs AS SELECT * FROM accounting WHERE (job_name LIKE "%master%") OR (job_name LIKE "%slave%");')
+	db.execute("CREATE VIEW success_master_slave_jobs AS SELECT * FROM master_slave_jobs WHERE failed != 1 AND exit_status != 1;")
 	db.commit()
 	db.close()
 
