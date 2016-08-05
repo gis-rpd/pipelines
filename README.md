@@ -85,7 +85,7 @@ the
 If you want to analyze many samples (identically) with just one
 wrapper call, you will have to provide per sample information to the
 wrapper. The easiest way to achieve this, is to create an Excel sheet
-listing all samples and fastq pairs and converting it into a config
+listing all samples and fastq(s) and to convert it into a config
 file as described in the following:
 
 - Create an Excel sheet with the following columns:
@@ -97,10 +97,10 @@ file as described in the following:
   6. read-group id (allowed to be empty)
   7. fastq1 (mandatory)
   8. fastq2 (allowed to be empty)
-- Save the Excel sheet as CSV and run the following script on it:
+- Save the Excel sheet as CSV and run the following to convert it to yaml:
   `tools/sample_conf.py -i <your>.csv -i <your>.yaml`
-  Depending on how you created the CSV file you might want to set the CSV delimiter with `-d`, e.g. `-d ,`
-- Use the created yaml files as input for the pipeline wrapper (`-c your.yaml`)
+  Depending on how you created the CSV file you might want to set the CSV delimiter with `-d`, e.g. "`-d ,`"
+- Use the created yaml file as input for the pipeline wrapper (usually "`-c your.yaml`")
 
 ## Comments, Questions, Bug reports
 
