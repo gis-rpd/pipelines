@@ -41,7 +41,7 @@ done
 # readlink resolves links and makes path absolute
 test -z "$RPD_ROOT" && exit 1
 
-TARGETED_CFG=$RPD_ROOT/testing/data/illumina-platinum-NA12878/split1konly_pe.yaml
+TARGETED_CFG=$RPD_ROOT/testing/data/illumina-platinum-NA12878/split1konly_pe.yaml.tmp
 WES_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/SRR098401_1.fastq.gz
 WES_FQ2=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/SRR098401_2.fastq.gz
 WGS_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_1.fastq.gz
@@ -66,7 +66,7 @@ SKIP_REAL_WGS=1
 
 
 WRAPPER=./gatk.py
-targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -s NA12878-targeted -t targeted -l $DUMMY_BED"
+targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -t targeted -l $DUMMY_BED"
 wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED"
 wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS"
 

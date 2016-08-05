@@ -40,15 +40,15 @@ localrules: final, report
 rule final:
     input:
         # NOTE changes here will likely have to be reflected in the report rule as well
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.idxstats.txt'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.idxstats.txt'),
                sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.maprate.txt'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.maprate.txt'),
                sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
                race=config['references']['cont_vcfs'], sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
                sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
                sample=config['samples']),
         "report.html"
     message:
@@ -61,11 +61,11 @@ rule final:
 rule report:
     input:
         # NOTE should roughly match final rule?!
-        bam=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
+        bam=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
                    sample=config['samples']),
-        bam_stats=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
+        bam_stats=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
                                sample=config['samples']),
-        cont_results=expand(os.path.join(RESULT_OUTDIR, 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
+        cont_results=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
                             race=config['references']['cont_vcfs'], sample=config['samples']),
     output:
         html="report.html"
@@ -157,9 +157,9 @@ rule unit_merge:
             '{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam', 
             prefix=wildcards.prefix, unit=config['samples'][wildcards.sample])
     output:
-        temp('{prefix}/sample-{sample}.bwamem.fixmate.mdups.srt.bam')
+        temp('{prefix}/{sample}/{sample}.bwamem.fixmate.mdups.srt.bam')
     log:
-        '{prefix}/sample-{sample}.bwamem.fixmate.mdups.srt.bam.log'
+        '{prefix}/{sample}/{sample}.bwamem.fixmate.mdups.srt.bam.log'
     message:
         "Merging files"
     threads:

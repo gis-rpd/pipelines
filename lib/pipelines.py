@@ -357,7 +357,7 @@ def get_site():
     elif os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
         return "GIS"
     else:
-        raise ValueError("unknown site")
+        return "local"
 
 
 def get_init_call():
