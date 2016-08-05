@@ -21,17 +21,38 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from rest import rest_services
+from services import rest_services
 from mongodb import mongodb_conn
-from pipelines import generate_window, send_mail
-from pipelines import get_machine_run_flowcell_id
+from pipelines import generate_window, send_mail, get_site
+from pipelines import get_machine_run_flowcell_id, generate_timestamp
+from pipelines import is_devel_version
+from readunits import key_for_read_unit
 
-LibUnit = namedtuple('LibUnit', ['mux_id', 'run_id', 'fastqs', 'pipeline_name',
-                                 'pipeline_version', 'pipeline_params', 'out_dir', 'site', 'ctime'])
+ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
+                                   'lane_id', 'rg_id', 'fq1', 'fq2'])
+
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
+
+
+OUTDIR_BASE = {
+    'GIS': {
+        'devel': '/mnt/projects/rpd/testing/output/downstream',
+        'production': '/mnt/projects/userrig/solexa/downstream'},
+    'NSCC': {
+        'devel': '/seq/astar/gis/rpd/testing/output/downstream/',
+        'production': '/seq/astar/gis/seq/downstream'}
+}
+PRODUCTION_PIPELINE_VERSION = {
+    'GIS': {
+        'production': '/mnt/projects/rpd/pipelines/current',
+        'devel': 'devel'},
+    'NSCC': { ###FIXME for the correct path
+        'devel': '/seq/astar/gis/rpd/pipelines.git/',
+        'production': 'devl'}
+}
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -40,13 +61,44 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-def check_fastq(fastq_data_dir, libid):
+def get_downstream_outdir(requestor, pipeline_version, pipeline_name, site=None, basedir_map=OUTDIR_BASE, base_pipelinedir_map=PRODUCTION_PIPELINE_VERSION):
+    """generate downstream output directory
+    """
+    if not site:
+        site = get_site()
+    if site not in basedir_map:
+        raise ValueError(site)
+    if site not in base_pipelinedir_map:
+        raise ValueError(site)
+    if is_devel_version():
+        basedir = basedir_map[site]['devel']
+        if not pipeline_version:
+            pipeline_version = base_pipelinedir_map[site]['devel']
+    else:
+        basedir = basedir_map[site]['production']
+        if not pipeline_version:
+            pipeline_version = os.readlink(base_pipelinedir_map[site]['production'])
+    outdir = "{basedir}/{requestor}/{pversion}/{pname}/{ts}".format(
+        basedir=basedir, requestor=requestor, pversion=pipeline_version, pname=pipeline_name,
+        ts=generate_timestamp())
+    return outdir
+
+
+def check_fastq(fastq_data_dir, libid, laneId):
     """Check if fastq data available for library
     """
     fastq_list = (os.path.join(fastq_data_dir, "*libid", "*fastq.gz")).replace("libid", libid)
     fastq_data = glob.glob(fastq_list)
     if len(fastq_data) > 0:
-        return (True, fastq_data)
+        for file in fastq_data:
+            base = os.path.basename(file)
+            if "L00laneId_R1_".replace("laneId", laneId) in base:
+                fq1 = file
+            elif "L00laneId_R2_".replace("laneId", laneId) in base:
+                fq2 = file
+            else:
+                fq2 = None
+        return (True, fq1, fq2)
     else:
         return (False, None)
 
@@ -67,22 +119,12 @@ def mongodb_update_runcomplete(run_num_flowcell, analysis_id, mux_id, insert_id,
         return True
 
 
-def mongodb_insert_libjob(lib, lib_info, connection):
+def mongodb_insert_libjob(lib_info, connection):
     """Insert records into pipeline_runs collection of MongoDB
     """
     try:
         db = connection.gisds.pipeline_runs
-        db.insert_one({"lib_id": lib, \
-            "mux_id":lib_info.mux_id, \
-            "run_id":lib_info.run_id, \
-            "ctime":lib_info.ctime, \
-            "fastqs":lib_info.fastqs, \
-            "pipeline_name":lib_info.pipeline_name, \
-            "pipeline_version":lib_info.pipeline_version, \
-            "pipeline_params":lib_info.pipeline_params, \
-            "out_dir":lib_info.out_dir, \
-            "site":lib_info.site \
-            })
+        db.insert_one(lib_info)
     except pymongo.errors.OperationFailure:
         logger.fatal("mongoDB OperationFailure")
         return False
@@ -104,9 +146,10 @@ def mongodb_remove_muxjob(mux_id, run_id, ctime, connection):
 def get_lib_details(run_num_flowcell, mux_list, testing):
     """Lib info collection from ELM per run
     """
-    _, run_num, _ = get_machine_run_flowcell_id(run_num_flowcell)
+    _, run_num, flowcellid = get_machine_run_flowcell_id(run_num_flowcell)
     # Call rest service to get component libraries
     if testing:
+        print(run_num)
         rest_url = rest_services['run_details']['testing'].replace("run_num", run_num)
         logger.info("development server")
     else:
@@ -117,41 +160,62 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
         response.raise_for_status()
     rest_data = response.json()
     logger.debug("rest_data from %s: %s", rest_url, rest_data)
-    pipeline_params_dict = {}
+    sample_info = {}
     if rest_data.get('runId') is None:
         logger.info("JSON data is empty for run num %s", run_num)
-        return pipeline_params_dict
+        return sample_info
     for mux_id, out_dir in mux_list:
         fastq_data_dir = os.path.join(out_dir[0], 'out', "Project_"+mux_id)
         if os.path.exists(fastq_data_dir):
             for rows in rest_data['lanes']:
                 if mux_id in rows['libraryId']:
-                    params = {}
-                    ctime, _ = generate_window(1)
                     if "MUX" in rows['libraryId']:
                         for child in rows['Children']:
-                            params['genome'] = child['genome']
-                            params['libtech'] = child['libtech']
-                            if child.get('SNV_ROI') is not None:
-                                params['SNV_ROI'] = child.get('SNV_ROI')
-                            status, fastq_list = check_fastq(fastq_data_dir, child['libraryId'])
-                            if status:
-                                info = LibUnit(rows['libraryId'], run_num_flowcell, \
-                                    fastq_list, child['Analysis'], None, params,  \
-                                    run_num_flowcell, 'GIS', ctime)
-                                pipeline_params_dict[child['libraryId']] = info
+                            if child['Analysis'] != "Sequence only":
+                                ctime, _ = generate_window(1)
+                                sample_dict = {}
+                                sample = child['libraryId']
+                                sample_dict['requestor'] = rows['requestor']
+                                sample_dict['ctime'] = ctime
+                                sample_dict['pipeline_name'] = child['Analysis']
+                                if 'pipeline_version' in rows:
+                                    sample_dict['pipeline_version'] = child['pipeline_version']
+                                else:
+                                    sample_dict['pipeline_version'] = None
+                                sample_dict['pipeline_params'] = 'params'
+                                sample_dict['site'] = get_site()
+                                out_dir = get_downstream_outdir(sample_dict['requestor'], \
+                                    sample_dict['pipeline_version'], sample_dict['pipeline_name'])
+                                sample_dict['out_dir'] = out_dir
+                                readunits_dict = {}
+                                status, fq1, fq2 = check_fastq(fastq_data_dir, child['libraryId'],\
+                                    rows['laneId'])
+                                if status:
+                                    ru = ReadUnit(run_num_flowcell, flowcellid, child['libraryId'],\
+                                        rows['laneId'], None, fq1, fq2)
+                                    k = key_for_read_unit(ru)
+                                    readunits_dict[k] = dict(ru._asdict())
+                                    sample_dict['readunits'] = readunits_dict
+                                    if sample_info.get(sample, {}).get('readunits'):
+                                        sample_info[sample]['readunits'].update(readunits_dict)
+                                    else:
+                                        sample_info[sample] = sample_dict
                     else:
-                        params['genome'] = rows['genome']
-                        params['libtech'] = rows['libtech']
-                        if rows.get('SNV_ROI') is not None:
-                            params['SNV_ROI'] = rows.get('SNV_ROI')
-                        status, fastq_list = check_fastq(fastq_data_dir, rows['libraryId'])
-                        if status:
-                            info = LibUnit(rows['libraryId'], run_num_flowcell, \
-                                    fastq_list, rows['Analysis'], None, params, \
-                                    run_num_flowcell, 'GIS', ctime)
-                            pipeline_params_dict[rows['libraryId']] = info
-    return pipeline_params_dict
+                        if rows['Analysis'] != "Sequence only":
+                            sample = rows['libraryId']
+                            status, fq1, fq2 = check_fastq(fastq_data_dir, rows['libraryId'], \
+                                rows['laneId'])
+                            if status:
+                                ctime, _ = generate_window(1)
+                                sample_dict = {}
+                                readunits_dict = {}
+                                ru = ReadUnit(run_num_flowcell, flowcellid, rows['libraryId'], \
+                                    rows['laneId'], None, fq1, fq2)
+                                k = key_for_read_unit(ru)
+                                readunits_dict[k] = dict(ru._asdict())
+                                sample_dict['readunits'] = readunits_dict
+                                sample_info[sample] = sample_dict
+    return sample_info
 
 
 def main():
@@ -199,6 +263,7 @@ def main():
     mongo_db_ref = {}
     for record in results:
         run_number = record['run']
+        print(run_number)
         mux_list = {}
         for (analysis_count, analysis) in enumerate(record['analysis']):
             analysis_id = analysis['analysis_id']
@@ -246,20 +311,27 @@ def main():
             logger.warning("pipeline_paramas_dict is empty for run num %s", run_num_flowcell)
             continue
         for lib, lib_info in pipeline_params_dict.items():
+            readunits_list = list()
+            for outer_key in lib_info:
+                if outer_key == 'readunits':
+                    for inner_key in lib_info[outer_key]:
+                        readunits_list.append(inner_key)
+            lib_info['samples'] = {}
+            lib_info['samples'][lib] = readunits_list
             if args.dry_run:
-                logger.warning("Skipping job delegation for %s from %s", \
-                    lib_info.mux_id, lib_info.run_id)
+                logger.warning("Skipping job delegation for %s", \
+                    lib)
                 continue
-            res = mongodb_insert_libjob(lib, lib_info, connection)
+            res = mongodb_insert_libjob(lib_info, connection)
             if not res:
                 logger.critical("Skipping rest of analysis job submission" \
-                    "for %s from %s", lib, lib_info.run_id)
+                     "for %s from %s", lib, lib_info.run_id)
                 subject = "Downstream delegator failed job submission for" \
-                    "{}".format(lib_info.mux_id)
+                    "{}".format(lib)
                 if args.testing:
                     subject += " (testing)"
                 body = "Downstream delegator failed to insert job submission for" \
-                    "{}".format(lib_info.mux_id)
+                    "{}".format(lib)
                 send_mail(subject, body, toaddr='veeravallil', ccaddr=None)
                 update_status = False
                 logger.warning("Clean up the database for mux %s from run %s and ctime %s", \

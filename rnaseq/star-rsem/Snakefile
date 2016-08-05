@@ -90,7 +90,7 @@ Version Info
 
 {config[ELM][pipeline_version]} 
 
-""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
                conf="conf.yaml")
         # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
@@ -295,11 +295,12 @@ rule star_mapping:
         alignIntronMax = 1000000,
         alignMatesGapMax = 1000000,
         limitBAMsortRAM = 20016346648,
-        stranded = '' if config['stranded'] else '--outSAMstrandField intronMotif'
+        stranded = '' if config['stranded'] else '--outSAMstrandField intronMotif',
+        gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
     threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
     shell:
         "{{ commentsheader=$(mktemp);"
-        " echo -e '@CO\tANNOTATIONFILE:{config[references][gtfsourcefile]}' > $commentsheader;"
+        " echo -e '@CO\tANNOTATIONFILE:{params.gtfsourcefile}' > $commentsheader;"
         " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
         " STAR --genomeDir {input.staridx}"
         # yes, RG unescaped:
@@ -307,7 +308,7 @@ rule star_mapping:
         " --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
         " --outSAMheaderCommentFile $commentsheader"
         " --runThreadN {threads}"
-        " --genomeLoad LoadAndRemove"
+        " --genomeLoad NoSharedMemory"
         " --readFilesCommand zcat"
         " --outFilterType BySJout"
         " --outSAMtype BAM SortedByCoordinate"

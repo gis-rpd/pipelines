@@ -103,7 +103,7 @@ def main():
                 logger.critical("The following command failed with"
                                 " return code %s: %s", e.returncode, ' '.join(cmd))
                 logger.critical("Full error message was: %s", e.stdout)
-                if 'commlib error' in e.stdout:
+                if 'commlib error' in e.stdout.decode():
                     logger.critical(
                         "Looks like a qmaster problem (commlib error). Exiting")
                     break

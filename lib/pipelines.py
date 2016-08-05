@@ -53,7 +53,7 @@ INIT = {
 
 # from address, i.e. users should reply to to this
 # instead of rpd@gis to which we send email
-RPD_MAIL = "rpd@mailman.gis.a-star.edu.sg"
+RPD_MAIL = "rpd@gis.a-star.edu.sg"
 RPD_SIGNATURE = """
 --
 Research Pipeline Development Team
@@ -357,7 +357,7 @@ def get_site():
     elif os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
         return "GIS"
     else:
-        raise ValueError("unknown site (fqdn was {})".format(socket.getfqdn()))
+        raise ValueError("unknown site")
 
 
 def get_init_call():
@@ -475,8 +475,9 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir,
     body += "\n\nThis is an automatically generated email\n"
     body += RPD_SIGNATURE
 
-    subject = "Pipeline {} for {} {}".format(
-        pipeline_name, analysis_id, status_str)
+    site = get_site()
+    subject = "Pipeline {} for {} {} (@{})".format(
+        pipeline_name, analysis_id, status_str, site)
 
     msg = MIMEText(body)
     msg['Subject'] = subject
@@ -526,7 +527,7 @@ def send_mail(subject, body, toaddr=None, ccaddr=None,
     try:
         server.send_message(msg)
         server.quit()
-    except Exception:
+    except Exception as err:
         logger.fatal("Sending mail failed: %s", err)
         if not pass_exception:
             raise

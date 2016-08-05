@@ -88,4 +88,5 @@ Contact us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu
 
 Much of this framework assumes a certain setup and services to be
 present, as is the case in GIS. In other words, it might be of limited
-use to the general public.
+use to the general public. See INSTALL.md for simplistic installation
+instructions.
