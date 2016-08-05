@@ -41,7 +41,7 @@ done
 # readlink resolves links and makes path absolute
 test -z "$RPD_ROOT" && exit 1
 
-TARGETED_CFG=$RPD_ROOT/testing/data/illumina-platinum-NA12878/split1konly_pe.yaml.tmp
+TARGETED_CFG=$RPD_ROOT/testing/data/illumina-platinum-NA12878/split1konly_pe.yaml
 WES_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/SRR098401_1.fastq.gz
 WES_FQ2=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/SRR098401_2.fastq.gz
 WGS_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_1.fastq.gz
