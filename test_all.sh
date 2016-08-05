@@ -50,7 +50,7 @@ commit=$(git describe --always --dirty)
 
 for sh in $(find * -maxdepth 3 -mindepth 1 -name tests.sh); do
 
-    if [ 0 ]; then
+    if false; then
         if echo $sh | grep -q bcl2fastq; then
             echo "WARN: Skipping bcl2fastq" 1>&2
             continue
