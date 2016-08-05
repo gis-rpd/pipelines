@@ -1,0 +1,147 @@
+# standard library imports
+#
+import os
+from itertools import chain
+import hashlib
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from readunits import fastqs_from_unit
+
+
+RESULT_OUTDIR = './out'
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+# should work for many now
+# assert len(config['samples'])==1
+
+include: "../../rules/logging.rules"
+
+
+GENOME_BASENAME = os.path.splitext(os.path.basename(
+    config['references']['genome']))[0].replace("_", "-")
+# replace "_" which is used as delimiter for other things here
+
+
+results = dict()
+results['kallisto'] = expand(os.path.join(RESULT_OUTDIR, "{sample}/kallisto/{sample}_{genome}_kallisto_complete.OK"),
+                         sample=config['samples'],
+                         genome=GENOME_BASENAME)
+all_results = results['kallisto']
+
+
+localrules: final, report
+
+rule final:
+    input:
+        all_results,
+        report="report.html"
+
+
+rule report:
+    input:
+        # dep on rnaseqc (and hence star) as shortcut
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/kallisto/{sample}_{genome}_kallisto_complete.OK'),
+               sample=config['samples'], 
+               genome=GENOME_BASENAME),
+    output:
+        html="report.html"
+    params:
+        samplenames=', '.join(config['samples'].keys())
+    run:
+        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
+        readme = "EMPTY"
+        with open(os.path.join(workflow_home, "README.rst")) as fh:
+            readme = fh.read()
+            
+        report("""
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+=================================================================
+
+Version Info
+------------
+
+{config[ELM][pipeline_version]} 
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@mailman.gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch to have at least something
+
+
+def fastqs_for_sample(sample):
+    """wrapper around fastqs_from_unit which is awkward to use when
+    splitting into fq1 and fq2.
+
+    """
+
+    fqs1 = []
+    fqs2 = []
+    for ru in config["samples"][sample]:
+        fqs = fastqs_from_unit(config["readunits"][ru])
+        if isinstance(fqs, tuple):
+            fqs1.append(fqs[0])
+            fqs2.append(fqs[1])
+        elif isinstance(fqs, str):
+            fqs1.append(fqs)
+        else:
+            raise ValueError(fqs)
+    return fqs1, fqs2
+
+
+def flattened_fastqs_for_sample(wildcards):
+    fqs1, fqs2 = fastqs_for_sample(wildcards.sample)
+    if not fqs2:
+        return fqs1
+    else:
+        return fqs1 + fqs2
+
+
+def star_fmt_fastqs_for_sample(wildcards):
+    fqs1, fqs2 = fastqs_for_sample(wildcards.sample)
+    if not fqs2:
+        return "{}".format(",".join(fqs1))
+    else:
+        return "{} {}".format(",".join(fqs1), ",".join(fqs2))
+
+
+rule kallisto:
+    input:
+        fqs = flattened_fastqs_for_sample,
+        kallistoidx = config['references']['kallistoidx']
+    output:
+        touch(os.path.join(RESULT_OUTDIR, "{sample}/kallisto/{sample}_{genome}_kallisto_complete.OK")),
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}/kallisto/kallisto.log")
+    message: "Running kallisto"
+    params:
+        fmt_fq_list = star_fmt_fastqs_for_sample,
+        lib_type = '' if config['paired_end'] else '--single -l 180 -s 20',
+        stranded = '' if config['stranded'] == 'null' else config['stranded']
+        #strand types --fr-stranded --rf-stranded
+    threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
+    shell:
+        " {{ outpref=`dirname {output}`;"
+        "/mnt/AnalysisPool/libraries/tools/kallisto_linux-v0.43.0/kallisto quant --index={input.kallistoidx}"
+        "--output-dir=$outpref"
+        " --threads={threads}"
+        " --plaintext"
+        " {params.lib_type} {params.stranded}"
+        " {params.fmt_fq_list};}} >& {log};"
+        #if pseudoalignments BAM required
+        #" --pseudobam {params.fmt_fq_list} | samtools view -Sb - > $outpref.out.bam;}} >& {log};"
