@@ -39,7 +39,7 @@ GENOME_BASENAME = os.path.splitext(os.path.basename(
 NUM_ROWS = 40
 
 
-assert len(config['samples'])==1, ("Pipeline optimized for one sample, i.e. componenent-library")
+#assert len(config['samples'])==1, ("Pipeline optimized for one sample, i.e. componenent-library")
 
 rule final:
     input:

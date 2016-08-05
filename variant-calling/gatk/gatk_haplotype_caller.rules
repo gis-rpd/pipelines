@@ -27,28 +27,31 @@ def _gatk_multi_arg(flag, files):
 
 rule gatk_haplotype_caller:
     input:
-        bams = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.realn.recal.bam',
-                                        prefix=wildcards.prefix,
-                                        unit=config['samples'][wildcards.sample]),
-        bais = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.realn.recal.bam.bai',
-                                        prefix=wildcards.prefix,
-                                        unit=config['samples'][wildcards.sample]),
+        bams = lambda wildcards: expand(
+            '{prefix}/unit-{unit}.bwamem.realn.recal.bam',
+            prefix=wildcards.prefix,
+            unit=config['samples'][wildcards.sample]),
+        bais = lambda wildcards: expand(
+            '{prefix}/unit-{unit}.bwamem.realn.recal.bam.bai',
+            prefix=wildcards.prefix,
+            unit=config['samples'][wildcards.sample]),
         # stats awkward here but also awkward in BAM agnostic final. introduces samtools rule dep
-        stats = lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.realn.recal.bamstats/stats.txt',
-                                        prefix=wildcards.prefix,
-                                        unit=config['samples'][wildcards.sample]),
-        ref=config["references"]["genome"],
+        stats = lambda wildcards: expand(
+            '{prefix}/unit-{unit}.bwamem.realn.recal.bamstats/stats.txt',
+            prefix=wildcards.prefix,
+            unit=config['samples'][wildcards.sample]),
+            ref=config["references"]["genome"],
         # see prep_bed_files
         # split by chrom and intersect with intervals already if needed
         bed=os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed")
     output:
-        gvcf=temp("{prefix}/{sample}.{ctr}.gvcf"),
-        idx=temp("{prefix}/{sample}.{ctr}.gvcf.idx")
+        gvcf = temp("{prefix}/{sample}.{ctr}.gvcf"),
+        idx = temp("{prefix}/{sample}.{ctr}.gvcf.idx")
     log:
         "{prefix}/{sample}.{ctr}.gvcf.log"
     params:
         #intervals_arg=_get_intervals_arg(),
-        custom=config.get("params_gatk", "")
+        custom = config.get("params_gatk", "")
     # original comment: "haplotype caller currently does not reliably
     # use more than 2 threads".  we found it to not work reliably with
     # anything >1 need to request for more anyway to make our

@@ -62,8 +62,8 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: $SAMPLE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-pe-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./SG10K.py -s $SAMPLE -c $CFG -o $odir --no-run >> $log 2>&1
+    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    ./SG10K.py -c $CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -78,9 +78,8 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run: $SAMPLE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-se-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./SG10K.py -s $SAMPLE -c $CFG -o $odir >> $log 2>&1
-    echo "FIXME IMPLEMENT: send email"
+    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    ./SG10K.py -c $CFG -o $odir >> $log 2>&1
     echo "FIXME IMPLEMENT: test number of reads etc. as extra submitted job"
 else
     echo "Real-run test skipped"

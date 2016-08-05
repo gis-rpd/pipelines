@@ -35,15 +35,22 @@ include: "gatk_hard_filter.rules"
 
 
 # always hard filter
-FINAL_VCFS = [
-    os.path.join(RESULT_OUTDIR, "all_genotyped.snp_hfilter.vcf"),
-    os.path.join(RESULT_OUTDIR, "all_genotyped.indel_hfilter.vcf")]
+FINAL_VCFS = []
+FINAL_VCFS += expand(
+    os.path.join(RESULT_OUTDIR, "{sample}/all_genotyped.snp_hfilter.vcf"),
+    sample=config['samples'])
+FINAL_VCFS += expand(
+    os.path.join(RESULT_OUTDIR, "{sample}/all_genotyped.indel_hfilter.vcf"),
+    sample=config['samples'])
+
 # try recal only for WGS
 if config['seqtype']=='WGS':
-    FINAL_VCFS.extend([
-        os.path.join(RESULT_OUTDIR, "all_genotyped.snp_recal.vcf"),
-        os.path.join(RESULT_OUTDIR, "all_genotyped.indel_recal.vcf"),
-        ])
+    FINAL_VCFS += expand(
+        os.path.join(RESULT_OUTDIR, "{sample}/all_genotyped.snp_recal.vcf"),
+        sample=config['samples'])
+    FINAL_VCFS += expand(
+        os.path.join(RESULT_OUTDIR, "{sample}/all_genotyped.indel_recal.vcf"),
+        sample=config['samples']),
 
 
 if config['seqtype'] == 'targeted':

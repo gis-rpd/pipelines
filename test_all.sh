@@ -49,6 +49,14 @@ cd $(dirname $0)
 commit=$(git describe --always --dirty)
 
 for sh in $(find * -maxdepth 3 -mindepth 1 -name tests.sh); do
+
+    if false; then
+        if echo $sh | grep -q bcl2fastq; then
+            echo "WARN: Skipping bcl2fastq" 1>&2
+            continue
+        fi        
+    fi
+    
     echo "------------------------------------------------------------"
     echo "Running $sh"
     echo "------------------------------------------------------------"
