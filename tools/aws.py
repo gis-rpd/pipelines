@@ -11,61 +11,53 @@ FIELDS = ['qname', 'hostname', 'owner', 'job_name', 'job_number', 'submission_ti
           'start_time', 'end_time', 'failed', 'exit_status', 'ru_wallclock', 'io', 'category', 'maxvmem',
           'h_rt', 'h_vmem', 'mem_free', 'openmp']
 
-#acct = argv[1]
-#assert path.exists(acct)
-#try:
-#	jid = argv[2]
-#except:
-#	jid = None
-
 instance = ArgumentParser(description=__doc__)
-instance.add_argument("-f", "--file", nargs="*", help="accounting file(s) in .gz")
+instance.add_argument("-a", "--accounting", nargs="*", help="accounting file(s) in .gz")
+instance.add_argument("-b", "--database", help="SQLite database filename")
 instance.add_argument("-o", "--owner", nargs="*", help="job owner(s)")
-instance.add_argument("-v", "--view", nargs="*", help="SQL views(s)")
+#instance.add_argument("-v", "--view", nargs="*", help="SQL views(s)")
 args = instance.parse_args()
 
+if args.accounting and args.database:
+	if (not path.isfile(args.database)):
+		print ("CREATING DATABASE:\t" + args.database)
+	else:
+		remove (args.database)
+		print ("REPLACING DATABASE:\t" + args.database)
 
-if (not path.isfile("aws.db")):
-	print ("CREATING DATABASE: aws.db")
-else:
-	remove ("aws.db")
-	print ("REPLACING DATABASE: aws.db")
+	db = connect(args.database)
+	db.execute('''CREATE TABLE accounting(
+		qname			TEXT		NOT NULL,
+		hostname		TEXT		NOT NULL,
+		owner			TEXT		NOT NULL,
+		job_name		TEXT		NOT NULL,
+		job_number		INTEGER		NOT NULL,
+		submission_time		INTEGER		NOT NULL,
+		start_time		INTEGER		NOT NULL,
+		end_time		INTEGER		NOT NULL,
+		failed			INTEGER		NOT NULL,
+		exit_status		INTEGER		NOT NULL,
+		ru_wallclock		INTEGER		NOT NULL,
+		io			INTEGER		NOT NULL,
+		category		INTEGER		NOT NULL,
+		maxvmem			INTEGER		NOT NULL,
+		h_rt			INTEGER,
+		h_vmem			INTEGER,
+		mem_free		INTEGER,
+		openmp			INTEGER
+	);''')
+	db.close()
 
-
-db = connect("aws.db")
-db.execute('''CREATE TABLE accounting(
-	qname			TEXT		NOT NULL,
-	hostname		TEXT		NOT NULL,
-	owner			TEXT		NOT NULL,
-	job_name		TEXT		NOT NULL,
-	job_number		INTEGER		NOT NULL,
-	submission_time		INTEGER		NOT NULL,
-	start_time		INTEGER		NOT NULL,
-	end_time		INTEGER		NOT NULL,
-	failed			INTEGER		NOT NULL,
-	exit_status		INTEGER		NOT NULL,
-	ru_wallclock		INTEGER		NOT NULL,
-	io			INTEGER		NOT NULL,
-	category		INTEGER		NOT NULL,
-	maxvmem			INTEGER		NOT NULL,
-	h_rt			INTEGER,
-	h_vmem			INTEGER,
-	mem_free		INTEGER,
-	openmp			INTEGER
-);''')
-db.close()
-
-
-if args.file:
-	for acct in args.file:
+	for acct in args.accounting:
 		print (acct[-3:])
 		with open(acct) as fh:
 			for line in fh:
 				l = line.decode().rstrip().split(':')
 				if l[0].startswith('#'):
 					continue
+				
+				owner_found = 0
 				if args.owner:
-					owner_found = 0;
 					for owner in args.owner:
 						if l[3] == owner:
 							owner_found += 1
@@ -101,14 +93,11 @@ if args.file:
 				else:
 					c = (c + ", ''")
 #				print(c[2:])
-				db = connect("aws.db")
+				db = connect(args.database)
 				db.execute("INSERT INTO accounting (" + a[2:] + ") VALUES (" + b[2:] + c + ");")
 				db.commit()
 				db.close()
 
-	#		d = OrderedDict(zip(FIELDS, l))
-
-	#		if jid:
-	#			if d['job_number'] == jid:
-	#				for k, v in d.items():
-	#					print (k, v)
+else:
+	print ("Please specify one or more accounting file(s) in .gz with -a or --accounting")
+	print ("Please specify a SQLite database filename with -b or --database")
