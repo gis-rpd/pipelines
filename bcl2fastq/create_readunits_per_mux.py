@@ -17,7 +17,7 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from readunits import key_for_read_unit
+from readunits import key_for_readunit
 
 ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
                                    'lane_id', 'rg_id', 'fq1', 'fq2'])
@@ -106,7 +106,7 @@ def main():
                             if status:
                                 ru = ReadUnit(run_num, units["flowcell_id"], sample,\
                                     lane_id, None, fq1, fq2)
-                                k = key_for_read_unit(ru)
+                                k = key_for_readunit(ru)
                                 readunits_dict[k] = dict(ru._asdict())
                                 sample_dict[sample] = k
                                 sample_info = readunits_dict
