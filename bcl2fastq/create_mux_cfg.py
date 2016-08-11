@@ -147,6 +147,8 @@ def main():
                     logger.info("Created %s", muxinfo_cfg)
 
 
+
+
 if __name__ == "__main__":
     logger.info("Creating sample readunits")
     main()

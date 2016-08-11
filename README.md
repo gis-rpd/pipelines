@@ -79,6 +79,29 @@ the
   - gatk
   - lacer-lofreq
 
+
+## One wrapper, multiple samples
+
+If you want to analyze many samples (identically) with just one
+wrapper call, you will have to provide per sample information to the
+wrapper. The easiest way to achieve this, is to create an Excel sheet
+listing all samples and fastq(s) and to convert it into a config
+file as described in the following:
+
+- Create an Excel sheet with the following columns:
+  1. sample name (mandatory; can be used repeatedly, e.g. if you have multiple fastqs per sample)
+  2. run id (allowed to be empty)
+  3. flowcell id (allowed to be empty)
+  4. library id (allowed to be empty)
+  5. lane id (allowed to be empty)
+  6. read-group id (allowed to be empty)
+  7. fastq1 (mandatory)
+  8. fastq2 (allowed to be empty)
+- Save the Excel sheet as CSV and run the following to convert it to yaml:
+  `tools/sample_conf.py -i <your>.csv -i <your>.yaml`
+  Depending on how you created the CSV file you might want to set the CSV delimiter with `-d`, e.g. "`-d ,`"
+- Use the created yaml file as input for the pipeline wrapper (usually "`-c your.yaml`")
+
 ## Comments, Questions, Bug reports
 
 Contact us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu.sg)
