@@ -162,7 +162,8 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
             if "Status" in record["analysis"][-1]:
                 if record["analysis"][-1]["Status"] == "STARTED":
                     analysis_started += 1
-                if record["analysis"][-1]["Status"].find("FAILED") != -1:
+#                if record["analysis"][-1]["Status"].find("FAILED") != -1:
+                if record["analysis"][-1]["Status"] == "FAILED":
                     analysis_failed += 1
                 if record["analysis"][-1]["Status"] == "SUCCESS":
                     analysis_success += 1

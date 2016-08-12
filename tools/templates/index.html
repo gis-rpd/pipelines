@@ -75,7 +75,7 @@
 					$(".mdl-badge").css("color", "white");
 					$(this).css("color", "yellow");
 //					table.column(2).search("FAILED").draw();
-					table.column(2).search("^((?!NONE|STARTED|SUCCESS).)*$", true).draw();
+					table.column(2).search("^((?!NONE|STARTED|SUCCESS|SEQRUNFAILED).)*$", true).draw();
 				});
 				$("#analysis_success").click(function(){
 					$(".mdl-badge").css("color", "white");
