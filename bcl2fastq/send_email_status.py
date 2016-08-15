@@ -155,11 +155,14 @@ def main():
                     update_mongodb_email(db, run_number, analysis_id, email_sent_query, True)
 
                 elif mux_status.get('Status', None) == "SUCCESS":
-                    out_path = os.path.join(out_dir, 'out', mux_status.get('mux_dir'), 'html/index.html')
-                    out = path_to_url(out_path)
+                    muxdir = os.path.join(out_dir, 'out', mux_status.get('mux_dir'))
+                    summary = path_to_url(os.path.join(muxdir, 'html/index.html'))
                     body = "bcl2fastq for {} from {} successfully completed.".format(
                         mux_id, run_number)
-                    body += "\n\nPlease check the output under {}".format(out)
+                    body += "\n\nA summary can be found at {}".format(summary)
+                    body += "\n\nFastQ files are located in {}".format(muxdir)
+                    body += "\n\nData can also be downloaded from GIS-SRA (once archival is complete)"
+                    
                     confinfo = os.path.join(out_dir, 'conf.yaml')
                     #print(body)
                     if not os.path.exists(confinfo):

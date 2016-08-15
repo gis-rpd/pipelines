@@ -68,6 +68,8 @@ def main():
                         help="bcl2fastq directory")
     parser.add_argument("-o", "--outpref",
                         help="Output prefix used for created yaml files per MUX (default: bcl2fastq dir)")
+    parser.add_argument('-f', "--overwrite", action='store_true',
+                        help="Overwrite existing files")
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -141,6 +143,9 @@ def main():
             if args.dry_run:
                 logger.warning("Skipped creation of %s", muxinfo_cfg)
             else:
+                if os.path.exists(muxinfo_cfg) and not args.overwrite:
+                    logger.fatal("Refusing to overwrite existing file %s", muxinfo_cfg)
+                    sys.exit(1)
                 with open(muxinfo_cfg, 'w') as fh:
                     fh.write(yaml.dump(dict(samples=samples), default_flow_style=False))
                     fh.write(yaml.dump(dict(readunits=readunits), default_flow_style=False))
