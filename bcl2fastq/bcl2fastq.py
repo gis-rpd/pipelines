@@ -366,32 +366,17 @@ def main():
         mu_dict = dict(mu._asdict())
         user_data['units'][k] = mu_dict
 
-    # create mongodb update command, used later, after queueing
+    # create mongodb update command, used later, after submission
     mongo_update_cmd = "{} -r {} -s STARTED".format(mongo_status_script, user_data['run_num'])
     mongo_update_cmd += " -a $ANALYSIS_ID -o {}".format(outdir)# set in run.sh
     if args.testing:
         mongo_update_cmd += " -t"
 
-    # NOTE: bcl2fastq has a special run template, so we need to
-    # interfer with the default pipeline_handler.  plenty of
-    # opportunity to shoot yourself in the foot
-
     pipeline_handler = PipelineHandler(
-        PIPELINE_NAME, PIPELINE_BASEDIR, outdir, user_data,
-        site=site, master_q=args.master_q, slave_q=args.slave_q)
-    # use local run template
-    pipeline_handler.run_template = os.path.join(
-        PIPELINE_BASEDIR, "run.template.{}.sh".format(pipeline_handler.site))
-    assert os.path.exists(pipeline_handler.run_template)
+        PIPELINE_NAME, PIPELINE_BASEDIR,
+        outdir, user_data, site=site,
+        logger_cmd=mongo_update_cmd, master_q=args.master_q, slave_q=args.slave_q)
     pipeline_handler.setup_env()
-    # final mongo update line in run_out
-    tmp_run_out = pipeline_handler.run_out + ".tmp"
-    with open(pipeline_handler.run_out) as fh_in, \
-         open(tmp_run_out, 'w') as fh_out:
-        for line in fh_in:
-            line = line.replace("@MONGO_UPDATE_CMD@", mongo_update_cmd)
-            fh_out.write(line)
-    shutil.move(tmp_run_out, pipeline_handler.run_out)
     pipeline_handler.submit(args.no_run)
 
 

@@ -99,6 +99,7 @@ class PipelineHandler(object):
                  outdir,
                  user_data,
                  pipeline_rootdir=PIPELINE_ROOTDIR,
+                 logger_cmd="true", # bash: not doing anything by default
                  site=None,
                  master_q=None,
                  slave_q=None,
@@ -136,6 +137,7 @@ class PipelineHandler(object):
             except ValueError:
                 logger.warning("Unknown site")
                 site = "local"
+        self.logger_cmd = logger_cmd
         self.site = site
         self.master_q = master_q
         self.slave_q = slave_q
@@ -225,23 +227,21 @@ class PipelineHandler(object):
         """FIXME:add-doc
         """
 
-        with open(self.run_template) as templ_fh, open(self.run_out, 'w') as out_fh:
-            for line in templ_fh:
-                # if we copied the snakefile (to allow for local modification)
-                # the rules import won't work.  so use the original file
-                line = line.replace("@SNAKEFILE@", self.snakefile_abs)
-                line = line.replace("@LOGDIR@", self.log_dir_rel)
-                line = line.replace("@MASTERLOG@", self.masterlog)
-                line = line.replace("@PIPELINE_NAME@", self.pipeline_name)
-                line = line.replace("@MAILTO@", self.toaddr)
-                line = line.replace("@MASTER_WALLTIME_H@", str(self.master_walltime_h))
-                if self.slave_q:
-                    line = line.replace("@DEFAULT_SLAVE_Q@", self.slave_q)
-                else:
-                    line = line.replace("@DEFAULT_SLAVE_Q@", "")
-                out_fh.write(line)
+        d = {'SNAKEFILE': self.snakefile_abs,
+             'LOGDIR': self.log_dir_rel,
+             'MASTERLOG': self.masterlog,
+             'PIPELINE_NAME': self.pipeline_name,
+             'MAILTO': self.toaddr,
+             'MASTER_WALLTIME_H': self.master_walltime_h,
+             'DEFAULT_SLAVE_Q': self.slave_q if self.slave_q else "",
+             'LOGGER_CMD': self.logger_cmd}
 
+        with open(self.run_template) as fh:
+            templ = fh.read()
+        with open(self.run_out, 'w') as fh:
+            fh.write(templ.format(**d))
 
+            
     def read_default_config(self):
         """parse default config and replace all RPD env vars
         """

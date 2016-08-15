@@ -32,30 +32,30 @@
 # PBS Pro options:
 # The #PBS must be used to specify PBS Pro options
 # declare a name for this job to be sample_job
-#PBS -N @PIPELINE_NAME@.master
+#PBS -N {PIPELINE_NAME}.master
 # logs
-#PBS -o @LOGDIR@
+#PBS -o {LOGDIR}
 # combine stdout/stderr
 #PBS -j oe
 # snakemake control job run time: 175h == 1 week
-#PBS -l walltime=@MASTER_WALLTIME_H@:00:00
-# cpu and memory
-#PBS -l select=1:mem=8g:ncpus=1
+#PBS -l walltime={MASTER_WALLTIME_H}:00:00
+# cpu & memory: memory shoots up for heavily multiplexed libraries
+#PBS -l select=1:mem=16g:ncpus=1
 # keep env so that qsub works
 #PBS -V
 # Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
 # Email address (for abort and kills only, everything else handled by snakemake)
-#PBS -M @MAILTO@
+#PBS -M {MAILTO}
 #PBS -m a
 
 
-DEBUG=${DEBUG:-0}
+DEBUG=${{DEBUG:-0}}
 #export DRMAA_LIBRARY_PATH=
-#DRMAA_OFF=${DRMAA_OFF:-0}
+#DRMAA_OFF=${{DRMAA_OFF:-0}}
 DRMAA_OFF=1
-DEFAULT_SLAVE_Q=@DEFAULT_SLAVE_Q@
-SNAKEFILE=@SNAKEFILE@
-LOGDIR="@LOGDIR@";# should be same as defined above
+DEFAULT_SLAVE_Q={DEFAULT_SLAVE_Q}
+SNAKEFILE={SNAKEFILE}
+LOGDIR="{LOGDIR}";# should be same as defined above
 DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60"
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
@@ -65,7 +65,7 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
-    clustercmd="-l select=1:ncpus={threads}:mem={cluster.mem} -l walltime={cluster.time}"
+    clustercmd="-l select=1:ncpus={{threads}}:mem={{cluster.mem}} -l walltime={{cluster.time}}"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     clustercmd="$clustercmd -e $LOGDIR -o $LOGDIR"
     # PBS: cwd (workaround for missing SGE option "-cwd")
@@ -80,7 +80,7 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
     else
         clustercmd="--drmaa \" $clustercmd -w n\""
     fi
-    CLUSTER_ARGS="--cluster-config cluster.yaml $clustercmd --jobname \"@PIPELINE_NAME@.slave.{rulename}.{jobid}.sh\""
+    CLUSTER_ARGS="--cluster-config cluster.yaml $clustercmd --jobname \"{PIPELINE_NAME}.slave.{{rulename}}.{{jobid}}.sh\""
     N_ARG="--jobs 25"
 else
     # run locally
@@ -126,8 +126,35 @@ fi
 # now okay to add CLUSTER_ARGS (allows repeated -l)
 sm_args="$sm_args $CLUSTER_ARGS"
 
+# ANALYSIS_ID created here so that each run gets its own Id
+# iso8601ms timestamp as corresponding python function
+iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+iso8601ms=${{iso8601ns:0:26}}
+ANALYSIS_ID=$iso8601ms
+sm_args="$sm_args --config ANALYSIS_ID=$ANALYSIS_ID"
 
-cmd="snakemake $sm_args >> @MASTERLOG@ 2>&1"
+
+# mongodb update has to happen here because at this stage we know the
+# job has been submitted. at the same time we avoid cases where a job
+# stuck in queue will be rerun. but don't update if running in dryrun
+# mode
+is_dryrun=0
+sm_args_tokenized=$(echo "$sm_args" | tr ' ' '\n' | grep '^-' | sort)
+for arg in $sm_args_tokenized; do
+    if [ $arg == "-n" ] || [ $arg == "--dryrun" ]; then
+        is_dryrun=1
+        break
+    fi
+done
+
+if [ $is_dryrun != 1 ]; then
+    {LOGGER_CMD}
+else
+    echo "Skipping MongoDB update (dryrun)"
+fi
+
+
+cmd="snakemake $sm_args >> {MASTERLOG} 2>&1"
 if [ $DEBUG -eq 1 ]; then
     echo $cmd
 else
