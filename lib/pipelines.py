@@ -4,7 +4,7 @@
 #--- standard library imports
 #
 import os
-#import sys
+import sys
 import subprocess
 import logging
 import shutil
@@ -16,6 +16,7 @@ import time
 from datetime import datetime, timedelta
 import calendar
 import json
+import requests
 
 #--- third-party imports
 #
@@ -24,6 +25,7 @@ import yaml
 #--- project specific imports
 #
 from services import SMTP_SERVER
+from services import rest_services
 
 
 __author__ = "Andreas Wilm"
@@ -592,3 +594,22 @@ def path_to_url(out_path):
     else:
         #raise ValueError(out_path)
         return out_path
+
+def mux_to_lib(mux_id, testing=False):
+    """returns the component libraries for MUX
+    """
+    lib_list = []
+    if not testing:
+        rest_url = rest_services['lib_details']['production'].replace("lib_id", mux_id)
+    else:
+        rest_url = rest_services['lib_details']['testing'].replace("lib_id", mux_id)
+    response = requests.get(rest_url)
+    if response.status_code != requests.codes.ok:
+        response.raise_for_status()
+    rest_data = response.json()
+    if 'plexes' not in rest_data:
+        logger.fatal("FATAL: plexes info for %s is not available in ELM \n", mux_id)
+        sys.exit(1)
+    for lib in rest_data['plexes']:
+        lib_list.append(lib['libraryId'])
+    return lib_list
