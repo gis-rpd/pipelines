@@ -1,0 +1,58 @@
+from pipelines import chroms_and_lens_from_from_fasta, parse_regions_from_bed
+
+
+assert 'references' in config
+assert 'genome' in config['references']
+
+
+rule lofreq_massage_sort:
+    """Runs BAM through full LoFreq preprocessing pipeline,
+    i.e. viterbi, alnqual, indelqual, followed by sort (required by
+    viterbi).
+
+    WARNING: running this on unsorted input files will be inefficient
+    because of constant reloading of the reference
+
+    See also lofreq_massage_sort_chrsplit
+    """
+    input:
+        bam = '{prefix}.bam',
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".fai"
+    output:
+        bam=temp('{prefix}.lofreq.bam')# tmp because postprocess by lacer
+    log:
+        '{prefix}.lofreq.log'
+    params:
+        sort_mem='500M'
+    message: "Preprocessing BAMs with LoFreq"
+    shell:
+        "{{ lofreq viterbi -f {input.reffa} {input.bam} | "
+        " lofreq alnqual -u - {input.reffa} | "
+        " lofreq indelqual --dindel -f {input.reffa} - | "
+        " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
+
+
+rule intervals_wo_excl:
+    input:
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".fai"
+    output:
+        bed = os.path.join(RESULT_OUTDIR, "interval_wo_excl.bed")
+    log:
+        os.path.join(RESULT_OUTDIR, "interval_wo_excl.log")
+    message:
+        "Creating intervals/bed file for variant calling"
+    run:
+        with open(output.bed, 'w') as fhout:
+            bed = config.get('intervals')# user arg
+            if bed:
+                for (chrom, start, end) in parse_regions_from_bed(bed):
+                    if chrom not in config['references']['excl_chrom']:
+                        fhout.write("{}\t{}\t{}\n".format(chrom, start, end))
+            else:# no bed? use ref.fai
+                for (chrom, end) in chroms_and_lens_from_from_fasta(input.reffa):
+                    if chrom not in config['references']['excl_chrom']:
+                        fhout.write("{}\t{}\t{}\n".format(chrom, 0, end))
+
+
