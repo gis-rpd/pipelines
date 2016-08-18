@@ -50,7 +50,8 @@ logger.addHandler(handler)
 INIT = {
     # FIXME make env instead? because caller knows, right?
     'GIS': "/mnt/projects/rpd/init",
-    'NSCC': "/seq/astar/gis/rpd/init"
+    'NSCC': "/seq/astar/gis/rpd/init",
+    'local': "true",# dummy command
 }
 
 # from address, i.e. users should reply to to this
@@ -144,18 +145,20 @@ class PipelineHandler(object):
         self.master_q = master_q
         self.slave_q = slave_q
         self.master_walltime_h = master_walltime_h
-        self.snakefile_abs = os.path.abspath(os.path.join(pipeline_subdir, "Snakefile"))
+        self.snakefile_abs = os.path.abspath(
+            os.path.join(pipeline_subdir, "Snakefile"))
         assert os.path.exists(self.snakefile_abs)
 
         # cluster configs
-        self.cluster_config_in = os.path.join(
-            pipeline_subdir, "cluster.{}.yaml".format(site))
-        self.cluster_config_out = os.path.join(outdir, "cluster.yaml")
-        assert os.path.exists(self.cluster_config_in)
+        if self.site != "local":
+            self.cluster_config_in = os.path.join(
+                pipeline_subdir, "cluster.{}.yaml".format(site))
+            self.cluster_config_out = os.path.join(outdir, "cluster.yaml")
+            assert os.path.exists(self.cluster_config_in)
 
         # run template
-        self.run_template = os.path.join(pipeline_rootdir, "lib",
-                                         "run.template.{}.sh".format(self.site))
+        self.run_template = os.path.join(
+            pipeline_rootdir, "lib", "run.template.{}.sh".format(self.site))
         self.run_out = os.path.join(outdir, "run.sh")
         assert os.path.exists(self.run_template)
 
@@ -164,12 +167,13 @@ class PipelineHandler(object):
         # on qsub kills etc
         self.toaddr = email_for_user()
 
+        log_path = os.path.abspath(os.path.join(self.outdir, self.masterlog))
         self.elm_data = {'pipeline_name': self.pipeline_name,
                          'pipeline_version': self.pipeline_version,
                          'site': self.site,
                          'instance_id': 'SET_ON_EXEC',# dummy
                          'submitter': 'SET_ON_EXEC',# dummy
-                         'log_path': os.path.abspath(os.path.join(self.outdir, self.masterlog))}
+                         'log_path': log_path}
 
 
     @staticmethod
@@ -285,7 +289,8 @@ class PipelineHandler(object):
         os.makedirs(os.path.join(self.outdir, self.log_dir_rel))
         os.makedirs(os.path.join(self.outdir, self.RC_DIR))
 
-        self.write_cluster_config()
+        if self.site != "local":
+            self.write_cluster_config()
         self.write_merged_cfg()
         self.write_snakemake_env()
         self.write_dk_init(self.dk_init_file)
@@ -302,9 +307,17 @@ class PipelineHandler(object):
             master_q_arg = "-q {}".format(self.master_q)
         else:
             master_q_arg = ""
-        cmd = "cd {} && qsub {} {} >> {}".format(
-            os.path.dirname(self.run_out), master_q_arg,
-            os.path.basename(self.run_out), self.submissionlog)
+        if self.site == "local":
+            logger.warning("Please not that script is run in 'local' mode"
+                           " (which is mainly for debugging)")
+            cmd = "cd {} && bash {} {} >> {}".format(
+                os.path.dirname(self.run_out), master_q_arg,
+                os.path.basename(self.run_out), self.submissionlog)
+        else:
+            cmd = "cd {} && qsub {} {} >> {}".format(
+                os.path.dirname(self.run_out), master_q_arg,
+                os.path.basename(self.run_out), self.submissionlog)
+
         if no_run:
             logger.warning("Skipping pipeline run on request. Once ready, use: %s", cmd)
             logger.warning("Once ready submit with: %s", cmd)
@@ -371,7 +384,7 @@ def get_init_call():
     except KeyError:
         raise ValueError("Unknown site '{}'".format(site))
 
-    if is_devel_version():
+    if is_devel_version() and site != "local":
         cmd.append('-d')
 
     return cmd
