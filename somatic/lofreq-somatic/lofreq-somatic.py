@@ -175,6 +175,9 @@ def main():
             tumor_readunits = get_readunits_from_args(args.tumor_fq1, args.tumor_fq2)
             samples["tumor"] = list(tumor_readunits.keys())
 
+        readunits = dict(normal_readunits)
+        readunits.update(tumor_readunits)
+
     assert sorted(samples) == sorted(["normal", "tumor"])
     
     fake_pipeline_handler = PipelineHandler("FAKE", PIPELINE_BASEDIR, "FAKE", None)
@@ -209,8 +212,7 @@ def main():
     # generic data first
     user_data = dict()
     user_data['mail_on_completion'] = not args.no_mail
-    user_data['readunits'] = normal_readunits
-    user_data['readunits'].update(tumor_readunits)
+    user_data['readunits'] = readunits
     user_data['samples'] = samples
 
     user_data['seqtype'] = args.seqtype
