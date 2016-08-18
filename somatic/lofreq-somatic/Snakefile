@@ -1,0 +1,234 @@
+# standard library imports
+#
+import os
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
+
+
+RESULT_OUTDIR = './out'
+
+
+# FIXME to conf once downstream handling clear
+MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+
+def mark_dups_pipe_cmd(before="", after=""):
+    """FIXME review once MARK_SHORT_SPLITS is in config
+
+    before and after are commands added before and after samblaster
+    and can be used e.g. for conversion from BAM to BAM (samblaster needs SAM)
+
+    return command will always end in pipe
+    """
+    
+    if config['mark_dups']:
+        if before:
+            cmd = "{} | ".format(before)
+        else:
+            cmd = ""
+        cmd += " samblaster {MARK_SHORT_SPLITS} | "
+        if after:
+            cmd += " {} | ".format(after)
+        return cmd
+    else:
+        return ""
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+include: "../../rules/logging.rules"
+include: "../../rules/samtools.rules"
+include: "lofreq.rules"
+include: "lacer.rules"
+
+
+localrules: final, report, intervals_wo_excl
+
+
+assert sorted(config['samples']) == sorted(["normal", "tumor"])
+
+
+NORMAL_DIR = os.path.join(RESULT_OUTDIR, 'normal')
+TUMOR_DIR = os.path.join(RESULT_OUTDIR, 'tumor')
+VARIANTS_DIR = os.path.join(RESULT_OUTDIR, 'variants')
+
+        
+rule final:
+    input:
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.vcf.gz'),
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.vcf.gz'),
+        "report.html"
+
+
+rule report:
+    input:
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.vcf.gz'),
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.vcf.gz'),
+    output:
+        html="report.html"
+    params:
+        samplenames=', '.join(config['samples'].keys())
+    run:
+        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
+        readme = "EMPTY"
+        with open(os.path.join(workflow_home, "README.rst")) as fh:
+            readme = fh.read()
+            
+        report("""
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+=================================================================
+
+Version Info
+------------
+
+{config[ELM][pipeline_version]}
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch to have at least something
+
+
+# FIXME unused
+#MAXDEPTH = {'targeted': 100000,
+#             'WES': 10000,
+#             'WGS': 1000}
+
+        
+rule lofreq_somatic:
+    input:
+        nbam = os.path.join(NORMAL_DIR, 'normal.bwamem.lofreq.lacer.bam'),
+        nbai = os.path.join(NORMAL_DIR, 'normal.bwamem.lofreq.lacer.bam.bai'),
+        tbam = os.path.join(TUMOR_DIR, 'tumor.bwamem.lofreq.lacer.bam'),
+        tbai = os.path.join(TUMOR_DIR, 'tumor.bwamem.lofreq.lacer.bam.bai'),
+        bed = os.path.join(RESULT_OUTDIR, "interval_wo_excl.bed"),
+        reffa = config['references']['genome'],
+        refidx = config['references']['genome'] + ".fai",
+        dbsnp = config['references']['dbsnp']
+    output:
+        snvs = os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.vcf.gz'),
+        indels = os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.vcf.gz')
+    log:
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic.log')
+    message:
+        "Calling somatic variants with LoFreq"
+    threads:
+        16
+    #params:
+    #    #maxdepth = MAXDEPTH[config['seqtype']],
+    shell:
+        "lofreq somatic -n {input.nbam} -t {input.tbam} -f {input.reffa}"
+        " -o $(echo {output.snvs} | sed -e 's,somatic_final.*,,')"
+        " -l {input.bed} -d {input.dbsnp} --threads {threads} --call-indels >& {log}"
+
+        
+
+# for somatic: sample is normal or tumor
+rule unit_merge:
+    """
+    Merge bam files for multiple units into one for the given sample
+    (or copy if just one).
+    """
+    input:
+        lambda wildcards: expand("{prefix}/unit-{unit}.bwamem.merged.lofreq.bam",
+                                 prefix=wildcards.prefix,
+                                 unit=config['samples'][wildcards.sample])
+    output:
+        temp('{prefix}/{sample}/{sample}.bwamem.lofreq.bam')
+    log:
+        '{prefix}/{sample}/{sample}.bwamem.lofreq.bam.unit_merge.log'        
+    message:
+        "Merging units to {output}"
+    threads:
+        8
+    run:
+        # readgroup and pg now different, so make PG and RG uniq (default)
+        # not running mark_dups_pipe_cmd again since not read name sorted anymore
+        if len(input) > 1:
+            shell("samtools merge -@ {threads} {output} {input} >& {log};")
+        else:
+            shell("ln {input} {output} >& {log};")
+
+
+rule split_merge:
+    """
+    Merge bam files for multiple units into one for the given sample
+    (or copy if just one).
+    """
+    input:
+        bams=expand('{{prefix}}.chrsplit.{ctr}.lofreq.bam',
+                    ctr=range(config["references"]["num_chroms"]+1))
+        # +1 for unaligned reads
+    output:
+        bam = temp('{prefix}.merged.lofreq.bam')
+    log:
+        '{prefix}.merged.lofreq.bam.split_merge.log'
+    message:
+        "Merging chr-splits"
+    threads:
+        4
+    run:
+        if len(input) > 1:
+            # same readgroup and pg, so combine colliding PG and RG
+            shell("samtools merge -c -p -@ {threads} {output} {input} >& {log};")
+        else:
+            shell("ln {input} {output} >& {log}")
+
+
+# WARN: Near identical copy from BWA-MEM
+# - replaced sorted with split_bam_by_chr and changed out accordingly
+# - removed fixmate (no points since we run viterbi later)
+# - increased threads (since we don't sort etc.)
+rule map_mdups_split:
+    """
+    - Setting read groups correctly is tricky and also depends on downstream programs. 
+      See e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+      For example for BQSR PU takes precedence over ID. PU should contain lane.
+    - More threads mean more memory because of sorting
+    - This originated from the equally named SG10K rule
+    """
+    input:
+        reffa = config['references']['genome'],
+        reffai = config['references']['genome'] + ".pac",
+        fastqs = lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
+    output:
+        bams=temp(expand('{{prefix}}/unit-{{unit}}.bwamem.chrsplit.{ctr}.bam',
+                         ctr=range(config["references"]["num_chroms"]+1)))
+                         # +1 for unaligned reads
+    log:
+        '{prefix}/unit-{unit}.bwamem.map.log'
+    params:
+        mark_short_splits=MARK_SHORT_SPLITS,
+        bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
+        rg_id=lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
+        lib_id=lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
+        pu_id=lambda wildcards: gen_rg_pu_id(config["readunits"][wildcards.unit]),
+        #outprefix=lambda wildcards: get_outprefix_for_map_mdups_split(wildcards),
+        outprefix=lambda wildcards: '{}/unit-{}.bwamem.chrsplit'.format(wildcards.prefix, wildcards.unit),# keep in sync with input
+        sample=lambda wildcards: get_sample_for_unit(wildcards.unit, config)
+    message:
+        'Aligning, marking duplicates (if set) and splitting per chrom'
+    threads:
+        # see also BWA-MEM
+        16
+    shell:
+        "{{ bwa mem {params.mark_short_splits} -t {threads}"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
+        " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
+        + mark_dups_pipe_cmd() +
+        " split_bam_by_chr -S -l 0 -o {params.outprefix} -; }} >& {log}"
