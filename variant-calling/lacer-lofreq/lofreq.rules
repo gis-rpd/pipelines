@@ -68,7 +68,7 @@ rule lofreq_call:
         bam = '{prefix}.bam',
         bai = '{prefix}.bam.bai',
         reffa = config['references']['genome'],
-        refidx = config['references']['genome'] + ".pac",
+        refidx = config['references']['genome'] + ".fai",
         bed = os.path.join(RESULT_OUTDIR, "interval_wo_excl.bed")
     output:
         vcf = '{prefix}.both.vcf.gz'
