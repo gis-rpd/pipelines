@@ -11,7 +11,7 @@ viterbi``, recalibrates base qualities with Lacer (author:
 How to
 ------
 
-- Run ``variant-calling-lofreq.py -h`` to get basic usage information.
+- Run ``lacer-lofreq.py -h`` to get basic usage information.
 - If called correctly, jobs will be run on the cluster automatically
 - Using ``-v`` is recommended to get some more information
 - Should the pipeline 'crash', it can be restarted by simply running

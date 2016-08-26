@@ -47,7 +47,7 @@ minimum depth filter and hence it's not used here either.
 How to
 ------
 
-- Run ``variant-calling-gatk.py -h`` to get basic usage information.
+- Run ``gatk.py -h`` to get basic usage information.
 - If called correctly, jobs will be run on the cluster automatically
 - Using ``-v`` is recommended to get some more information
 - Should the pipeline 'crash', it can be restarted by simply running
