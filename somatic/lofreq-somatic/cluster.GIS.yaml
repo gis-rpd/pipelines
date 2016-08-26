@@ -15,7 +15,7 @@
 
     "lacer_table" :
     {
-      "time" : "12:00:00",
+      "time" : "18:00:00",
       "mem" : 8G,
     },
 
@@ -40,7 +40,7 @@
     "lofreq_somatic" :
     {
       "time" : "12:00:00",
-      "mem" : 16G,
+      "mem" : 24G,
     }
 }    
 

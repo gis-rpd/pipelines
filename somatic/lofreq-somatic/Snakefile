@@ -121,8 +121,14 @@ rule lofreq_somatic:
         refidx = config['references']['genome'] + ".fai",
         dbsnp = config['references']['dbsnp']
     output:
-        snvs = os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.vcf.gz'),
-        indels = os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.vcf.gz')
+        rlx_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_{sample}_relaxed.vcf.gz'),
+                             sample=['normal', 'tumor']),
+        stringent_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_{sample}_stringent.{vartype}.vcf.gz'),
+                                sample=['normal', 'tumor'], vartype=['snvs', 'indels']),
+        raw_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_somatic_raw.{vartype}.vcf.gz'),
+                          vartype=['snvs', 'indels']),
+        final_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_somatic_final{dbsnp}.{vartype}.vcf.gz'),
+                            dbsnp=['', '_minus-dbsnp'], vartype=['snvs', 'indels']),
     log:
         os.path.join(VARIANTS_DIR, 'lofreq_somatic.log')
     message:
@@ -133,7 +139,7 @@ rule lofreq_somatic:
     #    #maxdepth = MAXDEPTH[config['seqtype']],
     shell:
         "lofreq somatic -n {input.nbam} -t {input.tbam} -f {input.reffa}"
-        " -o $(echo {output.snvs} | sed -e 's,somatic_final.*,,')"
+                            " -o $(echo {output.final_vars[0]} | sed -e 's,somatic_final.*,,')"
         " -l {input.bed} -d {input.dbsnp} --threads {threads} --call-indels >& {log}"
 
         
