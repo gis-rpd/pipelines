@@ -603,7 +603,7 @@ def path_to_url(out_path):
     # FIXME change for testing, gis, NSCC
     if out_path.startswith("/mnt/projects/userrig/solexa/"):
         return out_path.replace("/mnt/projects/userrig/solexa/", \
-            "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects/")
+            "http://rpd/userrig/runs/solexaProjects/")
     else:
         #raise ValueError(out_path)
         return out_path
