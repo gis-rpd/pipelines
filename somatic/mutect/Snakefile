@@ -48,13 +48,13 @@ assert sorted(config['samples']) == sorted(["normal", "tumor"])
 
 rule final:
     input:
-        expand(os.path.join(VARIANTS_DIR, 'mutect.{ext}'), ext=['vcf', 'txt']),
+        expand(os.path.join(VARIANTS_DIR, 'mutect.{ext}.gz'), ext=['vcf', 'txt']),
         report="report.html"
 
 
 rule report:
     input:
-        expand(os.path.join(VARIANTS_DIR, 'mutect.{ext}'), ext=['vcf', 'txt']),
+        expand(os.path.join(VARIANTS_DIR, 'mutect.{ext}.gz'), ext=['vcf', 'txt']),
     output:
         html="report.html"
     params:
@@ -163,16 +163,18 @@ rule mutect_per_region:
         bed = os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed") # see prep_bed_files
     output:
         vcf = temp("{prefix}/mutect.{ctr}.vcf"),
+        vcfidx = temp("{prefix}/mutect.{ctr}.vcf.idx"),# just listed to get them removed
         out = temp("{prefix}/mutect.{ctr}.txt"),
         cov = temp("{prefix}/mutect.{ctr}.wig")
     log:
-        os.path.join(VARIANTS_DIR, 'mutect.log')
+        "{prefix}/mutect.{ctr}.log"
     message:
         "Calling somatic variants with MuTect"
     params:
         frac_cont_arg = "--fraction_contamination {}".format(config["frac_cont"]) if config.get("frac_cont") else ""
     threads:
-        1
+        # purely due to our java/qsub problem which seemingly limits vm per core
+        2
     shell:
         # https://www.broadinstitute.org/cancer/cga/mutect_run
         #  --enable_extended_output
@@ -192,17 +194,26 @@ rule mutect_combine:
         out = expand("{{prefix}}/mutect.{ctr}.txt", ctr=range(config["references"]["num_chroms"])),
         cov = expand("{{prefix}}/mutect.{ctr}.wig", ctr=range(config["references"]["num_chroms"])),
     output:
-        vcf = "{prefix}/mutect.vcf",
-        out = "{prefix}/mutect.txt",
-        cov = "{prefix}/mutect.wig",
+        vcf = "{prefix}/mutect.vcf.gz",
+        out = "{prefix}/mutect.txt.gz",
+        cov = "{prefix}/mutect.wig.gz",
     log:
         os.path.join(VARIANTS_DIR, "mutect_combine.log")
     message:
         "Combining results"
     threads:
         1
+    #params:
+    #    vcf_0 = lambda wildcards: "{prefix}/mutect.{ctr}.vcf".format(prefix=wildcards.prefix, ctr=0),
+    #    vcf_1plus = lambda wildcards: expand("{prefix}/mutect.{ctr}.vcf",
+    #                                         prefix=wildcards.prefix, ctr=range(1, config["references"]["num_chroms"]))
+    # " grep -m 1 '##GATKCommandLine=' {params.vcf_1plus} >> $tmpvcf; "
     shell:
-        "{{ cat {input.vcf} > {output.vcf};"
-        " cat {input.out} > {output.out}; "
-        " cat {input.cov} > {output.cov}; }} >& {log}"
-    
+        # combine and gzip files. remove most header from vcf's except first
+        "{{ cat {input.out} | gzip > {output.out}; "
+        " cat {input.cov} | gzip > {output.cov}; "
+        " tmpvcf=$(echo {output.vcf} | sed -e 's,.gz,,'); " 
+        " grep '^#' {input.vcf[0]} > $tmpvcf; "
+        " grep -v '^#' {input.vcf} >> $tmpvcf; "
+        " bgzip $tmpvcf; "
+        " tabix {output.vcf}; }} >& {log}"   
