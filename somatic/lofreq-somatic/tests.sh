@@ -118,7 +118,7 @@ if [ $skip_real_runs -ne 1 ]; then
     echo "Submitting validation hold-job" | tee -a $log
     pred=$odir/out/variants/lofreq_somatic_final.snvs.vcf.gz
     # only subset validated, hence only sens test make sense
-    $qsub "$(pwd)/validate.sh -t $EXOME_IN_HOUSE_VAL -p $pred -S 0.85" >> $log 2>&1
+    $qsub "$(pwd)/validate.sh -T snps -t $EXOME_IN_HOUSE_VAL -p $pred -S 0.85" >> $log 2>&1
 
     
     echo "Realrun: WGS" | tee -a $log
@@ -127,7 +127,21 @@ if [ $skip_real_runs -ne 1 ]; then
     # magically works even if line just contains id as in the case of pbspro
     jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
     echo "Started $jid writing to $odir. You will receive an email"
-    echo "FIXME: submit test against?" 1>&2
+
+    jobname="${pipeline}.${MYNAME}.check.WGS"
+    mailopt="-M $(toaddr) -m bea"
+    if qstat --version 2>&1 | grep -q PBSPro; then
+        # -cwd not available but all paths are absolute so no need
+        # using bash after -- doesn't work: binary expected
+        qsub="qsub -q production -l select=1:ncpus=1 -l select=1:mem=1g -l walltime=175:00:00 -j oe -V $mailopt -N $jobname -W depend=afterok:$jid --"
+    else
+        qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -b y -cwd -V $mailopt -N $jobname -hold_jid $jid"
+    fi
+    echo "Submitting validation hold-job" | tee -a $log
+    pred=$odir/out/variants/lofreq_somatic_final_minus-dbsnp.snvs.vcf.gz
+    # only subset validated, hence only sens test make sense
+    $qsub "$(pwd)/validate.sh -T snps -t $DREAM_WGS_TRUTH -p $pred -S 0.9 -P 0.9" >> $log 2>&1
+    
 else
     echo "Real-run test skipped"
 fi
