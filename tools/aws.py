@@ -2,16 +2,18 @@
 """
 [1]	To create a new database, please specify one or more input accounting filename(s) with -a, and one output database filename with -b. 
 [2]	To display a database view, please specify one database filename with -b, one database view with -v, and one or more column widths with -w. 
-[3]	To display cluster limits, please specify one database filename with -b, and one or more completed run directories with -c. 
+[3]	To display cluster limits, please specify one database filename with -b, one or more completed run directories with -c, and one or more column widths with -w. 
 """
 
 from argparse import ArgumentParser
 from collections import OrderedDict
 import gzip
+from math import pow
 from os import listdir, path, remove
 from re import findall
 from sqlite3 import connect
 from sys import argv
+from time import gmtime, strftime
 
 def parse_list(l, args, FIELDS):
 	if l[0].startswith("#"):
@@ -140,14 +142,16 @@ elif args.database and args.view and args.width:
 	db.commit()
 	db.close()
 
-elif args.database and args.completedrun:
-	db = connect(args.database)
-	for directory in args.completedrun:
-		print ((directory + "/logs/").replace("//", "/"))
-		for logfile in listdir(directory + "/logs/"):
-			if logfile.split(".")[-1][1:].isnumeric():
-				print (logfile.split(".")[-1][1:])
-	db.commit()
-	db.close()
+elif args.database and args.completedrun and args.width:
+	if len(args.width) == 4:
+		db = connect(args.database)
+		for directory in args.completedrun:
+#			print ((directory + "/logs/").replace("//", "/"))
+			for logfile in listdir(directory + "/logs/"):
+				if logfile.split(".")[-1][1:].isnumeric():
+					for row in db.execute("SELECT * FROM success_jobs WHERE jobnumber=" + logfile.split(".")[-1][1:] + ";"):
+						print ((directory + "/logs/").replace("//", "/") + " " + logfile + " " + strftime("%H:%M:%S", gmtime(row[10])) + " " + str(row[11] / pow(2, 30)))
+		db.commit()
+		db.close()
 else:
 	print (__doc__)
