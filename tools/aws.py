@@ -10,7 +10,7 @@ from collections import OrderedDict
 import gzip
 from math import pow
 from os import listdir, path, remove
-from re import findall
+from re import findall, sub
 from sqlite3 import connect
 from sys import argv
 from time import gmtime, strftime
@@ -145,12 +145,15 @@ elif args.database and args.view and args.width:
 elif args.database and args.completedrun and args.width:
 	if len(args.width) == 4:
 		db = connect(args.database)
+		print ("directory".ljust(int(args.width[0])) + " " + "logfile".ljust(int(args.width[1])) + " " + "ru_wallclock".ljust(int(args.width[2])) + " " + "maxvmem (GB)".ljust(int(args.width[3])))
+		print ("".ljust(int(args.width[0]), "-") + " " + "".ljust(int(args.width[1]), "-") + " " + "".ljust(int(args.width[2]), "-") + " " + "".ljust(int(args.width[3]), "-"))
 		for directory in args.completedrun:
-#			print ((directory + "/logs/").replace("//", "/"))
-			for logfile in listdir(directory + "/logs/"):
+			sorted_listdir = listdir(directory + "/logs/")
+			sorted_listdir.sort()
+			for logfile in sorted_listdir:
 				if logfile.split(".")[-1][1:].isnumeric():
 					for row in db.execute("SELECT * FROM success_jobs WHERE jobnumber=" + logfile.split(".")[-1][1:] + ";"):
-						print ((directory + "/logs/").replace("//", "/") + " " + logfile + " " + strftime("%H:%M:%S", gmtime(row[10])) + " " + str(row[11] / pow(2, 30)))
+						print ((directory + "/logs/").replace("//", "/").ljust(int(args.width[0])) + " " + logfile.ljust(int(args.width[1])) + " " + strftime("%H:%M:%S", gmtime(row[10])).rjust(int(args.width[2])) + " " + "{0:.3f}".format(row[11] / pow(2, 30)).rjust(int(args.width[3])))
 		db.commit()
 		db.close()
 else:
