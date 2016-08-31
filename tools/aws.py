@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
+"""
+[1]	To create a new database, please specify one or more input accounting filename(s) with -a, and one output database filename with -b. 
+[2]	To display a database view, please specify one database filename with -b, one database view with -v, and one or more column widths with -w. 
+[3]	To display cluster limits, please specify one database filename with -b, and one or more completed run directories with -c. 
+"""
+
 from argparse import ArgumentParser
 from collections import OrderedDict
 import gzip
-from os import path, remove
+from os import listdir, path, remove
 from re import findall
 from sqlite3 import connect
 from sys import argv
 
 def parse_list(l, args, FIELDS):
-	if l[0].startswith('#'):
+	if l[0].startswith("#"):
 		return ""
-	
+
 	owner_count = 0
 	if args.owner:
 		for owner in args.owner:
@@ -19,15 +25,15 @@ def parse_list(l, args, FIELDS):
 	if owner_count == 0:
 		return ""
 
-	a = ''
+	a = ""
 	for f in FIELDS:
 		a = (a + ", '" + f + "'")
 
-	b = ''
-	for j in [l[0], l[1], l[3], l[4], l[5], l[8], l[9], l[10], l[11], l[12], l[13], l[21], l[22], l[25]]:
+	b = ""
+	for j in [l[0], l[1], l[3], l[4], l[5], l[8], l[9], l[10], l[11], l[12], l[13], l[42]]:
 		b = (b + ", '" + j + "'")
 
-	c = ''
+	c = ""
 	if len(findall("h_rt=\d+", l[39])) > 0:
 		c = (c + ", '" + findall("h_rt=\d+", l[39])[0][5:] + "'")
 	else:
@@ -50,16 +56,16 @@ def parse_list(l, args, FIELDS):
 
 	return "INSERT INTO accounting (" + a[2:] + ") VALUES (" + b[2:] + c + ");"
 
-FIELDS = ['qname', 'hostname', 'owner', 'job_name', 'job_number', 'submission_time',
-          'start_time', 'end_time', 'failed', 'exit_status', 'ru_wallclock', 'io', 'category', 'maxvmem',
-          'h_rt', 'h_vmem', 'mem_free', 'openmp']
+FIELDS = ['qname', 'hostname', 'owner', 'jobname', 'jobnumber', 'qsub_time', 'start_time', 'end_time', 
+          'failed', 'exit_status', 'ru_wallclock', 'maxvmem', 'h_rt', 'h_vmem', 'mem_free', 'slots']
 
 instance = ArgumentParser(description=__doc__)
 instance.add_argument("-a", "--accounting", nargs="*", help="accounting filename(s)")
 instance.add_argument("-b", "--database", help="database filename")
+instance.add_argument("-c", "--completedrun", nargs="*", help="completed run directories")
 instance.add_argument("-o", "--owner", nargs="*", help="job owner(s)")
 instance.add_argument("-v", "--view", help="database view")
-instance.add_argument("-w", "--width", help="column width")
+instance.add_argument("-w", "--width", nargs="*", help="column widths")
 args = instance.parse_args()
 
 if args.accounting and args.database:
@@ -74,21 +80,19 @@ if args.accounting and args.database:
 	qname			TEXT		NOT NULL,
 	hostname		TEXT		NOT NULL,
 	owner			TEXT		NOT NULL,
-	job_name		TEXT		NOT NULL,
-	job_number		INTEGER		NOT NULL,
-	submission_time		INTEGER		NOT NULL,
+	jobname			TEXT		NOT NULL,
+	jobnumber		INTEGER		NOT NULL,
+	qsub_time		INTEGER		NOT NULL,
 	start_time		INTEGER		NOT NULL,
 	end_time		INTEGER		NOT NULL,
 	failed			INTEGER		NOT NULL,
 	exit_status		INTEGER		NOT NULL,
 	ru_wallclock		INTEGER		NOT NULL,
-	io			INTEGER		NOT NULL,
-	category		INTEGER		NOT NULL,
 	maxvmem			INTEGER		NOT NULL,
 	h_rt			INTEGER,
 	h_vmem			INTEGER,
 	mem_free		INTEGER,
-	openmp			INTEGER);''')
+	slots			INTEGER);''')
 	db.close()
 
 	acct_count = 0
@@ -99,7 +103,7 @@ if args.accounting and args.database:
 		if acct[-3:] == ".gz":
 			with gzip.open(acct) as fh:
 				for line in fh:
-					l = line.decode().rstrip().split(':')
+					l = line.decode().rstrip().split(":")
 #					db = connect(args.database)
 					db.execute(parse_list(l, args, FIELDS))
 #					db.commit()
@@ -108,7 +112,7 @@ if args.accounting and args.database:
 		else:
 			with open(acct) as fh:
 				for line in fh:
-					l = line.split(':')
+					l = line.split(":")
 #					db = connect(args.database)
 					db.execute(parse_list(l, args, FIELDS))
 #					db.commit()
@@ -118,24 +122,32 @@ if args.accounting and args.database:
 		db.close()
 
 	db = connect(args.database)
-	db.execute("CREATE VIEW duplicate_jobs AS SELECT job_number, COUNT(*) FROM accounting GROUP BY job_number HAVING COUNT(*) > 1;")
-	db.execute('CREATE VIEW master_slave_jobs AS SELECT * FROM accounting WHERE (job_name LIKE "%master%") OR (job_name LIKE "%slave%");')
-	db.execute("CREATE VIEW success_master_slave_jobs AS SELECT * FROM master_slave_jobs WHERE failed != 1 AND exit_status != 1;")
+	db.execute("CREATE VIEW duplicate_jobs AS SELECT jobnumber, COUNT(*) FROM accounting GROUP BY jobnumber HAVING COUNT(*) > 1;")
+	db.execute("CREATE VIEW master_slave_jobs AS SELECT * FROM accounting WHERE (jobname LIKE '%master%') OR (jobname LIKE '%slave%');")
+	db.execute("CREATE VIEW success_jobs AS SELECT * FROM accounting WHERE failed = 0 AND exit_status = 0;")
 	db.commit()
 	db.close()
 
 elif args.database and args.view and args.width:
 	db = connect(args.database)
 
-	if args.view == "duplicate_jobs":
-		print ("job_number".ljust(int(args.width)) + " " + "COUNT(*)".ljust(int(args.width)))
-		print ("".ljust(int(args.width), "-") + " " + "".ljust(int(args.width), "-"))
+	if args.view == "duplicate_jobs" and len(args.width) == 2:
+		print ("jobnumber".ljust(int(args.width[0])) + " " + "COUNT(*)".ljust(int(args.width[1])))
+		print ("".ljust(int(args.width[0]), "-") + " " + "".ljust(int(args.width[1]), "-"))
 		for record in db.execute("SELECT * FROM duplicate_jobs;"):
-			print (str(record[0]).ljust(int(args.width)) + " " + str(record[1]).ljust(int(args.width)))
+			print (str(record[0]).ljust(int(args.width[0])) + " " + str(record[1]).ljust(int(args.width[1])))
 
 	db.commit()
 	db.close()
 
+elif args.database and args.completedrun:
+	db = connect(args.database)
+	for directory in args.completedrun:
+		print ((directory + "/logs/").replace("//", "/"))
+		for logfile in listdir(directory + "/logs/"):
+			if logfile.split(".")[-1][1:].isnumeric():
+				print (logfile.split(".")[-1][1:])
+	db.commit()
+	db.close()
 else:
-	print ("To create a new database, please specify one or more input accounting filename(s) with -a, and one output database filename with -b")
-	print ("To display a database view, please specify one database filename with -b, one database view with -v, and column width with -w")
+	print (__doc__)
