@@ -38,9 +38,9 @@ include: "gatk_mapping.rules"
 
 
 if config['seqtype'] == 'targeted':
-    localrules: final, report, mutect_combine, prep_bed_files, gatk_recalibrate_bam gatk_recalibrate_info
+    localrules: final, report, mutect_pass, mutect_combine, prep_bed_files, gatk_recalibrate_bam gatk_recalibrate_info
 else:    
-    localrules: final, report, mutect_combine, prep_bed_files
+    localrules: final, report, mutect_pass, mutect_combine, prep_bed_files
 
 
 assert sorted(config['samples']) == sorted(["normal", "tumor"])
@@ -48,13 +48,13 @@ assert sorted(config['samples']) == sorted(["normal", "tumor"])
 
 rule final:
     input:
-        expand(os.path.join(VARIANTS_DIR, 'mutect.{ext}.gz'), ext=['vcf', 'txt']),
+        os.path.join(VARIANTS_DIR, 'mutect.PASS.vcf.gz'),
         report="report.html"
 
 
 rule report:
     input:
-        expand(os.path.join(VARIANTS_DIR, 'mutect.{ext}.gz'), ext=['vcf', 'txt']),
+        os.path.join(VARIANTS_DIR, 'mutect.PASS.vcf.gz'),
     output:
         html="report.html"
     params:
@@ -214,6 +214,23 @@ rule mutect_combine:
         " cat {input.cov} | gzip > {output.cov}; "
         " tmpvcf=$(echo {output.vcf} | sed -e 's,.gz,,'); " 
         " grep '^#' {input.vcf[0]} > $tmpvcf; "
-        " grep -v '^#' {input.vcf} >> $tmpvcf; "
+        " grep -h -v '^#' {input.vcf} >> $tmpvcf; "
         " bgzip $tmpvcf; "
         " tabix {output.vcf}; }} >& {log}"   
+
+    
+rule mutect_pass:
+    input:
+        "{prefix}.vcf.gz"
+    output:
+        "{prefix}.PASS.vcf.gz",
+    log:
+         "{prefix}.PASS.log",
+    message:
+        "Extracting only passed variants"
+    threads:
+        1
+    shell:
+        "{{ bcftools view -O z -o {output} -f PASS {input}; "
+        " tabix {output}; }} >& {log}"   
+

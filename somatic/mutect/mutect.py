@@ -239,10 +239,9 @@ def main():
     for sample, bam in [("normal", args.normal_bam),
                         ("tumor", args.tumor_bam)]:
         if bam:
-            raise NotImplementedError
             # target as defined in Snakefile!
             target = os.path.join(args.outdir, "out", sample,
-                                  "{}.bwamem.lofreq.lacer.bam".format(sample))
+                                  "{}.bwamem.realn.recal.bam".format(sample))
             os.makedirs(os.path.dirname(target))
             os.symlink(os.path.abspath(bam), target)
         

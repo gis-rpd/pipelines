@@ -1,0 +1,1 @@
+../lofreq-somatic/validate.sh
