@@ -70,7 +70,7 @@ def parse_list(l, args, FIELDS):
 	else:
 		c = (c + ", ''")
 
-	return "INSERT INTO accounting (" + a[2:] + ") VALUES (" + b[2:] + c + ");"
+	return "INSERT OR IGNORE INTO accounting (" + a[2:] + ") VALUES (" + b[2:] + c + ");"
 
 
 def main():
@@ -128,7 +128,8 @@ def main():
 			h_rt			INTEGER,
 			h_vmem			INTEGER,
 			mem_free		INTEGER,
-			slots			INTEGER);''')
+			slots			INTEGER,
+			PRIMARY KEY (jobnumber, qsub_time, start_time, end_time));''')
 			db.close()
 
 		acct_count = 0
@@ -177,11 +178,11 @@ def main():
 			db.close()
 
 		db = connect(args.database)
-		if len([str(i[0]) for i in db.execute("SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'duplicate_jobs';")]) == 1:
+		if len([str(i[0]) for i in db.execute("SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'duplicate_jobs';")]) == 0:
 			db.execute("CREATE VIEW duplicate_jobs AS SELECT jobnumber, COUNT(*) FROM accounting GROUP BY jobnumber HAVING COUNT(*) > 1;")
-		if len([str(i[0]) for i in db.execute("SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'master_slave_jobs';")]) == 1:
+		if len([str(i[0]) for i in db.execute("SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'master_slave_jobs';")]) == 0:
 			db.execute("CREATE VIEW master_slave_jobs AS SELECT * FROM accounting WHERE (jobname LIKE '%master%') OR (jobname LIKE '%slave%');")
-		if len([str(i[0]) for i in db.execute("SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'success_jobs';")]) == 1:
+		if len([str(i[0]) for i in db.execute("SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'success_jobs';")]) == 0:
 			db.execute("CREATE VIEW success_jobs AS SELECT * FROM accounting WHERE failed = 0 AND exit_status = 0;")
 		db.commit()
 		db.close()
