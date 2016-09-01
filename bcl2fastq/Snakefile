@@ -181,19 +181,19 @@ rule final:
 
 rule report:
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'bcl2fastq.SUCCESS'),
-               muxdir=get_mux_dirs()),
-    output: html="report.html"
-    params: samplenames=config['run_num']
+        readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.rst")
+    output:
+        html="report.html"
+    params:
+        analysis_name = config.get('analysis_name', config['run_num'])
     run:
-        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.rst")) as fh:
+        with open(input.readme) as fh:
             readme = fh.read()
             
         report("""
 =================================================================
-Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
 =================================================================
 
 Version Info

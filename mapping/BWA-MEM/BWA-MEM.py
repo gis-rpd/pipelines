@@ -74,6 +74,8 @@ def main():
                         " Collides with -1, -2 and -s")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (must not exist)")
+    parser.add_argument('--name',
+                        help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
     site = get_site()
@@ -161,10 +163,19 @@ def main():
     user_data['mail_on_completion'] = not args.no_mail
     user_data['readunits'] = readunits
     user_data['samples'] = samples
+    if args.name:
+        user_data['analysis_name'] = args.name
+    
 
     user_data['references'] = {
         'genome' : os.path.abspath(args.reffa)}
     user_data['mark_dups'] = not args.dont_mark_dups
+
+    # create mongodb update command, used later, after submission
+    #mongo_update_cmd = "true"{} -r {} -s STARTED".format(mongo_status_script, user_data['run_num'])
+    #mongo_update_cmd += " -a $ANALYSIS_ID -o {}".format(outdir)# set in run.sh
+    #if args.testing:
+    #    mongo_update_cmd += " -t"
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,

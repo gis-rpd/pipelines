@@ -62,13 +62,13 @@ echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
 SKIP_REAL_WES=0
-SKIP_REAL_WGS=1
+SKIP_REAL_WGS=0
 
 
 WRAPPER=./lacer-lofreq.py
-targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -l $DUMMY_BED -t targeted"
-wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -l $TRUSEQ_BED -t WES"
-wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS"
+targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -l $DUMMY_BED -t targeted --name 'test:targeted'"
+wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -l $TRUSEQ_BED -t WES --name 'test:WES'"
+wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS --name 'test:WGS'"
 
 # dryruns
 #

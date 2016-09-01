@@ -79,7 +79,7 @@ fi
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run: $SAMPLE" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
-    ./SG10K.py -c $CFG -o $odir >> $log 2>&1
+    ./SG10K.py -c $CFG -o $odir --name "test:$(basename $CFG)" >> $log 2>&1
     echo "FIXME IMPLEMENT: test number of reads etc. as extra submitted job"
 else
     echo "Real-run test skipped"

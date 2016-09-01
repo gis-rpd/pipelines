@@ -199,6 +199,8 @@ def main():
                         help="Use MongoDB test server")
     parser.add_argument('--no-archive', action='store_true',
                         help="Don't archieve this analysis")
+    parser.add_argument('--name',
+                        help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
     site = get_site()
@@ -332,7 +334,9 @@ def main():
                  'no_archive': args.no_archive,
                  'mail_on_completion': not args.no_mail,
                  'run_num': run_num}
-
+    if args.name:
+        user_data['analysis_name'] = args.name
+        
 
     usebases_arg = ''
     with open(usebases_cfg, 'r') as stream:

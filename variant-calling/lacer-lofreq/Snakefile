@@ -74,21 +74,17 @@ rule final:
 
 rule report:
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),
-               sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
-               sample=config['samples']),
+        readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.rst")
     output: html="report.html"
-    params: samplenames=', '.join(config['samples'].keys())
+    params: analysis_name = config.get('analysis_name', ', '.join(config['samples'].keys()))
     run:
-        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.rst")) as fh:
+        with open(input.readme) as fh:
             readme = fh.read()
             
         report("""
 =================================================================
-Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
 =================================================================
 
 Version Info
