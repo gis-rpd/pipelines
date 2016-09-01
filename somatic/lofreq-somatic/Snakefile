@@ -75,12 +75,12 @@ rule final:
 
 rule report:
     input:
-        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.vcf.gz'),
-        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.vcf.gz'),
+        rules.final.input[0]
+        # [0] to avoid including own output and hence cyclic dep
     output:
         html="report.html"
     params:
-        samplenames=', '.join(config['samples'].keys())
+        samplenames = config.get('analysis_name', ', '.join(config['samples'].keys()))
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"

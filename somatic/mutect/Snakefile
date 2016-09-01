@@ -49,25 +49,25 @@ assert sorted(config['samples']) == sorted(["normal", "tumor"])
 rule final:
     input:
         os.path.join(VARIANTS_DIR, 'mutect.PASS.vcf.gz'),
-        report="report.html"
+        "report.html"
 
 
 rule report:
     input:
-        os.path.join(VARIANTS_DIR, 'mutect.PASS.vcf.gz'),
+        readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.rst")
     output:
         html="report.html"
     params:
-        samplenames=', '.join(config['samples'].keys())
+        analysis_name = config.get('analysis_name', ', '.join(config['samples'].keys()))
     run:
         workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
         readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.rst")) as fh:
+        with open(input.readme) as fh:
             readme = fh.read()
             
         report("""
 =================================================================
-Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
 =================================================================
 
 Version Info
