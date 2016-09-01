@@ -466,10 +466,10 @@ def email_for_user():
 
 def send_status_mail(pipeline_name, success, analysis_id, outdir,
                      extra_text=None, pass_exception=True):
-    """analysis_id should be unique identifier for this analysis
-
+    """
+    - pipeline_name: pipeline name
     - success: bool
-    - analysis_id: analysis run id
+    - analysis_id:  name/identifier for this analysis run
     - outdir: directory where results are found
     """
 
