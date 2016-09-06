@@ -165,7 +165,7 @@ def main():
             sys.exit(1)
         else:
             if not os.path.exists(args.intervals):
-                logger.fatal("Intervals file %s does not exist", args.sample_config)
+                logger.fatal("Intervals file %s does not exist", args.sample_cfg)
                 sys.exit(1)
             logger.warning("Compatilibity between interval file and"
                            " reference not checked")# FIXME
