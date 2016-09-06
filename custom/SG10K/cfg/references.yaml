@@ -1,15 +1,4 @@
 {  
-  modules: {
-    # name : version
-    bwa : 0.7.12,
-    samtools : 1.3,
-    samblaster : 0.1.22,
-    bamutil : 1.0.13,
-    verifybamid: 1.1.2,
-    gnuplot: 5.0.3,
-  },
-
-  references: {    
     genome : "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/hs37d5.fa",
     dbsnp: "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/dbsnp_142.b37.vcf.gz",
     cont_vcfs: {
@@ -19,11 +8,6 @@
         INS : "$RPD_GENOMES/sg10k/SGVP_MAF0.01.INS.sites.vcf.gz",
         MAS : "$RPD_GENOMES/sg10k/SGVP_MAF0.01.MAS.sites.vcf.gz",
       },
-  },
-    
-  platform: "Illumina",
-  # extra BWA parameters, except -M -R and -t
-  bwa_mem_custom_args: "",
 }
     
     
