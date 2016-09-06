@@ -276,7 +276,7 @@ class PipelineHandler(object):
         for cfgkey, cfgfile in [('global', self.params_cfgfile),
                                 ('references', self.refs_cfgfile),
                                 ('modules', self.modules_cfgfile)]:
-            if not os.path.exists(cfgfile):
+            if not cfgfile:
                 continue
             with open(cfgfile) as fh:
                 cfg = dict(yaml.safe_load(fh))
@@ -294,11 +294,12 @@ class PipelineHandler(object):
             
         # determine num_chroms needed by some pipelines
         # FIXME ugly because sometimes not needed
-        reffa = merged_cfg['references']['genome']
-        if reffa:
-            assert 'num_chroms' not in merged_cfg['references']
-            merged_cfg['references']['num_chroms'] = len(list(
-                chroms_and_lens_from_from_fasta(reffa)))
+        if merged_cfg.get('references'):
+            reffa = merged_cfg['references']['genome']
+            if reffa:
+                assert 'num_chroms' not in merged_cfg['references']
+                merged_cfg['references']['num_chroms'] = len(list(
+                    chroms_and_lens_from_from_fasta(reffa)))
 
         return merged_cfg
 
