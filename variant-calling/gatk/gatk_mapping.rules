@@ -20,61 +20,29 @@ assert 'seqtype' in config
 assert config['seqtype'] in ['WGS', 'WES', 'targeted']
 
 
+def _get_padding_arg():
+    """
+    See http://gatkforums.broadinstitute.org/dsde/discussion/5792/target-intervals-for-exome
+    NOTE: duplicated in gatk_haplotype_caller.rules
+    """
+    if config['seqtype'] in ['targeted', 'WES']:
+        ip = config.get('interval_padding')
+        if ip:
+            return "-ip {}".format(ip)
+        else:
+            return ""
+    else:
+        return ""
+
+    
 # this is the global bed file, if given
 def _get_intervals_arg():
     intervals = config.get("intervals")
     if intervals:
         assert os.path.exists(intervals)
-        return "-L {}".format(intervals)
+        return "-L {} {}".format(intervals, _get_padding_arg())
     else:
         return ""
-
-
-rule gatk_realign_info:
-    input:
-        bam="{prefix}.bam",
-        bai="{prefix}.bam.bai",
-        ref=config['references']['genome'],
-        refdict=config['references']['genome'].replace("fasta", "dict")
-    output:
-        temp("{prefix}.realn.intervals")
-    log:
-        "{prefix}.realn.intervals.log"
-    params:
-        intervals_arg=_get_intervals_arg(),
-        custom=config.get("params_gatk", "")
-    threads: 8
-    message:
-        "Running RealignerTargetCreator"
-    shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T RealignerTargetCreator -R {input.ref}"
-        " -nt {threads} {params.intervals_arg} {params.custom}"
-        " -I {input.bam} -known {config[references][mills]}"
-        " -o {output} >& {log}"
-
-
-rule gatk_realign_bam:
-    input:
-        ref=config['references']['genome'],
-        bam="{prefix}.bam",
-        intervals="{prefix}.realn.intervals"
-    output:
-        temp("{prefix}.realn.bam")
-    log:
-        "{prefix}.realn.bam.log"
-    params:
-        custom=config.get("params_gatk", "")
-    # single threaded only, but ask for more due to java/scheduler problem
-    threads: 4
-    message: "Running IndelRealigner"
-    shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T IndelRealigner -R {input.ref} {params.custom}"
-        " --disable_bam_indexing"
-        " -I {input.bam} -known {config[references][mills]}"
-        " -targetIntervals {input.intervals}"
-        " -o {output} >& {log}"
 
 
 rule gatk_recalibrate_info:

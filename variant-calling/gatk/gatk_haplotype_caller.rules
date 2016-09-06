@@ -5,21 +5,11 @@ Based on rules/variant_calling/gatk_haplotype_caller.rules from https://bitbucke
 """
 
 
-
-assert 'num_chroms' in config
 assert 'references' in config
 assert 'genome' in config["references"]
+assert 'num_chroms' in config["references"]
 
-
-def _get_intervals_arg():
-    intervals = config.get("intervals")
-    if intervals:
-        assert os.path.exists(intervals)
-        return "-L {}".format(intervals)
-    else:
-        return ""
-
-
+    
 def _gatk_multi_arg(flag, files):
     flag += " "
     return " ".join(flag + f for f in files)
@@ -28,16 +18,16 @@ def _gatk_multi_arg(flag, files):
 rule gatk_haplotype_caller:
     input:
         bams = lambda wildcards: expand(
-            '{prefix}/unit-{unit}.bwamem.realn.recal.bam',
+            '{prefix}/unit-{unit}.bwamem.recal.bam',
             prefix=wildcards.prefix,
             unit=config['samples'][wildcards.sample]),
         bais = lambda wildcards: expand(
-            '{prefix}/unit-{unit}.bwamem.realn.recal.bam.bai',
+            '{prefix}/unit-{unit}.bwamem.recal.bam.bai',
             prefix=wildcards.prefix,
             unit=config['samples'][wildcards.sample]),
         # stats awkward here but also awkward in BAM agnostic final. introduces samtools rule dep
         stats = lambda wildcards: expand(
-            '{prefix}/unit-{unit}.bwamem.realn.recal.bamstats/stats.txt',
+            '{prefix}/unit-{unit}.bwamem.recal.bamstats/stats.txt',
             prefix=wildcards.prefix,
             unit=config['samples'][wildcards.sample]),
             ref=config["references"]["genome"],
@@ -45,13 +35,15 @@ rule gatk_haplotype_caller:
         # split by chrom and intersect with intervals already if needed
         bed=os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed")
     output:
-        gvcf = temp("{prefix}/{sample}.{ctr}.gvcf"),
-        idx = temp("{prefix}/{sample}.{ctr}.gvcf.idx")
+        gvcf = temp("{prefix}/{sample}.{ctr}.g.vcf"),
+        idx = temp("{prefix}/{sample}.{ctr}.g.vcf.idx")
     log:
-        "{prefix}/{sample}.{ctr}.gvcf.log"
+        "{prefix}/{sample}.{ctr}.g.vcf.log"
     params:
-        #intervals_arg=_get_intervals_arg(),
-        custom = config.get("params_gatk", "")
+        custom = config.get("params_gatk", ""),
+        padding_arg = _get_padding_arg(),
+        het_arg = "--heterozygosity {config[heterozygosity]}" if config.get('heterozygosity') else "",
+        het_indel_arg = "--indel_heterozygosity {config[indel_heterozygosity]}" if config.get('indel_heterozygosity') else ""
     # original comment: "haplotype caller currently does not reliably
     # use more than 2 threads".  we found it to not work reliably with
     # anything >1 need to request for more anyway to make our
@@ -70,12 +62,10 @@ rule gatk_haplotype_caller:
             shell(
                 "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
                 " -T HaplotypeCaller -R {input.ref} {bams}"
-                " -L {input.bed} {params.custom}"
-                " --emitRefConfidence GVCF --variant_index_type LINEAR"
-                " --heterozygosity {config[heterozygosity]} "
-                " --indel_heterozygosity {config[indel_heterozygosity]}"
+                " -L {input.bed} {params.padding_arg} {params.custom} {params.het_arg} {params.het_indel_arg}"
+                " --emitRefConfidence GVCF"
                 " --dbsnp {config[references][dbsnp]}"#-nct {threads} "
-                " --variant_index_parameter 128000 -o {output.gvcf} >& {log}")
+                " -o {output.gvcf} >& {log}")
         else:
             # if empty just touch. idx no needed and gvcf later simply concatenated
             shell("touch {output.gvcf} {output.idx} >& {log}; echo 'Touching only' >> {log}")
@@ -86,18 +76,18 @@ rule gatk_catvariants:
     input:
         # With the following things would normally fail with
         #   "gatk_haplotype_caller and gatk_catvariants are ambiguous for the file ./out/NA12878-targeted.concat.gvcf"
-        split_gvcfs = expand("{{sample}}.{ctr}.gvcf",
-                             ctr=range(config["num_chroms"]))
+        split_gvcfs = expand("{{sample}}.{ctr}.g.vcf",
+                             ctr=range(config["references"]["num_chroms"]))
         # hence use rule dep (alternative rule order): ruleorder: gatk_haplotype_caller > gatk_catvariants
         # With the following rule dep as replacement, things still fail with
         #   "Wildcards in input, params, log or benchmark file of rule gatk_catvariants cannot be determined from output files: 'prefix'"
         # split_gvcfs = rules.gatk_haplotype_caller.output.gvcf
         # Hence we use the first with a ruleorder (see above)
     output:
-        cat_gvcf="{sample}.concat.gvcf",
+        cat_gvcf="{sample}.concat.g.vcf",
         #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
     log:
-        "{sample}.concat.gvcf.log"
+        "{sample}.concat.g.vcf.log"
     run:
         #vcf_in_args = " -V ".join(input.split_gvcfs)
         #shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T CombineVariants -R {input.ref} -V {vcf_in_args} -o {output.cat_gvcf} --assumeIdenticalSamples")
@@ -127,7 +117,7 @@ rule gatk_catvariants:
 rule gatk_genotyping:
     input:
         ref=config["references"]["genome"],
-        gvcfs=expand("{{prefix}}/{sample}.concat.gvcf", sample=config["samples"])
+        gvcfs=expand("{{prefix}}/{sample}.concat.g.vcf", sample=config["samples"])
     output:
         "{prefix}/all_genotyped.vcf"
     log:

@@ -107,7 +107,7 @@ rule prep_bed_files:
         reffai = config['references']['genome'] + ".fai"
     output:
         bed = temp(expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
-                          ctr=range(config["num_chroms"])))
+                          ctr=range(config["references"]["num_chroms"])))
     log:
         os.path.join(RESULT_OUTDIR, "chr.split.log")
     params:

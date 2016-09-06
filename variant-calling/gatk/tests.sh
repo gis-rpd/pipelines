@@ -61,12 +61,13 @@ echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
 
+SKIP_REAL_TARGETED=0
 SKIP_REAL_WES=0
 SKIP_REAL_WGS=0
 
 
 WRAPPER=./gatk.py
-targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -t targeted -l $DUMMY_BED --name 'test:targeted'"
+targeted_cmd_base="$WRAPPER --sample-cfg $TARGETED_CFG -t targeted -l $DUMMY_BED --name 'test:targeted'"
 wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:WES'"
 wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS --name 'test:WGS'"
 
@@ -105,12 +106,16 @@ fi
 # real runs
 #
 if [ $skip_real_runs -ne 1 ]; then
-    echo "Realrun: targeted" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
-    eval $targeted_cmd_base -o $odir -v >> $log 2>&1
-    # magically works even if line just contains id as in the case of pbspro
-    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
-    echo "Started job $jid writing to $odir. You will receive an email"
+    if [ $SKIP_REAL_TARGETED -eq 0 ]; then
+        echo "Realrun: targeted" | tee -a $log
+        odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+        eval $targeted_cmd_base -o $odir -v >> $log 2>&1
+        # magically works even if line just contains id as in the case of pbspro
+        jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+        echo "Started job $jid writing to $odir. You will receive an email"
+    else
+        echo "Skipping real targeted run due to config"
+    fi
     
     if [ $SKIP_REAL_WES -eq 0 ]; then
         echo "Realrun: WES" | tee -a $log
