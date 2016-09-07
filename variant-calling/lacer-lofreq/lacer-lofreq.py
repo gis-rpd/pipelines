@@ -119,8 +119,8 @@ def main():
     default = default_cfg['references']['excl_chrom']
     parser.add_argument('-e', "--excl-chrom", default=default,
                         help=argparse.SUPPRESS)
-    parser.add_argument('-d', '--mark-dups', action='store_true',
-                        help="Mark duplicate reads")
+    parser.add_argument('-D', '--dont-mark-dups', action='store_true',
+                        help="Don't mark duplicate reads")
 
     args = parser.parse_args()
 
@@ -201,7 +201,7 @@ def main():
     user_data['references'] = {'genome' : os.path.abspath(args.reffa),
                                'num_chroms' : len(list(chroms_and_lens_from_from_fasta(args.reffa))),
                                'excl_chrom' : args.excl_chrom}
-    user_data['mark_dups'] = args.mark_dups
+    user_data['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,

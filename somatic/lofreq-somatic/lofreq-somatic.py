@@ -114,8 +114,8 @@ def main():
     parser.add_argument('-l', "--intervals",
                         help="Intervals file (e.g. bed file) listing regions of interest."
                         " Required for WES and targeted sequencing.")
-    parser.add_argument('-d', '--mark-dups', action='store_true',
-                        help="Mark duplicate reads")
+    parser.add_argument('-D', '--dont-mark-dups', action='store_true',
+                        help="Don't mark duplicate reads")
     parser.add_argument('--normal-bam',
                         help="Advanced: Injects normal BAM (overwrites normal-fq options)."
                         " WARNING: reference and postprocessing need to match pipeline requirements")
@@ -227,7 +227,7 @@ def main():
                                'num_chroms' : len(list(chroms_and_lens_from_from_fasta(reffa))),
                                'excl_chrom' : excl_chrom,
                                'dbsnp' : dbsnp}
-    user_data['mark_dups'] = args.mark_dups
+    user_data['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
