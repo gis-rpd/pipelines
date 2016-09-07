@@ -66,7 +66,7 @@ SKIP_REAL_WGS=0
 
 
 WRAPPER=./lacer-lofreq.py
-targeted_cmd_base="$WRAPPER -c $TARGETED_CFG -l $DUMMY_BED -t targeted --name 'test:targeted'"
+targeted_cmd_base="$WRAPPER --sample-cfg $TARGETED_CFG -l $DUMMY_BED -t targeted --name 'test:targeted'"
 wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -l $TRUSEQ_BED -t WES --name 'test:WES'"
 wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS --name 'test:WGS'"
 

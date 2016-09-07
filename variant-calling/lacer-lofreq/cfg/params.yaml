@@ -1,11 +1,4 @@
 {  
-  modules: {
-    # name : version
-    bwa : 0.7.12,
-    samtools : 1.3,
-    samblaster : 0.1.22,
-  },
-
   platform: "Illumina",
   # extra BWA parameters, except -M -R and -t
   bwa_mem_custom_args: "",
