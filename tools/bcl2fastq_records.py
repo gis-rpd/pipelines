@@ -30,8 +30,8 @@ from pipelines import generate_window, path_to_url
 from mongodb import mongodb_conn
 
 
-__author__ = "Andreas Wilm"
-__email__ = "wilma@gis.a-star.edu.sg"
+__author__ = "LIEW Jun Xian"
+__email__ = "liewjx@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
@@ -257,7 +257,7 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 
 def main():
     """
-    Main function
+    Main Function
     export FLASK_APP=bcl2fastq_records.py
     flask run --host=0.0.0.0
     """
@@ -266,9 +266,9 @@ def main():
     query = instantiate_query(args)
 
     if args.flask:
-        os.environ["FLASK_APP"] = os.path.basename(__file__)
-        os.system("flask run --host=0.0.0.0")
-        app.run()
+#        os.environ["FLASK_APP"] = os.path.basename(__file__)
+#        os.system("flask run --host=0.0.0.0")
+        app.run(host="0.0.0.0", port="5000")
     else:
         if args.arrange:
             mongo_found = mongo.find(query).sort(list((j[0], 1) if j[1] == "asc" else (j[0], -1) \
@@ -287,5 +287,5 @@ def main():
             PrettyPrinter(indent=2).pprint(result)
 
 if __name__ == "__main__":
-#    app.run(debug=True)
+#    app.run(debug=True, host="0.0.0.0", port="5000")
     main()
