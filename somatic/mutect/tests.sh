@@ -71,7 +71,7 @@ echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
 WRAPPER=./mutect.py
-wes_cmd_base="$WRAPPER -c $EXOME_IN_HOUSE_CFG -l $EXOME_IN_HOUSE_BED -t WES --name exome-in-house"
+wes_cmd_base="$WRAPPER --sample-cfg $EXOME_IN_HOUSE_CFG -l $EXOME_IN_HOUSE_BED -t WES --name exome-in-house"
 wgs_cmd_base="$WRAPPER --normal-bam $DREAM_WGS_NORMAL_BAM --tumor-bam $DREAM_WGS_TUMOR_BAM -l $DREAM_WGS_BED -t WGS  --name dream-set3"
 
 # dryruns

@@ -1,0 +1,8 @@
+{  
+  frac_cont : 0.02,
+  platform: "Illumina",
+  # extra BWA parameters, except -M -R and -t
+  bwa_mem_custom_args: "",
+}
+    
+    
