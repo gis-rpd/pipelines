@@ -1,5 +1,4 @@
 {
-  modules: {
     lofreq : 2.1.2,
     snpeff : 4.2,
     htslib : 1.3,
@@ -9,9 +8,6 @@
     bwa : 0.7.12,
     samtools : 1.3,
     samblaster : 0.1.22,
-  },
-    
-  platform: "Illumina",# for BWA
 }
     
     
