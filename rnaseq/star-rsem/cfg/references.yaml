@@ -1,24 +1,10 @@
 {
-
-references: {
   genome : $RPD_GENOMES/hg19/hg19.fa,
   staridx : $RPD_GENOMES/hg19/star/,
   rsemidx : $RPD_GENOMES/hg19/RSEM_index/RSEMtr_hg19,
   gtfsourcefile : $RPD_GENOMES/hg19/gtf/hg19_annotation.gtf,
   gtfmaskfile : $RPD_GENOMES/hg19/gtf/hg19_annotation_maskfile.gtf,
   rnaseqc_annotation : $RPD_GENOMES/hg19/gtf/hg19_RNASeqQCannotation.gtf,
-  },
-  
-  modules: {
-    # name : version
-    samtools : 1.3,
-    star : 2.5.2a,
-    rsem : 1.2.31,
-    rnaseqc : 1.1.8,
-    cufflinks: 2.2.1
-    },
-
-    platform: Illumina
 }
     
     
