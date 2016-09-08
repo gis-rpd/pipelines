@@ -1,0 +1,8 @@
+{  
+    # name : version
+    bwa : 0.7.12,
+    samtools : 1.3,
+    samblaster : 0.1.22,
+}
+    
+    

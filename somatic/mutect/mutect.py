@@ -30,7 +30,6 @@ from pipelines import get_pipeline_version
 from pipelines import PipelineHandler
 from pipelines import get_site
 from pipelines import logger as aux_logger
-from pipelines import ref_is_indexed
 from pipelines import get_cluster_cfgfile
 
 
@@ -102,7 +101,7 @@ def main():
         cfg_group.add_argument('--{}-cfg'.format(name),
                                default=default,
                                help="Config-file (yaml) for {}. (default: {})".format(descr, default))
-        
+
     # pipeline specific args
     parser.add_argument("--normal-fq1", nargs="+",
                         help="Normal FastQ file/s (gzip only)."
@@ -133,7 +132,7 @@ def main():
                         help="Advanced: Injects tumor BAM (overwrites tumor-fq options)."
                         " WARNING: reference and postprocessing need to match pipeline requirements")
 
-    
+
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -167,7 +166,7 @@ def main():
         samples, readunits = get_samples_and_readunits_from_cfgfile(args.sample_cfg)
     else:
         samples = dict()
-        
+
         if args.normal_bam:
             normal_readunits = dict()
             samples["normal"] = []
@@ -178,7 +177,7 @@ def main():
                 sys.exit(1)
             normal_readunits = get_readunits_from_args(args.normal_fq1, args.normal_fq2)
             samples["normal"] = list(normal_readunits.keys())
-            
+
         if args.tumor_bam:
             tumor_readunits = dict()
             samples["tumor"] = []
@@ -196,7 +195,7 @@ def main():
     #if not os.path.exists(reffa):
     #    logger.fatal("Reference '%s' doesn't exist", reffa)
     #    sys.exit(1)
-    #    
+    #
     #for p in ['bwa', 'samtools']:
     #    if not ref_is_indexed(reffa, p):
     #        logger.fatal("Reference '%s' doesn't appear to be indexed with %s", reffa, p)
@@ -222,7 +221,7 @@ def main():
     user_data['samples'] = samples
     if args.name:
         user_data['analysis_name'] = args.name
-        
+
     user_data['seqtype'] = args.seqtype
     user_data['intervals'] = args.intervals
     # WARNING: this currently only works because these two are the only members in reference dict
@@ -250,7 +249,7 @@ def main():
                                   "{}.bwamem.realn.recal.bam".format(sample))
             os.makedirs(os.path.dirname(target))
             os.symlink(os.path.abspath(bam), target)
-        
+
     pipeline_handler.submit(args.no_run)
 
 
