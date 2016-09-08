@@ -1,0 +1,23 @@
+# FIXME needs tweaking
+{
+    # default rules applied to all rules, but overriden by rule-specific settings
+    "__default__":
+    {
+      "time" : "01:00:00",
+      "mem" : 4G,
+    },
+
+    "star_mapping":
+    {
+      "time" : "01:00:00",
+      "mem" : 42G,
+    },
+
+    "rnaseqQC":
+    {
+      "time" : "01:00:00",
+      "mem" : 20G,
+    },    
+}    
+
+
