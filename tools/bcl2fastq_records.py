@@ -138,7 +138,7 @@ def form_post():
 def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption=""):
     """
     Flask callback function for all requests
-    path_to_url: /mnt/projects/userrig/solexa/.. -> http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects/..
+    path_to_url: /mnt/projects/userrig/solexa/.. -> rpd/userrig/runs/solexaProjects/..
     """
     result = ""
     result += ("<script>$(function(){$('.nav_caption').replaceWith('" \
