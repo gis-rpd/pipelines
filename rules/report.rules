@@ -1,0 +1,27 @@
+rule report:
+    input:
+        readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.md"),
+        config = "conf.yaml",
+    output:
+        html="report.html"
+    params:
+        analysis_name = config.get('analysis_name', ', '.join(config['samples'].keys()))
+    run:
+        report("""
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
+=================================================================
+
+- The used pipeline version was {config[ELM][pipeline_version]}
+- Parameters including program versions etc. can be found in the attached config_ file
+- Output files can be found in ``./out/``
+- The main log file is `./logs/snakemake.log`
+- See {input.readme} for a description of this pipeline
+""",
+               output.html,
+               conf=input.conf,
+               metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",
+               )
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch to have at least something

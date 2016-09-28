@@ -19,8 +19,8 @@ or
 Please note, that BAM file names do not indicate whether BQSR was actually run or not!
 
 Variant quality recalibration (VQSR) is run only for WGS data.  The
-corresponding vcf files are called ``all_genotyped.snp_recal.vcf`` and
-``all_genotyped.indel_recal.vcf``. The reason is explained here:
+corresponding vcf files are called `all_genotyped.snp_recal.vcf` and
+`all_genotyped.indel_recal.vcf`. The reason is explained here:
 `Which training sets / arguments should I use for running VQSR?
 <https://software.broadinstitute.org/gatk/guide/article?id=1259 >`
 (last updated 2016-08-30)::
@@ -38,7 +38,7 @@ Hard variant filtering is always applied, following the recommendations in this
 and
 `this GATK guide <https://www.broadinstitute.org/gatk/guide/article?id=3225>`_.
 The corresponding variant files are called
-``all_genotyped.snp_hfilter.vcf`` and ``all_genotyped.indel_hfilter.vcf``.
+`all_genotyped.snp_hfilter.vcf` and `all_genotyped.indel_hfilter.vcf`.
 Note, it is recommended to optimize your filtering settings on a per
 sample basis (which obviously cannot be part of any automated
 workflow). 
@@ -55,11 +55,11 @@ References
 How to
 ------
 
-- Run ``gatk.py -h`` to get basic usage information.
+- Run `gatk.py -h` to get basic usage information.
 - If called correctly, jobs will be run on the cluster automatically
-- Using ``-v`` is recommended to get some more information
+- Using `-v` is recommended to get some more information
 - Should the pipeline 'crash', it can be restarted by simply running
-  ``bash run.sh`` (for local mode) or ``qsub run.sh`` (for cluster
+  `bash run.sh` (for local mode) or `qsub run.sh` (for cluster
   mode).  Note that a crash due to input file or parameter issues can
   not be resolved in this fashion.
 
@@ -67,18 +67,18 @@ How to
 Output
 ------
 
-- The main log file is ``./logs/snakemake.log``
-- After a successful run the last line in the snakemake log file will say ``(100%) done``
-- All output files can be found in ``./out/``
-- Furthermore a simple report have been generated (``./out/report.html``)
-- Each read unit will have its own realigned, recalibrated BAM file, e.g. ``./out/unit-e5b71e98.bwamem.realn.recal.bam``
-- Note that BQSR is skipped for targeted sequencing but the ``recal`` file name extension is maintained
-- See ``conf.yaml`` for a defintion of readunits
-- Raw genotype calls: ``./out/all_genotyped.vcf``
-- gVCF: ``./out/<sample>.concat.gvcf``
-- Hard-filtered snp/indel calls: ``./out/all_genotyped.<snp|indel>_hfilter.vcf``
-- Recalibrated snp/indel calls (for WGS only): ``./out/all_genotyped.<snp|indel>_recal.vcf``
-- Parameters including program versions etc. can be found in ``conf.yaml``
+- The main log file is `./logs/snakemake.log`
+- After a successful run the last line in the snakemake log file will say `(100%) done`
+- All output files can be found in `./out/`
+- Furthermore a simple report have been generated (`./out/report.html`)
+- Each read unit will have its own realigned, recalibrated BAM file, e.g. `./out/unit-e5b71e98.bwamem.realn.recal.bam`
+- Note that BQSR is skipped for targeted sequencing but the `recal` file name extension is maintained
+- See `conf.yaml` for a defintion of readunits
+- Raw genotype calls: `./out/all_genotyped.vcf`
+- gVCF: `./out/<sample>.concat.gvcf`
+- Hard-filtered snp/indel calls: `./out/all_genotyped.<snp|indel>_hfilter.vcf`
+- Recalibrated snp/indel calls (for WGS only): `./out/all_genotyped.<snp|indel>_recal.vcf`
+- Parameters including program versions etc. can be found in `conf.yaml`
 
 
 

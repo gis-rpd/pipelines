@@ -179,6 +179,7 @@ rule final:
     # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
 
 
+# FIXME almost identical to rules/report.rules but with different analysis_name
 rule report:
     input:
         readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.md"),

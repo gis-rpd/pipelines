@@ -78,7 +78,7 @@ simplistic installation instructions.
 - The actual run script is called `run.sh`
 - The main log file is `./logs/snakemake.log` (use `tail -f` to follow live progress)
 - After a successful run the last line in the snakemake log file will
-  say ``(100%) done``
+  say `(100%) done`
 - Cluster log files can be found in the respective `./logs/` sub-directory
 
 ## Debugging Techniques
@@ -93,22 +93,22 @@ Call a wrapper with `--no-run` and
 ## List of Pipelines
 
 
-- [bcl2fastq](./bcl2fastq/README.md) (production use only)
+- [bcl2fastq](bcl2fastq/README.md) (production use only)
 - custom
-  - SG10K (specialized use only)
+  - [SG10K](custom/SG10K/README.md)
 - mapping
-  - BWA-MEM
+  - [BWA-MEM](mapping/BWA-MEM/README.md)
 - metagenomics
-  - essential-genes
+  - [essential-genes](metagenomics/essential-genes/README.md)
 - rnaseq
-  - star-rsem
-  - fluidigm-ht-c1-rnaseq
+  - [star-rsem](rnaseq/fluidigm-ht-c1-rnaseq/README.md)
+  - [fluidigm-ht-c1-rnaseq](rnaseq/star-rsem/README.md)
 - somatic
-  - lofreq-somatic
-  - mutect
+  - [lofreq-somatic](somatic/lofreq-somatic/README.md)
+  - [mutect](somatic/mutect/README.md)
 - variant-calling
-  - gatk
-  - lacer-lofreq
+  - [gatk](variant-calling/gatk/README.md)
+  - [lacer-lofreq](variant-calling/lacer-lofreq/README.md)
 
 
 ## Comments, Questions, Bug reports
