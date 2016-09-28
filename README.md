@@ -51,6 +51,8 @@ simplistic installation instructions.
 - Note, there is no need to submit the script itself, as long as you run it from a cluster node
 - Also note, you must not prefix the script with `python`,
   (installed scripts automatically use the RPD Python3 installation)
+- If called correctly, jobs will be run on the cluster automatically
+- Use of `-v` is recommended, so that some more information is printed
 - All scripts create an output directory (option `-o`) containing the run environment
 - Your results will be saved to a corresponding subdirectory called `./out/`
 - Upon completion (success or error) an email will be send to the user
@@ -71,8 +73,9 @@ simplistic installation instructions.
   and loaded via [dotkit](https://computing.llnl.gov/?set=jobs&page=dotkit)
 - Pipeline wrappers create an output directory containing all
   necessary configuration files, run scripts etc.
-- After creation of this folder, the analysis run is automatically
-  submitted (unless `--no-run` was used which gives you a chance to change the config file `conf.yaml`)
+- After creation of this folder, the analysis run is automatically submitted to the cluster
+ (unless `--no-run` was used which gives you a chance to change the config file `conf.yaml`)
+- The actual run script is called `run.sh`
 - The main log file is `./logs/snakemake.log` (use `tail -f` to follow live progress)
 - Cluster log files can be found in the respective `./logs/` sub-directory
 
