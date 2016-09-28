@@ -22,7 +22,7 @@ the
 
 - Pipelines are organized into directories of specific category,
   e.g. `variant-calling`
-- Each pipeline has its own subfolder there and the corresponding starter
+- Each pipeline has its own subfolder there and the corresponding wrapper
   script has the same name
   (e.g. `variant-calling/gatk/gatk.py`)
 - Each pipeline folder contains a README file (`README.rst` and/or
@@ -46,12 +46,12 @@ simplistic installation instructions.
 
 ## How to Run
 
-- Chose the wrapper of a particular pipeline that you want to run, e.g.: `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py`
-- Invoke the wrapper with `-h` to display its usage information, e.g. `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py -h`
-- Note, there is no need to submit the wrapper itself, as long as you run the wrapper from a cluster node
-- Also note, you must not prefix the wrapper command with `python`,
-  (installed wrappers automatically use the RPD Python3 installation)
-- All wrappers create an output directory (option `-o`) containing the run environment
+- Find the wrapper of the particular pipeline that you want to run, e.g.: `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py`
+- Invoke the script with `-h` to display its usage information, e.g. `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py -h`
+- Note, there is no need to submit the script itself, as long as you run it from a cluster node
+- Also note, you must not prefix the script with `python`,
+  (installed scripts automatically use the RPD Python3 installation)
+- All scripts create an output directory (option `-o`) containing the run environment
 - Your results will be saved to a corresponding subdirectory called `./out/`
 - Upon completion (success or error) an email will be send to the user
   pointing to the results.  In addition a file called `report.html`
@@ -75,12 +75,11 @@ simplistic installation instructions.
   submitted (unless `--no-run` was used which gives you a chance to change the config file `conf.yaml`)
 - The main log file is `./logs/snakemake.log` (use `tail -f` to follow live progress)
 - Cluster log files can be found in the respective `./logs/` sub-directory
-- For debugging prupose
 
 ## Debugging Techniques
 
 Call a wrapper with `--no-run` and
-- Check the created `conf/yaml`
+- Check the created `conf.yaml`
 - Execute a dryrun: `EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh; cat logs/snakemake.log`
 - Run locally: `nohup bash run.sh; tail -f logs/snakemake.log`
 
