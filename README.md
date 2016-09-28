@@ -8,16 +8,15 @@ the
 
 ## Features
 
-- Pipelines are divided into steps that are automatically run in parallel
-  whenever possible so that each step makes optimal use of resources
-- Pipelines work out of the box on the GIS in-house cluster (aquila)
-  and the
-  [National Super Computing Center (NSCC)](http://help.nscc.sg/)
-  without any changes required by the user
 - Cluster specifics are handled internally, i.e. users don't have to
   worry about scheduler usage details etc.
 - Built-in check-pointing: Easy restart and skipping of already
   completed steps
+- Pipelines work out of the box on aquila (GIS) or the
+  [National Super Computing Center (NSCC)](http://help.nscc.sg/) (PBS Pro)
+  without any changes required by the user
+- Pipelines are divided into steps that are automatically run in parallel
+  whenever possible so that each step makes optimal use of resources
 
 ## Overview
 
@@ -26,19 +25,32 @@ the
 - Each pipeline has its own subfolder there and the corresponding starter
   script has the same name
   (e.g. `variant-calling/gatk/gatk.py`)
-- All wrappers require Python3. Should it be required, add the RPD Python
-  installation to your PATH: `export
-  PATH=/mnt/projects/rpd/apps/miniconda3/bin/:$PATH`
-- Invoking the starter script with `-h` will display its usage
-  information
 - Each pipeline folder contains a README file (`README.rst` and/or
   `README.html`) describing the pipeline
-  (e.g. `variant-calling/gatk/README.rst`)
-- All pipelines are designed to work either on aquila (UGE) or
-  the NSCC (PBSPro) out of the box
-- Upon completion (success or error) an email will be send to the user
-  pointing to results (or log files)
-- Output: results can be found in the respective `./out/`
+  (e.g. `[variant-calling/gatk/README.rst](variant-calling/gatk/README.rst)`)
+
+## Installation
+
+The following installations are available at different sites (referred to as `RPD_PIPELINES` below):
+- GIS: `/mnt/projects/rpd/pipelines/`
+- NSCC: `/seq/astar/gis/rpd/pipelines/`
+
+Each of these contains one subfolder per pipeline version,
+e.g. `$RPD_PIPELINES/pipelines.2016-07` (referred to as
+`PIPELINE_ROOTDIR` below).
+
+For the time being we can only wish external users good luck at replicating the setup.
+
+## How to Run
+
+- Chose the wrapper of a particular pipeline that you want to run, e.g.: `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py`
+- Invoke the wrapper with `-h` to display its usage information, e.g. `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py -h`
+- Note, there is no need to submit the wrapper itself, as long as you run the wrapper from a cluster node
+- Also note you must not prefix the wrapper command with your own
+  version, i.e. do not use `python path-to-wrapper` (installed wrappers automatically use the RPD Python3 installation)
+- All wrappers will create an output directory (option `-o`) containing the run environment.
+- Your results will be saved to a corresponding subdirectory called `./out/`
+- Upon completion (success or error) an email will be send to the user pointing to the results
   sub-directory.  In addition a file called `report.html` will be
   generated containing some basic information about the analysis.
 - Should a pipeline fail for purely technical reasons (crash of a
@@ -47,14 +59,13 @@ the
   logs/submission.log`. Upon restart, partially created files will be
   automatically deleted and the pipeline will skip already completed
   steps
-- In GIS different pipeline versions are installed at ``/mnt/projects/rpd/pipelines/``
   
 ## How it works
 
 - All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
-- Software versions are defined in each pipelines' `conf.default.yaml`
+- Software versions are defined in each pipelines' `cfg/modules.yaml`
   and loaded via [dotkit](https://computing.llnl.gov/?set=jobs&page=dotkit)
-- Pipeline wrappers create a run directory which contains all
+- Pipeline wrappers create an output directory containing all
   necessary configuration files, run scripts etc.
 - After creation of this folder, the pipeline is automatically
   scheduled (unless `--no-run` was used which gives you a chance to change the config file `conf.yaml`)
@@ -65,9 +76,9 @@ the
 ## List of Pipelines
 
 
-- bcl2fastq
+- bcl2fastq (production use only)
 - custom
-  - SG10K
+  - SG10K (specialized use only)
 - mapping
   - BWA-MEM
 - metagenomics
@@ -75,32 +86,13 @@ the
 - rnaseq
   - star-rsem
   - fluidigm-ht-c1-rnaseq
+- somatic
+  - lofreq-somatic
+  - mutect
 - variant-calling
   - gatk
   - lacer-lofreq
 
-
-## One wrapper, multiple samples
-
-If you want to analyze many samples (identically) with just one
-wrapper call, you will have to provide per sample information to the
-wrapper. The easiest way to achieve this, is to create an Excel sheet
-listing all samples and fastq(s) and to convert it into a config
-file as described in the following:
-
-- Create an Excel sheet with the following columns:
-  1. sample name (mandatory; can be used repeatedly, e.g. if you have multiple fastqs per sample)
-  2. run id (allowed to be empty)
-  3. flowcell id (allowed to be empty)
-  4. library id (allowed to be empty)
-  5. lane id (allowed to be empty)
-  6. read-group id (allowed to be empty)
-  7. fastq1 (mandatory)
-  8. fastq2 (allowed to be empty)
-- Save the Excel sheet as CSV and run the following to convert it to yaml:
-  `tools/sample_conf.py -i <your>.csv -i <your>.yaml`
-  Depending on how you created the CSV file you might want to set the CSV delimiter with `-d`, e.g. "`-d ,`"
-- Use the created yaml file as input for the pipeline wrapper (usually "`-c your.yaml`")
 
 ## Comments, Questions, Bug reports
 
