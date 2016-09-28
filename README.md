@@ -12,11 +12,11 @@ the
   worry about scheduler usage details etc.
 - Built-in check-pointing: Easy restart and skipping of already
   completed steps
-- Pipelines work out of the box on aquila (GIS) or the
+- Pipelines work out of the box on GIS's aquila (UGE) or the
   [National Super Computing Center (NSCC)](http://help.nscc.sg/) (PBS Pro)
   without any changes required by the user
 - Pipelines are divided into steps that are automatically run in parallel
-  whenever possible so that each step makes optimal use of resources
+  where possible and each step tries to make optimal use of resources
 
 ## Overview
 
@@ -27,7 +27,7 @@ the
   (e.g. `variant-calling/gatk/gatk.py`)
 - Each pipeline folder contains a README file (`README.rst` and/or
   `README.html`) describing the pipeline
-  (e.g. `[variant-calling/gatk/README.rst](variant-calling/gatk/README.rst)`)
+  (e.g. [`variant-calling/gatk/README.rst`](variant-calling/gatk/README.rst))
 
 ## Installation
 
