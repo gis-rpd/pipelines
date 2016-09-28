@@ -56,7 +56,7 @@ simplistic installation instructions.
 - All scripts create an output directory (option `-o`) containing the run environment
 - Your results will be saved to a corresponding subdirectory called `./out/`
 - Upon completion (success or error) an email will be send to the user
-  pointing to the results.  In addition a file called `report.html`
+  (unless `--no-mail` was specified) pointing to the results. In addition a file called `report.html`
   will be generated containing some basic information about the
   analysis.
 - Should a pipeline fail for purely technical reasons (crash of a
@@ -77,6 +77,8 @@ simplistic installation instructions.
  (unless `--no-run` was used which gives you a chance to change the config file `conf.yaml`)
 - The actual run script is called `run.sh`
 - The main log file is `./logs/snakemake.log` (use `tail -f` to follow live progress)
+- After a successful run the last line in the snakemake log file will
+  say ``(100%) done``
 - Cluster log files can be found in the respective `./logs/` sub-directory
 
 ## Debugging Techniques
@@ -91,7 +93,7 @@ Call a wrapper with `--no-run` and
 ## List of Pipelines
 
 
-- bcl2fastq (production use only)
+- [bcl2fastq](./bcl2fastq/README.md) (production use only)
 - custom
   - SG10K (specialized use only)
 - mapping
