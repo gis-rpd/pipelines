@@ -111,7 +111,39 @@ Call a wrapper with `--no-run` and
   - [lacer-lofreq](variant-calling/lacer-lofreq/README.md)
 
 
+## FAQ
+
+### Where are my results
+
+In the output directory that you specified with `-o`, under a subdirectory called `out`. Depending on the pipeline, the samplename is added as well
+
+### How do I know the pipeline run is completed
+
+You should have received an email. To double check run `tail
+logs/snakemake.log` in the output directory. It should either say
+`Nothing to be done` or `(100%) done`
+
+### How do I submit the wrapper to the cluster?
+
+You don't. It's taken care of automatically.
+
+### Which Python version should I use?
+
+Nevermind. Just call the wrapper without using `python`.
+
+### Pipeline execution failed. What now?
+
+First, simply try to restart the pipeline. In your output directory
+execute `qsub run.sh >> logs/submission.log`.
+
+If this still fails, you need to troubleshoot by examining the log
+files. You can ask us for help (see below).
+
+### Can you write a pipeline for me?
+
+In theory yes. Please email us. A committee will decide on implementation priority.
+
+
 ## Comments, Questions, Bug reports
 
 Contact us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu.sg)
-

@@ -1,34 +1,23 @@
-Description
------------
+# lofreq-somatic
 
-This pipeline maps your reads to a given reference, marks duplicate
-reads (if not instructed otherwise), realigns your reads with `lofreq
-viterbi`, recalibrates base qualities with Lacer (author: `Swaine
-Chen <mailto:slchen@gis.a-star.edu.sg>`_) and calls somatic variants
-(SNVs and indels) with `LoFreq <http://csb5.github.io/lofreq/>`_.
+## Summary
 
+This pipeline calls somatic variants with [LoFreq Somatic](http://csb5.github.io/lofreq/).
 
-How to
-------
+The following steps are performed:
 
-- Run `lofreq-somatic.py -h` to get basic usage information.
-- If called correctly, jobs will be run on the cluster automatically
-- Using `-v` is recommended to get some more information
-- Should the pipeline 'crash', it can be restarted by simply running
-  `bash run.sh` (for local mode) or `qsub run.sh` (for cluster
-  mode).  Note that a crash due to input file or parameter issues can
-  not be resolved in this fashion.
+- Read mapping (see `cfg/references.yaml` for references used by default)
+- Duplicate marking with samblaster (if not instructed otherwise)
+- Realignment with `lofreq viterbi`
+- Base quality recalibration with `Lacer` (Swaine Chen
+  <<mailto:slchen@gis.a-star.edu.sg>>), unless sequencing type is  "targeted"
+- Calling of somatic variants (SNVs and indels) with [LoFreq Somatic](http://csb5.github.io/lofreq/)
 
+## Output
 
-Output
-------
-
-- The main log file is `./logs/snakemake.log`
-- After a successful run the last line in the snakemake log file will say `(100%) done`
-- All output files can be found in `./out/`
-- Furthermore a simple report have been generated (`./out/report.html`)
-- Parameters including program versions etc. can be found in `conf.yaml`
-
-
-
+- Recalibrated BAM files for normal and tumor in the correspondly named subfolders
+- VCF files produced by LoFreq Somatic can be found in the `variants` subfolder. The most important are
+    - `lofreq_somatic_raw.{type}.vcf.gz`: Raw somatic variants
+    - `lofreq_somatic_final.{type}.vcf.gz`: Final somatic variants
+    - `lofreq_somatic_final_minus-dbsnp.{type}.vcf.gz`: Final somatic variants with dbSNP matches removed
 
