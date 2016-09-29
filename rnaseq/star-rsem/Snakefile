@@ -30,7 +30,6 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
-include: "../../rules/report.rules"
 
 
 GENOME_BASENAME = os.path.splitext(os.path.basename(
@@ -52,7 +51,6 @@ results['rsem'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/rsem/{sample}_{ge
 results['cuffdiff'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/cuffdiff/{sample}_{genome}_genes_FPKM_Rawreadcount_GIS.txt'),
                              genome=GENOME_BASENAME,
                              sample=config['samples'])
-#results['star-bigwig'] = expand(os.path.join(RESULT_OUTDIR, "{sample}/{star_rsem}/{sample}_{genome}_Signal.Unique.{strand}.out.bw"),
 results['star-bigwig'] = expand(os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Signal.Unique.{strand}.out.bw"),
                                 strand=["str1", "str2"],
                                 sample=config['samples'],
@@ -72,6 +70,34 @@ rule final:
         all_results,
         report="report.html"
 
+
+rule report:
+    input:
+        readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.rst")
+    output:
+        html="report.html"
+    params:
+        analysis_name = config.get('analysis_name', ', '.join(config['samples'].keys()))
+    run:
+        readme = "EMPTY"
+        with open(input.readme) as fh:
+            readme = fh.read()
+            
+        report("""
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
+=================================================================
+
+Version Info
+------------
+
+{config[ELM][pipeline_version]} 
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch to have at least something
 
         
 #rule DEXSeq:
