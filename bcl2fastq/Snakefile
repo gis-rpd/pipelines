@@ -183,7 +183,7 @@ rule final:
 rule report:
     input:
         readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.md"),
-        config = "conf.yaml",
+        conf = "conf.yaml",
     output:
         html="report.html"
     params:
@@ -196,7 +196,7 @@ Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
 
 
 - The used pipeline version was {config[ELM][pipeline_version]}
-- Parameters including program versions etc. can be found in the attached config_ file
+- Parameters including program versions etc. can be found in the attached conf_ file
 - Output files can be found in ``./out/``
 - The main log file is `./logs/snakemake.log`
 - See {input.readme} for a description of this pipeline
