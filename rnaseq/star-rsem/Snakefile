@@ -30,7 +30,6 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
-include: "../../rules/report.rules"
 
 
 GENOME_BASENAME = os.path.splitext(os.path.basename(
@@ -52,7 +51,14 @@ results['rsem'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/rsem/{sample}_{ge
 results['cuffdiff'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/cuffdiff/{sample}_{genome}_genes_FPKM_Rawreadcount_GIS.txt'),
                              genome=GENOME_BASENAME,
                              sample=config['samples'])
-all_results = results['star'] + results['rnaseqc'] + results['rsem']
+results['star-bigwig'] = expand(os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Signal.Unique.{strand}.out.bw"),
+                                strand=["str1", "str2"],
+                                sample=config['samples'],
+                                genome=GENOME_BASENAME)
+results['rsem-bigwig'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/rsem/{sample}_{genome}_RSEM.sorted.bw'),
+                                 sample=config['samples'], 
+                                 genome=GENOME_BASENAME)
+all_results = results['star'] + results['star-bigwig'] + results['rsem-bigwig'] + results['rnaseqc'] + results['rsem']
 if config.get('run_cuffdiff'):
     all_results += results['cuffdiff']
 
@@ -64,6 +70,34 @@ rule final:
         all_results,
         report="report.html"
 
+
+rule report:
+    input:
+        readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.rst")
+    output:
+        html="report.html"
+    params:
+        analysis_name = config.get('analysis_name', ', '.join(config['samples'].keys()))
+    run:
+        readme = "EMPTY"
+        with open(input.readme) as fh:
+            readme = fh.read()
+            
+        report("""
+=================================================================
+Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
+=================================================================
+
+Version Info
+------------
+
+{config[ELM][pipeline_version]} 
+
+""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
+               conf="conf.yaml")
+        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
+        # **input just attaches all input, but None is not allowed.
+        # Attaching configfile is more a crutch to have at least something
 
         
 #rule DEXSeq:
@@ -152,7 +186,7 @@ rule RSEM_postprocessing:
         genecount = "{dir}/rsem/{sample}_{genome}_RSEM.genes.results",
         isocount = "{dir}/rsem/{sample}_{genome}_RSEM.isoforms.results",
     output:
-        wig = "{dir}/rsem/{sample}_{genome}_RSEM.sorted.wig",
+        wig = temp("{dir}/rsem/{sample}_{genome}_RSEM.sorted.wig"),
         plot = "{dir}/rsem/{sample}_{genome}_RSEM.pdf"
     message:
         "Post-processing RSEM results"
@@ -236,6 +270,17 @@ def star_fmt_fastqs_for_sample(wildcards):
         return "{} {}".format(",".join(fqs1), ",".join(fqs2))
 
 
+rule wig2bigwig:
+    input:
+        wig = '{prefix}.wig',
+        gsizes = config['references']['genome'] + ".sizes"
+    output:
+        '{prefix}.bw'
+    shell:
+        # FIXME replace mnt software later
+        " /mnt/software/bin/wigToBigWig {input.wig} {input.gsizes} {output};"
+    
+
 rule star_mapping:
     input:
         fqs = flattened_fastqs_for_sample,
@@ -244,7 +289,8 @@ rule star_mapping:
         bam = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam"),
         transbam = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.toTranscriptome.out.bam"),
         counts = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_ReadsPerGene.out.tab"),
-        wig = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Signal.Unique.str1.out.wig"),
+        #wig = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Signal.Unique.str1.out.wig"),
+        wig = temp(expand(os.path.join(RESULT_OUTDIR, "{{sample}}/star/{{sample}}_{{genome}}_Signal.Unique.{strand}.out.wig"), strand=["str1", "str2"])),
     log:
         os.path.join(RESULT_OUTDIR, "{sample}/star/star.log")
     message: "Running STAR"
