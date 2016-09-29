@@ -11,10 +11,14 @@ script for demultiplexing the row barcodes (N=40) of column samples
 using R1 reads. Subsequently R2 reads are poly-A trimmed (with
 [prinseq-lite](http://prinseq.sourceforge.net/)) and aligned to given
 reference genome using the
-[STAR mapper](https://github.com/alexdobin/STAR). Output of STAR
-includes the uniquely mapped genome bam file, transcripts mapped bam
-file, gene based read count matrix, wiggle files etc. (see below). For
-running STAR we follow recipes given [here](http://www.rna-seqblog.com/optimizing-rna-seq-mapping-with-star/).
+[STAR mapper](https://github.com/alexdobin/STAR).
+
+See `cfg/references.yaml` for references used by default (also refer
+to option `--references-cfg`). Output of STAR includes the uniquely
+mapped genome bam file, transcripts mapped bam file, gene based read
+count matrix, wiggle files etc. (see below). For running STAR we
+follow recipes given
+[here](http://www.rna-seqblog.com/optimizing-rna-seq-mapping-with-star/).
 
 The transcripts/genes expression abundance are estimated by STAR and
 [RSEM](http://deweylab.github.io/RSEM/) (reusing STAR's BAM file). The

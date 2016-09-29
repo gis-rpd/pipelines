@@ -7,10 +7,12 @@ RNASeQC, RSEM and optionally cuffdiff. It should be suitable for all
 types of RNASeq, except small RNASeq.
 
 Reads are aligned to given reference genome using the
-[STAR mapper](https://github.com/alexdobin/STAR). Output of STAR
-includes the uniquely mapped genome bam file, transcripts mapped bam
-file, gene based read count matrix, wiggle files etc. (see below). For
-running STAR we follow recipes given
+[STAR mapper](https://github.com/alexdobin/STAR).  See
+`cfg/references.yaml` for references used by default (also refer to
+option `--references-cfg`).  Output of STAR includes the uniquely
+mapped genome bam file, transcripts mapped bam file, gene based read
+count matrix, wiggle files etc. (see below). For running STAR we
+follow recipes given
 [here](http://www.rna-seqblog.com/optimizing-rna-seq-mapping-with-star/).
  
 The transcripts/genes expression abundance are estimated by STAR and

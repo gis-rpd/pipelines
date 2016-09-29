@@ -65,10 +65,26 @@ simplistic installation instructions.
   logs/submission.log` (for GIS). Upon restart, partially created files will be
   automatically deleted and the pipeline will skip already completed
   steps
-  
+- Note, that the output directory has to be on a filesystem shared by
+  the cluster (i.e. local /tmp wont't work unless run in local mode)
+
+### Example
+
+#### Variant calling with GATK for an Exome sample with two fastq pairs
+
+    fq1_x=x_R1.fastq.gz
+    fq2_x=x_R2.fastq.gz
+    fq1_y=y_R1.fastq.gz
+    fq2_y=y_R2.fastq.gz    
+    variant-calling/gatk/gatk.py -o /output-folder-for-this-analysis/ -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l SeqCap_EZ_Exome_v3_primary.bed
+
 ## How it Works
 
 - All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
+- Input will be a single fastq file or a pair of fastq files. Multiple of these can
+  be given. Each pair is treated as one readunit (see also resulting
+  `conf.yaml` file) and gets its own readgroup assigned were
+  appropriate.
 - Software versions are defined in each pipelines' `cfg/modules.yaml`
   and loaded via [dotkit](https://computing.llnl.gov/?set=jobs&page=dotkit)
 - Pipeline wrappers create an output directory containing all
@@ -80,6 +96,7 @@ simplistic installation instructions.
 - After a successful run the last line in the snakemake log file will
   say `(100%) done`
 - Cluster log files can be found in the respective `./logs/` sub-directory
+
 
 ## Debugging Techniques
 
@@ -113,25 +130,27 @@ Call a wrapper with `--no-run` and
 
 ## FAQ
 
-### Where are my results
+#### Where are my results?
 
-In the output directory that you specified with `-o`, under a subdirectory called `out`. Depending on the pipeline, the samplename is added as well
+In the output directory that you specified with `-o`, under a
+subdirectory called `out`. Depending on the pipeline, the samplename
+is added as well.
 
-### How do I know the pipeline run is completed
+#### How do I know the pipeline run is completed?
 
 You should have received an email. To double check run `tail
 logs/snakemake.log` in the output directory. It should either say
 `Nothing to be done` or `(100%) done`
 
-### How do I submit the wrapper to the cluster?
+#### How do I submit the wrapper to the cluster?
 
 You don't. It's taken care of automatically.
 
-### Which Python version should I use?
+#### Which Python version should I use?
 
 Nevermind. Just call the wrapper without using `python`.
 
-### Pipeline execution failed. What now?
+#### Pipeline execution failed. What now?
 
 First, simply try to restart the pipeline. In your output directory
 execute `qsub run.sh >> logs/submission.log`.
@@ -139,10 +158,15 @@ execute `qsub run.sh >> logs/submission.log`.
 If this still fails, you need to troubleshoot by examining the log
 files. You can ask us for help (see below).
 
-### Can you write a pipeline for me?
+#### Can you write a pipeline for me?
 
-In theory yes. Please email us. A committee will decide on implementation priority.
+In theory yes. Please email us. A committee will decide on
+implementation priority.
 
+#### Can these pipelines be selected in / run from ELM?
+
+No and they never will be. We'll provide a separate webinterface for
+launching soon.  For now you will have to use the commandline.
 
 ## Comments, Questions, Bug reports
 
