@@ -82,11 +82,10 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
 
     with open(cfgfile) as fh_cfg:
         yaml_data = yaml.safe_load(fh_cfg)
-
     unknown_keys = set(yaml_data.keys()) - set(['samples', 'readunits'])
     if unknown_keys:
-        logger.critical("Found unexpected keys in %s: %s",
-                        cfgfile, unknown_keys)
+        logger.critical("Found unexpected keys in %s (only 'samples'"
+                        " and 'readunits' allowed)", cfgfile, unknown_keys)
         if not raise_off:
             raise ValueError(cfgfile)
     samples, readunits_plain = yaml_data['samples'], yaml_data['readunits']
