@@ -30,7 +30,7 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
-
+include: "../../rules/report.rules"
 
 GENOME_BASENAME = os.path.splitext(os.path.basename(
     config['references']['genome']))[0].replace("_", "-")
@@ -58,7 +58,7 @@ results['star-bigwig'] = expand(os.path.join(RESULT_OUTDIR, "{sample}/star/{samp
 results['rsem-bigwig'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/rsem/{sample}_{genome}_RSEM.sorted.bw'),
                                  sample=config['samples'], 
                                  genome=GENOME_BASENAME)
-all_results = results['star'] + results['star-bigwig'] + results['rsem-bigwig'] + results['rnaseqc'] + results['rsem']
+all_results = results['star'] + results['star-bigwig'] +  results['rsem'] + results['rsem-bigwig'] + results['rnaseqc']
 if config.get('run_cuffdiff'):
     all_results += results['cuffdiff']
 
@@ -70,34 +70,6 @@ rule final:
         all_results,
         report="report.html"
 
-
-rule report:
-    input:
-        readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.rst")
-    output:
-        html="report.html"
-    params:
-        analysis_name = config.get('analysis_name', ', '.join(config['samples'].keys()))
-    run:
-        readme = "EMPTY"
-        with open(input.readme) as fh:
-            readme = fh.read()
-            
-        report("""
-=================================================================
-Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
-=================================================================
-
-Version Info
-------------
-
-{config[ELM][pipeline_version]} 
-
-""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
-               conf="conf.yaml")
-        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
-        # **input just attaches all input, but None is not allowed.
-        # Attaching configfile is more a crutch to have at least something
 
         
 #rule DEXSeq:
@@ -277,8 +249,7 @@ rule wig2bigwig:
     output:
         '{prefix}.bw'
     shell:
-        # FIXME replace mnt software later
-        " /mnt/software/bin/wigToBigWig {input.wig} {input.gsizes} {output};"
+        "wigToBigWig {input.wig} {input.gsizes} {output};"
     
 
 rule star_mapping:
@@ -289,7 +260,6 @@ rule star_mapping:
         bam = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam"),
         transbam = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.toTranscriptome.out.bam"),
         counts = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_ReadsPerGene.out.tab"),
-        #wig = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Signal.Unique.str1.out.wig"),
         wig = temp(expand(os.path.join(RESULT_OUTDIR, "{{sample}}/star/{{sample}}_{{genome}}_Signal.Unique.{strand}.out.wig"), strand=["str1", "str2"])),
     log:
         os.path.join(RESULT_OUTDIR, "{sample}/star/star.log")
