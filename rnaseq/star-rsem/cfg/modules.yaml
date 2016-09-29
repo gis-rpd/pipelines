@@ -4,7 +4,8 @@
     star : 2.5.2a,
     rsem : 1.2.31,
     rnaseqc : 1.1.8,
-    cufflinks: 2.2.1
+    cufflinks: 2.2.1,
+    ucsc-userapps : 338
 }
     
     

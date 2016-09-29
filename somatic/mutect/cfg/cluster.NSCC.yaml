@@ -1,0 +1,48 @@
+# FIXME needs tweaking
+{
+    # default rules applied to all rules, but overriden by rule-specific settings
+    "__default__" :
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+
+    "map_mdups_sort":
+    {
+      "time" : "12:00:00",
+      "mem" : 36G,
+    },
+
+    "gatk_realign_info":
+    {
+       "time" : "02:00:00",
+       "mem" : 24G,
+    },
+
+    "gatk_realign_bam":
+    {
+      "time" : "24:00:00",
+      "mem" : 24G,
+    },
+
+    "gatk_recalibrate_info":
+    {
+      "time" : "12:00:00",
+      "mem" : 24G,
+    },
+
+    "gatk_recalibrate_bam":
+    {
+      "time" : "28:00:00",
+      "mem" : 24G,
+    },
+
+    "mutect_per_region":
+    {
+      "time" : "4:00:00",
+      "mem" : 8G,
+    },
+    
+    
+}    
+

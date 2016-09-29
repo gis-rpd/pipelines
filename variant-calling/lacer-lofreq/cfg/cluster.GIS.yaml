@@ -15,7 +15,7 @@
 
     "lacer_table" :
     {
-      "time" : "12:00:00",
+      "time" : "18:00:00",
       "mem" : 8G,
     },
 
@@ -28,7 +28,7 @@
     "lofreq_massage_sort" :
     {
       "time" : "08:00:00",
-      "mem" : 4G,
+      "mem" : 8G,
     },
         
     "map_mdups_split" :
