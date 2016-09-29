@@ -70,12 +70,12 @@ fi
 
 WRAPPER=./star-rsem.py
 # SE command resulting in 1M reads total
-CMD_1_SE_1M="$WRAPPER -C -1 $R1_1M -s $SAMPLE"
-CMD_2_SE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -s $SAMPLE"
+CMD_1_SE_1M="$WRAPPER -C -1 $R1_1M -s $SAMPLE --name 'test:1_SE_1M'"
+CMD_2_SE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -s $SAMPLE --name 'test:2_SE_500K'"
 # PE command resulting in 2M reads total
-CMD_1_PE_1M="$WRAPPER -C -1 $R1_1M -2 $R2_1M -s $SAMPLE"
-CMD_2_PE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -2 $R2_500K_1 $R2_500K_2 -s $SAMPLE"
-CMD_FULL="$WRAPPER -1 $R1_FULL -2 $R2_FULL -s $SAMPLE"
+CMD_1_PE_1M="$WRAPPER -C -1 $R1_1M -2 $R2_1M -s $SAMPLE --name 'test:1_PE_1M'"
+CMD_2_PE_500K="$WRAPPER -C -1 $R1_500K_1 $R1_500K_2 -2 $R2_500K_1 $R2_500K_2 -s $SAMPLE --name 'test:2_PE_500K'"
+CMD_FULL="$WRAPPER -1 $R1_FULL -2 $R2_FULL -s $SAMPLE --name 'test:FULL'"
 
 
 SKIP_REAL_FULL=1

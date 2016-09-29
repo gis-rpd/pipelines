@@ -17,6 +17,9 @@ snakejob*.sh.[eo][0-9]*
 \#*
 *.tmp
 
+# temp files created by auto checks
+*tests.sh.check*
+
 # github generated Python .gitignore:
 #------------------------------------
 

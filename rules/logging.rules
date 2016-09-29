@@ -39,15 +39,17 @@ onstart:# available as patched snakemake 3.5.5
 
 onsuccess:
     elm_logger.stop(True)
+    analysis_name = config.get('analysis_name', ",".join(config['samples']))
+    pipeline_name = config['ELM']['pipeline_name']
     if config.get('mail_on_completion', False):
-        send_status_mail(config['ELM']['pipeline_name'], True,
-                         ",".join(config['samples']),
+        send_status_mail(pipeline_name, True, analysis_name,
                          os.path.abspath(RESULT_OUTDIR))
 
 
 onerror:
     elm_logger.stop(False)
+    analysis_name = config.get('analysis_name', ",".join(config['samples']))
+    pipeline_name = config['ELM']['pipeline_name']
     if config.get('mail_on_completion', False):
-        send_status_mail(config['ELM']['pipeline_name'], False,
-                         ",".join(config['samples']),
+        send_status_mail(pipeline_name, False, analysis_name,
                          os.path.abspath(RESULT_OUTDIR))

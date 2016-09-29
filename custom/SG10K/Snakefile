@@ -32,6 +32,7 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
+include: "../../rules/report.rules"
 
 
 localrules: final, report
@@ -58,42 +59,6 @@ rule final:
     # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
 
 
-rule report:
-    input:
-        # NOTE should roughly match final rule?!
-        bam=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
-                   sample=config['samples']),
-        bam_stats=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
-                               sample=config['samples']),
-        cont_results=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
-                            race=config['references']['cont_vcfs'], sample=config['samples']),
-    output:
-        html="report.html"
-    params:
-        samplenames=', '.join(config['samples'].keys())
-    run:
-        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
-        readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.rst")) as fh:
-            readme = fh.read()
-            
-        report("""
-=================================================================
-Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
-=================================================================
-
-Version Info
-------------
-
-{config[ELM][pipeline_version]}) 
-
-""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
-               conf="conf.yaml")
-        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
-        # **input just attaches all input, but None is not allowed.
-        # Attaching configfile is more a crutch to have at least something
-
-        
 
 rule contamination_check:
     input:

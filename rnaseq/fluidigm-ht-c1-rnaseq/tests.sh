@@ -59,7 +59,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 
 
 WRAPPER=./fluidigm-ht-c1-rnaseq.py
-cmd_base="$WRAPPER -1 $COL1_R1 -2 $COL1_R2 -s COL01"
+cmd_base="$WRAPPER -1 $COL1_R1 -2 $COL1_R2 -s COL01 --name 'test:COL01'"
 
 # dryruns
 #

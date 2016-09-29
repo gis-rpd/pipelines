@@ -179,30 +179,32 @@ rule final:
     # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
 
 
+# FIXME almost identical to rules/report.rules but with different analysis_name
 rule report:
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'bcl2fastq.SUCCESS'),
-               muxdir=get_mux_dirs()),
-    output: html="report.html"
-    params: samplenames=config['run_num']
+        readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.md"),
+        config = "conf.yaml",
+    output:
+        html="report.html"
+    params:
+        analysis_name = config.get('analysis_name', config['run_num'])
     run:
-        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
-        readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.rst")) as fh:
-            readme = fh.read()
-            
         report("""
 =================================================================
-Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
+Pipeline {config[ELM][pipeline_name]} run on {params.analysis_name}
 =================================================================
 
-Version Info
-------------
 
-{config[ELM][pipeline_version]}
-
-""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
-               conf="conf.yaml")
+- The used pipeline version was {config[ELM][pipeline_version]}
+- Parameters including program versions etc. can be found in the attached config_ file
+- Output files can be found in ``./out/``
+- The main log file is `./logs/snakemake.log`
+- See {input.readme} for a description of this pipeline
+""",
+               output.html,
+               conf=input.conf,
+               metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",
+               )
         # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
         # **input just attaches all input, but None is not allowed.
         # Attaching configfile is more a crutch to have at least something

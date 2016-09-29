@@ -89,7 +89,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: PE through config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -c $SPLIT1KONLY_PE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_PE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -105,7 +105,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     
     echo "Dryrun: SR through config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -c $SPLIT1KONLY_SR_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_SR_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -113,7 +113,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: 2-sample config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-2-sample.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -c $SPLIT1KONLY_2SAMPLE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_2SAMPLE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -201,7 +201,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: 2-sample config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-2-sample.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -c $SPLIT1KONLY_2SAMPLE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail --sample-cfg $SPLIT1KONLY_2SAMPLE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log

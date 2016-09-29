@@ -4,6 +4,12 @@ can be recalibrated.
 Based on rules/mapping/gatk.rules from https://bitbucket.org/johanneskoester/snakemake-workflows/ (commit fa47806)
 - original author Johannes Köster (http://johanneskoester.bitbucket.org)
 - original license: MIT
+
+Regarding use of known sites see 'What should I use as known variants/sites for running tool X?'
+https://software.broadinstitute.org/gatk/guide/article?id=1247
+
+Regarding use of intervals see 'When should I use -L to pass in a list of intervals?'
+http://gatkforums.broadinstitute.org/wdl/discussion/4133/when-should-i-use-l-to-pass-in-a-list-of-intervals
 """
 
 
@@ -14,63 +20,34 @@ assert 'seqtype' in config
 assert config['seqtype'] in ['WGS', 'WES', 'targeted']
 
 
+def _get_padding_arg():
+    """
+    See http://gatkforums.broadinstitute.org/dsde/discussion/5792/target-intervals-for-exome
+    NOTE: duplicated in gatk_haplotype_caller.rules
+    """
+    if config['seqtype'] in ['targeted', 'WES']:
+        ip = config.get('interval_padding')
+        if ip:
+            return "-ip {}".format(ip)
+        else:
+            return ""
+    else:
+        return ""
+
+    
 # this is the global bed file, if given
 def _get_intervals_arg():
     intervals = config.get("intervals")
     if intervals:
         assert os.path.exists(intervals)
-        return "-L {}".format(intervals)
+        return "-L {} {}".format(intervals, _get_padding_arg())
     else:
         return ""
 
 
-rule gatk_realign_info:
-    input:
-        bam="{prefix}.bam",
-        bai="{prefix}.bam.bai",
-        ref=config['references']['genome'],
-        refdict=config['references']['genome'].replace("fasta", "dict")
-    output:
-        temp("{prefix}.realn.intervals")
-    log:
-        "{prefix}.realn.intervals.log"
-    params:
-        intervals_arg=_get_intervals_arg(),
-        custom=config.get("params_gatk", "")
-    threads: 8
-    message:
-        "Running RealignerTargetCreator"
-    shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T RealignerTargetCreator -R {input.ref}"
-        " -nt {threads} {params.intervals_arg} {params.custom}"
-        " -I {input.bam} -known {config[references][dbsnp]}"
-        " -o {output} >& {log}"
-
-
-rule gatk_realign_bam:
-    input:
-        ref=config['references']['genome'],
-        bam="{prefix}.bam",
-        intervals="{prefix}.realn.intervals"
-    output:
-        temp("{prefix}.realn.bam")
-    log:
-        "{prefix}.realn.bam.log"
-    params:
-        custom=config.get("params_gatk", "")
-    # single threaded only, but ask for more due to java/scheduler problem
-    threads: 4
-    message: "Running IndelRealigner"
-    shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T IndelRealigner -R {input.ref} {params.custom}"
-        " --disable_bam_indexing"
-        " -I {input.bam} -targetIntervals {input.intervals}"
-        " -o {output} >& {log}"
-
-
 rule gatk_recalibrate_info:
+    # see also  What should I use as known variants/sites for running tool X?
+    # https://software.broadinstitute.org/gatk/guide/article?id=1247
     input:
         "{prefix}.bam.bai",
         ref=config['references']['genome'],
@@ -94,7 +71,8 @@ rule gatk_recalibrate_info:
             shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
                   " -T BaseRecalibrator -R {input.ref}"
                   " -nct {threads} {params.intervals_arg} {params.custom}"
-                  " -I {input.bam} -knownSites {config[references][dbsnp]}"
+                  " -I {input.bam}"
+                  " -knownSites {config[references][dbsnp]} -knownSites {config[references][mills]}"
                   " -o {output} >& {log}")
 
 

@@ -14,7 +14,6 @@ import os
 import argparse
 import logging
 import subprocess
-import shutil
 
 #--- third-party imports
 #
@@ -31,6 +30,7 @@ from pipelines import get_pipeline_version, get_site
 from pipelines import PipelineHandler
 from pipelines import get_machine_run_flowcell_id, is_devel_version
 from pipelines import logger as aux_logger, generate_timestamp
+from pipelines import get_cluster_cfgfile
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
 
 
@@ -45,6 +45,7 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 
 
 PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
+CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
 
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "bcl2fastq"
@@ -157,7 +158,7 @@ def get_bcl2fastq_outdir(runid_and_flowcellid, site=None, basedir_map=OUTDIR_BAS
 def seqrunfailed(mongo_status_script, run_num, outdir, testing):
     """FIXME:add-doc
     """
-    logger.info("Setting analysis for {} to {}".format(run_num, "SEQRUNFAILED"))
+    logger.info("Setting analysis for %s to %s", run_num, "SEQRUNFAILED")
     analysis_id = generate_timestamp()
     mongo_update_cmd = [mongo_status_script, "-r", run_num, "-s", "SEQRUNFAILED"]
     mongo_update_cmd.extend(["-a", analysis_id, "-o", outdir])
@@ -166,14 +167,14 @@ def seqrunfailed(mongo_status_script, run_num, outdir, testing):
     try:
         _ = subprocess.check_output(mongo_update_cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        logger.fatal("The following command failed with return code {}: {}".format(
-            e.returncode, ' '.join(mongo_update_cmd)))
-        logger.fatal("Output: {}".format(e.output.decode()))
+        logger.fatal("The following command failed with return code %s: %s",
+                     e.returncode, ' '.join(mongo_update_cmd))
+        logger.fatal("Output: %s", e.output.decode())
         logger.fatal("Exiting")
         sys.exit(1)
 
     flagfile = os.path.join(outdir, "SEQRUNFAILED")
-    logger.info("Creating flag file {}".format(flagfile))
+    logger.info("Creating flag file %s", flagfile)
     with open(flagfile, 'w') as _:
         pass
 
@@ -199,6 +200,8 @@ def main():
                         help="Use MongoDB test server")
     parser.add_argument('--no-archive', action='store_true',
                         help="Don't archieve this analysis")
+    parser.add_argument('--name',
+                        help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
     site = get_site()
@@ -218,6 +221,12 @@ def main():
                         help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
                         help="Decrease verbosity")
+    cfg_group = parser.add_argument_group('Configuration files (advanced)')
+    for name, descr in [("modules", "modules")]:
+        default = os.path.abspath(os.path.join(CFG_DIR, "{}.yaml".format(name)))
+        cfg_group.add_argument('--{}-cfg'.format(name),
+                               default=default,
+                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
 
 
     args = parser.parse_args()
@@ -265,8 +274,8 @@ def main():
         logger.fatal("Need either run-id or input directory")
         sys.exit(1)
     if not os.path.exists(rundir):
-        logger.fatal("Expected run directory {} does not exist".format(rundir))
-    logger.info("Rundir is {}".format(rundir))
+        logger.fatal("Expected run directory %s does not exist", rundir)
+    logger.info("Rundir is %s", rundir)
 
     if not args.outdir:
         outdir = get_bcl2fastq_outdir(args.runid)
@@ -277,7 +286,7 @@ def main():
         sys.exit(1)
     # create now so that generate_bcl2fastq_cfg.py can run
     os.makedirs(outdir)
-    
+
 
 
     # catch cases where rundir was user provided and looks weird
@@ -297,13 +306,13 @@ def main():
     cmd = [generate_bcl2fastq, '-r', rundir, '-o', outdir]
     if args.testing:
         cmd.append("-t")
-    logger.debug("Executing {}".format(' ' .join(cmd)))
+    logger.debug("Executing %s", ' ' .join(cmd))
     try:
         res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        logger.fatal("The following command failed with return code {}: {}".format(
-            e.returncode, ' '.join(cmd)))
-        logger.fatal("Output: {}".format(e.output.decode()))
+        logger.fatal("The following command failed with return code %s: %s",
+                     e.returncode, ' '.join(cmd))
+        logger.fatal("Output: %s", e.output.decode())
         logger.fatal("Exiting")
         sys.exit(1)
     # generate_bcl2fastq is normally quiet. if there's output, make caller aware of it
@@ -332,6 +341,8 @@ def main():
                  'no_archive': args.no_archive,
                  'mail_on_completion': not args.no_mail,
                  'run_num': run_num}
+    if args.name:
+        user_data['analysis_name'] = args.name
 
 
     usebases_arg = ''
@@ -375,7 +386,12 @@ def main():
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
         outdir, user_data, site=site,
-        logger_cmd=mongo_update_cmd, master_q=args.master_q, slave_q=args.slave_q)
+        logger_cmd=mongo_update_cmd,
+        master_q=args.master_q,
+        slave_q=args.slave_q,
+        modules_cfgfile=args.modules_cfg,
+        cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
+
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
 

@@ -45,7 +45,8 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-
+# dir relative to Snakefile where configs are to be found
+CFG_DIR = "cfg"
 
 INIT = {
     # FIXME make env instead? because caller knows, right?
@@ -77,9 +78,9 @@ class PipelineHandler(object):
     - FIXME check access of global vars
     """
 
-    PIPELINE_CONFIG_FILE = "conf.yaml"
-    PIPELINE_DEFAULT_CONFIG_FILE = "conf.default.yaml"
-
+    # output
+    PIPELINE_CFGFILE = "conf.yaml"
+    
     RC_DIR = "rc"
 
     RC_FILES = {
@@ -106,7 +107,11 @@ class PipelineHandler(object):
                  site=None,
                  master_q=None,
                  slave_q=None,
-                 master_walltime_h=MASTER_WALLTIME_H):
+                 master_walltime_h=MASTER_WALLTIME_H,
+                 params_cfgfile=None,
+                 modules_cfgfile=None,
+                 refs_cfgfile=None,
+                 cluster_cfgfile=None):
         """FIXME:add-doc
 
         pipeline_subdir: where default configs can be found, i.e pipeline subdir
@@ -121,11 +126,26 @@ class PipelineHandler(object):
         self.log_dir_rel = self.LOG_DIR_REL
         self.masterlog = self.MASTERLOG
         self.submissionlog = self.SUBMISSIONLOG
-        self.pipeline_config_out = os.path.join(
-            self.outdir, self.PIPELINE_CONFIG_FILE)
-        self.pipeline_default_config_file = os.path.join(
-            pipeline_subdir, self.PIPELINE_DEFAULT_CONFIG_FILE)
+        
+        if params_cfgfile:
+            assert os.path.exists(params_cfgfile)
+        self.params_cfgfile = params_cfgfile
+        
+        if modules_cfgfile:
+            assert os.path.exists(modules_cfgfile)
+        self.modules_cfgfile = modules_cfgfile
+        
+        if refs_cfgfile:
+            assert os.path.exists(refs_cfgfile)
+        self.refs_cfgfile = refs_cfgfile
 
+        if cluster_cfgfile:
+            assert os.path.exists(cluster_cfgfile)
+        self.cluster_cfgfile = cluster_cfgfile
+            
+        self.pipeline_cfgfile_out = os.path.join(
+            self.outdir, self.PIPELINE_CFGFILE)
+            
         # RCs
         self.dk_init_file = os.path.join(
             self.outdir, self.RC_FILES['DK_INIT'])
@@ -150,12 +170,10 @@ class PipelineHandler(object):
         assert os.path.exists(self.snakefile_abs)
 
         # cluster configs
-        if self.site != "local":
-            self.cluster_config_in = os.path.join(
-                pipeline_subdir, "cluster.{}.yaml".format(site))
-            self.cluster_config_out = os.path.join(outdir, "cluster.yaml")
-            assert os.path.exists(self.cluster_config_in)
-
+        if self.cluster_cfgfile:
+            self.cluster_cfgfile_out = os.path.join(outdir, "cluster.yaml")
+        # else: local
+                
         # run template
         self.run_template = os.path.join(
             pipeline_rootdir, "lib", "run.template.{}.sh".format(self.site))
@@ -200,7 +218,7 @@ class PipelineHandler(object):
 
 
     def write_snakemake_env(self, overwrite=False):
-        """creates rc file for use as 'bash prefix', which also loads modules defined in config_file
+        """creates rc file for use as 'bash prefix', which also loads modules defined in cfgfile
         """
 
         if not overwrite:
@@ -212,7 +230,7 @@ class PipelineHandler(object):
             fh_rc.write("source {}\n\n".format(os.path.relpath(self.dk_init_file, self.outdir)))
 
             fh_rc.write("# load modules\n")
-            with open(self.pipeline_config_out) as fh_cfg:
+            with open(self.pipeline_cfgfile_out) as fh_cfg:
                 yaml_data = yaml.safe_load(fh_cfg)
                 assert "modules" in yaml_data
                 for k, v in yaml_data["modules"].items():
@@ -226,7 +244,7 @@ class PipelineHandler(object):
     def write_cluster_config(self):
         """writes site dependend cluster config
         """
-        shutil.copyfile(self.cluster_config_in, self.cluster_config_out)
+        shutil.copyfile(self.cluster_cfgfile, self.cluster_cfgfile_out)
 
 
     def write_run_template(self):
@@ -248,19 +266,42 @@ class PipelineHandler(object):
             fh.write(templ.format(**d))
 
             
-    def read_default_config(self):
+    def read_cfgfiles(self):
         """parse default config and replace all RPD env vars
         """
 
+        merged_cfg = dict()
         rpd_vars = get_rpd_vars()
-        with open(self.pipeline_default_config_file) as fh:
-            cfg = yaml.safe_load(fh)
-        # trick to traverse dictionary fully and replace all instances of variable
-        dump = json.dumps(cfg)
-        for k, v in rpd_vars.items():
-            dump = dump.replace("${}".format(k), v)
-        cfg = dict(json.loads(dump))
-        return cfg
+
+        for cfgkey, cfgfile in [('global', self.params_cfgfile),
+                                ('references', self.refs_cfgfile),
+                                ('modules', self.modules_cfgfile)]:
+            if not cfgfile:
+                continue
+            with open(cfgfile) as fh:
+                cfg = dict(yaml.safe_load(fh))
+            # to replace rpd vars the trick is to traverse
+            # dictionary fully and replace all instances
+            dump = json.dumps(cfg)
+            for k, v in rpd_vars.items():
+                dump = dump.replace("${}".format(k), v)
+            cfg = dict(json.loads(dump))
+            if cfgkey == 'global':
+                merged_cfg.update(cfg)
+            else:
+                assert cfgkey not in merged_cfg
+                merged_cfg[cfgkey] = cfg
+            
+        # determine num_chroms needed by some pipelines
+        # FIXME ugly because sometimes not needed
+        if merged_cfg.get('references'):
+            reffa = merged_cfg['references']['genome']
+            if reffa:
+                assert 'num_chroms' not in merged_cfg['references']
+                merged_cfg['references']['num_chroms'] = len(list(
+                    chroms_and_lens_from_from_fasta(reffa)))
+
+        return merged_cfg
 
 
 
@@ -268,14 +309,14 @@ class PipelineHandler(object):
         """writes config file for use in snakemake becaused on default config
         """
 
-        config = self.read_default_config()
+        config = self.read_cfgfiles()
         config.update(self.user_data)
         assert 'ELM' not in config
         config['ELM'] = self.elm_data
 
         if not force_overwrite:
-            assert not os.path.exists(self.pipeline_config_out)
-        with open(self.pipeline_config_out, 'w') as fh:
+            assert not os.path.exists(self.pipeline_cfgfile_out)
+        with open(self.pipeline_cfgfile_out, 'w') as fh:
             # default_flow_style=None(default)|True(least readable)|False(most readable)
             yaml.dump(config, fh, default_flow_style=False)
 
@@ -375,6 +416,16 @@ def get_site():
         return "local"
 
 
+def get_cluster_cfgfile(cfg_dir):
+    """returns None for local runs
+    """
+    site = get_site()
+    if site != "local":
+        cfg = os.path.join(cfg_dir, "cluster.{}.yaml".format(site))
+        assert os.path.exists(cfg), ("Missing file {}".format(cfg))
+        return cfg
+
+
 def get_init_call():
     """return dotkit init call
     """
@@ -466,10 +517,10 @@ def email_for_user():
 
 def send_status_mail(pipeline_name, success, analysis_id, outdir,
                      extra_text=None, pass_exception=True):
-    """analysis_id should be unique identifier for this analysis
-
+    """
+    - pipeline_name: pipeline name
     - success: bool
-    - analysis_id: analysis run id
+    - analysis_id:  name/identifier for this analysis run
     - outdir: directory where results are found
     """
 
@@ -603,7 +654,7 @@ def path_to_url(out_path):
     # FIXME change for testing, gis, NSCC
     if out_path.startswith("/mnt/projects/userrig/solexa/"):
         return out_path.replace("/mnt/projects/userrig/solexa/", \
-            "http://qlap33.gis.a-star.edu.sg/userrig/runs/solexaProjects/")
+            "http://rpd/userrig/runs/solexaProjects/")
     else:
         #raise ValueError(out_path)
         return out_path

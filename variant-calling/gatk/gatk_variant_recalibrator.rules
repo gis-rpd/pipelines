@@ -16,16 +16,20 @@ RECAL_FAIL_MSG = "Variant recalibration failed (there might be a perfectly valid
 def _get_recal_params(wildcards):
     if wildcards.type == "snp":
         return (
-            "-mode SNP -an DP -an QD -an FS -an MQRankSum -an ReadPosRankSum "
             "-resource:hapmap,known=false,training=true,truth=true,prior=15.0 {hapmap} "
             "-resource:omni,known=false,training=true,truth=true,prior=12.0 {omni} "
             "-resource:1000G,known=false,training=true,truth=false,prior=10.0 {g1k} "
-            "-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 {dbsnp}"
+            "-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 {dbsnp} "
+            "-an QD -an MQ -an MQRankSum -an ReadPosRankSum -an FS -an SOR -an DP -an InbreedingCoeff "
+            " -mode SNP"
         ).format(**config["references"])
     else:
         return (
-            "-mode INDEL -an DP -an FS -an MQRankSum -an ReadPosRankSum "
-            "-resource:mills,known=true,training=true,truth=true,prior=12.0 {mills}"
+            "--maxGaussians 4 "
+            "-resource:mills,known=false,training=true,truth=true,prior=12.0 {mills} "
+            "-resource:dbsnp,known=true,training=false,truth=false,prior=2.0 {dbsnp} "
+            " -an QD -an DP -an FS -an SOR -an ReadPosRankSum -an MQRankSum -an InbreedingCoeff "
+            " -mode INDEL"
         ).format(**config["references"])
 
 
@@ -51,8 +55,7 @@ rule gatk_variant_recalibration:
         # might fail due to lack of variants. captured with RECAL_FAIL_MSG
         "set +e && GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T VariantRecalibrator -R {input.ref} -input {input.vcf}"
-        " {params} -nt {threads} -tranche 100.0"
-        " -tranche 99.9 -tranche 99.0 -tranche 90.0"
+        " {params} -nt {threads}"
         " -recalFile {output.recal} -tranchesFile {output.tranches}"
         " -rscriptFile {output.plotting} >& {log} || {{ echo '{RECAL_FAIL_MSG}' > {output.recal}; touch {output}; }}"
 
@@ -68,8 +71,9 @@ rule gatk_apply_variant_recalibration:
     log:
         "{prefix}.{type,(snp|indel)}_recal.vcf.log"
     params:
-        mode=lambda wildcards: wildcards.type.upper(),
-        custom=config.get("params_gatk", "")
+        mode = lambda wc: wc.type.upper(),
+        custom = config.get("params_gatk", ""),
+        ts = lambda wc: "99.5" if wc.type.upper()=="SNP" else "99.0"
     threads: 8
     run:
         recal_failed = False
@@ -85,5 +89,5 @@ rule gatk_apply_variant_recalibration:
                 shell(" GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T ApplyRecalibration"
                       " -R {input.ref} -nt {threads} -input {input.vcf}"
                       " -mode {params.mode} {params.custom} "
-                      "-recalFile {input.recal} --ts_filter_level 99.9 "
+                      "-recalFile {input.recal} --ts_filter_level {params.ts} "
                       "-tranchesFile {input.tranches} -o {output} >& {log}")

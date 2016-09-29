@@ -98,7 +98,7 @@ def check_df(fs_to_check):
         for line in check_output(["df", "-h", filesys]).splitlines():
             result.append(line.split())
         if int(result[2][3][:-1]) > MAX_DF:
-            warnings += ("[Use% > " + str(MAX_DF) + "%]:\t" + dir + "\n")
+            warnings += ("[Use% > " + str(MAX_DF) + "%]:\t" + filesys + "\n")
     return warnings
 
 

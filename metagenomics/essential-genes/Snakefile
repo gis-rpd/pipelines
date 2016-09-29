@@ -24,6 +24,7 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
+include: "../../rules/report.rules"
 include: "bwa_mem.rules"
 include: "lofreq.rules"
 
@@ -39,37 +40,6 @@ rule final:
                            sample=config['samples']),
         "report.html",
         
-rule report:
-    input:
-        ann_vcfs=expand(os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem.lofreq.both.ann.vcf.gz"),
-                        sample=config['samples'])
-
-    output:
-        html="report.html"
-    params:
-        samplenames=', '.join(config['samples'].keys())
-    run:
-        workflow_home = os.path.dirname(os.path.realpath(workflow.snakefile))
-        readme = "EMPTY"
-        with open(os.path.join(workflow_home, "README.rst")) as fh:
-            readme = fh.read()
-            
-        report("""
-=================================================================
-Pipeline {config[ELM][pipeline_name]} run on {params.samplenames}
-=================================================================
-
-Version Info
-------------
-
-{config[ELM][pipeline_version]}) 
-
-""" + readme, output.html, metadata="Research Pipeline Development Team (rpd@gis.a-star.edu.sg)",# **input)
-               conf="conf.yaml")
-        # from doc "All keywords not listed below are intepreted as paths to files that shall be embedded into the document."
-        # **input just attaches all input, but None is not allowed.
-        # Attaching configfile is more a crutch to have at least something
-
 
 rule coverage:
     input:

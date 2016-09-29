@@ -31,6 +31,7 @@ from pipelines import PipelineHandler
 from pipelines import get_site
 from pipelines import logger as aux_logger
 from pipelines import ref_is_indexed
+from pipelines import get_cluster_cfgfile
 
 
 __author__ = "Andreas Wilm"
@@ -44,6 +45,9 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 
 
 PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
+CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
+
+
 
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "BWA-MEM"
@@ -69,11 +73,10 @@ def main():
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
 
     # generic args
-    parser.add_argument('-c', "--config",
-                        help="Config file (YAML) listing samples and readunits."
-                        " Collides with -1, -2 and -s")
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (must not exist)")
+    parser.add_argument('--name',
+                        help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
     site = get_site()
@@ -88,6 +91,16 @@ def main():
                         help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
                         help="Decrease verbosity")
+    cfg_group = parser.add_argument_group('Configuration files (advanced)')
+    cfg_group.add_argument('--sample-cfg',
+                           help="Config-file (YAML) listing samples and readunits."
+                           " Collides with -1, -2 and -s")
+    for name, descr in [("params", "parameters"),
+                        ("modules", "modules")]:
+        default = os.path.abspath(os.path.join(CFG_DIR, "{}.yaml".format(name)))
+        cfg_group.add_argument('--{}-cfg'.format(name),
+                               default=default,
+                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
 
     # pipeline specific args
     parser.add_argument('-1', "--fq1", nargs="+",
@@ -125,15 +138,15 @@ def main():
     # samples is a dictionary with sample names as key (mostly just
     # one) and readunit keys as value. readunits is a dict with
     # readunits (think: fastq pairs with attributes) as value
-    if args.config:
+    if args.sample_cfg:
         if any([args.fq1, args.fq2, args.sample]):
             logger.fatal("Config file overrides fastq and sample input arguments."
                          " Use one or the other")
             sys.exit(1)
-        if not os.path.exists(args.config):
-            logger.fatal("Config file %s does not exist", args.config)
+        if not os.path.exists(args.sample_cfg):
+            logger.fatal("Config file %s does not exist", args.sample_cfg)
             sys.exit(1)
-        samples, readunits = get_samples_and_readunits_from_cfgfile(args.config)
+        samples, readunits = get_samples_and_readunits_from_cfgfile(args.sample_cfg)
     else:
         if not all([args.fq1, args.sample]):
             logger.fatal("Need at least fq1 and sample without config file")
@@ -161,15 +174,29 @@ def main():
     user_data['mail_on_completion'] = not args.no_mail
     user_data['readunits'] = readunits
     user_data['samples'] = samples
+    if args.name:
+        user_data['analysis_name'] = args.name
+
 
     user_data['references'] = {
         'genome' : os.path.abspath(args.reffa)}
     user_data['mark_dups'] = not args.dont_mark_dups
 
+    # create mongodb update command, used later, after submission
+    #mongo_update_cmd = "true"{} -r {} -s STARTED".format(mongo_status_script, user_data['run_num'])
+    #mongo_update_cmd += " -a $ANALYSIS_ID -o {}".format(outdir)# set in run.sh
+    #if args.testing:
+    #    mongo_update_cmd += " -t"
+
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
         args.outdir, user_data, site=site,
-        master_q=args.master_q, slave_q=args.slave_q)
+        master_q=args.master_q,
+        slave_q=args.slave_q,
+        params_cfgfile=args.params_cfg,
+        modules_cfgfile=args.modules_cfg,
+        cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
+
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
 

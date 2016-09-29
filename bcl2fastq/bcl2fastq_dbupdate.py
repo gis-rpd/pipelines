@@ -221,7 +221,7 @@ def main():
         # load mux info from config instead of relying on filesystem
         #
         logger.debug("Loading config for %s", outdir)
-        config_file = os.path.join(outdir, PipelineHandler.PIPELINE_CONFIG_FILE)
+        config_file = os.path.join(outdir, PipelineHandler.PIPELINE_CFGFILE)
         if not os.path.exists(config_file):
             logger.critical("Missing config file %s. Skipping this directory", config_file)
             continue

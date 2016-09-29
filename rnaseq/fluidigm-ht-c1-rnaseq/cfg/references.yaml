@@ -1,0 +1,10 @@
+{
+  genome : $RPD_GENOMES/hg19/hg19.fa,
+  staridx : $RPD_GENOMES/hg19/star/,
+  rsemidx : $RPD_GENOMES/hg19/RSEM_index/RSEMtr_hg19,
+  gtfsourcefile : $RPD_GENOMES/hg19/gtf/hg19_annotation.gtf,
+  gtfmaskfile : $RPD_GENOMES/hg19/gtf/hg19_annotation_maskfile.gtf,
+  rnaseqc_annotation : $RPD_GENOMES/hg19/gtf/hg19_RNASeqQCannotation.gtf,
+}
+    
+    

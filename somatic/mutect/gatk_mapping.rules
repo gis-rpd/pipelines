@@ -1,0 +1,135 @@
+"""GATK based postprocessing of BAM files. Indels can be realigned and base qualities
+can be recalibrated.
+
+Based on rules/mapping/gatk.rules from https://bitbucket.org/johanneskoester/snakemake-workflows/ (commit fa47806)
+- original author Johannes Köster (http://johanneskoester.bitbucket.org)
+- original license: MIT
+"""
+
+# used ../../variant-calling/gatk/bwa_mem.rules 2016-07-132-g5657aec as template
+
+assert 'references' in config
+assert 'genome' in config['references']
+assert 'dbsnp' in config['references']
+assert 'seqtype' in config
+assert config['seqtype'] in ['WGS', 'WES', 'targeted']
+
+
+# this is the global bed file, if given
+def _get_intervals_arg():
+    intervals = config.get("intervals")
+    if intervals:
+        assert os.path.exists(intervals)
+        return "-L {}".format(intervals)
+    else:
+        return ""
+
+
+rule gatk_realign_info:
+    input:
+        nbam = os.path.join(NORMAL_DIR, 'normal.bwamem.bam'),
+        nbai = os.path.join(NORMAL_DIR, 'normal.bwamem.bam.bai'),
+        tbam = os.path.join(TUMOR_DIR, 'tumor.bwamem.bam'),
+        tbai = os.path.join(TUMOR_DIR, 'tumor.bwamem.bam.bai'),
+        #bam="{prefix}.bam",
+        #bai="{prefix}.bam.bai",
+        ref=config['references']['genome'],
+        refdict=config['references']['genome'].replace("fasta", "dict")
+    output:
+        nival = temp(os.path.join(NORMAL_DIR, 'normal.bwamem.realn.intervals')),
+        tival = temp(os.path.join(TUMOR_DIR, 'tumor.bwamem.realn.intervals')),
+    log:
+        # just one
+        os.path.join(NORMAL_DIR, 'normal.bwamem.realn.intervals.log'),
+    params:
+        intervals_arg = _get_intervals_arg(),
+        custom = config.get("params_gatk", "")
+    threads: 8
+    message:
+        "Running RealignerTargetCreator"
+    shell:
+        "{{ GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+        " -T RealignerTargetCreator -R {input.ref}"
+        " -nt {threads} {params.intervals_arg} {params.custom}"
+        " -I {input.nbam} -I {input.tbam} -known {config[references][mills]}"
+        " -o {output.nival};"
+        " cp {output.nival} {output.tival}; }} >& {log}"
+
+
+rule gatk_realign_bam:
+    input:
+        ref=config['references']['genome'],
+        bam="{prefix}.bam",
+        intervals="{prefix}.realn.intervals"
+    output:
+        temp("{prefix}.realn.bam")
+    log:
+        "{prefix}.realn.bam.log"
+    params:
+        custom=config.get("params_gatk", "")
+    # single threaded only, but ask for more due to java/scheduler problem
+    threads: 4
+    message: "Running IndelRealigner"
+    shell:
+        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+        " -T IndelRealigner -R {input.ref} {params.custom}"
+        " --disable_bam_indexing"
+        " -I {input.bam} -known {config[references][mills]}"
+        " -targetIntervals {input.intervals}"
+        " -o {output} >& {log}"
+
+
+rule gatk_recalibrate_info:
+    # known sites arguments: https://software.broadinstitute.org/gatk/guide/article?id=1247
+    input:
+        "{prefix}.bam.bai",
+        ref=config['references']['genome'],
+        bam="{prefix}.bam"
+    output:
+        temp("{prefix}.recal.grp")
+    log:
+        "{prefix}.recal.grp.log"
+    params:
+        intervals_arg=_get_intervals_arg(),
+        custom=config.get("params_gatk", "")
+    # might need opt
+    threads: 8
+    message:
+        "{} BaseRecalibrator".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
+    run:
+        # skip bqsr for targeted regions
+        if config['seqtype'] == 'targeted':
+            shell("echo 'Skipped because targeted resequencing' | tee {output} > {log}")
+        else:
+            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+                  " -T BaseRecalibrator -R {input.ref}"
+                  " -nct {threads} {params.intervals_arg} {params.custom}"
+                  " -I {input.bam}"
+                  " -knownSites {config[references][dbsnp]} -knownSites {config[references][mills]}"
+                  " -o {output} >& {log}")
+
+
+rule gatk_recalibrate_bam:
+    input:
+        ref=config['references']['genome'],
+        bam="{prefix}.bam",
+        grp="{prefix}.recal.grp"
+    output:
+        "{prefix}.recal.bam"
+    log:
+        "{prefix}.recal.bam.log"
+    params:
+        custom=config.get("params_gatk", "")
+    # set to 8 in original files. maxes out at that value on aquila
+    threads: 8
+    message: "{} PrintReads for Recal".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
+    run:
+        if config['seqtype'] == 'targeted':
+            shell("{{ ln {input.bam} {output} && touch -h {output}; }} >& {log}; echo 'Linking only' >> {log}")
+        else:
+            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+                  " -T PrintReads -R {input.ref} {params.custom}"
+                  " -nct {threads}"
+                  " --disable_bam_indexing"
+                  " -I {input.bam} -BQSR {input.grp}"
+                  " -o {output} >& {log}")
