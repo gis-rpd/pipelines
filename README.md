@@ -104,9 +104,10 @@ simplistic installation instructions.
 
 ## Debugging Techniques
 
-Call a wrapper with `--no-run` and
+First call the wrapper in question with `--no-run`. cd into the given outdir and then
 - Check the created `conf.yaml`
-- Execute a dryrun: `EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh; cat logs/snakemake.log`
+- Print the DAG: `rm -f logs/snakemake.log; type=pdf; EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > dag.$type`
+- Execute a dryrun: `rm -f logs/snakemake.log; EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh; cat logs/snakemake.log`
 - Run locally: `nohup bash run.sh; tail -f logs/snakemake.log`
 
 
