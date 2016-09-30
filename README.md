@@ -82,6 +82,27 @@ simplistic installation instructions.
     fq2_y=y_R2.fastq.gz    
     variant-calling/gatk/gatk.py -o /output-folder-for-this-analysis/ -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l SeqCap_EZ_Exome_v3_primary.bed
 
+
+## List of Pipelines
+
+
+- [bcl2fastq](bcl2fastq/README.md) (production use only)
+- custom
+  - [SG10K](custom/SG10K/README.md)
+- mapping
+  - [BWA-MEM](mapping/BWA-MEM/README.md)
+- metagenomics
+  - [essential-genes](metagenomics/essential-genes/README.md)
+- rnaseq
+  - [star-rsem](rnaseq/fluidigm-ht-c1-rnaseq/README.md)
+  - [fluidigm-ht-c1-rnaseq](rnaseq/star-rsem/README.md)
+- somatic
+  - [lofreq-somatic](somatic/lofreq-somatic/README.md)
+  - [mutect](somatic/mutect/README.md)
+- variant-calling
+  - [gatk](variant-calling/gatk/README.md)
+  - [lacer-lofreq](variant-calling/lacer-lofreq/README.md)
+
 ## How it Works
 
 - All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
@@ -111,26 +132,6 @@ First call the wrapper in question with `--no-run`. cd into the given outdir and
 - Run locally: `nohup bash run.sh; tail -f logs/snakemake.log`
 
 
-
-## List of Pipelines
-
-
-- [bcl2fastq](bcl2fastq/README.md) (production use only)
-- custom
-  - [SG10K](custom/SG10K/README.md)
-- mapping
-  - [BWA-MEM](mapping/BWA-MEM/README.md)
-- metagenomics
-  - [essential-genes](metagenomics/essential-genes/README.md)
-- rnaseq
-  - [star-rsem](rnaseq/fluidigm-ht-c1-rnaseq/README.md)
-  - [fluidigm-ht-c1-rnaseq](rnaseq/star-rsem/README.md)
-- somatic
-  - [lofreq-somatic](somatic/lofreq-somatic/README.md)
-  - [mutect](somatic/mutect/README.md)
-- variant-calling
-  - [gatk](variant-calling/gatk/README.md)
-  - [lacer-lofreq](variant-calling/lacer-lofreq/README.md)
 
 
 ## FAQ
