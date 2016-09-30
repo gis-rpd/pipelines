@@ -1,7 +1,7 @@
 # NGS Pipeline Framework for [GIS](https://www.a-star.edu.sg/gis/)
 
 
-This folder contains workflows/pipelines developed and maintained by
+This folder contains workflow developed by
 the
 [Research Pipeline Development Team (RPD)](https://www.a-star.edu.sg/gis/our-science/technology-platforms/scientific-and-research-computing-platform.aspx)
 
@@ -56,7 +56,7 @@ simplistic installation instructions.
 - Also note, you must not prefix the script with `python`,
   (installed scripts automatically use the RPD Python3 installation)
 - If called correctly, jobs will be run on the cluster automatically
-- Use of `-v` is recommended, so that some more information is printed
+- Use the `-v` option, so that some more information is printed
 - All scripts create an output directory (option `-o`) containing the run environment
 - Your results will be saved to a corresponding subdirectory called `./out/`
 - Upon completion (success or error) an email will be send to the user
@@ -79,8 +79,10 @@ simplistic installation instructions.
     fq1_x=x_R1.fastq.gz
     fq2_x=x_R2.fastq.gz
     fq1_y=y_R1.fastq.gz
-    fq2_y=y_R2.fastq.gz    
-    variant-calling/gatk/gatk.py -o /output-folder-for-this-analysis/ -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l SeqCap_EZ_Exome_v3_primary.bed
+    fq2_y=y_R2.fastq.gz
+    bed=SeqCap_EZ_Exome_v3_primary.bed
+    outdir=/output-folder-for-this-analysis/
+    variant-calling/gatk/gatk.py -o $outdir -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l $bed
 
 
 ## List of Pipelines
@@ -94,8 +96,8 @@ simplistic installation instructions.
 - metagenomics
   - [essential-genes](metagenomics/essential-genes/README.md)
 - rnaseq
-  - [star-rsem](rnaseq/fluidigm-ht-c1-rnaseq/README.md)
-  - [fluidigm-ht-c1-rnaseq](rnaseq/star-rsem/README.md)
+  - [star-rsem](rnaseq/star-rsem/README.md)
+  - [fluidigm-ht-c1-rnaseq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)
 - somatic
   - [lofreq-somatic](somatic/lofreq-somatic/README.md)
   - [mutect](somatic/mutect/README.md)
