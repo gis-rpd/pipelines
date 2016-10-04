@@ -1,7 +1,7 @@
 # NGS Pipeline Framework for [GIS](https://www.a-star.edu.sg/gis/)
 
 
-This folder contains workflows/pipelines developed and maintained by
+This folder contains workflow developed by
 the
 [Research Pipeline Development Team (RPD)](https://www.a-star.edu.sg/gis/our-science/technology-platforms/scientific-and-research-computing-platform.aspx)
 
@@ -25,10 +25,14 @@ the
 - Each pipeline has its own subfolder there and the corresponding wrapper
   script has the same name
   (e.g. `variant-calling/gatk/gatk.py`)
-- Each pipeline folder contains a README file (`README.rst` and/or
+- Each pipeline folder contains a README file (`README.md` and/or
   `README.html`) describing the pipeline
-  (e.g. [`variant-calling/gatk/README.rst`](variant-calling/gatk/README.rst))
-
+  (e.g. [`variant-calling/gatk/README.md`](variant-calling/gatk/README.md))
+- Furthermore, each pipeline folder contains an example flowchart of
+  the workflow, called `example-dag.pdf` (see
+  e.g. [`variant-calling/gatk/example-dag.pdf`](variant-calling/gatk/example-dag.pdf))
+  
+  
 ## Installation
 
 The following installations are available at different sites (referred to as `RPD_PIPELINES` below):
@@ -52,7 +56,7 @@ simplistic installation instructions.
 - Also note, you must not prefix the script with `python`,
   (installed scripts automatically use the RPD Python3 installation)
 - If called correctly, jobs will be run on the cluster automatically
-- Use of `-v` is recommended, so that some more information is printed
+- Use the `-v` option, so that some more information is printed
 - All scripts create an output directory (option `-o`) containing the run environment
 - Your results will be saved to a corresponding subdirectory called `./out/`
 - Upon completion (success or error) an email will be send to the user
@@ -75,8 +79,31 @@ simplistic installation instructions.
     fq1_x=x_R1.fastq.gz
     fq2_x=x_R2.fastq.gz
     fq1_y=y_R1.fastq.gz
-    fq2_y=y_R2.fastq.gz    
-    variant-calling/gatk/gatk.py -o /output-folder-for-this-analysis/ -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l SeqCap_EZ_Exome_v3_primary.bed
+    fq2_y=y_R2.fastq.gz
+    bed=SeqCap_EZ_Exome_v3_primary.bed
+    outdir=/output-folder-for-this-analysis/
+    variant-calling/gatk/gatk.py -o $outdir -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l $bed
+
+
+## List of Pipelines
+
+
+- [bcl2fastq](bcl2fastq/README.md) (production use only)
+- custom
+  - [SG10K](custom/SG10K/README.md)
+- mapping
+  - [BWA-MEM](mapping/BWA-MEM/README.md)
+- metagenomics
+  - [essential-genes](metagenomics/essential-genes/README.md)
+- rnaseq
+  - [star-rsem](rnaseq/star-rsem/README.md)
+  - [fluidigm-ht-c1-rnaseq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)
+- somatic
+  - [lofreq-somatic](somatic/lofreq-somatic/README.md)
+  - [mutect](somatic/mutect/README.md)
+- variant-calling
+  - [gatk](variant-calling/gatk/README.md)
+  - [lacer-lofreq](variant-calling/lacer-lofreq/README.md)
 
 ## How it Works
 
@@ -100,32 +127,13 @@ simplistic installation instructions.
 
 ## Debugging Techniques
 
-Call a wrapper with `--no-run` and
+First call the wrapper in question with `--no-run`. cd into the given outdir and then
 - Check the created `conf.yaml`
-- Execute a dryrun: `EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh; cat logs/snakemake.log`
+- Print the DAG: `rm -f logs/snakemake.log; type=pdf; EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > dag.$type`
+- Execute a dryrun: `rm -f logs/snakemake.log; EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh; cat logs/snakemake.log`
 - Run locally: `nohup bash run.sh; tail -f logs/snakemake.log`
 
 
-
-## List of Pipelines
-
-
-- [bcl2fastq](bcl2fastq/README.md) (production use only)
-- custom
-  - [SG10K](custom/SG10K/README.md)
-- mapping
-  - [BWA-MEM](mapping/BWA-MEM/README.md)
-- metagenomics
-  - [essential-genes](metagenomics/essential-genes/README.md)
-- rnaseq
-  - [star-rsem](rnaseq/fluidigm-ht-c1-rnaseq/README.md)
-  - [fluidigm-ht-c1-rnaseq](rnaseq/star-rsem/README.md)
-- somatic
-  - [lofreq-somatic](somatic/lofreq-somatic/README.md)
-  - [mutect](somatic/mutect/README.md)
-- variant-calling
-  - [gatk](variant-calling/gatk/README.md)
-  - [lacer-lofreq](variant-calling/lacer-lofreq/README.md)
 
 
 ## FAQ
