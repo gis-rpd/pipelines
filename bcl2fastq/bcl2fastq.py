@@ -21,6 +21,7 @@ import yaml
 
 #--- project specific imports
 #
+# not called through user wrapper so lib dir added here:
 # add lib dir for this pipeline installation to PYTHONPATH
 LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))

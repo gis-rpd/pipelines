@@ -20,10 +20,6 @@ import yaml
 #--- project specific imports
 #
 # add lib dir for this pipeline installation to PYTHONPATH
-LIB_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "lib"))
-if LIB_PATH not in sys.path:
-    sys.path.insert(0, LIB_PATH)
 from readunits import get_samples_and_readunits_from_cfgfile
 from readunits import get_readunits_from_args
 from pipelines import get_pipeline_version

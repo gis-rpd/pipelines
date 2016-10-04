@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+# this is the only place where the interpreter has to be set
+
+import subprocess
+import os
+import sys
+from collections import namedtuple
+
+Pipeline = namedtuple('Pipeline', ['cat', 'script'])
+
+
+SCRIPTS = ['custom/SG10K/SG10K.py'
+           'mapping/BWA-MEM/BWA-MEM.py',
+           'metagenomics/essential-genes/essential-genes.py',
+           'rnaseq/fluidigm-ht-c1-rnaseq/fluidigm-ht-c1-rnaseq.py',
+           'rnaseq/star-rsem/star-rsem.py',
+           'somatic/lofreq-somatic/lofreq-somatic.py',
+           'somatic/mutect/mutect.py',
+           'variant-calling/gatk/gatk.py',
+           'variant-calling/lacer-lofreq/lacer-lofreq.py']
+
+if __name__ == "__main__":
+    
+    python = sys.executable
+    root_path = os.path.dirname(os.path.abspath(os.path.realpath(sys.argv[0])))
+    python_path = sys.path
+    python_path.insert(0, os.path.join(root_path, "lib"))
+
+    pipeline_map = dict()
+    for script in SCRIPTS:
+        key = os.path.basename(os.path.splitext(script)[0])
+        cat = os.path.dirname(script).split(os.sep)[0]
+        script = os.path.join(root_path, script)
+        pipeline_map[key] = Pipeline(cat, script)
+
+    try:
+        key = sys.argv[1]
+        pipeline = pipeline_map[key]
+    except (KeyError, IndexError):
+        sys.stderr.write("FATAL: unknown pipeline\n")
+        sys.stderr.write("List of pipelines and their categories:\n")
+        for key, pipeline in pipeline_map.items():
+            sys.stderr.write("{}:\t{}\n".format(pipeline.cat, key))
+        sys.exit(1)
+    cmd = "PYTHONPATH={} {} {}".format(':'.join(python_path), python, pipeline.script)
+    sys.stderr.write("TMP DEBUG {}\n".format(cmd))
+    subprocess.call(cmd, shell=True)
+
+# FIXME print version
+# FIXME print README or help
+# FIXME can we set PYTHON interprter here?
