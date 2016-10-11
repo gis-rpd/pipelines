@@ -57,6 +57,15 @@ rule final:
                sample=config['samples'], 
                row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.bw"),
+                      sample=config['samples'],
+                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                      strand=["str1", "str2"],
+                      genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.bw'),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
         report="report.html"
 
 
@@ -71,7 +80,7 @@ rule RSEM:
         genecount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results",
         isocount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results",
         gbam = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam",
-        wig = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig",
+        wig = temp("{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig"),
         plot = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.pdf"
     message:
         "Running RSEM"
@@ -118,7 +127,17 @@ rule rnaseqQC:
         " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
         " find $(dirname {output}) -name \*tmp.txt\* -type f | xargs -r rm"
 
-        
+
+rule wig2bigwig:
+    input:
+        wig = '{prefix}.wig',
+        gsizes = config['references']['genome'] + ".sizes"
+    output:
+        '{prefix}.bw'
+    shell:
+        # FIXME replace mnt software later
+        " /mnt/software/bin/wigToBigWig {input.wig} {input.gsizes} {output};"
+
 # star is very fast, esp for single cell data. parallel jobs create
 # all sorts of trouble, e.g race conditions during index loading and
 # unloading. just run in series
@@ -151,10 +170,11 @@ rule star_mapping:
                                      "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_ReadsPerGene.out.tab"),
                         row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                         genome=GENOME_BASENAME),
-        wigs = expand(os.path.join(RESULT_OUTDIR,
-                                   "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Signal.Unique.str1.out.wig"),
+        wigs = temp(expand(os.path.join(RESULT_OUTDIR,
+                                   "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Signal.Unique.{strand}.out.wig"),
                       row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-                      genome=GENOME_BASENAME),
+                      strand=["str1", "str2"],
+                      genome=GENOME_BASENAME)),
     log:
         os.path.join(RESULT_OUTDIR, "{sample}/star.log")
     message:
