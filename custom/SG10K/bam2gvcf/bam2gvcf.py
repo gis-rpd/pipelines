@@ -46,7 +46,7 @@ PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
 
 # same as folder name. also used for cluster job names
-PIPELINE_NAME = "gatk"
+PIPELINE_NAME = "SG10K"
 
 DEFAULT_SLAVE_Q = {'GIS': None,
                    'NSCC': 'production'}
