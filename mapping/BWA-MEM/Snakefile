@@ -35,9 +35,6 @@ localrules: final, report
 
 rule final:
     input:
-        # NOTE changes here will likely have to be reflected in the report rule as well
-        idxstats=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.idxstats.txt'),
-               sample=config['samples']),
         bams=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.bam'),
                sample=config['samples']),
         bamstats=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.bamstats/stats_plot.html'),
