@@ -1,0 +1,10 @@
+{  
+    # gotcloud bundle reference compatible with gatk 2.8 b37 bundle
+    # but gotcloud dbsnp provokes the following in gatl
+    # The provided VCF file is malformed at approximately line number 62365: Duplicate allele added to VariantContext: A, for input source: /mnt/projects/rpd/genomes.testing/gotcloud-bundles/hs37d5-db142-v1/dbsnp_142.b37.vcf.gz
+    # Therefore using gatk bundle dbsnp
+    genome : "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/hs37d5.fa",
+    dbsnp: "$RPD_GENOMES/gatk-bundle/2.8/b37/dbsnp_138.b37.vcf.gz",
+}
+    
+    
