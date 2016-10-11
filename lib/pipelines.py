@@ -408,9 +408,10 @@ def get_site():
     """
     # gis detection is a bit naive... but socket.getfqdn() doesn't help here
     # also possible: ip a | grep -q 192.168.190 && NSCC=1
-    if os.path.exists('/home/astar/gis'):# 'NSCC' in socket.getfqdn():
+    # but will only work on lmn
+    if os.path.exists('/home/users/astar/gis/userrig'):# 'NSCC' in socket.getfqdn():
         return "NSCC"
-    elif os.path.exists("/mnt/projects/rpd/") and os.path.exists("/mnt/software"):
+    elif os.path.exists("/home/userrig"):
         return "GIS"
     else:
         return "local"
