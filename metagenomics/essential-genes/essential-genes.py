@@ -109,11 +109,11 @@ def main():
                         help="FastQ file/s (gzip only)."
                         " Multiple input files supported (auto-sorted)."
                         " Note: each file (or pair) gets a unique read-group id."
-                        " Collides with -c.")
+                        " Collides with --sample-cfg.")
     parser.add_argument('-2', "--fq2", nargs="+",
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample",
-                        help="Sample name. Collides with -c.")
+                        help="Sample name. Collides with --sample-cfg.")
     parser.add_argument('-r', "--reffa", required=True,
                         help="Reference fasta file to use (needs to be indexed with BWA and samtools already)")
     parser.add_argument('-g', "--snpeff-genome", required=True,
