@@ -55,7 +55,7 @@ def main():
     csv_cols = ['sample'] + list(ReadUnit._fields)
     parser.add_argument('-i', "--csv", required=True,
                         help="CSV input file describing your samples using the"
-                        " following columns: {} (sample and fq1 are mandatory)".format(
+                        " following columns: {} (sample and fq1 are mandatory; leave unknown fields empty)".format(
                             ", ".join("{}:{}".format(i+1, c) for i, c in enumerate(csv_cols))))
     parser.add_argument('-o', "--yaml", required=True,
                         help="Output config (yaml) file")

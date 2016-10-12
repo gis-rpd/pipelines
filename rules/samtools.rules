@@ -18,6 +18,10 @@ rule samtools_fasta_index:
 
 
 rule map_rate:
+    """better to use bamstats/stats.txt as input
+
+    WARN : not using only properly paired reads but any paired read
+    """
     input:
         bam="{prefix}.idxstats.txt",
     output:
@@ -29,6 +33,7 @@ rule map_rate:
 
 
 rule bam_idxstats:
+    """rarely needed. bam_stats much better"""
     input:
         bam="{prefix}.bam",
         bai="{prefix}.bam.bai"

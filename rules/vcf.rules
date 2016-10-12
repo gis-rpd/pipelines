@@ -1,22 +1,29 @@
-""" Rule to bgzip a vcf and then index teh bgziped 
-vcf with tbix """
+"""Rules to bgzip and index vcf files
+
+Requires htslib
+"""
+
 
 rule bgzip:
-	input:
-		vcf = "{sample}.vcf"
-	output:
-		bgzip = "{sample}.vcf.gz"
-	log:
-		"{sample}.vcf.gz.log"
-	shell:
-		"bgzip {input.vcf} >& {log}"
+    input:
+        vcf = "{prefix}.vcf"
+    output:
+        bgzip = "{prefix}.vcf.gz"
+    log:
+        "{prefix}.vcf.gz.log"
+    threads:
+        2
+    shell:
+        "bgzip -@ {threads} {input.vcf} >& {log}"
 
+        
 rule tabix:
-	input:
-		vcf = "{sample}.vcf.gz"
-	output:
-		index = "{sample}.vcf.gz.tbi"
-	log:
-		"{sample}.vcf.gz.tbi.log"
-	shell:
-		"tabix -p vcf {input.vcf} >& {log}"
+    input:
+        "{prefix}.vcf.gz"
+    output:
+        "{prefix}.vcf.gz.tbi"
+    log:
+        "{prefix}.vcf.gz.tbi.log"
+    shell:
+        "tabix -f -p vcf {input} >& {log}"
+    
