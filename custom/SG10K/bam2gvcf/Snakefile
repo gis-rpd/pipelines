@@ -30,7 +30,7 @@ include: "../../../rules/samtools.rules"
 include: "../../../rules/logging.rules"
 include: "../../../rules/report.rules"
 include: "gatk_haplotype_caller.rules"
-include: "vcf.rules"
+include: "../../../rules/vcf.rules"
 
 
 if config['seqtype'] == 'targeted':
