@@ -30,7 +30,7 @@ include: "../../../rules/samtools.rules"
 include: "../../../rules/logging.rules"
 include: "../../../rules/report.rules"
 include: "gatk_haplotype_caller.rules"
-
+include: "vcf.rules"
 
 
 if config['seqtype'] == 'targeted':
@@ -42,9 +42,11 @@ else:
 rule final:
     input:
         expand(os.path.join(
-            RESULT_OUTDIR, "{sample}.concat.g.vcf"),
+            RESULT_OUTDIR, "{sample}.concat.g.vcf.gz"),
+            sample=config['samples']),
+        expand(os.path.join(
+            RESULT_OUTDIR, "{sample}.concat.g.vcf.gz.tbi"),
             sample=config['samples'])
-
 
 rule prep_bed_files:
     """Prepare bed files to be able to run haplotype caller per chromosome
@@ -58,8 +60,8 @@ rule prep_bed_files:
         ref = config['references']['genome'],
         reffai = config['references']['genome'] + ".fai"
     output:
-        bed = temp(expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
-                          ctr=range(config["references"]["num_chroms"])))
+        bed = expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
+                          ctr=range(config["references"]["num_chroms"]))
     log:
         os.path.join(RESULT_OUTDIR, "chr.split.log")
     params:

@@ -1,0 +1,22 @@
+""" Rule to bgzip a vcf and then index teh bgziped 
+vcf with tbix """
+
+rule bgzip:
+	input:
+		vcf = "{sample}.vcf"
+	output:
+		bgzip = "{sample}.vcf.gz"
+	log:
+		"{sample}.vcf.gz.log"
+	shell:
+		"bgzip {input.vcf} >& {log}"
+
+rule tabix:
+	input:
+		vcf = "{sample}.vcf.gz"
+	output:
+		index = "{sample}.vcf.gz.tbi"
+	log:
+		"{sample}.vcf.gz.tbi.log"
+	shell:
+		"tabix -p vcf {input.vcf} >& {log}"
