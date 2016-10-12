@@ -6,15 +6,16 @@ Requires htslib
 
 rule bgzip:
     input:
-        vcf = "{prefix}.vcf"
+        "{prefix}.vcf"
     output:
-        bgzip = "{prefix}.vcf.gz"
+        "{prefix}.vcf.gz"
     log:
         "{prefix}.vcf.gz.log"
     threads:
         2
     shell:
-        "bgzip -@ {threads} {input.vcf} >& {log}"
+        # do not delete input
+        "bgzip -@ {threads} -c {input} > {output} 2> {log}"
 
         
 rule tabix:

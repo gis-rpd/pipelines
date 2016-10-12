@@ -10,9 +10,9 @@ assert 'genome' in config["references"]
 assert 'num_chroms' in config["references"]
 
     
-def _gatk_multi_arg(flag, files):
-    flag += " "
-    return " ".join(flag + f for f in files)
+#def _gatk_multi_arg(flag, files):
+#    flag += " "
+#    return " ".join(flag + f for f in files)
 
 
 rule gatk_haplotype_caller:
@@ -73,8 +73,8 @@ rule gatk_catvariants:
         # split_gvcfs = rules.gatk_haplotype_caller.output.gvcf
         # Hence we use the first with a ruleorder (see above)
     output:
-        cat_gvcf="{sample}.concat.g.vcf",
-        #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
+        # later gzipped so temp() here
+        cat_gvcf = temp("{sample}.concat.g.vcf"),
     log:
         "{sample}.concat.g.vcf.log"
     run:
@@ -106,9 +106,10 @@ rule gatk_catvariants:
 rule gatk_genotyping:
     input:
         ref = config["references"]["genome"],
-        gvcf = "{prefix}.concat.g.vcf"
+        gvcf = "{prefix}.concat.g.vcf",
+        # needed? gvcf_idx = "{prefix}.concat.g.vcf.idx"
     output:
-        "{prefix}.gt.vcf"
+        vcf = temp("{prefix}.gt.vcf.gz"),
     log:
         "{prefix}.gt.vcf.log"
     params:
@@ -119,4 +120,4 @@ rule gatk_genotyping:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T GenotypeGVCFs -V {input.gvcf} -nt {threads} {params.custom} "
         " -R {input.ref} "
-        " --dbsnp {config[references][dbsnp]} -o {output} >& {log}"
+        " --dbsnp {config[references][dbsnp]} -o {output.vcf} >& {log}"

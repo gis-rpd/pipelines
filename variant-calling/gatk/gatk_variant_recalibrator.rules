@@ -40,7 +40,7 @@ rule gatk_variant_recalibration:
     # hard filtering guide lines: http://gatkforums.broadinstitute.org/gatk/discussion/2806/howto-apply-hard-filters-to-a-call-set
     input:
         ref=config["references"]["genome"],
-        vcf="{prefix}.vcf"
+        vcf="{prefix}.vcf.gz"
     output:
         recal=temp("{prefix}.{type,(snp|indel)}.vqsr"),
         tranches=temp("{prefix}.{type,(snp|indel)}.tranches"),
@@ -63,13 +63,13 @@ rule gatk_variant_recalibration:
 rule gatk_apply_variant_recalibration:
     input:
         ref=config["references"]["genome"],
-        vcf="{prefix}.vcf",
+        vcf="{prefix}.vcf.gz",
         recal="{prefix}.{type}.vqsr",
         tranches="{prefix}.{type}.tranches"
     output:
-        "{prefix}.{type,(snp|indel)}_vqsr.vcf"
+        "{prefix}.{type,(snp|indel)}_vqsr.vcf.gz"
     log:
-        "{prefix}.{type,(snp|indel)}_vqsr.vcf.log"
+        "{prefix}.{type,(snp|indel)}_vqsr.vcf.gz.log"
     params:
         mode = lambda wc: wc.type.upper(),
         custom = config.get("params_gatk", ""),
