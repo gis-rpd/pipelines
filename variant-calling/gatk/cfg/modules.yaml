@@ -2,7 +2,7 @@
 samtools : 1.3,
 gatk : 3.6,
 bwa : 0.7.12,
-samtools : 1.3,
-samblaster : 0.1.22,
+sambamba : 0.6.4,
 bedtools: 2.25.0,
+htslib: 1.3,
 }

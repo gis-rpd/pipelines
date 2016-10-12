@@ -14,7 +14,6 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
 from pipelines import chroms_and_lens_from_from_fasta
 
 
@@ -28,6 +27,7 @@ shell.prefix("source rc/snakemake_env.rc;")
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
+include: "../../rules/vcf.rules"
 include: "bwa_mem.rules"
 include: "gatk_mapping.rules"
 include: "gatk_haplotype_caller.rules"
@@ -35,36 +35,30 @@ include: "gatk_variant_recalibrator.rules"
 include: "gatk_hard_filter.rules"
 
 
-# always hard filter
-FINAL_VCFS = []
-FINAL_VCFS += expand(
-    os.path.join(RESULT_OUTDIR, "{sample}/all_genotyped.snp_hfilter.vcf"),
-    sample=config['samples'])
-FINAL_VCFS += expand(
-    os.path.join(RESULT_OUTDIR, "{sample}/all_genotyped.indel_hfilter.vcf"),
-    sample=config['samples'])
-
-# try recal only for WGS
-if config['seqtype']=='WGS':
-    FINAL_VCFS += expand(
-        os.path.join(RESULT_OUTDIR, "{sample}/all_genotyped.snp_recal.vcf"),
-        sample=config['samples'])
-    FINAL_VCFS += expand(
-        os.path.join(RESULT_OUTDIR, "{sample}/all_genotyped.indel_recal.vcf"),
-        sample=config['samples']),
+localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter
 
 
-if config['seqtype'] == 'targeted':
-    localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter, gatk_recalibrate_bam gatk_recalibrate_info
-else:    
-    localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter
+# expected output depends on options
+out_templ = os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem")
+if config['mark_dups']:
+    out_templ += ".dedup"
+if config['seqtype'] != 'targeted':
+    out_templ += ".bqsr"
+if config['seqtype'] == 'WGS':
+     var_filters = ['hfilter', 'vqsr']
+else:
+     var_filters = ['hfilter']
 
-    
+     
 rule final:
     input:
-        FINAL_VCFS,
+        expand(out_templ + ".bamstats/stats.txt",
+               sample=config['samples']),
+        expand(out_templ + ".gt.{vartype}_{filters}.vcf.gz",
+               sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
+        expand(out_templ + ".concat.g.vcf.gz",
+               sample=config['samples']),
         report="report.html"
-
 
 
 rule prep_bed_files:

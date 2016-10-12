@@ -1,5 +1,0 @@
-- include BWA
-- use RESULT_OUTDIR
-- add wrapper
-- add tests
-- enhancement: parallelize realigner should work on split BAM

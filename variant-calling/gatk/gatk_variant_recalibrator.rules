@@ -42,11 +42,11 @@ rule gatk_variant_recalibration:
         ref=config["references"]["genome"],
         vcf="{prefix}.vcf"
     output:
-        recal=temp("{prefix}.{type,(snp|indel)}.recal"),
+        recal=temp("{prefix}.{type,(snp|indel)}.vqsr"),
         tranches=temp("{prefix}.{type,(snp|indel)}.tranches"),
         plotting=temp("{prefix}.{type,(snp|indel)}.plotting.R")
     log:
-        "{prefix}.{type,(snp|indel)}.recal.log"
+        "{prefix}.{type,(snp|indel)}.vqsr.log"
     params:
         recal_params=_get_recal_params,
         params_gatk=config.get("params_gatk", "")
@@ -64,12 +64,12 @@ rule gatk_apply_variant_recalibration:
     input:
         ref=config["references"]["genome"],
         vcf="{prefix}.vcf",
-        recal="{prefix}.{type}.recal",
+        recal="{prefix}.{type}.vqsr",
         tranches="{prefix}.{type}.tranches"
     output:
-        "{prefix}.{type,(snp|indel)}_recal.vcf"
+        "{prefix}.{type,(snp|indel)}_vqsr.vcf"
     log:
-        "{prefix}.{type,(snp|indel)}_recal.vcf.log"
+        "{prefix}.{type,(snp|indel)}_vqsr.vcf.log"
     params:
         mode = lambda wc: wc.type.upper(),
         custom = config.get("params_gatk", ""),

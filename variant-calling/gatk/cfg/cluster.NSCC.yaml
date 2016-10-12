@@ -5,7 +5,7 @@
       "mem" : 2G,
     },
 
-    "map_mdups_sort":
+    "map_sort":
     {
       "time" : "12:00:00",
       "mem" : 36G,
