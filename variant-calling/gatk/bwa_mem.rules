@@ -20,21 +20,6 @@ assert 'platform' in config
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 
-rule dedup:
-    input:
-        bam='{prefix}.bam',
-    output:
-        bam='{prefix}.dedup.bam'
-    log:
-        bam='{prefix}.dedup.bam.log'
-    message:
-        "Removing duplicates with sambamba"
-    threads:
-        8
-    shell:
-        "sambamba markdup -t {threads} {input} {output}"
-
-        
 rule unit_merge:
     """
     Merge bam files for multiple units into one for the given sample
