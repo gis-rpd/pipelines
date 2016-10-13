@@ -123,8 +123,8 @@ def main():
     parser.add_argument('-l', "--intervals",
                         help="Intervals file (e.g. bed file) listing regions of interest."
                         " Required for WES and targeted sequencing.")
-    parser.add_argument('-D', '--dont-mark-dups', action='store_true',
-                        help="Don't mark duplicate reads")
+    #parser.add_argument('-D', '--dont-mark-dups', action='store_true',
+    #                    help="Don't mark duplicate reads")
     parser.add_argument('--normal-bam',
                         help="Advanced: Injects normal BAM (overwrites normal-fq options)."
                         " WARNING: reference and postprocessing need to match pipeline requirements")
@@ -226,7 +226,7 @@ def main():
     user_data['intervals'] = args.intervals
     # WARNING: this currently only works because these two are the only members in reference dict
     # Should normally only write to root level
-    user_data['mark_dups'] = not args.dont_mark_dups
+    #user_data['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
@@ -246,7 +246,7 @@ def main():
         if bam:
             # target as defined in Snakefile!
             target = os.path.join(args.outdir, "out", sample,
-                                  "{}.bwamem.realn.recal.bam".format(sample))
+                                  "{}.bwamem.dedup.realn.recal.bam".format(sample))
             os.makedirs(os.path.dirname(target))
             os.symlink(os.path.abspath(bam), target)
 

@@ -27,20 +27,20 @@ def _get_intervals_arg():
 
 rule gatk_realign_info:
     input:
-        nbam = os.path.join(NORMAL_DIR, 'normal.bwamem.bam'),
-        nbai = os.path.join(NORMAL_DIR, 'normal.bwamem.bam.bai'),
-        tbam = os.path.join(TUMOR_DIR, 'tumor.bwamem.bam'),
-        tbai = os.path.join(TUMOR_DIR, 'tumor.bwamem.bam.bai'),
+        nbam = os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.bam'),
+        nbai = os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.bam.bai'),
+        tbam = os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.bam'),
+        tbai = os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.bam.bai'),
         #bam="{prefix}.bam",
         #bai="{prefix}.bam.bai",
         ref=config['references']['genome'],
         refdict=config['references']['genome'].replace("fasta", "dict")
     output:
-        nival = temp(os.path.join(NORMAL_DIR, 'normal.bwamem.realn.intervals')),
-        tival = temp(os.path.join(TUMOR_DIR, 'tumor.bwamem.realn.intervals')),
+        nival = temp(os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.realn.intervals')),
+        tival = temp(os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.realn.intervals')),
     log:
         # just one
-        os.path.join(NORMAL_DIR, 'normal.bwamem.realn.intervals.log'),
+        os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.realn.intervals.log'),
     params:
         intervals_arg = _get_intervals_arg(),
         custom = config.get("params_gatk", "")

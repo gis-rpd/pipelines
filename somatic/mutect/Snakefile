@@ -34,6 +34,8 @@ VARIANTS_DIR = os.path.join(RESULT_OUTDIR, 'variants')
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
+include: "../../rules/vcf.rules"
+include: "../../rules/sambamba.rules"
 include: "bwa_mem.rules"
 include: "gatk_mapping.rules"
 
@@ -49,7 +51,7 @@ assert sorted(config['samples']) == sorted(["normal", "tumor"])
 
 rule final:
     input:
-        os.path.join(VARIANTS_DIR, 'mutect.PASS.vcf.gz'),
+        os.path.join(VARIANTS_DIR, 'mutect.PASS.vcf.gz.tbi'),
         "report.html"
 
 
@@ -94,6 +96,7 @@ rule prep_bed_files:
             else:
                 shutil.move(tmpbed, outbed)
 
+                
 rule unit_merge:
     """
     Merge bam files for multiple units into one for the given sample
@@ -114,7 +117,6 @@ rule unit_merge:
         8
     run:
         # readgroup and pg now different, so make PG and RG uniq (default)
-        # not running mark_dups_pipe_cmd again since not read name sorted anymore
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
@@ -123,10 +125,10 @@ rule unit_merge:
 
 rule mutect_per_region:
     input:
-        nbam = os.path.join(NORMAL_DIR, 'normal.bwamem.realn.recal.bam'),
-        nbai = os.path.join(NORMAL_DIR, 'normal.bwamem.realn.recal.bam.bai'),
-        tbam = os.path.join(TUMOR_DIR, 'tumor.bwamem.realn.recal.bam'),
-        tbai = os.path.join(TUMOR_DIR, 'tumor.bwamem.realn.recal.bam.bai'),
+        nbam = os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.realn.recal.bam'),
+        nbai = os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.realn.recal.bam.bai'),
+        tbam = os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.realn.recal.bam'),
+        tbai = os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.realn.recal.bam.bai'),
         # FIXME bed = os.path.join(RESULT_OUTDIR, "interval_wo_excl.bed"),
         reffa = config['references']['genome'],
         refidx = config['references']['genome'] + ".fai",
@@ -160,13 +162,14 @@ rule mutect_per_region:
         ' --out {output.out} --vcf {output.vcf}'
         ' >& {log}'
 
+        
 rule mutect_combine:
     input:
         vcf = expand("{{prefix}}/mutect.{ctr}.vcf", ctr=range(config["references"]["num_chroms"])),
         out = expand("{{prefix}}/mutect.{ctr}.txt", ctr=range(config["references"]["num_chroms"])),
         cov = expand("{{prefix}}/mutect.{ctr}.wig", ctr=range(config["references"]["num_chroms"])),
     output:
-        vcf = "{prefix}/mutect.vcf.gz",
+        vcf = temp("{prefix}/mutect.vcf"),
         out = "{prefix}/mutect.txt.gz",
         cov = "{prefix}/mutect.wig.gz",
     log:
@@ -184,11 +187,8 @@ rule mutect_combine:
         # combine and gzip files. remove most header from vcf's except first
         "{{ cat {input.out} | gzip > {output.out}; "
         " cat {input.cov} | gzip > {output.cov}; "
-        " tmpvcf=$(echo {output.vcf} | sed -e 's,.gz,,'); " 
-        " grep '^#' {input.vcf[0]} > $tmpvcf; "
-        " grep -h -v '^#' {input.vcf} >> $tmpvcf; "
-        " bgzip $tmpvcf; "
-        " tabix {output.vcf}; }} >& {log}"   
+        " grep '^#' {input.vcf[0]} > {output.vcf}; "
+        " grep -h -v '^#' {input.vcf} >> {output.vcf}; }} >& {log}"   
 
     
 rule mutect_pass:
@@ -203,6 +203,5 @@ rule mutect_pass:
     threads:
         1
     shell:
-        "{{ bcftools view -O z -o {output} -f PASS {input}; "
-        " tabix {output}; }} >& {log}"   
+        "bcftools view -O z -o {output} -f PASS {input} >& {log}"   
 
