@@ -245,7 +245,7 @@ def main():
         if bam:
             # target as defined in Snakefile!
             target = os.path.join(args.outdir, "out", sample,
-                                  "{}.bwamem.lofreq.lacer.bam".format(sample))
+                                  "{}.bwamem.lofreq.dedup.lacer.bam".format(sample))
             os.makedirs(os.path.dirname(target))
             os.symlink(os.path.abspath(bam), target)
 
