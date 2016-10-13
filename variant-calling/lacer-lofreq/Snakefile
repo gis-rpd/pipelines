@@ -22,27 +22,6 @@ RESULT_OUTDIR = './out'
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 
-def mark_dups_pipe_cmd(before="", after=""):
-    """FIXME review once MARK_SHORT_SPLITS is in config
-
-    before and after are commands added before and after samblaster
-    and can be used e.g. for conversion from BAM to BAM (samblaster needs SAM)
-
-    return command will always end in pipe
-    """
-    
-    if config['mark_dups']:
-        if before:
-            cmd = "{} | ".format(before)
-        else:
-            cmd = ""
-        cmd += " samblaster {MARK_SHORT_SPLITS} | "
-        if after:
-            cmd += " {} | ".format(after)
-        return cmd
-    else:
-        return ""
-
 
 # non-login bash
 shell.executable("/bin/bash")
@@ -51,6 +30,7 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
+include: "../../rules/sambamba.rules"
 include: "../../rules/report.rules"
 include: "lofreq.rules"
 include: "lacer.rules"
@@ -62,17 +42,15 @@ else:
     localrules: final, report, vcf_split
 
 
+out_template = os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq')
+if config['mark_dups']:
+    out_template += ".dedup"
+out_template += ".lacer"
 rule final:
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.snps.vcf.gz'),
-               sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.indels.vcf.gz'),
-               sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq.lacer.bamstats/stats.txt'),
-               sample=config['samples']),
+        expand(out_template + ".{vartype}.vcf.gz", sample=config['samples'], vartype=["snps", "indels"]),
+        expand(out_template + ".bamstats/stats.txt", sample=config['samples']),
         "report.html"
-
-
 
 
 rule vcf_split:
@@ -113,7 +91,6 @@ rule unit_merge:
         8
     run:
         # readgroup and pg now different, so make PG and RG uniq (default)
-        # not running mark_dups_pipe_cmd again since not read name sorted anymore
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
@@ -149,7 +126,7 @@ rule split_merge:
 # - replaced sorted with split_bam_by_chr and changed out accordingly
 # - removed fixmate (no points since we run viterbi later)
 # - increased threads (since we don't sort etc.)
-rule map_mdups_split:
+rule map_split:
     """
     - Setting read groups correctly is tricky and also depends on downstream programs. 
       See e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
@@ -173,11 +150,10 @@ rule map_mdups_split:
         rg_id=lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
         lib_id=lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
         pu_id=lambda wildcards: gen_rg_pu_id(config["readunits"][wildcards.unit]),
-        #outprefix=lambda wildcards: get_outprefix_for_map_mdups_split(wildcards),
         outprefix=lambda wildcards: '{}/unit-{}.bwamem.chrsplit'.format(wildcards.prefix, wildcards.unit),# keep in sync with input
         sample=lambda wildcards: get_sample_for_unit(wildcards.unit, config)
     message:
-        'Aligning, marking duplicates (if set) and splitting per chrom'
+        'Aligning and splitting per chrom'
     threads:
         # see also BWA-MEM
         16
@@ -185,6 +161,5 @@ rule map_mdups_split:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
-        + mark_dups_pipe_cmd() +
         " split_bam_by_chr -S -l 0 -o {params.outprefix} -; }} >& {log}"
 
