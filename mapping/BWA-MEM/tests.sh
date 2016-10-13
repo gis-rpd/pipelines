@@ -132,8 +132,9 @@ if [ $skip_real_runs -ne 1 ]; then
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    bam=$(ls $odir/out/$SAMPLE/*bam)
+    bam=$(ls $odir/out/$SAMPLE/*dedup.bam)
     # remove secondary alignments (assuming -M otherwise it's supplementary)
+    #echo "DEBUG bam=$bam" 1>&2
     nreadsbam=$(samtools view -F 0x100 -c $bam)
     nreadsfq=$(echo $(zcat $R1S1 | wc -l)/4 | bc)
     if [ $nreadsbam -ne $nreadsfq ]; then
@@ -150,7 +151,8 @@ if [ $skip_real_runs -ne 1 ]; then
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    bam=$(ls $odir/out/$SAMPLE/*bam)
+    bam=$(ls $odir/out/$SAMPLE/*dedup.bam)
+    #echo "DEBUG bam=$bam" 1>&2
     # remove secondary alignments (assuming -M otherwise it's supplementary)
     nreadsbam=$(samtools view -F 0x100 -c $bam)
     nreadsfq=$(echo $(zcat $R1S1 $R2S1 | wc -l)/4 | bc)
@@ -168,7 +170,8 @@ if [ $skip_real_runs -ne 1 ]; then
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    bam=$(ls $odir/out/$SAMPLE/*bam)
+    bam=$(ls  $odir/out/$SAMPLE/*dedup.bam)
+    #echo "DEBUG bam=$bam" 1>&2
     # count only dups in bam
     ndups=$(samtools view -f 0x400 -c $bam)
     # nondups from non dup input
@@ -205,7 +208,7 @@ if [ $skip_real_runs -ne 1 ]; then
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
-    bams=$(ls $odir/out/*/*bam)
+    bams=$(ls $odir/out/*/*dedup.bam)
     nbams=$(echo $bams | wc -w)
     if [ "$nbams" -ne 2 ]; then
         echo "ERROR expected two bams but go $nbams" | tee -a $log
