@@ -11,7 +11,7 @@ Reads are aligned to given reference genome using the
 `cfg/references.yaml` for references used by default (also refer to
 option `--references-cfg`).  Output of STAR includes the uniquely
 mapped genome bam file, transcripts mapped bam file, gene based read
-count matrix, wiggle files etc. (see below). For running STAR we
+count matrix, bigwig files etc. (see below). For running STAR we
 follow recipes given
 [here](http://www.rna-seqblog.com/optimizing-rna-seq-mapping-with-star/).
  
@@ -49,7 +49,7 @@ created in correspondingly named subfolders:
 
 - Mapped genome BAM: `{sample}_{genome}_Aligned.sortedByCoord.out.bam`
 - Mapped transcriptome BAM (RSEM input): `{sample}_{genome}_Aligned.toTranscriptome.out.bam`
-- Visualization: Wiggle files (`*.wig`)
+- Visualization: Bigwig files (`*.bw`)
 - Read count (genes): `{sample}_{genome}_ReadsPerGene.out.tab`
 - Mappability stats: `{sample}_{genome}_Log.final.out`
 

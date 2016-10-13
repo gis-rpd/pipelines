@@ -1,0 +1,15 @@
+rule dedup:
+    input:
+        bam='{prefix}.bam',
+    output:
+        bam='{prefix}.dedup.bam'
+    log:
+        bam='{prefix}.dedup.bam.log'
+    message:
+        "Removing duplicates with sambamba"
+    threads:
+        8
+    shell:
+        "sambamba markdup -t {threads} {input} {output}"
+
+        

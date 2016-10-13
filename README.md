@@ -107,7 +107,7 @@ simplistic installation instructions.
 
 ## How it Works
 
-- All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
+- All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.7.1-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
 - Input will be a single fastq file or a pair of fastq files. Multiple of these can
   be given. Each pair is treated as one readunit (see also resulting
   `conf.yaml` file) and gets its own readgroup assigned were
