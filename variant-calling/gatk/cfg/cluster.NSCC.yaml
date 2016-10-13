@@ -11,18 +11,6 @@
       "mem" : 36G,
     },
 
-    "gatk_realign_info":
-    {
-       "time" : "02:00:00",
-       "mem" : 24G,
-    },
-
-    "gatk_realign_bam":
-    {
-      "time" : "24:00:00",
-      "mem" : 24G,
-    },
-
     "gatk_recalibrate_info":
     {
       "time" : "12:00:00",
