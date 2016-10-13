@@ -628,7 +628,7 @@ def parse_regions_from_bed(bed):
 
     with open(bed) as fh:
         for line in fh:
-            if line.startswith('#') or not len(line.strip()):
+            if line.startswith('#') or not len(line.strip()) or line.startswith('track '):
                 continue
             chrom, start, end = line.split()[:3]
             start, end = int(start), int(end)
