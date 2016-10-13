@@ -26,7 +26,7 @@ from mongodb import mongodb_conn
 from pipelines import generate_window, send_mail, get_site
 from pipelines import get_machine_run_flowcell_id, generate_timestamp
 from pipelines import is_devel_version
-from readunits import key_for_read_unit
+from readunits import key_for_readunit
 
 ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
                                    'lane_id', 'rg_id', 'fq1', 'fq2'])
@@ -193,7 +193,7 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                                 if status:
                                     ru = ReadUnit(run_num_flowcell, flowcellid, child['libraryId'],\
                                         rows['laneId'], None, fq1, fq2)
-                                    k = key_for_read_unit(ru)
+                                    k = key_for_readunit(ru)
                                     readunits_dict[k] = dict(ru._asdict())
                                     sample_dict['readunits'] = readunits_dict
                                     if sample_info.get(sample, {}).get('readunits'):
@@ -211,7 +211,7 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                                 readunits_dict = {}
                                 ru = ReadUnit(run_num_flowcell, flowcellid, rows['libraryId'], \
                                     rows['laneId'], None, fq1, fq2)
-                                k = key_for_read_unit(ru)
+                                k = key_for_readunit(ru)
                                 readunits_dict[k] = dict(ru._asdict())
                                 sample_dict['readunits'] = readunits_dict
                                 sample_info[sample] = sample_dict
