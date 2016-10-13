@@ -18,8 +18,8 @@ def _gatk_multi_arg(flag, files):
 
 rule gatk_haplotype_caller:
     input:
-        bams = [os.path.join(config['precalc_bam_dir'], 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bam')],
-        bais = [os.path.join(config['precalc_bam_dir'], 'sample-{sample}.bwamem.fixmate.mdups.srt.recal.bam.bai')],
+        bams = [os.path.join(config['precalc_bam_dir'], "{sample}/", '{sample}.bwamem.fixmate.mdups.srt.recal.bam')],
+        bais = [os.path.join(config['precalc_bam_dir'], "{sample}/", '{sample}.bwamem.fixmate.mdups.srt.recal.bam.bai')],
         ref = config["references"]["genome"],
         # see prep_bed_files
         # split by chrom and intersect with intervals already if needed
