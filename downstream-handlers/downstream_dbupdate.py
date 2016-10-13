@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Crawl DB for started bcl2fastq runs and resp. output folders for
+"""Crawl DB for started downstream runs and resp. output folders for
 flag files indicating completion, upon which DB needs update
 
 """
