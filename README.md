@@ -134,7 +134,46 @@ First call the wrapper in question with `--no-run`. cd into the given outdir and
 - Run locally: `nohup bash run.sh; tail -f logs/snakemake.log`
 
 
+## (Multi) Sample Configuration
 
+If you have just one sample to analyze (no matter if multiple fastq
+pairs or not), you will use options `-s`, `-1` and `-2` most of the
+time. To provide the pipeline with more information about your fastq
+files (e.g. run-id etc.) you can create a sample configuration file
+(see below) and provide it to the wrapper script with `--sample-cfg`
+(thus replacing -s`, `-1` and `-2`).
+
+You also need a sample configuration file if you want to analyze many
+samples identically with just one wrapper call. The easiest way to
+create such a file, is to first create an Excel/CSV sheet listing all
+samples and fastq(s) and to convert it into a sample config file as
+described in the following:
+
+- Create an Excel sheet with the following columns:
+  1. sample name (mandatory; can be used repeatedly, e.g. if you have multiple fastqs per sample)
+  2. run id (allowed to be empty)
+  3. flowcell id (allowed to be empty)
+  4. library id (allowed to be empty)
+  5. lane id (allowed to be empty)
+  6. read-group id (allowed to be empty)
+  7. fastq1 (mandatory)
+  8. fastq2 (allowed to be empty)
+- Save the Excel sheet as CSV and run the following to convert it to a
+  yaml config file: `tools/sample_conf.py -i <your>.csv -i
+  <your>.yaml` Depending on how you created the CSV file you might
+  want to set the CSV delimiter with `-d`, e.g. "`-d ,`"
+- Use the created yaml file as input for the pipeline wrapper (usually "`--sample-cfg your.yaml`")
+
+Please note, not all pipelines support this feature, e.g. by design
+the somatic pipelines don't, but most others do (e.g. GATK,
+Lacer-LoFreq). In some cases multisample processing can lead to very
+high memory consumption by the snakemake master process itself. Since
+this is hard to avoid or predict, we in general discourage the use of
+multisample setups.
+
+The above sample configuration can be used for single sample
+processing as well, however, here options `-s`, `-1` and `-2` willbe
+sufficient for most cases.
 
 ## FAQ
 
