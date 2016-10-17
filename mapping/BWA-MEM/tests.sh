@@ -53,9 +53,8 @@ SPLIT1KONLY_SR_CFG=$NA12878_DIR/split1konly_sr.yaml
 SPLIT1KONLY_2SAMPLE_CFG=$NA12878_DIR/split1konly_2sample.yaml
 SAMPLE=NA12878
 
-REFFA=$RPD_ROOT/genomes.testing/human_g1k_v37/human_g1k_v37.fasta
 
-for f in $R1S1 $R2S1 $RANDR1 $RANDR2 $RANDR1WDUPS $RANDR2WDUPS $REFFA $SPLIT1KONLY_PE_CFG $SPLIT1KONLY_SR_CFG ; do
+for f in $R1S1 $R2S1 $RANDR1 $RANDR2 $RANDR1WDUPS $RANDR2WDUPS $SPLIT1KONLY_PE_CFG $SPLIT1KONLY_SR_CFG ; do
     if [ ! -e $f ]; then
         echo "FATAL: non existant file $f" 1>&2
         exit 1
@@ -81,7 +80,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: PE on command line" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -1 $R1S1 -2 $R2S1 -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -1 $R1S1 -2 $R2S1 -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -89,7 +88,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: PE through config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_PE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_PE_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -97,7 +96,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: SR on command line" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py -1 $R1S1 -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py -1 $R1S1 -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -105,7 +104,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     
     echo "Dryrun: SR through config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_SR_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_SR_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -113,7 +112,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: 2-sample config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-2-sample.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_2SAMPLE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_2SAMPLE_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
@@ -128,7 +127,7 @@ fi
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run: checking whether SE reads in == reads out (-secondary)" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-se-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -1 $R1S1 -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -1 $R1S1 -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
@@ -147,7 +146,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: checking whether PE reads in == reads out (-secondary)" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-in-eq-out.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -1 $R1S1 -2 $R2S1 -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -1 $R1S1 -2 $R2S1 -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
@@ -166,7 +165,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: checking whether PE dup reads are removed" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-mdups.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s $SAMPLE -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
@@ -188,7 +187,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: no dups marking should not mark dups" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-pe-no-mdups.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s $SAMPLE -r $REFFA -D -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s $SAMPLE -D -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log
@@ -204,7 +203,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     echo "Real run: 2-sample config" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-2-sample.XXXXXXXXXX) && rmdir $odir
-    ./BWA-MEM.py --no-mail --sample-cfg $SPLIT1KONLY_2SAMPLE_CFG -r $REFFA -o $odir --no-run >> $log 2>&1
+    ./BWA-MEM.py --no-mail --sample-cfg $SPLIT1KONLY_2SAMPLE_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
     popd >> $log

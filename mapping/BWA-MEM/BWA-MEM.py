@@ -95,7 +95,8 @@ def main():
     cfg_group.add_argument('--sample-cfg',
                            help="Config-file (YAML) listing samples and readunits."
                            " Collides with -1, -2 and -s")
-    for name, descr in [("params", "parameters"),
+    for name, descr in [("references", "reference sequences"),
+                        ("params", "parameters"),
                         ("modules", "modules")]:
         default = os.path.abspath(os.path.join(CFG_DIR, "{}.yaml".format(name)))
         cfg_group.add_argument('--{}-cfg'.format(name),
@@ -112,8 +113,6 @@ def main():
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample",
                         help="Sample name. Collides with --sample-cfg.")
-    parser.add_argument('-r', "--reffa", required=True,
-                        help="Reference fasta file to use. Needs to be indexed already (bwa index)")
     parser.add_argument('-D', '--dont-mark-dups', action='store_true',
                         help="Don't mark duplicate reads")
 
@@ -157,16 +156,6 @@ def main():
         samples = dict()
         samples[args.sample] = list(readunits.keys())
 
-    if not os.path.exists(args.reffa):
-        logger.fatal("Reference '%s' doesn't exist", args.reffa)
-        sys.exit(1)
-
-    for p in ['bwa', 'samtools']:
-        if not ref_is_indexed(args.reffa, p):
-            logger.fatal("Reference '%s' doesn't appear to be indexed"
-                         " with %s", args.reffa, p)
-            sys.exit(1)
-
     # turn arguments into user_data that gets merged into pipeline config
     #
     # generic data first
@@ -178,8 +167,6 @@ def main():
         user_data['analysis_name'] = args.name
 
 
-    user_data['references'] = {
-        'genome' : os.path.abspath(args.reffa)}
     user_data['mark_dups'] = not args.dont_mark_dups
 
     # create mongodb update command, used later, after submission
@@ -195,6 +182,7 @@ def main():
         slave_q=args.slave_q,
         params_cfgfile=args.params_cfg,
         modules_cfgfile=args.modules_cfg,
+        refs_cfgfile=args.references_cfg,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
 
     pipeline_handler.setup_env()
