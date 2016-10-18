@@ -1,11 +1,6 @@
-{
-    # name : version
-    samtools : 1.3,
-    mrnaseqht-demux : b2712be,
-    star : 2.5.2a,
-    rsem : 1.2.31,
-    rnaseqc : 1.1.8,
-    prinseq-lite : 0.20.4,
-}
-    
-    
+mrnaseqht-demux: b2712be
+prinseq-lite: 0.20.4
+rnaseqc: 1.1.8
+rsem: 1.2.31
+samtools: 1.3
+star: 2.5.2a

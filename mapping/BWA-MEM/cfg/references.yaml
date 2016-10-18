@@ -1,1 +1,1 @@
-genome : $RPD_GENOMES/human_g1k_v37/human_g1k_v37.fasta
+genome: $RPD_GENOMES/human_g1k_v37/human_g1k_v37.fasta
