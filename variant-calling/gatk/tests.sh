@@ -69,6 +69,7 @@ SKIP_REAL_WGS=0
 WRAPPER=./gatk.py
 targeted_cmd_base="$WRAPPER --sample-cfg $TARGETED_CFG -t targeted -l $DUMMY_BED --name 'test:targeted'"
 wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:WES'"
+wes_run_cmd_base="../../run $(basename $WRAPPER .py) -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:run:WES'"
 wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS --name 'test:WGS'"
 
 # dryruns
@@ -85,6 +86,15 @@ if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: WES" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
     eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
+    pushd $odir >> $log
+    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+    rm -rf $odir
+    popd >> $log
+
+    # FIXME run wrapper should be tested somewhere else
+    echo "Dryrun: WES through run wrapper" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-wes-run.XXXXXXXXXX) && rmdir $odir
+    eval $wes_run_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     rm -rf $odir
