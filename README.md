@@ -50,11 +50,28 @@ simplistic installation instructions.
 
 ## How to Run
 
-- Find the wrapper of the particular pipeline that you want to run, e.g.: `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py`
-- Invoke the script with `-h` to display its usage information, e.g. `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py -h`
-- Note, there is no need to submit the script itself, as long as you run it from a cluster node
-- Also note, you must not prefix the script with `python`,
-  (installed scripts automatically use the RPD Python3 installation)
+There are two ways to invoke a pipeline: either call the convenience
+wrapper, plainly called `run` or invoke the pipeline specific scripts
+directory:
+
+1. Using the convenience wrapper (`run`)
+  - The basic usage is `$PIPELINE_ROOTDIR/run name options`, where
+    `name` is a pipeline name and `options` are valid options for this
+    pipeline.
+  - An example would be `$PIPELINE_ROOTDIR/run gatk --help`
+  - Just calling `$PIPELINE_ROOTDIR/run` will produce a list of
+    available pipelines and simple usage information
+2. Direct invokation
+  - Directly call the wrapper of the particular pipeline that you want
+    to run, e.g.: `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py`
+  - Note, in this case you need to have a Python3 interpreter in your
+    path, which is not needed if you use the convenience wrapper (see
+    above)
+In either case, you must not prefix the script with `python`.
+
+- Note, there is no need to submit the script itself, as long as you
+  run it from a cluster node
+- Use with `-h` or `--help `to display usage information for a pipeline
 - If called correctly, jobs will be run on the cluster automatically
 - Use the `-v` option, so that some more information is printed
 - All scripts create an output directory (option `-o`) containing the run environment
@@ -83,7 +100,9 @@ simplistic installation instructions.
     bed=SeqCap_EZ_Exome_v3_primary.bed
     outdir=/output-folder-for-this-analysis/
     variant-calling/gatk/gatk.py -o $outdir -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l $bed
-
+    # or
+    # run gatk -o $outdir -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l $bed
+    
 
 ## List of Pipelines
 
