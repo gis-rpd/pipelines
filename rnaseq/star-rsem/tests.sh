@@ -52,10 +52,12 @@ R1_FULL=$FQDIR/ENCFF001RDF_NA_NA_R1_001.fastq.gz
 R2_FULL=$FQDIR/ENCFF001RCX_NA_NA_R2_001.fastq.gz
 SAMPLE=ENCFF001
 
-cd $(dirname $0)
+rootdir=$(readlink -f $(dirname $0))
+cd $rootdir
 pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
+
 
 
 test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
@@ -80,7 +82,19 @@ CMD_FULL="$WRAPPER -1 $R1_FULL -2 $R2_FULL -s $SAMPLE --name 'test:FULL'"
 
 SKIP_REAL_FULL=0
 
+# DAG
+echo "DAG: Full" | tee -a $log
+odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+eval $CMD_FULL -o $odir -v --no-run >> $log 2>&1
+pushd $odir >> $log
+type=pdf;
+dag=example-dag.$type
+EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+cp $dag $rootdir
+popd >> $log
+rm -rf $odir
 
+    
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
@@ -89,24 +103,24 @@ if [ $skip_dry_runs -ne 1 ]; then
     eval $CMD_2_SE_500K -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
 
     echo "Dryrun: 2 500K PE fastq pairs" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
     eval $CMD_2_PE_500K -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
 
     echo "Dryrun: Full" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
     eval $CMD_FULL -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
     
 else
     echo "Dryruns tests skipped"

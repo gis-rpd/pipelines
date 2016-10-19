@@ -45,7 +45,8 @@ FQDIR=$RPD_ROOT/testing/data/fluidigm_800_singlecell/K562_Fldm/;
 COL1_R1=$FQDIR/COL01_S1_L001_R1_001.fastq.gz
 COL1_R2=$FQDIR/COL01_S1_L001_R2_001.fastq.gz
 
-cd $(dirname $0)
+rootdir=$(readlink -f $(dirname $0))
+cd $rootdir
 pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
@@ -61,6 +62,22 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 WRAPPER=./fluidigm-ht-c1-rnaseq.py
 cmd_base="$WRAPPER -1 $COL1_R1 -2 $COL1_R2 -s COL01 --name 'test:COL01'"
 
+
+# DAG
+echo "DAG" | tee -a $log
+odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+eval $cmd_base -o $odir -v --no-run >> $log 2>&1
+pushd $odir >> $log
+type=pdf;
+dag=example-dag.$type
+EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+# this one is massive but can only be changed by changing number of columns
+# in snakefile so we leave it as it is
+cp $dag $rootdir
+popd >> $log
+rm -rf $odir
+
+
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
@@ -69,9 +86,8 @@ if [ $skip_dry_runs -ne 1 ]; then
     eval $cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
-    
+    rm -rf $odir   
 else
     echo "Dryruns tests skipped"
 fi

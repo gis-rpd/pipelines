@@ -62,7 +62,8 @@ for f in $R1S1 $R2S1 $RANDR1 $RANDR2 $RANDR1WDUPS $RANDR2WDUPS $SPLIT1KONLY_PE_C
 done
 
 
-cd $(dirname $0)
+rootdir=$(readlink -f $(dirname $0))
+cd $rootdir
 pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
@@ -73,6 +74,19 @@ log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
+
+
+# DAG
+echo "DAG: PE through config" | tee -a $log
+odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
+./BWA-MEM.py --sample-cfg $SPLIT1KONLY_PE_CFG -o $odir --no-run >> $log 2>&1
+pushd $odir >> $log
+type=pdf;
+dag=example-dag.$type
+EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+cp $dag $rootdir
+popd >> $log
+rm -rf $odir
 
 
 # dryruns

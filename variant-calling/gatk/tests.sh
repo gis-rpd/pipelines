@@ -48,7 +48,9 @@ WGS_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_1.fastq.gz
 WGS_FQ2=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_2.fastq.gz
 DUMMY_BED=$RPD_ROOT/testing/data/illumina-platinum-NA12878/human_g1k_v37_decoy_chr21.bed
 TRUSEQ_BED=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/truseq-exome-targeted-regions-manifest-v1-2.nochr.bed
-cd $(dirname $0)
+
+rootdir=$(readlink -f $(dirname $0))
+cd $rootdir
 pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
@@ -72,6 +74,21 @@ wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_
 wes_run_cmd_base="../../run $(basename $WRAPPER .py) -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:run:WES'"
 wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS --name 'test:WGS'"
 
+
+# DAG
+echo "DAG: WES" | tee -a $log
+odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
+pushd $odir >> $log
+type=pdf;
+dag=example-dag.$type
+sed -i -e 's,num_chroms: .*,num_chroms: 1,' conf.yaml
+EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+cp $dag $rootdir
+rm -rf $odir
+popd >> $log
+
+    
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
@@ -80,16 +97,16 @@ if [ $skip_dry_runs -ne 1 ]; then
     eval $targeted_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
     
     echo "Dryrun: WES" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
     eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
 
     # FIXME run wrapper should be tested somewhere else
     echo "Dryrun: WES through run wrapper" | tee -a $log
@@ -97,16 +114,16 @@ if [ $skip_dry_runs -ne 1 ]; then
     eval $wes_run_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
 
     echo "Dryrun: WGS" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
     eval $wgs_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
     
 else
     echo "Dryruns tests skipped"

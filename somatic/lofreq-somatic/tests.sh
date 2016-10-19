@@ -56,7 +56,8 @@ DREAM_WGS_BED=$DREAM_WGS_DIR/19.bed
 DREAM_WGS_TRUTH=$DREAM_WGS_DIR/synthetic.challenge.set3.tumor.20pctmasked.chr19.truth.vcf.gz
 SKIP_DREAM_WGS=0
 
-cd $(dirname $0)
+rootdir=$(readlink -f $(dirname $0))
+cd $rootdir
 pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
@@ -72,6 +73,22 @@ WRAPPER=./lofreq-somatic.py
 wes_cmd_base="$WRAPPER --sample-cfg $EXOME_IN_HOUSE_CFG -l $EXOME_IN_HOUSE_BED -t WES --name exome-in-house"
 wgs_cmd_base="$WRAPPER --normal-bam $DREAM_WGS_NORMAL_BAM --tumor-bam $DREAM_WGS_TUMOR_BAM -l $DREAM_WGS_BED -t WGS --name dream-set3"
 
+
+# DAG
+echo "DAG: WES" | tee -a $log
+odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
+pushd $odir >> $log
+type=pdf;
+dag=example-dag.$type
+# simplify
+sed -i -e 's,num_chroms: .*,num_chroms: 1,' conf.yaml
+EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+cp $dag $rootdir
+popd >> $log
+rm -rf $odir
+
+
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
@@ -80,16 +97,16 @@ if [ $skip_dry_runs -ne 1 ]; then
     eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
 
     echo "Dryrun: WGS" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
     eval $wgs_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
+    rm -rf $odir
     
 else
     echo "Dryruns tests skipped"
