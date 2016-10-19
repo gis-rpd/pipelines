@@ -107,23 +107,20 @@ In either case, you must not prefix the script with `python`.
 
 ## List of Pipelines
 
+| Name | Category | @GIS | @NSCC |
+| ---  | ---      | ---  | ---   |
+| [bcl2fastq](bcl2fastq/README.md)                               | Production          | Y | Y |
+| [SG10K](custom/SG10K/README.md)                                | Custom              | Y | Y |
+| [BWA-MEM](mapping/BWA-MEM/README.md)                           | Mapping             | Y | Y |
+| [essential-genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Y | Y |
+| [star-rsem](rnaseq/star-rsem/README.md)                        | RNA-Seq             | Y | Y |
+| [fluidigm-ht-c1-rnaseq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)| RNA-Seq             | Y | Y |
+| [lofreq-somatic](somatic/lofreq-somatic/README.md)             | Somatic             | Y | N |
+| [mutect](somatic/mutect/README.md)                             | Somatic             | Y | Y |
+| [gatk](variant-calling/gatk/README.md)                         | Variant-calling     | Y | Y |
+| [lacer-lofreq](variant-calling/lacer-lofreq/README.md)         | Variant-calling     | Y | N |
 
-- [bcl2fastq](bcl2fastq/README.md) (production use only)
-- custom
-  - [SG10K](custom/SG10K/README.md)
-- mapping
-  - [BWA-MEM](mapping/BWA-MEM/README.md)
-- metagenomics
-  - [essential-genes](metagenomics/essential-genes/README.md)
-- rnaseq
-  - [star-rsem](rnaseq/star-rsem/README.md)
-  - [fluidigm-ht-c1-rnaseq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)
-- somatic
-  - [lofreq-somatic](somatic/lofreq-somatic/README.md)
-  - [mutect](somatic/mutect/README.md)
-- variant-calling
-  - [gatk](variant-calling/gatk/README.md)
-  - [lacer-lofreq](variant-calling/lacer-lofreq/README.md)
+See `example-dag.pdf` in each pipeline's folder for a rough visual overview of the workflow.
 
 ## How it Works
 
