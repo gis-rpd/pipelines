@@ -45,7 +45,8 @@ SAMPLE=MUX3275-WHH474
 
 
 
-cd $(dirname $0)
+rootdir=$(readlink -f $(dirname $0))
+cd $rootdir
 pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
@@ -58,6 +59,19 @@ echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
 
+# DAG
+echo "DAG: $SAMPLE" | tee -a $log
+odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+./SG10K.py --sample-cfg $CFG -o $odir --no-run >> $log 2>&1
+pushd $odir >> $log
+type=pdf;
+dag=example-dag.$type
+EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+cp $dag $rootdir
+popd >> $log
+rm -rf $odir
+
+
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
@@ -66,9 +80,8 @@ if [ $skip_dry_runs -ne 1 ]; then
     ./SG10K.py --sample-cfg $CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    rm -rf $odir
     popd >> $log
-
+    rm -rf $odir
 else
     echo "Dryruns tests skipped"
 fi
