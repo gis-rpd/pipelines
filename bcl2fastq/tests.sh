@@ -20,6 +20,18 @@ usage() {
     echo " -d: Run dry-run tests"
     echo " -r: Run real-run tests"
 }
+
+get_site() {
+    # see pipelines.py:get_site()
+    if [ -d '/home/users/astar/gis/userrig' ]; then
+	echo 'NSCC'
+    elif [ -d "/home/userrig" ]; then
+	echo 'GIS'
+    else
+	exit 1
+    fi
+}
+
 skip_dry_runs=1
 skip_real_runs=1
 while getopts "dr" opt; do
@@ -106,23 +118,28 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     r="MS001-PE-R00315_000000000-ANBGU"
     echo "Dryrun: Testing failed seq run $r"  | tee -a $log
-    odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $r | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
-    ./bcl2fastq.py -r $r -o $odir --no-run -t >> $log 2>&1
-    if [ ! -e "$odir"/SEQRUNFAILED ]; then
-        echo "ERROR: $r should have failed but flag file missing in $odir" | tee -a $log
-        exit 1
+    if [ $(get_site) == 'NSCC' ]; then
+	echo "Test not available at NSCC" | tee -a $log;
+    else
+        odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $r | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+        ./bcl2fastq.py -r $r -o $odir --no-run -t >> $log 2>&1
+        if [ ! -e "$odir"/SEQRUNFAILED ]; then
+            echo "ERROR: $r should have failed but flag file missing in $odir" | tee -a $log
+            exit 1
+        fi
+    
+        for d in $TEST_SEQ_RUN_DIRS; do
+            echo "Dryrun: bcl2fastq.py dryrun for $d" | tee -a $log
+            odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+    
+            ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
+            pushd $odir >> $log
+            EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+            rm -rf $odir
+            popd >> $log
+        done
     fi
-
-    for d in $TEST_SEQ_RUN_DIRS; do
-        echo "Dryrun: bcl2fastq.py dryrun for $d" | tee -a $log
-        odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
-
-        ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
-        pushd $odir >> $log
-        EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-        rm -rf $odir
-        popd >> $log
-    done
+    
     echo "Dryrun tests successfully completed"
 else
     echo "Dryruns tests skipped"
