@@ -65,7 +65,8 @@ for d in $TEST_SEQ_RUN_DIRS; do
     fi
 done
   
-cd $(dirname $0)
+rootdir=$(readlink -f $(dirname $0))
+cd $rootdir
 pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
@@ -80,6 +81,20 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 if [ $skip_real_runs -ne 1 ]; then
     echo "Also check log if the check against expected output hold jobs fail"
 fi
+
+# DAG
+d=$(echo $TEST_SEQ_RUN_DIRS | cut -f1 -d ' ')
+echo "DAG: bcl2fastq.py for $d" | tee -a $log
+odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
+pushd $odir >> $log
+type=pdf;
+EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > dag.$type
+echo "DEBUG: rootdir=$rootdir pwd=$(pwd)"
+cp dag.$type $rootdir
+popd >> $log
+rm -rf $odir
+exit 1
 
 # dryruns
 #
@@ -123,6 +138,7 @@ if [ $skip_dry_runs -ne 1 ]; then
         rm -rf $odir
         popd >> $log
     done
+    
     echo "Dryrun tests successfully completed"
 else
     echo "Dryruns tests skipped"
