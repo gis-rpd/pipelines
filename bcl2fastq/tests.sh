@@ -102,9 +102,9 @@ odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed 
 ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
 pushd $odir >> $log
 type=pdf;
-EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > dag.$type
-echo "DEBUG: rootdir=$rootdir pwd=$(pwd)"
-cp dag.$type $rootdir
+dag=example-dag.$type
+EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+cp $dag $rootdir
 popd >> $log
 rm -rf $odir
 
