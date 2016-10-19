@@ -94,6 +94,7 @@ if [ $skip_real_runs -ne 1 ]; then
     echo "Also check log if the check against expected output hold jobs fail"
 fi
 
+
 # DAG
 d=$(echo $TEST_SEQ_RUN_DIRS | cut -f1 -d ' ')
 echo "DAG: bcl2fastq.py for $d" | tee -a $log
@@ -106,7 +107,7 @@ echo "DEBUG: rootdir=$rootdir pwd=$(pwd)"
 cp dag.$type $rootdir
 popd >> $log
 rm -rf $odir
-exit 1
+
 
 # dryruns
 #
