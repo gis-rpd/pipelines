@@ -9,7 +9,7 @@
     "bcl2fastq":
     {
       "time" : "24:00:00",
-      "mem" : 16G,
+      "mem" : 18G,
     },      
     "sra_submission":
     {
