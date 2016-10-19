@@ -96,17 +96,20 @@ fi
 
 
 # DAG
-d=$(echo $TEST_SEQ_RUN_DIRS | cut -f1 -d ' ')
-echo "DAG: bcl2fastq.py for $d" | tee -a $log
-odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
-./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
-pushd $odir >> $log
-type=pdf;
-dag=example-dag.$type
-EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
-cp $dag $rootdir
-popd >> $log
-rm -rf $odir
+SKIP_DAG=1
+if [ $SKIP_DAG -eq 0 ]; then
+    d=$(echo $TEST_SEQ_RUN_DIRS | cut -f1 -d ' ')
+    echo "DAG: bcl2fastq.py for $d" | tee -a $log
+    odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+    ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
+    pushd $odir >> $log
+    type=pdf;
+    dag=example-dag.$type
+    EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+    cp $dag $rootdir
+    popd >> $log
+    rm -rf $odir
+fi
 
 
 # dryruns

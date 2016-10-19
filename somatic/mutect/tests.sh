@@ -77,19 +77,20 @@ wgs_cmd_base="$WRAPPER --normal-bam $DREAM_WGS_NORMAL_BAM --tumor-bam $DREAM_WGS
 
 
 # DAG
-echo "DAG: WES" | tee -a $log
-odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
-eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
-pushd $odir >> $log
-type=pdf;
-dag=example-dag.$type
-sed -i -e 's,num_chroms: .*,num_chroms: 1,' conf.yaml
-EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
-cp $dag $rootdir
-popd >> $log
-rm -rf $odir
-
-
+SKIP_DAG=1
+if [ $SKIP_DAG -eq 0 ]; then
+    echo "DAG: WES" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
+    pushd $odir >> $log
+    type=pdf;
+    dag=example-dag.$type
+    sed -i -e 's,num_chroms: .*,num_chroms: 1,' conf.yaml
+    EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+    cp $dag $rootdir
+    popd >> $log
+    rm -rf $odir
+fi
 
 
 # dryruns

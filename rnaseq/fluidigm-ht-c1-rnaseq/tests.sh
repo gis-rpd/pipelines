@@ -64,18 +64,21 @@ cmd_base="$WRAPPER -1 $COL1_R1 -2 $COL1_R2 -s COL01 --name 'test:COL01'"
 
 
 # DAG
-echo "DAG" | tee -a $log
-odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
-eval $cmd_base -o $odir -v --no-run >> $log 2>&1
-pushd $odir >> $log
-type=pdf;
-dag=example-dag.$type
-EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
-# this one is massive but can only be changed by changing number of columns
-# in snakefile so we leave it as it is
-cp $dag $rootdir
-popd >> $log
-rm -rf $odir
+SKIP_DAG=1
+if [ $SKIP_DAG -eq 0 ]; then
+    echo "DAG" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    eval $cmd_base -o $odir -v --no-run >> $log 2>&1
+    pushd $odir >> $log
+    type=pdf;
+    dag=example-dag.$type
+    EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+    # this one is massive but can only be changed by changing number of columns
+    # in snakefile so we leave it as it is
+    cp $dag $rootdir
+    popd >> $log
+    rm -rf $odir
+fi
 
 
 # dryruns

@@ -83,16 +83,19 @@ CMD_FULL="$WRAPPER -1 $R1_FULL -2 $R2_FULL -s $SAMPLE --name 'test:FULL'"
 SKIP_REAL_FULL=0
 
 # DAG
-echo "DAG: Full" | tee -a $log
-odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
-eval $CMD_FULL -o $odir -v --no-run >> $log 2>&1
-pushd $odir >> $log
-type=pdf;
-dag=example-dag.$type
-EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
-cp $dag $rootdir
-popd >> $log
-rm -rf $odir
+SKIP_DAG=1
+if [ $SKIP_DAG -eq 0 ]; then
+    echo "DAG: Full" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    eval $CMD_FULL -o $odir -v --no-run >> $log 2>&1
+    pushd $odir >> $log
+    type=pdf;
+    dag=example-dag.$type
+    EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+    cp $dag $rootdir
+    popd >> $log
+    rm -rf $odir
+fi
 
     
 # dryruns

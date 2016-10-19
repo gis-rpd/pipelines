@@ -71,17 +71,19 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 
 
 # DAG
-echo "DAG" | tee -a $log
-odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
-./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
-pushd $odir >> $log
-type=pdf
-dag=example-dag.$type
-EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
-cp $dag $rootdir
-popd >> $log
-rm -rf $odir
-
+SKIP_DAG=1
+if [ $SKIP_DAG -eq 0 ]; then
+    echo "DAG" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
+    pushd $odir >> $log
+    type=pdf
+    dag=example-dag.$type
+    EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+    cp $dag $rootdir
+    popd >> $log
+    rm -rf $odir
+fi
 
 # dryruns
 #

@@ -77,16 +77,19 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 
 
 # DAG
-echo "DAG: PE through config" | tee -a $log
-odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
-./BWA-MEM.py --sample-cfg $SPLIT1KONLY_PE_CFG -o $odir --no-run >> $log 2>&1
-pushd $odir >> $log
-type=pdf;
-dag=example-dag.$type
-EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
-cp $dag $rootdir
-popd >> $log
-rm -rf $odir
+SKIP_DAG=1
+if [ $SKIP_DAG -eq 0 ]; then
+    echo "DAG: PE through config" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
+    ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_PE_CFG -o $odir --no-run >> $log 2>&1
+    pushd $odir >> $log
+    type=pdf;
+    dag=example-dag.$type
+    EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
+    cp $dag $rootdir
+    popd >> $log
+    rm -rf $odir
+fi
 
 
 # dryruns
