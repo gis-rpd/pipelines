@@ -26,7 +26,8 @@ full list of changes refer to the commit log.
 - Many optimizations (thread settings, cluster settings) and bug-fixes
 - Added several of auxiliary tools, e.g. create_mux_cfg.py and whereismux.py
 - Added convenience wrapper `run`
-- Substantially extended documentation
+- Substantially extended documentation (main README, README per
+  pipeline and added example workflow visualizations)
 - Reduced all threads to maximum of 16 (NSCC limit 24)
 - Refer to git commit messages for more details and changes under the
   hood
