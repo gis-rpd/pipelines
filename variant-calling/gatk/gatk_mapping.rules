@@ -53,50 +53,45 @@ rule gatk_recalibrate_info:
         ref=config['references']['genome'],
         bam="{prefix}.bam"
     output:
-        temp("{prefix}.recal.grp")
+        temp("{prefix}.bqsr.grp")
     log:
-        "{prefix}.recal.grp.log"
+        "{prefix}.bqsr.grp.log"
     params:
         intervals_arg=_get_intervals_arg(),
         custom=config.get("params_gatk", "")
-    # might need opt
-    threads: 8
+    threads:
+        8
     message:
         "{} BaseRecalibrator".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
-    run:
-        # skip bqsr for targeted regions
-        if config['seqtype'] == 'targeted':
-            shell("echo 'Skipped because targeted resequencing' | tee {output} > {log}")
-        else:
-            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-                  " -T BaseRecalibrator -R {input.ref}"
-                  " -nct {threads} {params.intervals_arg} {params.custom}"
-                  " -I {input.bam}"
-                  " -knownSites {config[references][dbsnp]} -knownSites {config[references][mills]}"
-                  " -o {output} >& {log}")
+    shell:
+        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+        " -T BaseRecalibrator -R {input.ref}"
+        " -nct {threads} {params.intervals_arg} {params.custom}"
+        " -I {input.bam}"
+        " -knownSites {config[references][dbsnp]} -knownSites {config[references][mills]}"
+        " -o {output} >& {log}"
 
 
 rule gatk_recalibrate_bam:
     input:
         ref=config['references']['genome'],
         bam="{prefix}.bam",
-        grp="{prefix}.recal.grp"
+        grp="{prefix}.bqsr.grp"
     output:
-        "{prefix}.recal.bam"
+        "{prefix}.bqsr.bam"
     log:
-        "{prefix}.recal.bam.log"
+        "{prefix}.bqsr.bam.log"
     params:
         custom=config.get("params_gatk", "")
     # set to 8 in original files. maxes out at that value on aquila
-    threads: 8
-    message: "{} PrintReads for Recal".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
-    run:
-        if config['seqtype'] == 'targeted':
-            shell("{{ ln {input.bam} {output} && touch -h {output}; }} >& {log}; echo 'Linking only' >> {log}")
-        else:
-            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-                  " -T PrintReads -R {input.ref} {params.custom}"
-                  " -nct {threads}"
-                  " --disable_bam_indexing"
-                  " -I {input.bam} -BQSR {input.grp}"
-                  " -o {output} >& {log}")
+    threads:
+        8
+    message:
+        "Running PrintReads for Recal"
+    shell:
+        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+        " -T PrintReads -R {input.ref} {params.custom}"
+        " -nct {threads}"
+        " --disable_bam_indexing"
+        " -I {input.bam} -BQSR {input.grp}"
+        " -o {output} >& {log}"

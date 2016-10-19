@@ -10,7 +10,7 @@ and [homepage](http://archive.broadinstitute.org/cancer/cga/mutect))
 The following steps are performed:
 
 - Read mapping (see `cfg/references.yaml` for references used by default  and also refer to  option `--references-cfg`)
-- Duplicate marking with samblaster (if not instructed otherwise)
+- Duplicate marking with sambamba (after merging if necessary)
 - Indel Realignment with GATK (targets inferred from normal and tumor samples)
 - Base quality recalibration with `GATK`, unless sequencing type is "targeted"
 - Calling of somatic variants with Mutect. By default a contamination level of 2% is used.

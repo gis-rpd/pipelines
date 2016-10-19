@@ -1,0 +1,6 @@
+{
+samtools : 1.3,
+gatk : 3.6,
+bedtools: 2.25.0,
+htslib: 1.3,
+}

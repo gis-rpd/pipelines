@@ -1,7 +1,2 @@
-{
-  platform: "Illumina",
-  # extra BWA parameters, except -M -R and -t
-  bwa_mem_custom_args: "",
-}
-    
-    
+bwa_mem_custom_args: ''
+platform: Illumina

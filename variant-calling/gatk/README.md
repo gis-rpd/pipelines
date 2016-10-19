@@ -5,7 +5,7 @@
 
 This pipeline implements the GATK best practices variant calling
 workflow (v3.6) for single samples. It's major output are a
-recalibrated BAM file, genotyped gVCF and VCF files (per sample). 
+recalibrated BAM file, gVCF and VCF files (per sample). 
 
 See `cfg/references.yaml` for references used by default (also refer
 to option `--references-cfg`)
@@ -22,11 +22,19 @@ BQSR is skipped for targeted resequencing. For an explanation see
 [this GAK article](http://gatkforums.broadinstitute.org/gatk/discussion/44/base-quality-score-recalibration-bqsr>),
 or
 [this GATK forum post](http://gatkforums.broadinstitute.org/gatk/discussion/4272/targeted-sequencing-appropriate-to-use-baserecalibrator-bqsr-on-150m-bases-over-small-intervals).
-Please note, that BAM file names do not indicate whether BQSR was actually run or not!
 
-Variant quality recalibration (VQSR) is run only for WGS data.  The
-corresponding vcf files are called `all_genotyped.snp_recal.vcf` and
-`all_genotyped.indel_recal.vcf`. The reason is explained here:
+Hard variant filtering is always applied, following the
+recommendations in this
+[this GATK howto](http://gatkforums.broadinstitute.org/gatk/discussion/2806/howto-apply-hard-filters-to-a-call-set)
+and
+[this GATK guide](https://www.broadinstitute.org/gatk/guide/article?id=3225).
+Note, it is recommended to optimize your filtering settings on a per
+sample basis (which obviously cannot be part of any automated
+workflow).
+
+
+Variant quality recalibration (VQSR) is run only for WGS data.
+The reason for only running VQSR for WGS data is explained here:
 [Which training sets / arguments should I use for running VQSR?](https://software.broadinstitute.org/gatk/guide/article?id=1259)
 (last updated 2016-08-30):
 
@@ -38,24 +46,17 @@ variants). In such cases a fake vcf file will be produced which
 contains one line indicating the problem. In such cases, resort to the
 hard filtered files.
 
-Hard variant filtering is always applied, following the recommendations in this
-[this GATK howto](http://gatkforums.broadinstitute.org/gatk/discussion/2806/howto-apply-hard-filters-to-a-call-set)
-and
-[this GATK guide](https://www.broadinstitute.org/gatk/guide/article?id=3225).
-The corresponding variant files are called
-`all_genotyped.snp_hfilter.vcf` and `all_genotyped.indel_hfilter.vcf`.
-Note, it is recommended to optimize your filtering settings on a per
-sample basis (which obviously cannot be part of any automated
-workflow). 
+
+For targeted and whole exome sequencing an interval padding of 100 (or
+as defined in cfg/params.yaml) will be used as well.
+
 
 ## Output
 
-- Each "readunit" will have its own realigned, recalibrated BAM file, e.g. `{unit}.bwamem.realn.recal.bam`. See `conf.yaml` for a description of units
-- Note that BQSR is skipped for targeted sequencing but the `recal` file name extension is maintained
-- Raw genotype calls: `all_genotyped.vcf`
-- gVCF: `{sample}.concat.gvcf`
-- Hard-filtered snp/indel calls: `all_genotyped.{type}_hfilter.vcf`
-- Recalibrated snp/indel calls (for WGS only): `all_genotyped.{type}_recal.vcf`
+- BAM files:  `{sample}.bwamem.dedup.bqsr.bam` or `{sample}.bwamem.dedup.bam`, depending on whether BQSR was run or not (see above)
+- gVCF: `{bam}.concat.g.vcf.gz`
+- Hard-filtered snp/indel (vartype) calls: `{bam}.gt.{vartype}_hfilter.vcf.gz`
+- Recalibrated snp/indel  (vartype) calls (for WGS only): `{bam}.gt.{vartype}_vqsr.vcf.gz`
 
 
 ## References

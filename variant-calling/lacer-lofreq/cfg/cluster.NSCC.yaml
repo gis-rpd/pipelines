@@ -31,7 +31,7 @@
       "mem" : 8G,
     },
         
-    "map_mdups_split" :
+    "map_split" :
     {
       "time" : "12:00:00",
       "mem" : 12G,

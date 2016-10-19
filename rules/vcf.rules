@@ -1,0 +1,30 @@
+"""Rules to bgzip and index vcf files
+
+Requires htslib
+"""
+
+
+rule bgzip:
+    input:
+        "{prefix}.vcf"
+    output:
+        "{prefix}.vcf.gz"
+    log:
+        "{prefix}.vcf.gz.log"
+    threads:
+        2
+    shell:
+        # do not delete input
+        "bgzip -@ {threads} -c {input} > {output} 2> {log}"
+
+        
+rule tabix:
+    input:
+        "{prefix}.vcf.gz"
+    output:
+        "{prefix}.vcf.gz.tbi"
+    log:
+        "{prefix}.vcf.gz.tbi.log"
+    shell:
+        "tabix -f -p vcf {input} >& {log}"
+    

@@ -26,6 +26,7 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
+include: "../../rules/sambamba.rules"
 include: "../../rules/report.rules"
 include: "bwa_mem.rules"
 
@@ -33,16 +34,15 @@ include: "bwa_mem.rules"
 localrules: final, report
 
 
+out_template = os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem')
+if config['mark_dups']:
+    out_template += ".dedup"
+
 rule final:
     input:
-        # NOTE changes here will likely have to be reflected in the report rule as well
-        idxstats=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.idxstats.txt'),
-               sample=config['samples']),
-        bams=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.bam'),
-               sample=config['samples']),
-        bamstats=expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.bamstats/stats_plot.html'),
-               sample=config['samples']),
-        report="report.html"
+        bams = expand(out_template + ".bam.bai", sample=config['samples']),
+        bamstats = expand(out_template + ".bamstats/stats_plot.html", sample=config['samples']),
+        report = "report.html"
     message:
         """
         Pipeline run successfully completed

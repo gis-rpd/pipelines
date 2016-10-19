@@ -108,14 +108,14 @@ def main():
                         help="Normal FastQ file/s (gzip only)."
                         " Multiple input files supported (auto-sorted)."
                         " Note: each file (or pair) gets a unique read-group id."
-                        " Collides with -c.")
+                        " Collides with --sample-cfg.")
     parser.add_argument('--normal-fq2', nargs="+",
                         help="Normal FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument("--tumor-fq1", nargs="+",
                         help="Tumor FastQ file/s (gzip only)."
                         " Multiple input files supported (auto-sorted)."
                         " Note: each file (or pair) gets a unique read-group id."
-                        " Collides with -c.")
+                        " Collides with --sample-cfg.")
     parser.add_argument('--tumor-fq2', nargs="+",
                         help="Tumor FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-t', "--seqtype", required=True,
@@ -245,7 +245,7 @@ def main():
         if bam:
             # target as defined in Snakefile!
             target = os.path.join(args.outdir, "out", sample,
-                                  "{}.bwamem.lofreq.lacer.bam".format(sample))
+                                  "{}.bwamem.lofreq.dedup.lacer.bam".format(sample))
             os.makedirs(os.path.dirname(target))
             os.symlink(os.path.abspath(bam), target)
 

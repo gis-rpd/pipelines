@@ -31,6 +31,9 @@ e.g. by running [RNA-SeQC](https://www.broadinstitute.org/cancer/cga/rna-seqc).
 Note, STAR is very fast and in order to avoid trouble with STAR's
 shared memory option we align samples sequentially.
 
+A word of warning: Please do not use the underscore symbol ("_") in
+your sample name, otherwise the fluidigm demultiplexer will crash!
+
 ## Output
 
 The following lists the most important files/directories that are

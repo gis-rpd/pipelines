@@ -15,3 +15,5 @@ performed:
   `{sample}.bwamem.fixmate.mdups.srt.recal.bamstats`
 - Contamination check with verifyBamID (Chinese, Indian and Malay
   vcf's). See `{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM`
+
+These and following steps are prone to change and should hence not considered as production version!

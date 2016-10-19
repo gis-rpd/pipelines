@@ -1,5 +1,1 @@
-{
-  platform: "Illumina",# for BWA
-}
-    
-    
+platform: Illumina

@@ -4,12 +4,12 @@ assert 'genome' in config['references']
 
 rule gatk_selectvariants:
     input:
-        vcf='{prefix}.vcf',
+        vcf='{prefix}.vcf.gz',
         ref=config["references"]["genome"],
     output:
-        vcf=temp("{prefix}.{type,(snp|indel)}.vcf")
+        vcf=temp("{prefix}.{type,(snp|indel)}.vcf.gz")
     log:
-        "{prefix}.{type,(snp|indel)}.log"
+        "{prefix}.{type,(snp|indel)}.vcf.gz.log"
     params:
         type = lambda wildcards: wildcards.type.upper()
     threads: 4
@@ -23,12 +23,12 @@ rule gatk_selectvariants:
 
 rule gatk_hard_filter_snps:
     input:
-        vcf='{prefix}.snp.vcf',
+        vcf='{prefix}.snp.vcf.gz',
         ref=config["references"]["genome"],
     output:
-        vcf='{prefix}.snp_hfilter.vcf'
+        vcf='{prefix}.snp_hfilter.vcf.gz'
     log:
-        '{prefix}.snp_hfilter.vcf.log'
+        '{prefix}.snp_hfilter.vcf.gz.log'
     params:
         filter_name = 'snp_default_hard_filter',
         filter_expr = 'QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'
@@ -44,12 +44,12 @@ rule gatk_hard_filter_snps:
 
 rule gatk_hard_filter_indels:
     input:
-        vcf='{prefix}.indel.vcf',
+        vcf='{prefix}.indel.vcf.gz',
         ref=config["references"]["genome"],
     output:
-        vcf='{prefix}.indel_hfilter.vcf'
+        vcf='{prefix}.indel_hfilter.vcf.gz'
     log:
-        '{prefix}.indel_hfilter.vcf.log'
+        '{prefix}.indel_hfilter.vcf.gz.log'
     params:
         filter_name = 'indel_default_hard_filter',
         filter_expr = 'QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0'

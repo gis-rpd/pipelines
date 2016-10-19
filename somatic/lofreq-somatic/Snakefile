@@ -22,28 +22,6 @@ RESULT_OUTDIR = './out'
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
 
-def mark_dups_pipe_cmd(before="", after=""):
-    """FIXME review once MARK_SHORT_SPLITS is in config
-
-    before and after are commands added before and after samblaster
-    and can be used e.g. for conversion from BAM to BAM (samblaster needs SAM)
-
-    return command will always end in pipe
-    """
-    
-    if config['mark_dups']:
-        if before:
-            cmd = "{} | ".format(before)
-        else:
-            cmd = ""
-        cmd += " samblaster {MARK_SHORT_SPLITS} | "
-        if after:
-            cmd += " {} | ".format(after)
-        return cmd
-    else:
-        return ""
-
-
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
@@ -51,6 +29,7 @@ shell.prefix("source rc/snakemake_env.rc;")
 
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
+include: "../../rules/sambamba.rules"
 include: "../../rules/report.rules"
 include: "lofreq.rules"
 include: "lacer.rules"
@@ -80,13 +59,17 @@ rule final:
 #             'WES': 10000,
 #             'WGS': 1000}
 
-        
+
+bam_suffix = '.bwamem.lofreq'
+if config['mark_dups']:
+    bam_suffix += '.dedup'
+bam_suffix += ".lacer"
 rule lofreq_somatic:
     input:
-        nbam = os.path.join(NORMAL_DIR, 'normal.bwamem.lofreq.lacer.bam'),
-        nbai = os.path.join(NORMAL_DIR, 'normal.bwamem.lofreq.lacer.bam.bai'),
-        tbam = os.path.join(TUMOR_DIR, 'tumor.bwamem.lofreq.lacer.bam'),
-        tbai = os.path.join(TUMOR_DIR, 'tumor.bwamem.lofreq.lacer.bam.bai'),
+        nbam = os.path.join(NORMAL_DIR, 'normal' + bam_suffix + '.bam'),
+        nbai = os.path.join(NORMAL_DIR, 'normal' + bam_suffix + '.bam.bai'),
+        tbam = os.path.join(TUMOR_DIR, 'tumor' + bam_suffix + '.bam'),
+        tbai = os.path.join(TUMOR_DIR, 'tumor' + bam_suffix + '.bam.bai'),
         bed = os.path.join(RESULT_OUTDIR, "interval_wo_excl.bed"),
         reffa = config['references']['genome'],
         refidx = config['references']['genome'] + ".fai",
@@ -135,7 +118,6 @@ rule unit_merge:
         8
     run:
         # readgroup and pg now different, so make PG and RG uniq (default)
-        # not running mark_dups_pipe_cmd again since not read name sorted anymore
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
@@ -171,7 +153,7 @@ rule split_merge:
 # - replaced sorted with split_bam_by_chr and changed out accordingly
 # - removed fixmate (no points since we run viterbi later)
 # - increased threads (since we don't sort etc.)
-rule map_mdups_split:
+rule map_split:
     """
     - Setting read groups correctly is tricky and also depends on downstream programs. 
       See e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
@@ -207,5 +189,4 @@ rule map_mdups_split:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
-        + mark_dups_pipe_cmd() +
         " split_bam_by_chr -S -l 0 -o {params.outprefix} -; }} >& {log}"

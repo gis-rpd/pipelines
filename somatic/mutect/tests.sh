@@ -48,7 +48,7 @@ EXOME_IN_HOUSE_DIR=$RPD_ROOT/testing/data/somatic/exome-in-house
 EXOME_IN_HOUSE_CFG=$EXOME_IN_HOUSE_DIR/exome-in-house.yaml
 EXOME_IN_HOUSE_BED=$EXOME_IN_HOUSE_DIR/SeqCap_EZ_Exome_v3_primary.nochr.bed
 EXOME_IN_HOUSE_VAL=$EXOME_IN_HOUSE_DIR/validated_SNVs.vcf.gz
-SKIP_EXOME_IN_HOUSE=1
+SKIP_EXOME_IN_HOUSE=0
 
 
 DREAM_WGS_DIR=$RPD_ROOT/testing/data/somatic/icgc-tcga-dream-somatic/synthetic.challenge.set3/

@@ -1,0 +1,9 @@
+{
+platform: "Illumina",
+# heterozygosity: 0.001,
+# indel_heterozygosity: 1.25E-4,
+# params_gatk: "",
+interval_padding: 100
+}
+    
+    

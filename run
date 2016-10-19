@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+"""Convenience wrapper to pipelines for users
+
+This is the only place where the interpreter needs to be set for a
+release.
+
+Could be used to set other env vars but then things get
+tricky (needed for example in Snakefile etc).
+"""
+
+
+import subprocess
+import os
+import sys
+from collections import namedtuple
+
+
+Pipeline = namedtuple('Pipeline', ['cat', 'script'])
+
+
+SCRIPTS = ['custom/SG10K/SG10K.py',
+           'mapping/BWA-MEM/BWA-MEM.py',
+           'metagenomics/essential-genes/essential-genes.py',
+           'rnaseq/fluidigm-ht-c1-rnaseq/fluidigm-ht-c1-rnaseq.py',
+           'rnaseq/star-rsem/star-rsem.py',
+           'somatic/lofreq-somatic/lofreq-somatic.py',
+           'somatic/mutect/mutect.py',
+           'variant-calling/gatk/gatk.py',
+           'variant-calling/lacer-lofreq/lacer-lofreq.py']
+
+
+def usage(fh, pipeline_map):
+    """print usage info"""
+    myname = os.path.abspath(sys.argv[0])
+    fh.write("Usage: {} name options\n".format(myname))
+    fh.write(" e.g.: {} gatk --help\n\n".format(myname))
+    fh.write("Please chose a pipeline from the following list:\n")
+    for cat in set([pipeline.cat for pipeline in pipeline_map.values()]):
+        fh.write("# category: {}\n".format(cat))
+        # this is stupid
+        for k, p in pipeline_map.items():
+            if p.cat == cat:
+                fh.write("{}\n".format(k))
+
+
+def main():
+    """main function"""
+    python = sys.executable
+    root_path = os.path.dirname(os.path.abspath(
+        os.path.realpath(sys.argv[0])))
+    # set PYTHONPATH, used within wrappers and Snakefiles though
+    #python_path = sys.path
+    #python_path.insert(0, os.path.join(root_path, "lib"))
+
+    pipeline_map = dict()
+    for script in SCRIPTS:
+        key = os.path.basename(os.path.splitext(script)[0])
+        cat = os.path.dirname(script).split(os.sep)[0]
+        script = os.path.join(root_path, script)
+        pipeline_map[key] = Pipeline(cat, script)
+
+    if len(sys.argv) > 1:
+        name = sys.argv[1]
+    else:
+        name = None
+    if name not in pipeline_map or not name:
+        if name is None:
+            sys.stderr.write("ERROR: Need pipeline name as first argument.\n")
+            usage(sys.stderr, pipeline_map)
+        elif name not in pipeline_map:
+            sys.stderr.write("FATAL: unknown pipeline '{}'\n".format(name))
+            usage(sys.stderr, pipeline_map)
+        sys.exit(1)
+    pipeline_args = sys.argv[2:]
+
+    pipeline = pipeline_map[name]
+    #cmd = "PYTHONPATH={} {} {}".format(':'.join(python_path), python, pipeline.script)
+    cmd = "{} {} {}".format(python, pipeline.script, ' '.join(pipeline_args))
+    subprocess.call(cmd, shell=True)
+
+if __name__ == "__main__":
+    main()

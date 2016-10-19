@@ -1,13 +1,6 @@
-{  
-    genome : "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/hs37d5.fa",
-    dbsnp: "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/dbsnp_142.b37.vcf.gz",
-    cont_vcfs: {
-        # keys are used for filenaming so don't use funny characters
-        # hapmap: "$RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/hapmap_3.3.b37.sites.vcf.gz",
-        CHS : "$RPD_GENOMES/sg10k/SGVP_MAF0.01.CHS.sites.vcf.gz",
-        INS : "$RPD_GENOMES/sg10k/SGVP_MAF0.01.INS.sites.vcf.gz",
-        MAS : "$RPD_GENOMES/sg10k/SGVP_MAF0.01.MAS.sites.vcf.gz",
-      },
-}
-    
-    
+dbsnp: $RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/dbsnp_142.b37.vcf.gz
+genome: $RPD_GENOMES/gotcloud-bundles/hs37d5-db142-v1/hs37d5.fa
+cont_vcfs:
+  CHS: $RPD_GENOMES/sg10k/SGVP_MAF0.01.CHS.sites.vcf.gz
+  INS: $RPD_GENOMES/sg10k/SGVP_MAF0.01.INS.sites.vcf.gz
+  MAS: $RPD_GENOMES/sg10k/SGVP_MAF0.01.MAS.sites.vcf.gz

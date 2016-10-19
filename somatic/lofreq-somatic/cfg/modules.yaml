@@ -1,13 +1,8 @@
-{  
-    # name : version
-    lofreq : 2.1.2,# dep on python. can mess up path in some conda versions
-    bwa : 0.7.12,
-    samtools : 1.3,
-    samblaster : 0.1.22,
-    bcftools : 1.3,
-    htslib : 1.3,
-    split_bam_by_chr : 274f3fe,
-    lacer : 0.422,
-}
-    
-    
+bcftools: 1.3
+bwa: 0.7.12
+htslib: 1.3
+lacer: 0.422
+lofreq: 2.1.2
+sambamba: 0.6.4
+samtools: 1.3
+split_bam_by_chr: 274f3fe

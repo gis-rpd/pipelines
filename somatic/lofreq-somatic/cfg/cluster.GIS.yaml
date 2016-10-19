@@ -7,12 +7,6 @@
       "mem" : 1G,
     },
   
-    "lofreq_call" :
-    {
-      "time" : "24:00:00",
-      "mem" : 8G,
-    },
-
     "lacer_table" :
     {
       "time" : "18:00:00",
@@ -31,7 +25,7 @@
       "mem" : 4G,
     },
         
-    "map_mdups_split" :
+    "map_split" :
     {
       "time" : "12:00:00",
       "mem" : 12G,

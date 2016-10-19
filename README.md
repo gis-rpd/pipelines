@@ -50,13 +50,30 @@ simplistic installation instructions.
 
 ## How to Run
 
-- Find the wrapper of the particular pipeline that you want to run, e.g.: `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py`
-- Invoke the script with `-h` to display its usage information, e.g. `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py -h`
-- Note, there is no need to submit the script itself, as long as you run it from a cluster node
-- Also note, you must not prefix the script with `python`,
-  (installed scripts automatically use the RPD Python3 installation)
+There are two ways to invoke a pipeline: either call the convenience
+wrapper, plainly called `run` or invoke the pipeline specific scripts
+directly:
+
+1. Using the convenience wrapper (recommended)
+  - The basic usage is `$PIPELINE_ROOTDIR/run name options`, where
+    `name` is a pipeline name and `options` are valid options for this
+    pipeline.
+  - An example (GATK) would be `$PIPELINE_ROOTDIR/run gatk --help`
+  - Just calling `$PIPELINE_ROOTDIR/run` will print a list of
+    available pipelines and simple usage information
+2. Direct invocation
+  - Directly call the wrapper of the particular pipeline that you want
+    to run, e.g. for GATK: `$PIPELINE_ROOTDIR/variant-calling/gatk/gatk.py`
+  - Note, in this case you need to have a Python3 interpreter in your
+    PATH, which is not needed if you use the convenience wrapper (see
+    above)
+In either case, you must not prefix the script with `python`.
+
+- Note, there is no need to submit the script itself, as long as you
+  run it from a cluster node
 - If called correctly, jobs will be run on the cluster automatically
-- Use the `-v` option, so that some more information is printed
+- Use `-h` or `--help` to display usage information
+- Use the `-v` option, so that more information is printed
 - All scripts create an output directory (option `-o`) containing the run environment
 - Your results will be saved to a corresponding subdirectory called `./out/`
 - Upon completion (success or error) an email will be send to the user
@@ -69,8 +86,9 @@ simplistic installation instructions.
   logs/submission.log` (for GIS). Upon restart, partially created files will be
   automatically deleted and the pipeline will skip already completed
   steps
-- Note, that the output directory has to be on a filesystem shared by
-  the cluster (i.e. local /tmp wont't work unless run in local mode)
+- Note, that the output directory has to be on a shared filesystem,
+  i.e. directories local to the cluster node like `/tmp` wont't work,
+  unless run in local mode)
 
 ### Example
 
@@ -80,10 +98,12 @@ simplistic installation instructions.
     fq2_x=x_R2.fastq.gz
     fq1_y=y_R1.fastq.gz
     fq2_y=y_R2.fastq.gz
-    bed=SeqCap_EZ_Exome_v3_primary.bed
-    outdir=/output-folder-for-this-analysis/
-    variant-calling/gatk/gatk.py -o $outdir -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l $bed
-
+    bed=/path/to/SeqCap_EZ_Exome_v3_primary.bed
+    outdir=/path/to/output-folder-for-this-analysis/
+    /path/to/pipelines/run gatk -o $outdir -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l $bed
+    # or
+    # /path/to/pipelines/variant-calling/gatk/gatk.py -o $outdir -1 $fq1_x $fq1_y -2 $fq2_x $fq2_y -s sample-name -t WES -l $bed
+    
 
 ## List of Pipelines
 
@@ -107,7 +127,7 @@ simplistic installation instructions.
 
 ## How it Works
 
-- All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
+- All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.7.1-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
 - Input will be a single fastq file or a pair of fastq files. Multiple of these can
   be given. Each pair is treated as one readunit (see also resulting
   `conf.yaml` file) and gets its own readgroup assigned were
@@ -120,8 +140,8 @@ simplistic installation instructions.
  (unless `--no-run` was used which gives you a chance to change the config file `conf.yaml`)
 - The actual run script is called `run.sh`
 - The main log file is `./logs/snakemake.log` (use `tail -f` to follow live progress)
-- After a successful run the last line in the snakemake log file will
-  say `(100%) done`
+- After a successful run, the last line in the snakemake log file will
+  read: `(100%) done`
 - Cluster log files can be found in the respective `./logs/` sub-directory
 
 
@@ -134,14 +154,53 @@ First call the wrapper in question with `--no-run`. cd into the given outdir and
 - Run locally: `nohup bash run.sh; tail -f logs/snakemake.log`
 
 
+## (Multi) Sample Configuration
 
+If you have just one sample to analyze (no matter if multiple fastq
+pairs or not), you will use options `-s`, `-1` and `-2` most of the
+time. To provide the pipeline with more information about your fastq
+files (e.g. run-id etc.) you can create a sample configuration file
+(see below) and provide it to the wrapper script with `--sample-cfg`
+(thus replacing `-s`, `-1` and `-2`).
+
+You also need a sample configuration file if you want to analyze many
+samples identically with just one wrapper call. The easiest way to
+create such a file is to first create an Excel/CSV sheet listing all
+samples and fastq files and convert it into a sample config file as
+described in the following:
+
+- Create an Excel sheet with the following columns:
+  1. sample name (mandatory; can be used repeatedly, e.g. if you have multiple fastqs per sample)
+  2. run id (allowed to be empty)
+  3. flowcell id (allowed to be empty)
+  4. library id (allowed to be empty)
+  5. lane id (allowed to be empty)
+  6. read-group id (allowed to be empty)
+  7. fastq1 (mandatory)
+  8. fastq2 (allowed to be empty)
+- Save the Excel sheet as CSV and run the following to convert it to a
+  yaml config file: `tools/sample_conf.py -i <your>.csv -i
+  <your>.yaml` Depending on how you created the CSV file you might
+  want to set the CSV delimiter with `-d`, e.g. "`-d ,`"
+- Use the created yaml file as input for the pipeline wrapper (usually "`--sample-cfg your.yaml`")
+
+Please note, not all pipelines support this feature, e.g. by design
+the somatic pipelines don't, but most others do (e.g. GATK,
+Lacer-LoFreq). In some cases multisample processing can lead to very
+high memory consumption by the snakemake master process itself. Since
+this is hard to avoid or predict, we in general discourage the use of
+multisample setups.
+
+The above sample configuration can be used for single sample
+processing as well, however, here options `-s`, `-1` and `-2` will be
+sufficient for most cases.
 
 ## FAQ
 
 #### Where are my results?
 
 In the output directory that you specified with `-o`, under a
-subdirectory called `out`. Depending on the pipeline, the samplename
+subdirectory called `out`. Depending on the pipeline, the sample-name
 is added as well.
 
 #### How do I know the pipeline run is completed?
@@ -156,7 +215,7 @@ You don't. It's taken care of automatically.
 
 #### Which Python version should I use?
 
-Nevermind. Just call the wrapper without using `python`.
+Never mind. Just call scripts without `python`.
 
 #### Pipeline execution failed. What now?
 
@@ -168,13 +227,13 @@ files. You can ask us for help (see below).
 
 #### Can you write a pipeline for me?
 
-In theory yes. Please email us. A committee will decide on
+Yes. Please email us. A committee will decide on
 implementation priority.
 
 #### Can these pipelines be selected in / run from ELM?
 
-No and they never will be. We'll provide a separate webinterface for
-launching soon.  For now you will have to use the commandline.
+No and they never will be. We'll provide a separate web-interface for
+running pipelines soon.  For now you will have to use the command-line.
 
 ## Comments, Questions, Bug reports
 

@@ -10,48 +10,37 @@ assert 'genome' in config["references"]
 assert 'num_chroms' in config["references"]
 
     
-def _gatk_multi_arg(flag, files):
-    flag += " "
-    return " ".join(flag + f for f in files)
+#def _gatk_multi_arg(flag, files):
+#    flag += " "
+#    return " ".join(flag + f for f in files)
 
 
 rule gatk_haplotype_caller:
     input:
-        bams = lambda wildcards: expand(
-            '{prefix}/unit-{unit}.bwamem.recal.bam',
-            prefix=wildcards.prefix,
-            unit=config['samples'][wildcards.sample]),
-        bais = lambda wildcards: expand(
-            '{prefix}/unit-{unit}.bwamem.recal.bam.bai',
-            prefix=wildcards.prefix,
-            unit=config['samples'][wildcards.sample]),
-        # stats awkward here but also awkward in BAM agnostic final. introduces samtools rule dep
-        stats = lambda wildcards: expand(
-            '{prefix}/unit-{unit}.bwamem.recal.bamstats/stats.txt',
-            prefix=wildcards.prefix,
-            unit=config['samples'][wildcards.sample]),
-            ref=config["references"]["genome"],
+        bam = "{prefix}.bam",
+        bai =  "{prefix}.bam.bai",
+        ref=config["references"]["genome"],
         # see prep_bed_files
         # split by chrom and intersect with intervals already if needed
         bed=os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed")
     output:
-        gvcf = temp("{prefix}/{sample}.{ctr}.g.vcf"),
-        idx = temp("{prefix}/{sample}.{ctr}.g.vcf.idx")
+        gvcf = temp("{prefix}.{ctr}.g.vcf"),
+        idx = temp("{prefix}.{ctr}.g.vcf.idx")
     log:
-        "{prefix}/{sample}.{ctr}.g.vcf.log"
+        "{prefix}.{ctr}.g.vcf.log"
     params:
         custom = config.get("params_gatk", ""),
         padding_arg = _get_padding_arg(),
         het_arg = "--heterozygosity {config[heterozygosity]}" if config.get('heterozygosity') else "",
         het_indel_arg = "--indel_heterozygosity {config[indel_heterozygosity]}" if config.get('indel_heterozygosity') else ""
-    # original comment: "haplotype caller currently does not reliably
-    # use more than 2 threads".  we found it to not work reliably with
-    # anything >1 need to request for more anyway to make our
-    # UGE/OS/Java heapspace problem go away.  won't use in in nct
-    # though
-    threads: 4
+    threads:
+        # original comment: "haplotype caller currently does not reliably
+        # use more than 2 threads".  we found it to not work reliably with
+        # anything >1 need to request for more anyway to make our
+        # UGE/OS/Java heapspace problem go away.  won't use in in nct
+        # though
+        4
     run:
-        bams = _gatk_multi_arg("-I", input.bams)
         # no need to call if bed is empty
         num_regs = 0
         with open(input.bed) as fh:
@@ -61,7 +50,7 @@ rule gatk_haplotype_caller:
         if num_regs:
             shell(
                 "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-                " -T HaplotypeCaller -R {input.ref} {bams}"
+                " -T HaplotypeCaller -R {input.ref} -I {input.bam}"
                 " -L {input.bed} {params.padding_arg} {params.custom} {params.het_arg} {params.het_indel_arg}"
                 " --emitRefConfidence GVCF"
                 " --dbsnp {config[references][dbsnp]}"#-nct {threads} "
@@ -84,8 +73,8 @@ rule gatk_catvariants:
         # split_gvcfs = rules.gatk_haplotype_caller.output.gvcf
         # Hence we use the first with a ruleorder (see above)
     output:
-        cat_gvcf="{sample}.concat.g.vcf",
-        #cat_idx="variant_calling/{reference}/{sample}.concat.gvcf.idx"
+        # later gzipped so temp() here
+        cat_gvcf = temp("{sample}.concat.g.vcf"),
     log:
         "{sample}.concat.g.vcf.log"
     run:
@@ -116,19 +105,19 @@ rule gatk_catvariants:
 
 rule gatk_genotyping:
     input:
-        ref=config["references"]["genome"],
-        gvcfs=expand("{{prefix}}/{sample}.concat.g.vcf", sample=config["samples"])
+        ref = config["references"]["genome"],
+        gvcf = "{prefix}.concat.g.vcf",
+        # needed? gvcf_idx = "{prefix}.concat.g.vcf.idx"
     output:
-        "{prefix}/all_genotyped.vcf"
+        vcf = temp("{prefix}.gt.vcf.gz"),
     log:
-        "{prefix}/all_genotyped.log"
+        "{prefix}.gt.vcf.log"
     params:
         custom=config.get("params_gatk", "")
     threads:
         8
-    run:
-        gvcfs = _gatk_multi_arg("--variant", input.gvcfs)
-        shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-              " -T GenotypeGVCFs {gvcfs} -nt {threads} {params.custom} "
-              " -R {input.ref} "
-              " --dbsnp {config[references][dbsnp]} -o {output} >& {log}")
+    shell:
+        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+        " -T GenotypeGVCFs -V {input.gvcf} -nt {threads} {params.custom} "
+        " -R {input.ref} "
+        " --dbsnp {config[references][dbsnp]} -o {output.vcf} >& {log}"
