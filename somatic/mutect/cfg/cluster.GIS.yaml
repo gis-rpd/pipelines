@@ -13,6 +13,12 @@
       "mem" : 36G,
     },
 
+    "dedup":
+    {
+       "time" : "4:00:00",
+       "mem" : 4G,
+    },
+
     "gatk_realign_info":
     {
        "time" : "02:00:00",

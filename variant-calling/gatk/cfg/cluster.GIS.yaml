@@ -11,7 +11,13 @@
       "mem" : 36G,
     },
 
-    "gatk_recalibrate_info":
+    "dedup":
+    {
+       "time" : "4:00:00",
+       "mem" : 4G,
+    },
+
+     "gatk_recalibrate_info":
     {
       "time" : "12:00:00",
       "mem" : 24G,
