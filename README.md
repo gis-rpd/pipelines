@@ -108,7 +108,7 @@ In either case, you must not prefix the script with `python`.
 ## List of Pipelines
 
 | Name | Category | NOTES | @GIS | @NSCC |
-| ---  | ---      | ---   | --   | | ---   |
+| ---  | ---      | ---   | ---  | ---   |
 | [bcl2fastq](bcl2fastq/README.md)                               | Production          | Not for end-users     | Y | Y |
 | [SG10K](custom/SG10K/README.md)                                | Custom              | Evaluation only       | Y | Y |
 | [BWA-MEM](mapping/BWA-MEM/README.md)                           | Mapping             |                       | Y | Y |
