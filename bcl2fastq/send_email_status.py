@@ -114,8 +114,8 @@ def main():
     if is_devel_version() or args.testing:
         mail_to = 'veeravallil'# domain added in mail function
     else:
-        mail_to = 'ongct1@gis.a-star.edu.sg'
-
+        #mail_to = 'ongct1@gis.a-star.edu.sg'
+        mail_to = 'GISNGSPlatform@gis.a-star.edu.sg'
 
     for record in results:
         run_number = record['run']
