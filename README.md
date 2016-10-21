@@ -37,7 +37,7 @@ the
 
 The following installations are available at different sites (referred to as `RPD_PIPELINES` below):
 - GIS: `/mnt/projects/rpd/pipelines/`
-- NSCC: `/seq/astar/gis/rpd/pipelines/`
+- NSCC: `/home/users/astar/gis/gisshared/rpd/pipelines/`
 
 Each of these contains one subfolder per pipeline version,
 e.g. `$RPD_PIPELINES/pipelines.2016-07` (referred to as
@@ -47,6 +47,10 @@ Much of this framework assumes a certain setup and services to be
 present, as is the case in GIS / the NSCC. This repository is
 therefore of limited use to the general public. See INSTALL.md for
 simplistic installation instructions.
+
+Some pipelines only work at a certain site (due to system or software
+incompatibilities etc.). Refer to the table of pipelines below for
+details regarding availability.
 
 ## How to Run
 
@@ -107,7 +111,7 @@ In either case, you must not prefix the script with `python`.
 
 ## List of Pipelines
 
-| Name | Category | NOTES | @GIS | @NSCC |
+| Name | Category | Notes | @GIS | @NSCC |
 | ---  | ---      | ---   | ---  | ---   |
 | [bcl2fastq](bcl2fastq/README.md)                               | Production          | Not for end-users     | Y | Y |
 | [SG10K](custom/SG10K/README.md)                                | Custom              | Evaluation only       | Y | Y |
@@ -121,6 +125,8 @@ In either case, you must not prefix the script with `python`.
 | [Lacer-LoFreq](variant-calling/lacer-lofreq/README.md)         | Variant-calling     |                       | Y | N |
 
 See `example-dag.pdf` in each pipeline's folder for a rough visual overview of the workflow.
+
+Note, pipelines start with fastq files as input (a few allow injection of BAM files).
 
 ## How it Works
 
