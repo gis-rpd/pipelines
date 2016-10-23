@@ -51,7 +51,8 @@ CFG_DIR = "cfg"
 INIT = {
     # FIXME make env instead? because caller knows, right?
     'GIS': "/mnt/projects/rpd/init",
-    'NSCC': "/seq/astar/gis/rpd/init",
+    #'NSCC': "/seq/astar/gis/rpd/init",
+    'NSCC': '/home/users/astar/gis/gisshared/rpd/init',
     'local': "true",# dummy command
 }
 
