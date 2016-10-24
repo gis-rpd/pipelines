@@ -28,7 +28,7 @@ from readunits import get_samples_and_readunits_from_cfgfile
 from readunits import get_readunits_from_args
 from pipelines import get_pipeline_version
 from pipelines import PipelineHandler
-from pipelines import get_site
+from pipelines import get_default_queue
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
 
@@ -49,11 +49,6 @@ CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
 
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "mutect"
-
-DEFAULT_SLAVE_Q = {'GIS': None,
-                   'NSCC': 'production'}
-DEFAULT_MASTER_Q = {'GIS': None,
-                    'NSCC': 'production'}
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -78,11 +73,11 @@ def main():
                         help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
-    site = get_site()
-    default = DEFAULT_SLAVE_Q.get(site, None)
+    #site = get_site()
+    default = get_default_queue('slave')
     parser.add_argument('-w', '--slave-q', default=default,
                         help="Queue to use for slave jobs (default: {})".format(default))
-    default = DEFAULT_MASTER_Q.get(site, None)
+    default = get_default_queue('master')
     parser.add_argument('-m', '--master-q', default=default,
                         help="Queue to use for master job (default: {})".format(default))
     parser.add_argument('-n', '--no-run', action='store_true')
@@ -230,7 +225,7 @@ def main():
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data, site=site,
+        args.outdir, user_data,
         master_q=args.master_q,
         slave_q=args.slave_q,
         params_cfgfile=args.params_cfg,

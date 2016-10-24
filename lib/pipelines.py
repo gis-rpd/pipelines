@@ -56,6 +56,26 @@ INIT = {
     'local': "true",# dummy command
 }
 
+
+DEFAULT_SLAVE_Q = {
+    'GIS': {
+        'enduser': None, 'production': None,
+    },
+    'NSCC': {
+        'enduser': None, 'production': 'production',
+    }
+}
+
+DEFAULT_MASTER_Q = {
+    'GIS': {
+        'enduser': None, 'production': None,
+    },
+    'NSCC': {
+        'enduser': None, 'production': 'production',
+    }
+}
+
+
 # from address, i.e. users should reply to to this
 # instead of rpd@gis to which we send email
 RPD_MAIL = "rpd@gis.a-star.edu.sg"
@@ -81,7 +101,7 @@ class PipelineHandler(object):
 
     # output
     PIPELINE_CFGFILE = "conf.yaml"
-    
+
     RC_DIR = "rc"
 
     RC_FILES = {
@@ -127,15 +147,15 @@ class PipelineHandler(object):
         self.log_dir_rel = self.LOG_DIR_REL
         self.masterlog = self.MASTERLOG
         self.submissionlog = self.SUBMISSIONLOG
-        
+
         if params_cfgfile:
             assert os.path.exists(params_cfgfile)
         self.params_cfgfile = params_cfgfile
-        
+
         if modules_cfgfile:
             assert os.path.exists(modules_cfgfile)
         self.modules_cfgfile = modules_cfgfile
-        
+
         if refs_cfgfile:
             assert os.path.exists(refs_cfgfile)
         self.refs_cfgfile = refs_cfgfile
@@ -143,10 +163,10 @@ class PipelineHandler(object):
         if cluster_cfgfile:
             assert os.path.exists(cluster_cfgfile)
         self.cluster_cfgfile = cluster_cfgfile
-            
+
         self.pipeline_cfgfile_out = os.path.join(
             self.outdir, self.PIPELINE_CFGFILE)
-            
+
         # RCs
         self.dk_init_file = os.path.join(
             self.outdir, self.RC_FILES['DK_INIT'])
@@ -174,7 +194,7 @@ class PipelineHandler(object):
         if self.cluster_cfgfile:
             self.cluster_cfgfile_out = os.path.join(outdir, "cluster.yaml")
         # else: local
-                
+
         # run template
         self.run_template = os.path.join(
             pipeline_rootdir, "lib", "run.template.{}.sh".format(self.site))
@@ -266,7 +286,7 @@ class PipelineHandler(object):
         with open(self.run_out, 'w') as fh:
             fh.write(templ.format(**d))
 
-            
+
     def read_cfgfiles(self):
         """parse default config and replace all RPD env vars
         """
@@ -292,7 +312,7 @@ class PipelineHandler(object):
             else:
                 assert cfgkey not in merged_cfg
                 merged_cfg[cfgkey] = cfg
-            
+
         # determine num_chroms needed by some pipelines
         # FIXME ugly because sometimes not needed
         if merged_cfg.get('references'):
@@ -515,6 +535,28 @@ def email_for_user():
     else:
         toaddr = "{}@gis.a-star.edu.sg".format(user_name)
     return toaddr
+
+
+
+def is_production_user():
+    return getuser() == "userrig"
+
+
+def get_default_queue(master_or_slave):
+    """FIXME:add-doc
+    """
+
+    if is_production_user():
+        user = 'production'
+    else:
+        user = 'enduser'
+    site = get_site()
+    if master_or_slave == 'master':
+        return DEFAULT_MASTER_Q[site][user]
+    elif master_or_slave == 'slave':
+        return DEFAULT_MASTER_Q[site][user]
+    else:
+        raise ValueError(master_or_slave)
 
 
 def send_status_mail(pipeline_name, success, analysis_id, outdir,

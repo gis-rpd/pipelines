@@ -26,10 +26,14 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import get_pipeline_version, get_site
+from pipelines import get_pipeline_version
+from pipelines import get_site
+from pipelines import get_default_queue
 from pipelines import PipelineHandler
-from pipelines import get_machine_run_flowcell_id, is_devel_version
-from pipelines import logger as aux_logger, generate_timestamp
+from pipelines import get_machine_run_flowcell_id
+from pipelines import is_devel_version
+from pipelines import logger as aux_logger
+from pipelines import generate_timestamp
 from pipelines import get_cluster_cfgfile
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
 
@@ -50,10 +54,6 @@ CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "bcl2fastq"
 
-DEFAULT_SLAVE_Q = {'GIS': None,
-                   'NSCC': 'production'}
-DEFAULT_MASTER_Q = {'GIS': None,
-                    'NSCC': 'production'}
 
 OUTDIR_BASE = {
     'GIS': {
@@ -204,11 +204,10 @@ def main():
                         help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
-    site = get_site()
-    default = DEFAULT_SLAVE_Q.get(site, None)
+    default = get_default_queue('slave')
     parser.add_argument('-w', '--slave-q', default=default,
                         help="Queue to use for slave jobs (default: {})".format(default))
-    default = DEFAULT_MASTER_Q.get(site, None)
+    default = get_default_queue('master')
     parser.add_argument('-m', '--master-q', default=default,
                         help="Queue to use for master job (default: {})".format(default))
     parser.add_argument('-l', '--lanes', type=int, nargs="*",
@@ -385,7 +384,7 @@ def main():
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        outdir, user_data, site=site,
+        outdir, user_data,
         logger_cmd=mongo_update_cmd,
         master_q=args.master_q,
         slave_q=args.slave_q,
