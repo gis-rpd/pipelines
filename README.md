@@ -118,7 +118,7 @@ In either case, you must not prefix the script with `python`.
 | [BWA-MEM](mapping/BWA-MEM/README.md)                           | Mapping             |                       | Y | Y |
 | [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |
 | [STAR-RSEM](rnaseq/star-rsem/README.md)                        | RNA-Seq             |                       | Y | Y |
-| [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)| RNA-Seq             |                       | Y | Y |
+| [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)| RNA-Seq             |                       | Y | N |
 | [LoFreq-Somatic](somatic/lofreq-somatic/README.md)             | Somatic             |                       | Y | N |
 | [Mutect](somatic/mutect/README.md)                             | Somatic             |                       | Y | Y |
 | [GATK](variant-calling/gatk/README.md)                         | Variant-calling     |                       | Y | Y |
