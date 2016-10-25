@@ -18,7 +18,7 @@ from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_
 from pipelines import chroms_and_lens_from_from_fasta
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # non-login bash

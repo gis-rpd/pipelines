@@ -17,7 +17,7 @@ if LIB_PATH not in sys.path:
 from readunits import fastqs_from_unit
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # non-login bash

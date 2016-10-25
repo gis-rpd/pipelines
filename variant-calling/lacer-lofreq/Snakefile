@@ -15,7 +15,7 @@ if LIB_PATH not in sys.path:
 from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # FIXME to conf once downstream handling clear

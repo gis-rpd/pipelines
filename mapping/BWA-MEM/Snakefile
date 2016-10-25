@@ -16,7 +16,7 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 
     
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # non-login bash

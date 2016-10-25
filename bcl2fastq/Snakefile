@@ -24,7 +24,7 @@ from elmlogger import ElmLogging, ElmUnit
 from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE_FMT, DBUPDATE_TRIGGER_FILE_MAXNUM
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # ANALYSIS_ID not necessarily part of config file and if not

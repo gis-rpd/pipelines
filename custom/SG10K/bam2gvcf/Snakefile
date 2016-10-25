@@ -19,7 +19,7 @@ from pipelines import chroms_and_lens_from_from_fasta
 
         
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # non-login bash
