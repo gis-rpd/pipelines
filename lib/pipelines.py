@@ -235,8 +235,9 @@ class PipelineHandler(object):
             fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
             fh.write("reuse -q miniconda-3\n")
             #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
-            fh.write("source activate snakemake-3.7.1\n")
-
+            #fh.write("source activate snakemake-3.7.1\n")
+            fh.write("source activate snakemake-3.8.2\n")
+            
 
     def write_snakemake_env(self, overwrite=False):
         """creates rc file for use as 'bash prefix', which also loads modules defined in cfgfile
@@ -404,7 +405,7 @@ def get_pipeline_version():
     os.chdir(PIPELINE_ROOTDIR)
     if os.path.exists(".git"):
         commit = None
-        cmd = ['git', 'describe', '--always', '--dirty']
+        cmd = ['git', 'describe', '--always', '--tags']
         try:
             res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             commit = res.decode().strip()
