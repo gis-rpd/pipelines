@@ -58,7 +58,7 @@ logger.addHandler(handler)
 class MongoUpdate(object):
     """Helper class for mongodb updates
     """
-    
+
     def __init__(self, run_num, analysis_id, testing=False, dryrun=False):
         self.run_num = run_num
         self.analysis_id = analysis_id
@@ -127,19 +127,23 @@ class MongoUpdate(object):
             return True
 
 
-def get_outdirs_from_db(testing=True, win=14):
+def get_started_outdirs_from_db(testing=True, win=None):
     """FIXME:add-doc"""
     connection = mongodb_conn(testing)
     if connection is None:
         sys.exit(1)
 
     db = connection.gisds.runcomplete
-    epoch_present, epoch_back = generate_window(win)
 
-    results = db.find({"analysis": {"$exists": True},
-                       "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
+    if win:
+        epoch_present, epoch_back = generate_window(win)
+        results = db.find({"analysis.Status": "STARTED",
+                           "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
+    else:
+        results = db.find({"analysis.Status": "STARTED"})
+
     # results is a pymongo.cursor.Cursor which works like an iterator i.e. dont use len()
-    logger.info("Found %d runs for last %s days", results.count(), win)
+    logger.info("Found %d runs", results.count())
     for record in results:
         logger.debug("record: %s", record)
         #run_number = record['run']
@@ -149,14 +153,16 @@ def get_outdirs_from_db(testing=True, win=14):
 
 
 def mux_dir_complete(muxdir, completed_after=None):
-    """Will check whether necessary flag files for muxdir exist. Will return false if one is missing.
-    If completed_after is given or if both exist, but none is newer than completed_after.
+    """Will check whether necessary flag files for muxdir exist. Will
+    return false if one is missing.  If completed_after is given or if
+    both exist, but none is newer than completed_after.
+
     """
 
     if not os.path.exists(muxdir):
         logger.info("Directory %s doesn't exist", muxdir)
         return False
-    
+
     at_least_one_newer = False
     for f in ['bcl2fastq.SUCCESS', 'fastqc.SUCCESS']:
         f = os.path.join(muxdir, f)
@@ -183,9 +189,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test server")
-    default = 14
-    parser.add_argument('-w', '--win', type=int, default=default,
-                        help="Number of days to look back (default {})".format(default))
+    parser.add_argument('-w', '--win', type=int,
+                        help="Restrict to runs within last x days)")
     parser.add_argument('--outdirs', nargs="*",
                         help="Ignore DB entries and go through this list"
                         " of directories (DEBUGGING)")
@@ -213,7 +218,7 @@ def main():
         outdirs = args.outdirs
     else:
         # generator!
-        outdirs = get_outdirs_from_db(args.testing, args.win)
+        outdirs = get_started_outdirs_from_db(args.testing, args.win)
 
     num_triggers = 0
     for outdir in outdirs:
@@ -249,23 +254,24 @@ def main():
             res = mongo_updater.update_run(update_info['status'], outdir)
             if not res:
                 # don't delete trigger. don't processe muxes. try again later
-                logger.critical("Skipping this analysis (%s) for run %s", update_info['analysis_id'], update_info['run_num'])
+                logger.critical("Skipping this analysis (%s) for run %s",
+                                update_info['analysis_id'], update_info['run_num'])
                 continue
 
             # update per MUX
             #
             keep_trigger = False
             for mux_id, mux_dir_base in muxes.items():
-                mux_dir = os.path.join(outdir, "out", mux_dir_base)# ugly       
+                mux_dir = os.path.join(outdir, "out", mux_dir_base)# ugly
                 if mux_dir_complete(mux_dir):
                     # skip the ones completed before
                     completed_after = timestamp_from_string(update_info['analysis_id'])
                     if not mux_dir_complete(mux_dir, completed_after=completed_after):
                         continue
                     no_archive = cfg.get('no_archive', None)
-                    if no_archive == True:
+                    if no_archive:
                         status = 'NOARCHIVE'
-                    else:    
+                    else:
                         status = 'SUCCESS'
                 else:
                     status = 'FAILED'
@@ -273,10 +279,11 @@ def main():
                 res = mongo_updater.update_mux(status, mux_id, mux_dir_base)
                 if not res:
                     # don't delete trigger. try again later
-                    logger.critical("Skipping rest of analysis %s for run %s", update_info['analysis_id'], update_info['run_num'])
+                    logger.critical("Skipping rest of analysis %s for run %s",
+                                    update_info['analysis_id'], update_info['run_num'])
                     keep_trigger = True
                     break
-                    
+
             if not args.dry_run and not keep_trigger:
                 os.unlink(trigger_file)
     logger.info("%s dirs with triggers", num_triggers)
