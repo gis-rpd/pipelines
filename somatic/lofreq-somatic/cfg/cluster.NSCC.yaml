@@ -41,7 +41,7 @@
     "dedup":
     {
        "time" : "4:00:00",
-       "mem" : 4G,
+       "mem" : 8G,
     },
 
     "lofreq_somatic" :
