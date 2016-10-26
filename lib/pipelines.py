@@ -561,7 +561,7 @@ def get_default_queue(master_or_slave):
 
 
 def send_status_mail(pipeline_name, success, analysis_id, outdir,
-                     extra_text=None, pass_exception=True):
+                     extra_text=None, pass_exception=True, to_address=None):
     """
     - pipeline_name: pipeline name
     - success: bool
@@ -593,8 +593,11 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir,
     msg = MIMEText(body)
     msg['Subject'] = subject
     msg['From'] = RPD_MAIL
-    msg['To'] = email_for_user()
-
+    if to_address:
+        msg['To'] = to_address
+    else:
+        msg['To'] = email_for_user()
+        
     site = get_site()
     server = smtplib.SMTP(SMTP_SERVER[site])
     try:

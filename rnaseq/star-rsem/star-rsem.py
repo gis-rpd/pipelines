@@ -31,6 +31,7 @@ from pipelines import PipelineHandler
 from pipelines import get_default_queue
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
+from pipelines import email_for_user
 
 
 __author__ = "Andreas Wilm"
@@ -72,6 +73,9 @@ def main():
                         help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
+    default = email_for_user()
+    parser.add_argument('--mail', dest='mail_address', default=default,
+                        help="Send completion emails to this address (default: {})".format(default))
     #site = get_site()
     default = get_default_queue('slave')
     parser.add_argument('-w', '--slave-q', default=default,
@@ -161,6 +165,7 @@ def main():
     # generic data first
     user_data = dict()
     user_data['mail_on_completion'] = not args.no_mail
+    user_data['mail_address'] = args.mail_address
     user_data['readunits'] = readunits
     user_data['samples'] = samples
     if args.name:
