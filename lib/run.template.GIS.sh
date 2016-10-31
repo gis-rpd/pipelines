@@ -77,6 +77,8 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
     fi
     if [ "$DRMAA_OFF" -eq 1 ]; then
         clustercmd="--cluster \"qsub $clustercmd\""
+	    #clustercmd="--cluster-sync \"qsub -sync y $clustercmd\""
+        # doesn't work. see https://github.com/gis-rpd/pipelines/issues/83
     else
         clustercmd="--drmaa \" $clustercmd -w n\""
     fi

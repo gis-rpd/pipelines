@@ -77,7 +77,7 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
     fi
     if [ "$DRMAA_OFF" -eq 1 ]; then
         #clustercmd="--cluster \"qsub $clustercmd\""
-	clustercmd="--cluster-sync \"qsub -Wblock=true $clustercmd\""
+	    clustercmd="--cluster-sync \"qsub -Wblock=true $clustercmd\""
     else
         clustercmd="--drmaa \" $clustercmd -w n\""
     fi
