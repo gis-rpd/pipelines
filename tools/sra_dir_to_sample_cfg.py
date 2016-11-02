@@ -61,17 +61,17 @@ def scheme_for_fastq(fastq):
 
     """
 
-    # sra naming schemes
+    # sra naming schemes (use basename as input)
     schemes = dict()
     schemes['h5old'] = re.compile(
-        r'(?P<run_id>\w+)_(?P<flowcell>\w+).(?P<library_id>\w+)_(?P<barcode>\w+)_(?P<lane_id>\w+)_R(?P<read_no>[12]).fastq.gz')
+        r'(?P<run_id>[A-Za-z0-9-]+)_(?P<flowcell>[A-Za-z0-9-]+)\.(?P<library_id>[A-Za-z0-9-]+)_(?P<barcode>[A-Za-z0-9-]+)_L0*(?P<lane_id>[A-Za-z0-9-]+)_R(?P<read_no>[12]).fastq.gz')
     # schemes['h5new'] = re.compile(# FIXME MISSING
     schemes['cram'] = re.compile(# FIXME untested
-        r'(?P<library_id>\w+)_(?P<run_id>\w+)_(?P<lane_id>\w+)_R(?P<read_no>[12]).fastq.gz')
+        r'(?P<library_id>[A-Za-z0-9-]+)_(?P<run_id>[A-Za-z0-9-]+)_L0*(?P<lane_id>[A-Za-z0-9-]+)_R(?P<read_no>[12]).fastq.gz')
 
     scheme_re = None#pylint
     for scheme_name, scheme_re in schemes.items():
-        match = scheme_re.search(os.path.basename(fastq))
+        match = scheme_re.match(os.path.basename(fastq))
         if match:
             logger.info("Matching scheme %s", scheme_name)
             break
@@ -96,10 +96,11 @@ def readunits_for_sampledir(sampledir):
         if not os.path.exists(fq2):
             fq2 = None
         rg = None
-        ru = ReadUnit(mgroups.get('run_id'),
+        
+        ru = ReadUnit(mgroups['run_id'],
                       mgroups.get('flowcell'),
-                      mgroups.get('library_id'),
-                      mgroups.get('lane_id'),
+                      mgroups['library_id'],
+                      mgroups['lane_id'],
                       rg, fq1, fq2)
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         readunits[key_for_readunit(ru)] = dict(ru._asdict())
