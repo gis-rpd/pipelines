@@ -219,7 +219,7 @@ def main():
         user_data['analysis_name'] = args.name
 
     user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = args.intervals
+    user_data['intervals'] = os.path.abspath(args.intervals) if args.intervals else None
     user_data['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(

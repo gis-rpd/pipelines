@@ -218,7 +218,7 @@ def main():
         user_data['analysis_name'] = args.name
 
     user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = args.intervals
+    user_data['intervals'] = os.path.abspath(args.intervals) if args.intervals else None
     # WARNING: this currently only works because these two are the only members in reference dict
     # Should normally only write to root level
     #user_data['mark_dups'] = not args.dont_mark_dups

@@ -30,7 +30,6 @@ from pipelines import get_pipeline_version
 from pipelines import PipelineHandler
 from pipelines import get_default_queue
 from pipelines import logger as aux_logger
-from pipelines import ref_is_indexed
 from pipelines import get_cluster_cfgfile
 
 
@@ -98,7 +97,7 @@ def main():
         cfg_group.add_argument('--{}-cfg'.format(name),
                                default=default,
                                help="Config-file (yaml) for {}. (default: {})".format(descr, default))
-        
+
     # pipeline specific args
     parser.add_argument('-1', "--fq1", nargs="+",
                         help="FastQ file/s (gzip only)."
@@ -184,11 +183,11 @@ def main():
     user_data['samples'] = samples
     if args.name:
         user_data['analysis_name'] = args.name
-    
+
 
 
     user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = args.intervals
+    user_data['intervals'] = os.path.abspath(args.intervals) if args.intervals else None
     user_data['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(
@@ -200,7 +199,7 @@ def main():
         modules_cfgfile=args.modules_cfg,
         refs_cfgfile=args.references_cfg,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
-    
+
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
 

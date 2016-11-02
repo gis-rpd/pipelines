@@ -174,7 +174,7 @@ def main():
     if args.name:
         user_data['analysis_name'] = args.name
     user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = args.intervals# always safe, might be used for WGS as well
+    user_data['intervals'] = os.path.abspath(args.intervals) if args.intervals else None
     user_data['mark_dups'] = MARK_DUPS
 
     pipeline_handler = PipelineHandler(
