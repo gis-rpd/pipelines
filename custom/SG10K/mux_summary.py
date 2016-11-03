@@ -1,13 +1,19 @@
-#!/mnt/projects/rpd/apps.testing/miniconda3/envs/jupyter/bin/python
+#!/usr/bin/env python3
+# FIXME hardcoded python because we need for xlsxwriter
+"""Creating summary table for SG10K batch
+"""
 
 import glob
 import os
 import csv
 import sys
+
+import yaml
 import xlsxwriter
 
 WRITE_CSV = False
 WRITE_XLS = True
+WRITE_CONSOLE = False
 SUMMARY_KEYS = ["raw total sequences:",
                 #"reads properly paired:",
                 'reads properly paired [%]',# ours
@@ -26,6 +32,8 @@ MIN_DEPTH = 7
 
 
 def parse_summary_from_stats(statsfile):#, genome_size=GENOME_SIZE['hs37d5']):
+    """FIXME:add-doc"""
+
     sn = dict()
     with open(statsfile) as fh:
         for line in fh:
@@ -40,7 +48,10 @@ def parse_summary_from_stats(statsfile):#, genome_size=GENOME_SIZE['hs37d5']):
         return sn
 
 
+
 def parse_selfsm(selfsm_file):
+    """FIXME:add-doc"""
+
     with open(selfsm_file) as fh:
         header = fh.readline()[1:].split()
         #print(headers)
@@ -63,39 +74,74 @@ def parse_selfsm(selfsm_file):
 
 # print(parse_selfsm("WHH1253/out/WHH1253/WHH1253.bwamem.fixmate.mdups.srt.recal.CHS.selfSM"))
 
+def check_completion(conf_yamls):
+    """FIXME:add-doc"""
 
-def main():
+    print("Verifying completeness based on {} config yaml files...".format(len(conf_yamls)))
+    # check completion
+    #
+    num_complete = 0
+    num_incomplete = 0
+    # assuming conf.yaml is in run folder
+    for f in conf_yamls:
+        with open(f) as fh:
+            cfg = dict(yaml.safe_load(fh))
+        num_samples = len(cfg['samples'])
+        snake_log = os.path.join(os.path.dirname(f), "logs/snakemake.log")
+        with open(snake_log) as fh:
+            loglines = fh.readlines()
+            if 'Pipeline run successfully completed' in ''.join(loglines[-10:]):
+                num_complete += num_samples
+            else:
+                num_incomplete += num_samples
+    print("{} completed".format(num_complete))
+    print("{} incomplete".format(num_incomplete))
+    print("(Note, numbers can be misleading for multisample runs (a single failure anywhere fails all samples)")
+    assert num_complete == 96
+    print("Okay. Proceeding...")
+
+
+def main(conf_yamls):
     """main
     """
 
-    print("Verifying completeness...")
-    complete = []
-    incomplete = []
-    for yaml in glob.glob("W*yaml"):
-        sampledir = yaml.replace(".yaml", "/")
-        with open(os.path.join(sampledir, "logs/snakemake.log")) as fh:
-            loglines = fh.readlines()
-            if 'Pipeline run successfully completed' in ''.join(loglines[-10:]):
-                complete.append(sampledir)
-            else:
-                incomplete.append(sampledir)
-    print("{} completed".format(len(complete)))
-    print("{} incomplete".format(len(incomplete)))
-    assert len(complete) == 96
-    print("Okay. Proceeding...")
+    check_completion(conf_yamls)
 
     if WRITE_CSV:
         assert not os.path.exists('summary.csv')
         csvfile = open('summary.csv', 'w')
         print("Writing to summary.csv")
         csvwriter = csv.writer(csvfile, delimiter='\t')
+    else:
+        print("Not writing cvs-file")
+
     if WRITE_XLS:
         assert not os.path.exists('summary.xls')
         xls = "summary.xls"
         print("Writing to summary.xls")
         workbook = xlsxwriter.Workbook(xls)
         worksheet = workbook.add_worksheet()
+
+        fmtheader = workbook.add_format({'bold': True, 'align': 'center'})
+        fmtintcomma = workbook.add_format({'num_format': '###,###,###,###0'})
+        fmt01 = workbook.add_format({'num_format': '0.1'})
+        fmt00001 = workbook.add_format({'num_format': '0.0001'})
+
+        worksheet.set_row(0, None, fmtheader)
+        worksheet.set_column('B:B', 20, fmtintcomma)
+        worksheet.set_column('C:D', None, fmt01)
+        worksheet.set_column('F:H', None, fmt01)
+        worksheet.set_column('E:E', None, fmt00001)
+        worksheet.set_column('I:K', None, fmt00001)
+
         xls_row_no = 0
+    else:
+        print("Not writing to xls-file")
+
+    if WRITE_CONSOLE:
+        print("Writing to console")
+    else:
+        print("Not writing to console")
 
     header = ["sample"]
     for key in SUMMARY_KEYS:
@@ -105,7 +151,8 @@ def main():
     for key in ETHNICITIES:
         header.append("Cont. " + key)
 
-    print("\t".join(header))
+    if WRITE_CONSOLE:
+        print("\t".join(header))
     if WRITE_CSV:
         csvwriter.writerow(header)
     if WRITE_XLS:
@@ -113,55 +160,61 @@ def main():
             worksheet.write(xls_row_no, xls_col_no, cell_data)
         xls_row_no += 1
 
-    for yaml in glob.glob("W*yaml"):
-        sample = yaml.replace(".yaml", "")
-        sampledir = sample
-        statsfile = glob.glob(os.path.join(sampledir, "out/*/*.bwamem.fixmate.mdups.srt.recal.bamstats/stats.txt"))
-        assert len(statsfile)==1
-        statsfile = statsfile[0]
-        summary = parse_summary_from_stats(statsfile)
-        row = [sample]
-        row.extend([summary[k] for k in SUMMARY_KEYS])
+    for f in conf_yamls:
+        outdir = os.path.join(os.path.dirname(f), "out")
+        with open(f) as fh:
+            cfg = dict(yaml.safe_load(fh))
+        for sample in cfg['samples']:
 
-        selfsm_files = glob.glob(os.path.join(sampledir, "out/*/*.bwamem.fixmate.mdups.srt.recal.*selfSM"))
-        selfsm = dict()
-        for f in selfsm_files:
-            ethnicity = f.split(".")[-2]
-            selfsm[ethnicity] = parse_selfsm(f)
-        assert sorted(list(selfsm.keys())) == sorted(ETHNICITIES)
+            statsfile = glob.glob(os.path.join(outdir, sample, "*.bwamem.fixmate.mdups.srt.recal.bamstats/stats.txt"))
+            assert len(statsfile) == 1
+            statsfile = statsfile[0]
+            summary = parse_summary_from_stats(statsfile)
+            row = [sample]
+            row.extend([summary[k] for k in SUMMARY_KEYS])
 
-        #avg_dp = set([v['AVG_DP'] for v in selfsm.values()])
-        #assert len(avg_dp) == 1, avg_dp
-        # rounding errors
-        avg_dp = set([v['AVG_DP'] for v in selfsm.values()])
-        avg_dp = list(avg_dp)[0]
-        if avg_dp < MIN_DEPTH:
-            sys.stderr.write("DP threshold reached for {}: {} < {}\n".format(sample, avg_dp, MIN_DEPTH))
-        row.append(avg_dp)
+            selfsm_files = glob.glob(os.path.join(outdir, sample, "*.bwamem.fixmate.mdups.srt.recal.*selfSM"))
+            selfsm = dict()
+            for f in selfsm_files:
+                ethnicity = f.split(".")[-2]
+                selfsm[ethnicity] = parse_selfsm(f)
+            assert sorted(list(selfsm.keys())) == sorted(ETHNICITIES)
 
-        for e in ETHNICITIES:
-            cont = selfsm[e]['FREEMIX']
-            if cont > MAX_CONT:
-                sys.stderr.write("CONT threshold reached for {}: {} > {}\n".format(sample, cont, MAX_CONT))
-            row.append(cont)
+            #avg_dp = set([v['AVG_DP'] for v in selfsm.values()])
+            #assert len(avg_dp) == 1, avg_dp
+            # rounding errors
+            avg_dp = set([v['AVG_DP'] for v in selfsm.values()])
+            avg_dp = list(avg_dp)[0]
+            if avg_dp < MIN_DEPTH:
+                sys.stderr.write("DP threshold reached for {}: {} < {}\n".format(sample, avg_dp, MIN_DEPTH))
+            row.append(avg_dp)
 
-        print("\t".join(["{}".format(v) for v in row]))
-        if WRITE_CSV:
-            csvwriter.writerow(row)
-        if WRITE_XLS:
-            for xls_col_no, cell_data in enumerate(row):
-                worksheet.write(xls_row_no, xls_col_no, cell_data)
-            xls_row_no += 1
+            for e in ETHNICITIES:
+                cont = selfsm[e]['FREEMIX']
+                if cont > MAX_CONT:
+                    sys.stderr.write("CONT threshold reached for {}: {} > {}\n".format(sample, cont, MAX_CONT))
+                row.append(cont)
+
+            if WRITE_CONSOLE:
+                print("\t".join(["{}".format(v) for v in row]))
+            if WRITE_CSV:
+                csvwriter.writerow(row)
+            if WRITE_XLS:
+                for xls_col_no, cell_data in enumerate(row):
+                    worksheet.write(xls_row_no, xls_col_no, cell_data)
+                xls_row_no += 1
 
     if WRITE_CSV:
         csvfile.close()
     if WRITE_XLS:
         workbook.close()
+        print("Please format xls file now and mark any outliers report above")
 
     print("Successful completion")
 
 
 if __name__ == "__main__":
-    main()
-
-    
+    conf_yamls = sys.argv[1:]
+    assert conf_yamls, ("No conf.yaml file/s given as argument")
+    assert all([os.path.exists(f) for f in conf_yamls])
+    main(conf_yamls)
