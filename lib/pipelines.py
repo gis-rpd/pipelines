@@ -16,11 +16,13 @@ import time
 from datetime import datetime, timedelta
 import calendar
 import json
-import requests
+import tarfile
+import glob
 
 #--- third-party imports
 #
 import yaml
+import requests
 
 #--- project specific imports
 #
@@ -237,7 +239,7 @@ class PipelineHandler(object):
             #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
             #fh.write("source activate snakemake-3.7.1\n")
             fh.write("source activate snakemake-3.8.2\n")
-            
+
 
     def write_snakemake_env(self, overwrite=False):
         """creates rc file for use as 'bash prefix', which also loads modules defined in cfgfile
@@ -301,7 +303,11 @@ class PipelineHandler(object):
             if not cfgfile:
                 continue
             with open(cfgfile) as fh:
-                cfg = dict(yaml.safe_load(fh))
+                try:
+                    cfg = dict(yaml.safe_load(fh))
+                except:
+                    logger.fatal("Loading %s failed", cfgfile)
+                    raise
             # to replace rpd vars the trick is to traverse
             # dictionary fully and replace all instances
             dump = json.dumps(cfg)
@@ -324,7 +330,6 @@ class PipelineHandler(object):
                     chroms_and_lens_from_from_fasta(reffa)))
 
         return merged_cfg
-
 
 
     def write_merged_cfg(self, force_overwrite=False):
@@ -361,7 +366,6 @@ class PipelineHandler(object):
         self.write_run_template()
 
 
-
     def submit(self, no_run=False):
         """FIXME:add-doc
         """
@@ -392,7 +396,6 @@ class PipelineHandler(object):
             master_log_abs = os.path.abspath(os.path.join(self.outdir, self.masterlog))
             logger.debug("For submission details see %s", submission_log_abs)
             logger.info("The (master) logfile is %s", master_log_abs)
-
 
 
 def get_pipeline_version():
@@ -486,7 +489,6 @@ def get_rpd_vars():
     return rpd_vars
 
 
-
 def generate_timestamp():
     """generate ISO8601 timestamp incl microsends, but with colons
     replaced to avoid problems if used as file name
@@ -536,7 +538,6 @@ def email_for_user():
     else:
         toaddr = "{}@gis.a-star.edu.sg".format(user_name)
     return toaddr
-
 
 
 def is_production_user():
@@ -597,7 +598,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir,
         msg['To'] = to_address
     else:
         msg['To'] = email_for_user()
-        
+
     site = get_site()
     server = smtplib.SMTP(SMTP_SERVER[site])
     try:
@@ -607,7 +608,6 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir,
         logger.fatal("Sending mail failed: %s", err)
         if not pass_exception:
             raise
-
 
 
 def send_mail(subject, body, toaddr=None, ccaddr=None,
@@ -725,3 +725,40 @@ def mux_to_lib(mux_id, testing=False):
     for lib in rest_data['plexes']:
         lib_list.append(lib['libraryId'])
     return lib_list
+
+
+def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
+                          log_dir="logs/", overwrite=False):
+    """bundle log files in pipeline_outdir+result_outdir and
+    pipeline_outdir+log_dir to pipeline_outdir+logs.tar.gz and remove
+
+    """
+    
+    for d in [pipeline_outdir,
+              os.path.join(pipeline_outdir, result_outdir),
+              os.path.join(pipeline_outdir, log_dir)]:
+        if not os.path.exists(d):
+            logger.warning("Missing directory %s. Skipping log bundling.", d)
+            return
+
+    bundle = os.path.join(log_dir, "logs.tar.gz")# relative to pipeline_outdir
+    if os.path.exists(os.path.join(pipeline_outdir, bundle)) and not overwrite:
+        logger.warning("Refusing to overwrite existing log bundle.")
+        return
+ 
+    orig_dir = os.getcwd()
+    os.chdir(pipeline_outdir)
+    # all log files associated with output files
+    logfiles = glob.glob(os.path.join(result_outdir, "**/*.log"), recursive=True)
+    # (cluster) log directory
+    logfiles.extend(glob.glob(os.path.join(log_dir, "*")))
+    # paranoid cleaning and some exclusion
+    logfiles = [f for f in logfiles if os.path.isfile(f)
+                and not f.endswith("snakemake.log")]
+
+    with tarfile.open(bundle, "w:gz") as tarfh:
+        for f in logfiles:
+            tarfh.add(f)
+            os.unlink(f)
+
+    os.chdir(orig_dir)

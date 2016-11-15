@@ -1,7 +1,10 @@
 import getpass
 
-from pipelines import send_status_mail, generate_timestamp
-from elmlogger import ElmLogging, ElmUnit
+from pipelines import send_status_mail
+from pipelines import generate_timestamp
+from pipelines import bundle_and_clean_logs
+from elmlogger import ElmLogging
+from elmlogger import ElmUnit
 
 
 def getuser():
@@ -46,8 +49,9 @@ onsuccess:
         send_status_mail(
             pipeline_name, True, analysis_name, os.path.abspath(RESULT_OUTDIR),
             to_address=mail_address)
+    bundle_and_clean_logs(".")
 
-
+        
 onerror:
     elm_logger.stop(False)
     analysis_name = config.get('analysis_name', ",".join(config['samples']))
