@@ -119,8 +119,8 @@ def main():
     parser.add_argument('-t', "--seqtype", required=True,
                         choices=['WGS', 'WES', 'targeted'],
                         help="Sequencing type")
-    parser.add_argument('-l', "--intervals",
-                        help="Intervals file (e.g. bed file) listing regions of interest."
+    parser.add_argument('-l', "--bed",
+                        help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
     parser.add_argument('-D', '--dont-mark-dups', action='store_true',
                         help="Don't mark duplicate reads")
@@ -201,14 +201,14 @@ def main():
     #        sys.exit(1)
 
     if args.seqtype in ['WES', 'targeted']:
-        if not args.intervals:
+        if not args.bed:
             logger.fatal("Analysis of exome and targeted sequence runs requires a bed file")
             sys.exit(1)
         else:
-            if not os.path.exists(args.intervals):
-                logger.fatal("Intervals file %s does not exist", args.sample_cfg)
+            if not os.path.exists(args.bed):
+                logger.fatal("Bed file %s does not exist", args.sample_cfg)
                 sys.exit(1)
-            logger.warning("Compatilibity between interval file and"
+            logger.warning("Compatilibity between bed file and"
                            " reference not checked")# FIXME
 
     # turn arguments into user_data that gets merged into pipeline config
@@ -223,7 +223,7 @@ def main():
         user_data['analysis_name'] = args.name
 
     user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = args.intervals
+    user_data['intervals'] = args.bed
     user_data['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(

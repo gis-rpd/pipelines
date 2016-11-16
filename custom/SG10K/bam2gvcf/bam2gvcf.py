@@ -113,8 +113,8 @@ def main():
     #parser.add_argument('-t', "--seqtype", required=True,
     #                    choices=['WGS', 'WES', 'targeted'],
     #                    help="Sequencing type")
-    #parser.add_argument('-l', "--intervals",
-    #                    help="Intervals file (e.g. bed file) listing regions of interest."
+    #parser.add_argument('-l', "--bed",
+    #                    help="Bed file listing regions of interest."
     #                    " Required for WES and targeted sequencing.")
 
     args = parser.parse_args()
@@ -159,14 +159,14 @@ def main():
     #    samples[args.sample] = list(readunits.keys())
     #
     #if args.seqtype in ['WES', 'targeted']:
-    #    if not args.intervals:
+    #    if not args.bed:
     #        logger.fatal("Analysis of exome and targeted sequence runs requires a bed file")
     #        sys.exit(1)
     #    else:
-    #        if not os.path.exists(args.intervals):
-    #            logger.fatal("Intervals file %s does not exist", args.sample_cfg)
+    #        if not os.path.exists(args.bed):
+    #            logger.fatal("Bed file %s does not exist", args.sample_cfg)
     #            sys.exit(1)
-    #        logger.warning("Compatilibity between interval file and"
+    #        logger.warning("Compatilibity between bed file and"
     #                       " reference not checked")# FIXME
 
     with open(args.prev_cfg, 'r') as stream:
@@ -191,7 +191,7 @@ def main():
         user_data['analysis_name'] = args.name
     #user_data['seqtype'] = args.seqtype
     user_data['seqtype'] = 'WGS'# SG10K
-    #user_data['intervals'] = args.intervals# always safe, might be used for WGS as well
+    #user_data['intervals'] = args.bed# always safe, might be used for WGS as well
     user_data['intervals'] = None#SG10K
     user_data['mark_dups'] = None# SG10K doesn't matter
     user_data['precalc_bam_dir'] = os.path.join(
