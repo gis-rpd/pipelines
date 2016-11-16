@@ -78,6 +78,16 @@ DEFAULT_MASTER_Q = {
 }
 
 
+DOWNSTREAM_OUTDIR_BASE = {
+    'GIS': {
+        'devel': '/mnt/projects/rpd/testing/output/downstream',
+        'production': '/mnt/projects/userrig/solexa/downstream'},
+    'NSCC': {
+        'devel': '/seq/astar/gis/rpd/testing/output/downstream/',
+        'production': '/seq/astar/gis/seq/downstream'}
+}
+
+
 # from address, i.e. users should reply to to this
 # instead of rpd@gis to which we send email
 RPD_MAIL = "rpd@gis.a-star.edu.sg"
@@ -92,6 +102,30 @@ Scientific & Research Computing
 # ugly
 PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
+
+
+def get_downstream_outdir(requestor, pipeline_name,
+                          pipeline_version=None, site=None,
+                          basedir_map=DOWNSTREAM_OUTDIR_BASE):
+    """generate downstream output directory
+    """
+
+    if not site:
+        site = get_site()
+    if site not in basedir_map:
+        raise ValueError(site)
+    if is_devel_version():
+        basedir = basedir_map[site]['devel']
+    else:
+        basedir = basedir_map[site]['production']
+    if pipeline_version:
+        pversion = pipeline_version
+    else:
+        pversion = get_pipeline_version()
+    outdir = "{basedir}/{requestor}/{pversion}/{pname}/{ts}".format(
+        basedir=basedir, requestor=requestor, pversion=get_pipeline_version(nospace=True),
+        pname=pipeline_name, ts=generate_timestamp())
+    return outdir
 
 
 class PipelineHandler(object):
@@ -398,7 +432,7 @@ class PipelineHandler(object):
             logger.info("The (master) logfile is %s", master_log_abs)
 
 
-def get_pipeline_version():
+def get_pipeline_version(nospace=False):
     """determine pipeline version as defined by updir file
     """
     version_file = os.path.abspath(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
@@ -416,6 +450,8 @@ def get_pipeline_version():
             pass
         if commit:
             version = "{} commit {}".format(version, commit)
+    if nospace:
+        version = version.replace(" ", "-")
     os.chdir(cwd)
     return version
 
@@ -733,7 +769,7 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
     pipeline_outdir+log_dir to pipeline_outdir+logs.tar.gz and remove
 
     """
-    
+
     for d in [pipeline_outdir,
               os.path.join(pipeline_outdir, result_outdir),
               os.path.join(pipeline_outdir, log_dir)]:
@@ -745,7 +781,7 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
     if os.path.exists(os.path.join(pipeline_outdir, bundle)) and not overwrite:
         logger.warning("Refusing to overwrite existing log bundle.")
         return
- 
+
     orig_dir = os.getcwd()
     os.chdir(pipeline_outdir)
     # all log files associated with output files

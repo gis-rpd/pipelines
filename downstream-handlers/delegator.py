@@ -14,6 +14,7 @@ from collections import namedtuple
 #
 import requests
 import pymongo
+
 #--- project specific imports
 #
 # add lib dir for this pipeline installation to PYTHONPATH
@@ -23,9 +24,10 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from services import rest_services
 from mongodb import mongodb_conn
-from pipelines import generate_window, send_mail, get_site
-from pipelines import get_machine_run_flowcell_id, generate_timestamp
-from pipelines import is_devel_version
+from pipelines import generate_window
+from pipelines import send_mail
+from pipelines import get_machine_run_flowcell_id
+from pipelines import get_downstream_outdir
 from readunits import key_for_readunit
 
 ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
@@ -37,23 +39,6 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
-OUTDIR_BASE = {
-    'GIS': {
-        'devel': '/mnt/projects/rpd/testing/output/downstream',
-        'production': '/mnt/projects/userrig/solexa/downstream'},
-    'NSCC': {
-        'devel': '/seq/astar/gis/rpd/testing/output/downstream/',
-        'production': '/seq/astar/gis/seq/downstream'}
-}
-PRODUCTION_PIPELINE_VERSION = {
-    'GIS': {
-        'production': '/mnt/projects/rpd/pipelines/current',
-        'devel': 'devel'},
-    'NSCC': { ###FIXME for the correct path
-        'devel': '/seq/astar/gis/rpd/pipelines.git/',
-        'production': 'devl'}
-}
-
 # global logger
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -61,27 +46,6 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-def get_downstream_outdir(requestor, pipeline_version, pipeline_name, site=None, basedir_map=OUTDIR_BASE, base_pipelinedir_map=PRODUCTION_PIPELINE_VERSION):
-    """generate downstream output directory
-    """
-    if not site:
-        site = get_site()
-    if site not in basedir_map:
-        raise ValueError(site)
-    if site not in base_pipelinedir_map:
-        raise ValueError(site)
-    if is_devel_version():
-        basedir = basedir_map[site]['devel']
-        if not pipeline_version:
-            pipeline_version = base_pipelinedir_map[site]['devel']
-    else:
-        basedir = basedir_map[site]['production']
-        if not pipeline_version:
-            pipeline_version = os.readlink(base_pipelinedir_map[site]['production'])
-    outdir = "{basedir}/{requestor}/{pversion}/{pname}/{ts}".format(
-        basedir=basedir, requestor=requestor, pversion=pipeline_version, pname=pipeline_name,
-        ts=generate_timestamp())
-    return outdir
 
 
 def check_fastq(fastq_data_dir, libid, laneId):
@@ -183,9 +147,9 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                                 else:
                                     sample_dict['pipeline_version'] = None
                                 sample_dict['pipeline_params'] = 'params'
-                                sample_dict['site'] = get_site()
-                                out_dir = get_downstream_outdir(sample_dict['requestor'], \
-                                    sample_dict['pipeline_version'], sample_dict['pipeline_name'])
+                                out_dir = get_downstream_outdir(
+                                    sample_dict['requestor'], sample_dict['pipeline_name'],
+                                    pipeline_version=sample_dict['pipeline_version'])
                                 sample_dict['out_dir'] = out_dir
                                 readunits_dict = {}
                                 status, fq1, fq2 = check_fastq(fastq_data_dir, child['libraryId'],\
@@ -364,4 +328,3 @@ def main():
 if __name__ == "__main__":
     logger.info("Send email to Users and NGSP")
     main()
-
