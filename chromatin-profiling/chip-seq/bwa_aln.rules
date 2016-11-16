@@ -1,0 +1,84 @@
+# standard library imports
+#
+import os
+
+# third party imports
+#
+#/
+
+# project specific imports
+#
+from readunits import gen_rg_lib_id, gen_rg_pu_id
+from readunits import fastqs_from_unit, fastqs_from_unit_as_list, readunit_is_paired, get_sample_for_unit
+
+
+assert 'samples' in config
+assert 'platform' in config
+
+
+rule bwa_aln_sai:
+    input:
+        reffa = config['references']['genome'],
+        bwaindex = config['references']['genome'] + ".pac",# incomplete but should do
+        fastqs = lambda wc: fastqs_from_unit_as_list(config["readunits"][wc.unit])[int(wc.no)]
+    output:
+        # reflect changes here in sais_from_unit_as_list
+        sai = temp("{prefix}/unit-{unit}.{no}.sai")
+    log:
+        "{prefix}/unit-{unit}.{no}.log"
+    message:
+        "Running bwa aln"
+    threads:
+        16
+    shell:
+        "bwa aln -t {threads} -f {output.sai} {input.reffa} {input.fastqs} >& {log}"
+
+
+def sais_from_unit_as_list(wc):
+    """Create SAI file list from wildcards"""
+    if readunit_is_paired(config["readunits"][wc.unit]):
+        nfiles = 2
+    else:
+        nfiles = 1
+    # reflect changes here in bwa_aln_sai
+    return ["{prefix}/unit-{unit}.{no}.sai".format(prefix=wc.prefix, unit=wc.unit, no=no)
+            for no in range(nfiles)]
+
+    
+rule bwaaln_map_filter_sort_n:
+    """
+    - fixmate only works on name sorted files.
+    - Setting read groups correctly is tricky and also depends on downstream programs.
+      See e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+      For example for BQSR PU takes precedence over ID. PU should contain lane.
+    - More threads mean more memory because of sorting (here by name)
+    """
+    input:
+        reffa = config['references']['genome'],
+        bwaindex = config['references']['genome'] + ".pac",# incomplete but should do
+        fastqs = lambda wc: fastqs_from_unit(config["readunits"][wc.unit]),
+        sais = sais_from_unit_as_list
+    output:
+        bam = temp('{prefix}/unit-{unit}.bwa-aln-nsrt.bam')
+    log:
+        '{prefix}/unit-{unit}.bwa-aln.bam.log'
+    params:
+        bwa_aln_custom_args = config.get("bwa_aln_custom_args", ""),
+        sort_mem = '250M',
+        rg_id = lambda wc: config["readunits"][wc.unit]['rg_id'],# always set
+        lib_id = lambda wc: gen_rg_lib_id(config["readunits"][wc.unit]),
+        pu_id = lambda wc: gen_rg_pu_id(config["readunits"][wc.unit]),
+        sample = lambda wc: get_sample_for_unit(wc.unit, config),
+        mode = lambda wc: 'sampe' if readunit_is_paired(config["readunits"][wc.unit]) else 'samse'
+    message:
+        'Aligning reads, fixing mate information and converting to sorted BAM'
+    threads:
+        1
+    shell:
+        # we sort explicitely by name (needed by merge?)
+        "{{ bwa {params.mode} {params.bwa_aln_custom_args} {input.reffa}"
+        " -r '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
+        " {input.sais} {input.fastqs} |"
+        " samtools fixmate - - |"
+        " samtools view -h -F 0x4 -bu -q 20 - |"
+        " samtools sort -n -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"

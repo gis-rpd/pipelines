@@ -1,0 +1,4 @@
+genome: $RPD_GENOMES/human_g1k_v37/human_g1k_v37.fasta
+# mappable genome size or effective genome size which is defined as the genome size which can be sequenced.
+# see macs2 manual
+genomesize: 2.7e9
