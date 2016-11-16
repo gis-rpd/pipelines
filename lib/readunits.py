@@ -68,12 +68,27 @@ def gen_rg_pu_id(unit):
 
 
 def fastqs_from_unit(unit):
-    """FIXME:add-doc
+    """FIXME is this really needed?
     """
     if unit['fq2']:
         return unit['fq1'], unit['fq2']
     else:
         return unit['fq1']
+
+
+def readunit_is_paired(unit):
+    return unit['fq2'] is not None
+
+
+def fastqs_from_unit_as_list(unit):
+    """Return fastq files in unit as list, i.e. [fq1] if SE and [fq1, fq2]
+    if PE
+    """
+    fqs = []
+    fqs.append(unit['fq1'])
+    if unit['fq2']:
+        fqs.append(unit['fq2'])
+    return fqs
 
 
 def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
