@@ -209,7 +209,7 @@ rule summits_to_fasta:
         #"coordinateSpan_Score.pl <(sort -k8,8rn -k7,7rn {input.summits_bed} | head -500) {params.ext_bp_arg} > {output.seqbed};"
         # simply following box4 in doi:10.1038/nprot.2014.083
         # FIXME add sorting back in?
-        "awk '{{printf \"%s\\t%d\\t%d\\n\", $1,  $2-{params.ext_bp_arg}, $3+{params.ext_bp_arg}}}' {input.summits_bed} > {output.seqbed};"
+        "awk '{{c=$1; s=$2-{params.ext_bp_arg}; e=$3+{params.ext_bp_arg}; printf \"%s\\t%d\\t%d\\n\", c, s<0 ? 0 : s, e}}' {input.summits_bed} > {output.seqbed};"
         "bedtools getfasta -fi {input.genome} -bed {output.seqbed} -fo {output.fa};"
         " }} >& {log}"
 
