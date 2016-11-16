@@ -126,7 +126,7 @@ def main():
     parser.add_argument('--mapper', default=default, choices=choices,
                         help="Mapper to use. One of {}. Default {}".format(",".join(choices), default))
     
-    choices = ['TF', 'histone-narrow', 'histone-broad', 'open-chromatin']
+    choices = ['TF', 'histone-narrow', 'histone-broad']#, 'open-chromatin']
     parser.add_argument('-t', '--peak-type', required=True, choices=choices,
                         help="Peak type. One of {}".format(",".join(choices)))
     args = parser.parse_args()

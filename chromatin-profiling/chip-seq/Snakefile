@@ -37,16 +37,18 @@ localrules: final, report
 CONTROL_DIR = os.path.join(RESULT_OUTDIR, 'control')
 MEMECHIP_OUTDIR_SUFFIX = "memechip"# relativ to input, no "-"!
 
+# key is taken from directory: macs2-{key}
 MACS2PEAK_TO_ARG = {
     'narrow': "",
     'broad': "--broad"
 }
 
+# key is taken from directory: dfilter-{key}
 DFILTERPEAK_TO_ARG = {
-    'TF': "-ks=10 -bs=50 -lpval=6 -nonzero -refine",
-    'narrow': "-ks=60 -bs=100 -lpval=6",
-    'broad': "-ks=20 -bs=100 -lpval=3 –nonzero",
-    'openchromatin':  "-ks=50 -bs=100 -lpval=3",
+    'TF': "-ks=10 -lpval=6 -nonzero -refine",
+    'narrow': "-ks=60 -lpval=6",
+    'broad': "-ks=20 -lpval=3 –nonzero",
+#    'openchromatin':  "-ks=50 -bs=100 -lpval=3",
 }
 
 
@@ -66,9 +68,9 @@ elif config['peak_type']  == "histone-broad":
     METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
     #METHOD_PEAK_COMB.append("dfilter-broad")
 
-elif config['peak_type'] == "open-chromatic":
-    METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
-    #METHOD_PEAK_COMB.append("dfilter-openchromatin")
+#elif config['peak_type'] == "open-chromatin":
+#    METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
+#    #METHOD_PEAK_COMB.append("dfilter-openchromatin")
 
 else:
     raise ValueError(config['peak_type'])
