@@ -156,6 +156,7 @@ rule macs2:
         " --gsize {params.gsize}"
         " --bdg"# NAME+'_treat_pileup.bdg and NAME+'_control_lambda.bdg'
         " {params.read_type_arg}"
+        " --keep-dup all"# we've marked dups already and want to avoid problems like https://github.com/taoliu/MACS/issues/78
         " {params.peak_arg}"
         " --outdir $(dirname {output.cbdg}) --name {params.basename}"
         " {params.macs2_custom_args} >& {log};"
@@ -214,13 +215,21 @@ rule summits_to_fasta:
         " }} >& {log}"
 
 
+#FIXME run dfilter as is
+#create macs2 equivalents (e.g. summit_bed in separate step
+#    summit_bed = '{outdir}/dfilter-{peak}/{sample}_summits.bed',# created by us
+#    ' ln -s {output.tracks} {output.summit_bed};'
 #rule dfilter:
 #    input:
 #        cbam = os.path.join(CONTROL_DIR, 'control.%s-nsrt.bam' % config['mapper']),
 #        tbam = os.path.join(RESULT_OUTDIR, '{sample}/{sample}.%s-nsrt.bam' % config['mapper']),
 #    output:
-#        # same jargon as for macs2
-#        summits_bed = '{outdir}/dfilter-{peak}/{sample}_summits.bed'
+#        peaks = '{outdir}/dfilter-{peak}/{sample}.Peaks',# see -o
+#        tracks = '{outdir}/dfilter-{peak}/{sample}.bed.PeaksTracks',# see -o
+#        # wig files are based on input file names, which we don't know at this point
+#        control_wig = '{outdir}/dfilter-{peak}/{sample}_control.wig',
+#        treatment_wig = '{outdir}/dfilter-{peak}/{sample}_treatment.wig',
+#        filtered_treatment_wig = '{outdir}/dfilter-{peak}/{sample}_treat_pileup.wig',
 #    log:
 #        "{outdir}/dfilter-{peak}/dfilter.log"
 #    message:
@@ -228,9 +237,22 @@ rule summits_to_fasta:
 #    params:
 #        peak_arg = lambda wc: DFILTERPEAK_TO_ARG[wc.peak],
 #        read_type_arg = '-pe' if config['paired_end'] else '',
+#        outprefix = lambda wc: os.path.join(wc.outdir, "dfilter-" + wc.peak, wc.sample)
 #    shell:
-#        'run_dfilter.sh -d={input.tbam} -c={input.cbam} -o={output.summits_bed}'
-#        ' -wig {params.peak_arg} {params.read_type_arg}'
+#        '{{ '
+#        'od=$(dirname {params.outprefix}); test -d $od || mkdir $od;'
+#        'run_dfilter.sh -d={input.tbam} -c={input.cbam} -o={params.outprefix}'
+#        ' -wig -f=bam {params.peak_arg} {params.read_type_arg};'
+#        # control samples always called control
+#        'mv $od/control*wig {output.control_wig}_;'
+#        'mv $od/filtered*wig {filtered_treatment_wig}_;'
+#        # only one left
+#        'mv $od/*wig {output.treatment_wig};'
+#        'mv {output.control_wig}_ {output.control_wig};'
+#        'mv {filtered_treatment_wig}_ {filtered_treatment_wig};'
+#        'test -f comkernel && rm -f comkernel;'
+#        ' }} >& {log}'
+#    
 #
 
 rule memechip:

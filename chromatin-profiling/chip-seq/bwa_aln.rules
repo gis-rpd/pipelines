@@ -52,6 +52,8 @@ rule bwaaln_map_filter_sort_n:
       See e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
       For example for BQSR PU takes precedence over ID. PU should contain lane.
     - More threads mean more memory because of sorting (here by name)
+    - chipseq specific filtering.
+    - dup removal here instead of callers because of persistens macs2 problems, e.g. https://github.com/taoliu/MACS/issues/78
     """
     input:
         reffa = config['references']['genome'],
@@ -80,5 +82,6 @@ rule bwaaln_map_filter_sort_n:
         " -r '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {input.sais} {input.fastqs} |"
         " samtools fixmate - - |"
+        " samblaster |"
         " samtools view -h -F 0x4 -bu -q 20 - |"
         " samtools sort -n -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
