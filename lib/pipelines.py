@@ -378,9 +378,10 @@ class PipelineHandler(object):
         config = self.read_cfgfiles()
         config.update(self.user_data)
 
-        b = config['intervals']
-        f = config['references']['genome']
-        if f and b:
+        b = config.get('intervals')
+        if b:
+            # bed only makes if we have a reference
+            f = config['references'].get('genome')
             assert bed_and_indexed_fa_are_compatible(b, f), (
                 "{} not compatible with {}".format(b, f))
 
@@ -796,6 +797,7 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
     """bundle log files in pipeline_outdir+result_outdir and
     pipeline_outdir+log_dir to pipeline_outdir+logs.tar.gz and remove
 
+    See http://stackoverflow.com/questions/40602894/access-to-log-files for potential alternatives
     """
 
     for d in [pipeline_outdir,
