@@ -77,6 +77,8 @@ rule lofreq_somatic:
     output:
         rlx_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_{sample}_relaxed.vcf.gz'),
                              sample=['normal', 'tumor']),
+        rlx_logs = expand(os.path.join(VARIANTS_DIR, 'lofreq_{sample}_relaxed.log'),
+                             sample=['normal', 'tumor']),
         stringent_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_{sample}_stringent.{vartype}.vcf.gz'),
                                 sample=['normal', 'tumor'], vartype=['snvs', 'indels']),
         raw_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_somatic_raw.{vartype}.vcf.gz'),
