@@ -121,9 +121,9 @@ def get_downstream_outdir(requestor, pipeline_name,
     if pipeline_version:
         pversion = pipeline_version
     else:
-        pversion = get_pipeline_version()
+        pversion = get_pipeline_version(nospace=True)
     outdir = "{basedir}/{requestor}/{pversion}/{pname}/{ts}".format(
-        basedir=basedir, requestor=requestor, pversion=get_pipeline_version(nospace=True),
+        basedir=basedir, requestor=requestor, pversion=pversion,
         pname=pipeline_name, ts=generate_timestamp())
     return outdir
 
@@ -141,9 +141,12 @@ class PipelineHandler(object):
     RC_DIR = "rc"
 
     RC_FILES = {
-        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),# used to load dotkit
-        'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),# used to load snakemake
-        'SNAKEMAKE_ENV' : os.path.join(RC_DIR, 'snakemake_env.rc'),# used as bash prefix within snakemakejobs
+        # used to load dotkit
+        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),
+        # used to load snakemake
+        'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),
+        # used as bash prefix within snakemakejobs
+        'SNAKEMAKE_ENV' : os.path.join(RC_DIR, 'snakemake_env.rc'),
     }
 
     LOG_DIR_REL = "logs"
@@ -169,7 +172,7 @@ class PipelineHandler(object):
                  modules_cfgfile=None,
                  refs_cfgfile=None,
                  cluster_cfgfile=None):
-        """FIXME:add-doc
+        """init function
 
         pipeline_subdir: where default configs can be found, i.e pipeline subdir
         """
@@ -306,7 +309,9 @@ class PipelineHandler(object):
 
 
     def write_run_template(self):
-        """FIXME:add-doc
+        """writes run template replacing placeholder with variables defined in
+        instance
+
         """
 
         d = {'SNAKEFILE': self.snakefile_abs,
@@ -361,7 +366,7 @@ class PipelineHandler(object):
             if reffa:
                 assert 'num_chroms' not in merged_cfg['references']
                 merged_cfg['references']['num_chroms'] = len(list(
-                    chroms_and_lens_from_from_fasta(reffa)))
+                    chroms_and_lens_from_fasta(reffa)))
 
         return merged_cfg
 
@@ -372,6 +377,13 @@ class PipelineHandler(object):
 
         config = self.read_cfgfiles()
         config.update(self.user_data)
+
+        b = config['intervals']
+        f = config['references']['genome']
+        if f and b:
+            assert bed_and_indexed_fa_are_compatible(b, f), (
+                "{} not compatible with {}".format(b, f))
+
         assert 'ELM' not in config
         config['ELM'] = self.elm_data
 
@@ -383,7 +395,7 @@ class PipelineHandler(object):
 
 
     def setup_env(self):
-        """FIXME:add-doc
+        """create run environment
         """
 
         logger.info("Creating run environment in %s", self.outdir)
@@ -563,9 +575,10 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
     return machineid, runid, flowcellid
 
 
-# FIXME real_name() works at NSCC and GIS: getent passwd wilma | cut -f 5 -d :  | rev | cut -f 2- -d ' ' | rev
+# FIXME real_name() works at NSCC and GIS:
+# getent passwd wilma | cut -f 5 -d :  | rev | cut -f 2- -d ' ' | rev
 def email_for_user():
-    """FIXME:add-doc
+    """get email for user (naive)
     """
 
     user_name = getuser()
@@ -577,6 +590,8 @@ def email_for_user():
 
 
 def is_production_user():
+    """true if run as production user
+    """
     return getuser() == "userrig"
 
 
@@ -719,7 +734,7 @@ def parse_regions_from_bed(bed):
             yield (chrom, start, end)
 
 
-def chroms_and_lens_from_from_fasta(fasta):
+def chroms_and_lens_from_fasta(fasta):
     """return sequence and their length as two tuple. derived from fai
     """
 
@@ -730,6 +745,19 @@ def chroms_and_lens_from_from_fasta(fasta):
             (s, l) = line.split()[:2]
             l = int(l)
             yield (s, l)
+
+
+def bed_and_indexed_fa_are_compatible(bed, fasta):
+    """checks whether samtools faidx'ed fasta is compatible with bed file
+    """
+
+    assert os.path.exists(bed), ("Missing file {}".format(bed))
+    assert os.path.exists(fasta), ("Missing fasta index {}".format(fasta))
+
+    bed_sqs = set([c for c, s, e in parse_regions_from_bed(bed)])
+    fa_sqs = [c for c, l in chroms_and_lens_from_fasta(fasta)]
+
+    return all([s in fa_sqs for s in bed_sqs])
 
 
 def path_to_url(out_path):
