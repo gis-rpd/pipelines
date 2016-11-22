@@ -1,4 +1,4 @@
-from pipelines import chroms_and_lens_from_from_fasta, parse_regions_from_bed
+from pipelines import chroms_and_lens_from_fasta, parse_regions_from_bed
 
 
 assert 'references' in config
@@ -58,7 +58,7 @@ rule intervals_wo_excl:
                     if chrom not in config['references']['excl_chrom']:
                         fhout.write("{}\t{}\t{}\n".format(chrom, start, end))
             else:# no bed? use ref.fai
-                for (chrom, end) in chroms_and_lens_from_from_fasta(input.reffa):
+                for (chrom, end) in chroms_and_lens_from_fasta(input.reffa):
                     if chrom not in config['references']['excl_chrom']:
                         fhout.write("{}\t{}\t{}\n".format(chrom, 0, end))
 

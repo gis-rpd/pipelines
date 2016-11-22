@@ -15,7 +15,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 
-from pipelines import chroms_and_lens_from_from_fasta
+from pipelines import chroms_and_lens_from_fasta
 
         
 
@@ -69,7 +69,7 @@ rule prep_bed_files:
     message:
         "Preparing intervals for splitting jobs"
     run:
-        for (i, (s, l)) in enumerate(chroms_and_lens_from_from_fasta(input.ref)):
+        for (i, (s, l)) in enumerate(chroms_and_lens_from_fasta(input.ref)):
             outbed = params.outbedfmt.format(i)
             tmpbed = outbed + ".tmp"
             # write one bed per chrom

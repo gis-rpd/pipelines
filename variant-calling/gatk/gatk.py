@@ -178,8 +178,6 @@ def main():
             if not os.path.exists(args.bed):
                 logger.fatal("Bed file %s does not exist", args.sample_cfg)
                 sys.exit(1)
-            logger.warning("Compatilibity between bed file and"
-                           " reference not checked")# FIXME
 
     # turn arguments into user_data that gets merged into pipeline config
     #
