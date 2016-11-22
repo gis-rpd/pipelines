@@ -157,12 +157,15 @@ def main():
         readunits = dict()
 
         if args.raw_bam:
+            if not args.sample:
+                logger.fatal("Need sample name if not using config file")
+                sys.exit(1)
             samples[args.sample] = []
             assert os.path.exists(args.raw_bam)
 
         else:
             if not all([args.fq1, args.sample]):
-                logger.fatal("Need at least fq1 and sample without config file")
+                logger.fatal("Need at least fq1 and sample if not using config file")
                 sys.exit(1)
 
             readunits = get_readunits_from_args(args.fq1, args.fq2)
