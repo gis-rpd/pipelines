@@ -116,6 +116,9 @@ def main():
     parser.add_argument('-l', "--bed",
                         help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
+    parser.add_argument('--raw-bam',
+                        help="Advanced: Injects raw (pre dedup, BQSR etc.) BAM (overwrites fq options)."
+                        " WARNING: reference and pre-processing need to match pipeline requirements")
 
     args = parser.parse_args()
 
@@ -140,7 +143,7 @@ def main():
     # one) and readunit keys as value. readunits is a dict with
     # readunits (think: fastq pairs with attributes) as value
     if args.sample_cfg:
-        if any([args.fq1, args.fq2, args.sample]):
+        if any([args.fq1, args.fq2, args.sample, args.raw_bam]):
             logger.fatal("Config file overrides fastq and sample input arguments."
                          " Use one or the other")
             sys.exit(1)
@@ -148,15 +151,24 @@ def main():
             logger.fatal("Config file %s does not exist", args.sample_cfg)
             sys.exit(1)
         samples, readunits = get_samples_and_readunits_from_cfgfile(args.sample_cfg)
-    else:
-        if not all([args.fq1, args.sample]):
-            logger.fatal("Need at least fq1 and sample without config file")
-            sys.exit(1)
 
-        readunits = get_readunits_from_args(args.fq1, args.fq2)
-        # all readunits go into this one sample specified on the command-line
+    else:
         samples = dict()
-        samples[args.sample] = list(readunits.keys())
+        readunits = dict()
+
+        if args.raw_bam:
+            samples[args.sample] = []
+            assert os.path.exists(args.raw_bam)
+
+        else:
+            if not all([args.fq1, args.sample]):
+                logger.fatal("Need at least fq1 and sample without config file")
+                sys.exit(1)
+
+            readunits = get_readunits_from_args(args.fq1, args.fq2)
+            # all readunits go into this one sample specified on the command-line
+            samples = dict()
+            samples[args.sample] = list(readunits.keys())
 
     if args.seqtype in ['WES', 'targeted']:
         if not args.bed:
@@ -193,6 +205,15 @@ def main():
         refs_cfgfile=args.references_cfg,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
+
+    # inject existing BAM by symlinking (everything upstream is temporary anyway)
+    if args.raw_bam:
+        # target as defined in Snakefile!
+        target = os.path.join(args.outdir, "out", args.sample,
+                              "{}.bwamem.bam".format(args.sample))
+        os.makedirs(os.path.dirname(target))
+        os.symlink(os.path.abspath(args.raw_bam), target)
+
     pipeline_handler.submit(args.no_run)
 
 
