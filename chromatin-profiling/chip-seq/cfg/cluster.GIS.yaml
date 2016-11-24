@@ -3,8 +3,8 @@
     # default rules applied to all rules, but overriden by rule-specific settings
     "__default__" :
     {
-      "time" : "02:00:00",
-      "mem" : 2G,
+      "time" : "12:00:00",
+      "mem" : 12G,
     },
  }    
 

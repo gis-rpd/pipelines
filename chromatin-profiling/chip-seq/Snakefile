@@ -37,13 +37,14 @@ localrules: final, report
 CONTROL_DIR = os.path.join(RESULT_OUTDIR, 'control')
 MEMECHIP_OUTDIR_SUFFIX = "memechip"# relativ to input, no "-"!
 
-# key is taken from directory: macs2-{key}
+# translate macs2 directory name (which indicates peak mode as macs2-{key}) to actual peak arg.
 MACS2PEAK_TO_ARG = {
     'narrow': "",
     'broad': "--broad"
 }
 
-# key is taken from directory: dfilter-{key}
+# translate dfilter directory name (which indicates peak mode as
+# dfilter-{key}) to actual peak arg.
 DFILTERPEAK_TO_ARG = {
     'TF': "-ks=10 -lpval=6 -nonzero -refine",
     'narrow': "-ks=60 -lpval=6",
@@ -52,9 +53,9 @@ DFILTERPEAK_TO_ARG = {
 }
 
 
-# METHOD_PEAK_COMB define out directories. separate by dash. later
-# used as /{method}-{peak} and peak is translated using the maps above
-# to corresponding arguments
+# METHOD_PEAK_COMB entries define created output directories. separate
+# method from peak arg by dash: {method}-{peak} and peak is translated
+# using the maps above to corresponding peak arguments
 #
 if config['peak_type']  == "TF":
     METHOD_PEAK_COMB = ["macs2-narrow"]
@@ -67,10 +68,6 @@ elif config['peak_type']  == "histone-narrow":
 elif config['peak_type']  == "histone-broad":
     METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
     #METHOD_PEAK_COMB.append("dfilter-broad")
-
-#elif config['peak_type'] == "open-chromatin":
-#    METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
-#    #METHOD_PEAK_COMB.append("dfilter-openchromatin")
 
 else:
     raise ValueError(config['peak_type'])
@@ -93,7 +90,6 @@ rule final:
             methodpeak=METHOD_PEAK_COMB,
             MEMECHIP_OUTDIR_SUFFIX=MEMECHIP_OUTDIR_SUFFIX)
 
-
         
 rule unit_merge_n:
     """
@@ -111,7 +107,7 @@ rule unit_merge_n:
     log:
         '{prefix}/{sample}/{sample}.{mapper}-nrst.bam.log'
     message:
-        "Merging files"
+        "Merging files (sorted by name)"
     threads:
         8
     run:
@@ -138,6 +134,7 @@ rule macs2:
         # broad_peak = '{outdir}/{sample}_peaks.broadPeak',
         # gapped_peak = '{outdir}/{sample}_peaks.gappedPeak',
         # created here even if run in broad mode
+        #peak_file = lambda wc: '{outdir}/{sample}_peaks.{}Peak'.format(wc.outdir, wc.sample, wc.peak)
         summits_bed = '{outdir}/macs2-{peak}/{sample}_summits.bed'
     log:
         "{outdir}/macs2-{peak}/macs2.log"
@@ -160,11 +157,17 @@ rule macs2:
         " {params.peak_arg}"
         " --outdir $(dirname {output.cbdg}) --name {params.basename}"
         " {params.macs2_custom_args} >& {log};"
-        # in default mode the bed file describes the 1bp summit which
-        # is $2+10 from narrowPeak. in --broad mode the bed file is
-        # missing and so is $10 from the broadPeak file. so create one
-        # using broadPeak
-        "test -e {output.summits_bed} || awk '{{d=$3-$2; mp=$2+int(d/2); printf \"%s\\t%d\\t%d\\t%s\\t%s\\n\", $1, mp, mp+1, $4, $9}}' $(ls $(dirname {output.cbdg})/*broadPeak) > {output.summits_bed};"
+        # peak file is used later to retrieve the sequences for motif
+        # prediction.  summits bed is used for annotation.
+        #
+        # in
+        # default/narrow mode the bed file describes the 1bp summit
+        # which is $2+10 from narrowPeak. in --broad mode the bed file
+        # is missing (and so is $10 from the broadPeak file). so we
+        # create a bed-file, keeping the full peak range
+        #
+        #"test -e {output.summits_bed} || awk '{{d=$3-$2; mp=$2+int(d/2); printf \"%s\\t%d\\t%d\\t%s\\t%s\\n\", $1, mp, mp+1, $4, $9}}' $(ls $(dirname {output.cbdg})/*broadPeak) > {output.summits_bed};"
+        "test -e {output.summits_bed} || awk '{{printf \"%s\\t%d\\t%d\\t%s\\n\", $1, $2, $3, $9}}' $(ls $(dirname {output.cbdg})/*broadPeak) > {output.summits_bed};"
 
 
 rule bdg_to_bw:
@@ -183,34 +186,45 @@ rule bdg_to_bw:
         # convert bedgraph to bigwig
         # getting 'bdg is not case-sensitive sorted at line 35.  Please use "sort -k1,1 -k2,2n" with LC_COLLATE=C,  or bedSort and try again.'
         "tmp={input.bdg}.srt;"
-        "LC_COLLATE=C sort -k1,1 -k2,2n {input.bdg} > $tmp;"
+        # LC_COLLATE won't always work
+        "LC_ALL=C sort -k1,1 -k2,2n {input.bdg} > $tmp;"
         "bedGraphToBigWig $tmp {input.genome_sizes} {output.bw};"
         "rm -f $tmp;"
         " }} >& {log}"
 
 
-rule summits_to_fasta:
+rule peak_to_fasta:
     input:
-        summits_bed = '{prefix}_summits.bed',
+        summits_bed = '{prefix}_summits.bed',# crutch
         genome = config['references']['genome'],
         genome_sizes = config['references']['genome'] + ".fai",
     output:
         seqbed = "{prefix}_extbp_seq.bed",
         fa = "{prefix}_extbp_summits.fa",
     params:
+        # peak extended += ext_bp_arg i.e. 2*ext_bp_arg in total
+        # +- 250bp as in Ma et al. (2014), doi:10.1038/nprot.2014.083
         ext_bp_arg = "{}".format(config.get("ext_bp_arg", "250")),
+        max_peaks = 1000,
     log:
         "{prefix}_extbp.log"
     message:
-        "Summits to fastq"
+        "Peaks to fasta"
     shell:
         "{{ "
         # the following line fails with 141 (pipefail) in its original form. not sure why, but using fifo instead of pipe works.
         # "sort -k8,8rn -k7,7rn {input.summits_bed} | head -500 | coordinateSpan_Score.pl - {params.ext_bp_arg} > {output.seqbed};"
         #"coordinateSpan_Score.pl <(sort -k8,8rn -k7,7rn {input.summits_bed} | head -500) {params.ext_bp_arg} > {output.seqbed};"
-        # simply following box4 in doi:10.1038/nprot.2014.083
-        # FIXME add sorting back in?
-        "awk '{{c=$1; s=$2-{params.ext_bp_arg}; e=$3+{params.ext_bp_arg}; printf \"%s\\t%d\\t%d\\n\", c, s<0 ? 0 : s, e}}' {input.summits_bed} > {output.seqbed};"
+        #
+        # See also box4 in doi:10.1038/nprot.2014.083
+        #
+        # sort by pvalue, then foldchange. keep only params.max_peaks
+        # top hits. extension needs to be able to infer summit: for
+        # narrow (10 cols) this is $2+10; for broad (9 cols) we take
+        # the midpoint
+        "peaks=$(ls $(echo {input.summits_bed} | sed -e 's,_summits.bed,,')_peaks.[nb]*Peak);"
+        "sort -k8,8rn -k7,7rn $peaks | head -n {params.max_peaks} | "
+        " awk -v ext={params.ext_bp_arg} '{{if (NF==9) {{d=$3-$2; mp=$2+int(d/2); c=$1; s=$2-ext; e=$2+ext;}} else if (NF==10) {{c=$1; s=$2+$10-ext; e=$2+$10+1+ext}} else {{exit 1}} printf \"%s\\t%d\\t%d\\t%s\\n\", c, s<0 ? 0 : s, e, $4;}}' > {output.seqbed};"
         "bedtools getfasta -fi {input.genome} -bed {output.seqbed} -fo {output.fa};"
         " }} >& {log}"
 

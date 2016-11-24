@@ -81,7 +81,7 @@ rule bwaaln_map_filter_sort_n:
         "{{ bwa {params.mode} {params.bwa_aln_custom_args} {input.reffa}"
         " -r '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {input.sais} {input.fastqs} |"
-        " samtools fixmate - - |"
+        " samtools fixmate -O sam - - |"
         " samblaster |"
         " samtools view -h -F 0x4 -bu -q 20 - |"
         " samtools sort -n -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
