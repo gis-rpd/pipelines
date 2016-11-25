@@ -49,7 +49,6 @@ DFILTERPEAK_TO_ARG = {
     'TF': "-ks=10 -lpval=6 -nonzero -refine",
     'narrow': "-ks=60 -lpval=6",
     'broad': "-ks=20 -lpval=3 –nonzero",
-#    'openchromatin':  "-ks=50 -bs=100 -lpval=3",
 }
 
 
@@ -59,15 +58,15 @@ DFILTERPEAK_TO_ARG = {
 #
 if config['peak_type']  == "TF":
     METHOD_PEAK_COMB = ["macs2-narrow"]
-    #METHOD_PEAK_COMB.append("dfilter-TF")
+    METHOD_PEAK_COMB.append("dfilter-TF")
 
 elif config['peak_type']  == "histone-narrow":
     METHOD_PEAK_COMB = ["macs2-narrow"]
-    #METHOD_PEAK_COMB.append("dfilter-narrow")
+    METHOD_PEAK_COMB.append("dfilter-narrow")
 
 elif config['peak_type']  == "histone-broad":
     METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
-    #METHOD_PEAK_COMB.append("dfilter-broad")
+    METHOD_PEAK_COMB.append("dfilter-broad")
 
 else:
     raise ValueError(config['peak_type'])
@@ -127,12 +126,13 @@ rule macs2:
         cbdg = temp('{outdir}/macs2-{peak}/{sample}_control_lambda.bdg'),
         model = '{outdir}/macs2-{peak}/{sample}_model.r',
         peak_xls = '{outdir}/macs2-{peak}/{sample}_peaks.xls',
+        # peaks file not declared explicitely, because depends on mode
         # narrow:
-        # narrow_peak = '{outdir}/{sample}_peaks.narrowPeak',
-        # summits_bed = '{outdir}/{sample}_summits.bed'
+        #  narrow_peak = '{outdir}/{sample}_peaks.narrowPeak',
+        #  summits_bed = '{outdir}/{sample}_summits.bed'
         # broad:
-        # broad_peak = '{outdir}/{sample}_peaks.broadPeak',
-        # gapped_peak = '{outdir}/{sample}_peaks.gappedPeak',
+        #  broad_peak = '{outdir}/{sample}_peaks.broadPeak',
+        #  gapped_peak = '{outdir}/{sample}_peaks.gappedPeak',
         # created here even if run in broad mode
         #peak_file = lambda wc: '{outdir}/{sample}_peaks.{}Peak'.format(wc.outdir, wc.sample, wc.peak)
         summits_bed = '{outdir}/macs2-{peak}/{sample}_summits.bed'
@@ -173,14 +173,13 @@ rule macs2:
 rule bdg_to_bw:
     input:
         bdg = "{prefix}.bdg",
-        genome = config['references']['genome'],
         genome_sizes = config['references']['genome'] + ".fai",
     output:
         bw = "{prefix}.bw",
     log:
         "{prefix}.bw.log"
     message:
-        "Converting to bigwig"
+        "Converting bedgraph to bigwig"
     shell:
         "{{ "
         # convert bedgraph to bigwig
@@ -192,36 +191,77 @@ rule bdg_to_bw:
         "rm -f $tmp;"
         " }} >& {log}"
 
-
-rule peak_to_fasta:
+        
+rule wig_to_bw:
     input:
-        summits_bed = '{prefix}_summits.bed',# crutch
-        genome = config['references']['genome'],
+        wig = "{prefix}.wig",
         genome_sizes = config['references']['genome'] + ".fai",
     output:
-        seqbed = "{prefix}_extbp_seq.bed",
-        fa = "{prefix}_extbp_summits.fa",
+        bw = "{prefix}.bw",
+    log:
+        "{prefix}.bw.log"
+    message:
+        "Converting wig to bigwig"
+    shell:
+        "wigToBigWig {input.wig} {input.genome_sizes} {output.bw} >& {log}"
+        
+
+rule dfilter_peak_to_fasta:
+    input:
+        peaks = '{rootdir}/dfilter-{peak}/{prefix}.Peaks',
+        genome = config['references']['genome'],
+    output:
+        seqbed = "{rootdir}/dfilter-{peak}/{prefix}_extbp_seq.bed",
+        fa = "{rootdir}/dfilter-{peak}/{prefix}_extbp_summits.fa",        
+    params:
+        # peak extended += ext_bp_arg i.e. 2*ext_bp_arg in total
+        # +- 250bp as in Ma et al. (2014), doi:10.1038/nprot.2014.083
+        ext_bp_arg = "{}".format(config.get("ext_bp_arg", "250")),
+        max_peaks = 1000,            
+    log:
+        "{rootdir}/dfilter-{peak}/{prefix}_extbp.log"
+    message:
+        "Converting dfilter peaks to fasta"
+    shell:
+        #  sort by -log10 pvalue and tag-count:
+        "{{ "
+        # see https://lists.gnu.org/archive/html/bug-bash/2015-02/msg00052.html
+        # and https://news.ycombinator.com/item?id=9255830
+        " set +o pipefail; "
+        " tail -n +2 {input.peaks} | sort -k6,6rn -k7,7nr | head -n {params.max_peaks} | "
+        " awk -v ext={params.ext_bp_arg} '{{c=$1; s=$5-ext; e=$5+ext; printf \"%s\\t%d\\t%d\\n\", c, s<0 ? 0 : s, e;}}' > {output.seqbed};"
+        "bedtools getfasta -fi {input.genome} -bed {output.seqbed} -fo {output.fa};"
+        " }} >& {log}"
+
+
+rule macs2_peak_to_fasta:
+    input:
+        summits_bed = '{rootdir}/macs2-{peak}/{prefix}_summits.bed',# crutch
+        genome = config['references']['genome'],
+    output:
+        seqbed = "{rootdir}/macs2-{peak}/{prefix}_extbp_seq.bed",
+        fa = "{rootdir}/macs2-{peak}/{prefix}_extbp_summits.fa",
     params:
         # peak extended += ext_bp_arg i.e. 2*ext_bp_arg in total
         # +- 250bp as in Ma et al. (2014), doi:10.1038/nprot.2014.083
         ext_bp_arg = "{}".format(config.get("ext_bp_arg", "250")),
         max_peaks = 1000,
     log:
-        "{prefix}_extbp.log"
+        "{rootdir}/macs2-{peak}/{prefix}_extbp.log"
     message:
-        "Peaks to fasta"
+        "Converting MACS2 peaks to fasta"
     shell:
-        "{{ "
         # the following line fails with 141 (pipefail) in its original form. not sure why, but using fifo instead of pipe works.
         # "sort -k8,8rn -k7,7rn {input.summits_bed} | head -500 | coordinateSpan_Score.pl - {params.ext_bp_arg} > {output.seqbed};"
         #"coordinateSpan_Score.pl <(sort -k8,8rn -k7,7rn {input.summits_bed} | head -500) {params.ext_bp_arg} > {output.seqbed};"
         #
         # See also box4 in doi:10.1038/nprot.2014.083
         #
-        # sort by pvalue, then foldchange. keep only params.max_peaks
+        # sort by -log10 pvalue then foldchange. keep only params.max_peaks
         # top hits. extension needs to be able to infer summit: for
         # narrow (10 cols) this is $2+10; for broad (9 cols) we take
         # the midpoint
+        "{{ "
         "peaks=$(ls $(echo {input.summits_bed} | sed -e 's,_summits.bed,,')_peaks.[nb]*Peak);"
         "sort -k8,8rn -k7,7rn $peaks | head -n {params.max_peaks} | "
         " awk -v ext={params.ext_bp_arg} '{{if (NF==9) {{d=$3-$2; mp=$2+int(d/2); c=$1; s=$2-ext; e=$2+ext;}} else if (NF==10) {{c=$1; s=$2+$10-ext; e=$2+$10+1+ext}} else {{exit 1}} printf \"%s\\t%d\\t%d\\t%s\\n\", c, s<0 ? 0 : s, e, $4;}}' > {output.seqbed};"
@@ -229,45 +269,55 @@ rule peak_to_fasta:
         " }} >& {log}"
 
 
-#FIXME run dfilter as is
-#create macs2 equivalents (e.g. summit_bed in separate step
-#    summit_bed = '{outdir}/dfilter-{peak}/{sample}_summits.bed',# created by us
-#    ' ln -s {output.tracks} {output.summit_bed};'
-#rule dfilter:
-#    input:
-#        cbam = os.path.join(CONTROL_DIR, 'control.%s-nsrt.bam' % config['mapper']),
-#        tbam = os.path.join(RESULT_OUTDIR, '{sample}/{sample}.%s-nsrt.bam' % config['mapper']),
-#    output:
-#        peaks = '{outdir}/dfilter-{peak}/{sample}.Peaks',# see -o
-#        tracks = '{outdir}/dfilter-{peak}/{sample}.bed.PeaksTracks',# see -o
-#        # wig files are based on input file names, which we don't know at this point
-#        control_wig = '{outdir}/dfilter-{peak}/{sample}_control.wig',
-#        treatment_wig = '{outdir}/dfilter-{peak}/{sample}_treatment.wig',
-#        filtered_treatment_wig = '{outdir}/dfilter-{peak}/{sample}_treat_pileup.wig',
-#    log:
-#        "{outdir}/dfilter-{peak}/dfilter.log"
-#    message:
-#        "Running Dfilter"
-#    params:
-#        peak_arg = lambda wc: DFILTERPEAK_TO_ARG[wc.peak],
-#        read_type_arg = '-pe' if config['paired_end'] else '',
-#        outprefix = lambda wc: os.path.join(wc.outdir, "dfilter-" + wc.peak, wc.sample)
-#    shell:
-#        '{{ '
-#        'od=$(dirname {params.outprefix}); test -d $od || mkdir $od;'
-#        'run_dfilter.sh -d={input.tbam} -c={input.cbam} -o={params.outprefix}'
-#        ' -wig -f=bam {params.peak_arg} {params.read_type_arg};'
-#        # control samples always called control
-#        'mv $od/control*wig {output.control_wig}_;'
-#        'mv $od/filtered*wig {filtered_treatment_wig}_;'
-#        # only one left
-#        'mv $od/*wig {output.treatment_wig};'
-#        'mv {output.control_wig}_ {output.control_wig};'
-#        'mv {filtered_treatment_wig}_ {filtered_treatment_wig};'
-#        'test -f comkernel && rm -f comkernel;'
-#        ' }} >& {log}'
-#    
-#
+rule dfilter:
+    input:
+        cbam = os.path.join(CONTROL_DIR, 'control.%s-nsrt.bam' % config['mapper']),
+        tbam = os.path.join(RESULT_OUTDIR, '{sample}/{sample}.%s-nsrt.bam' % config['mapper']),
+    output:
+        # dfilter has inconsistent output naming scheme. below is what's actually created.
+        # we rename these. actual dfilter output:
+        # - assuming: oprefix given as arg to -o
+        # - annoyingly wig files are based on input file names, i.e. can't be defined in output
+        # - $(dirname $oprefix)/$(basename $controlbam).wig
+        # - $(dirname $oprefix)/$(basename $treatmentbam).wig
+        # - $(dirname $oprefix)/filtered-$(basename $treatmentbam).wig
+        # - {oprefix}.Peaks
+        # - previous versions: {oprefix}.bed.PeakTracks
+        # - $(dirname $oprefix)/track-$(basename $oprefix).bed
+        peaks = '{outdir}/dfilter-{peak}/{sample}.Peaks',
+        summits_bed = '{outdir}/dfilter-{peak}/{sample}_summits.bed',
+        control_wig = '{outdir}/dfilter-{peak}/{sample}_control.wig',
+        treatment_wig = '{outdir}/dfilter-{peak}/{sample}_treatment.wig',
+        filtered_treatment_wig = '{outdir}/dfilter-{peak}/{sample}_filtered_treatment.wig',
+        treatment_pileup_wig = '{outdir}/dfilter-{peak}/{sample}_treat_pileup.wig',# fake to match macs2 naming
+    log:
+        "{outdir}/dfilter-{peak}/dfilter.log"
+    message:
+        "Running Dfilter"
+    params:
+        peak_arg = lambda wc: DFILTERPEAK_TO_ARG[wc.peak],
+        read_type_arg = '-pe' if config['paired_end'] else '',
+        outprefix = lambda wc: os.path.join(wc.outdir, "dfilter-" + wc.peak, wc.sample)
+    shell:
+        '{{ '
+        'od=$(dirname {params.outprefix}); test -d $od || mkdir $od;'
+        'run_dfilter.sh -d={input.tbam} -c={input.cbam} -o={params.outprefix}'
+        ' -wig -f=bam {params.peak_arg} {params.read_type_arg};'
+        # might be cleaner to split the renaming below into separate rules.
+        # different versions name the bed file differently, but there is only one, so rename lazily
+        'mv $od/*bed {output.summits_bed};'
+        # control samples always called control so move this first (treatment samples might be called anything)
+        'mv $od/control*wig {output.control_wig}_;'
+        'mv $od/filtered*wig {output.filtered_treatment_wig}_;'
+        # only one with wig extension left: treatment
+        'mv $od/*wig {output.treatment_wig};'
+        'mv {output.control_wig}_ {output.control_wig};'
+        'mv {output.filtered_treatment_wig}_ {output.filtered_treatment_wig};'
+        'ln -s $(basename {output.filtered_treatment_wig}) {output.treatment_pileup_wig};'
+         # deleted accidentally left over stuff
+        'test -f comkernel && rm -f comkernel;'
+        ' }} >& {log}'
+    
 
 rule memechip:
     input:
