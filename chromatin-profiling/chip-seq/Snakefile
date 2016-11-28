@@ -318,6 +318,7 @@ rule dfilter:
         'mv {output.control_wig}_ {output.control_wig};'
         'mv {output.filtered_treatment_wig}_ {output.filtered_treatment_wig};'
         'ln -s $(basename {output.filtered_treatment_wig}) {output.treatment_pileup_wig};'
+        'touch -h {output.treatment_pileup_wig};'# see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
          # deleted accidentally left over stuff
         'test -f comkernel && rm -f comkernel;'
         ' }} >& {log}'
