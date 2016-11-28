@@ -225,7 +225,7 @@ rule dfilter_peak_to_fasta:
     shell:
         #  sort by -log10 pvalue and tag-count:
         "{{ "
-        # see https://lists.gnu.org/archive/html/bug-bash/2015-02/msg00052.html
+        # pipefail needed for head: see https://lists.gnu.org/archive/html/bug-bash/2015-02/msg00052.html
         # and https://news.ycombinator.com/item?id=9255830
         " set +o pipefail; "
         " tail -n +2 {input.peaks} | sort -k6,6rn -k7,7nr | head -n {params.max_peaks} | "
@@ -255,13 +255,17 @@ rule macs2_peak_to_fasta:
         # "sort -k8,8rn -k7,7rn {input.summits_bed} | head -500 | coordinateSpan_Score.pl - {params.ext_bp_arg} > {output.seqbed};"
         #"coordinateSpan_Score.pl <(sort -k8,8rn -k7,7rn {input.summits_bed} | head -500) {params.ext_bp_arg} > {output.seqbed};"
         #
-        # See also box4 in doi:10.1038/nprot.2014.083
+        # See also box4 in Ma (2014) doi:10.1038/nprot.2014.083
         #
-        # sort by -log10 pvalue then foldchange. keep only params.max_peaks
+        # sort by -log10 pvalue then foldchange (Willbanks & Facciotti, 2010, doi:10.1371/journal.pone.0011471).
+        # keep only params.max_peaks
         # top hits. extension needs to be able to infer summit: for
         # narrow (10 cols) this is $2+10; for broad (9 cols) we take
         # the midpoint
         "{{ "
+        # pipefail needed for head: see https://lists.gnu.org/archive/html/bug-bash/2015-02/msg00052.html
+        # and https://news.ycombinator.com/item?id=9255830
+        "set +o pipefail; "
         "peaks=$(ls $(echo {input.summits_bed} | sed -e 's,_summits.bed,,')_peaks.[nb]*Peak);"
         "sort -k8,8rn -k7,7rn $peaks | head -n {params.max_peaks} | "
         " awk -v ext={params.ext_bp_arg} '{{if (NF==9) {{d=$3-$2; mp=$2+int(d/2); c=$1; s=$2-ext; e=$2+ext;}} else if (NF==10) {{c=$1; s=$2+$10-ext; e=$2+$10+1+ext}} else {{exit 1}} printf \"%s\\t%d\\t%d\\t%s\\n\", c, s<0 ? 0 : s, e, $4;}}' > {output.seqbed};"
