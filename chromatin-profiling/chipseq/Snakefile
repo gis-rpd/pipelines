@@ -124,7 +124,7 @@ rule macs2:
         # all suffices predefined by macs2
         tbdg = temp('{outdir}/macs2-{peak}/{sample}_treat_pileup.bdg'),
         cbdg = temp('{outdir}/macs2-{peak}/{sample}_control_lambda.bdg'),
-        model = '{outdir}/macs2-{peak}/{sample}_model.r',
+        # sometime missing? model = '{outdir}/macs2-{peak}/{sample}_model.r',
         peak_xls = '{outdir}/macs2-{peak}/{sample}_peaks.xls',
         # peaks file not declared explicitely, because depends on mode
         # narrow:
@@ -300,7 +300,8 @@ rule dfilter:
         "Running Dfilter"
     params:
         peak_arg = lambda wc: DFILTERPEAK_TO_ARG[wc.peak],
-        read_type_arg = '-pe' if config['paired_end'] else '',
+        #read_type_arg = '-pe' if config['paired_end'] else '',
+        read_type_arg = '', # vibhor 2016-11-28: no need (after seeing crashes)
         outprefix = lambda wc: os.path.join(wc.outdir, "dfilter-" + wc.peak, wc.sample)
     shell:
         '{{ '
