@@ -79,15 +79,22 @@ rule final:
             os.path.join(RESULT_OUTDIR, "{sample}/{methodpeak}/{sample}_extbp_summits.fa"),
             sample=[s for s in config['samples'] if s != 'control'],
             methodpeak=METHOD_PEAK_COMB),
-        bw = expand(
+        treatment_bw = expand(
             os.path.join(RESULT_OUTDIR, "{sample}/{methodpeak}/{sample}_treat_pileup.bw"),
+            sample=[s for s in config['samples'] if s != 'control'],
+            methodpeak=METHOD_PEAK_COMB),
+        control_bw = expand(
+            os.path.join(RESULT_OUTDIR, "{sample}/{methodpeak}/{sample}_control_lambda.bw"),
             sample=[s for s in config['samples'] if s != 'control'],
             methodpeak=METHOD_PEAK_COMB),
         memechip_html = expand(
             os.path.join(RESULT_OUTDIR, "{sample}/{methodpeak}/{sample}-{MEMECHIP_OUTDIR_SUFFIX}", "index.html"),
             sample=[s for s in config['samples'] if s != 'control'],
             methodpeak=METHOD_PEAK_COMB,
-            MEMECHIP_OUTDIR_SUFFIX=MEMECHIP_OUTDIR_SUFFIX)
+            MEMECHIP_OUTDIR_SUFFIX=MEMECHIP_OUTDIR_SUFFIX),
+        tbam_stats = expand(
+            os.path.join(RESULT_OUTDIR, '{sample}/{sample}.%s-nsrt.bamstats/stats.txt' % config['mapper']),
+            sample=[s for s in config['samples'] if s != 'control'])
 
         
 rule unit_merge_n:
@@ -290,7 +297,7 @@ rule dfilter:
         # - $(dirname $oprefix)/track-$(basename $oprefix).bed
         peaks = '{outdir}/dfilter-{peak}/{sample}.Peaks',
         summits_bed = '{outdir}/dfilter-{peak}/{sample}_summits.bed',
-        control_wig = '{outdir}/dfilter-{peak}/{sample}_control.wig',
+        control_wig = '{outdir}/dfilter-{peak}/{sample}_control_lambda.wig',
         treatment_wig = '{outdir}/dfilter-{peak}/{sample}_treatment.wig',
         filtered_treatment_wig = '{outdir}/dfilter-{peak}/{sample}_filtered_treatment.wig',
         treatment_pileup_wig = '{outdir}/dfilter-{peak}/{sample}_treat_pileup.wig',# fake to match macs2 naming

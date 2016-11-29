@@ -222,7 +222,8 @@ def main():
         refs_cfgfile=args.references_cfg,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
-    logger.critical("No BAM injection")
+    if args.control_bam or args.treatment_bam:
+        raise NotImplementedError("BAM injection not implemented yet")
     pipeline_handler.submit(args.no_run)
 
 
