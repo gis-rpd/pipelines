@@ -68,7 +68,7 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
     clustercmd="-pe OpenMP {{threads}} -l mem_free={{cluster.mem}} -l h_rt={{cluster.time}}"
-    # IT TESTING: clustercmd="$clustercmd -jsv /opt/uge-8.1.7p3/scripts/jsv/job_verify_memfree_new3.pl"
+    # echo "DEBUG TESTING NEW JSV FILE" 1>&2; clustercmd="$clustercmd -jsv /opt/uge-8.1.7p3/scripts/jsv/job_verify_memfree_new3.pl"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     clustercmd="$clustercmd -cwd -e $LOGDIR -o $LOGDIR"
     if [ -n "$SLAVE_Q" ]; then

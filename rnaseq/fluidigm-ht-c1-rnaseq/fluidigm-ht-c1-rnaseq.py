@@ -110,7 +110,7 @@ def main():
     parser.add_argument('-2', "--fq2", nargs="+",
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample",
-                        help="Sample name. Collides with --sample-cfg.")
+                        help="Sample name (do not use the underscore character!). Collides with --sample-cfg.")
 
     args = parser.parse_args()
 
