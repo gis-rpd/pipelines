@@ -317,7 +317,8 @@ rule dfilter:
         ' -wig -f=bam {params.peak_arg} {params.read_type_arg};'
         # might be cleaner to split the renaming below into separate rules.
         # different versions name the bed file differently, but there is only one, so rename lazily
-        'mv $od/*bed {output.summits_bed};'
+        'bed=$(ls $od/*.bed 2>/dev/null || ls $od/*.bed.PeakTracks);'
+        'mv $bed {output.summits_bed};'
         # control samples always called control so move this first (treatment samples might be called anything)
         'mv $od/control*wig {output.control_wig}_;'
         'mv $od/filtered*wig {output.filtered_treatment_wig}_;'
