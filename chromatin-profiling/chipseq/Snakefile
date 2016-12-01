@@ -291,10 +291,11 @@ rule dfilter:
         # - annoyingly wig files are based on input file names, i.e. can't be defined in output
         # - $(dirname $oprefix)/$(basename $controlbam).wig
         # - $(dirname $oprefix)/$(basename $treatmentbam).wig
-        # - $(dirname $oprefix)/filtered-$(basename $treatmentbam).wig
+        # - $(dirname $oprefix)/$(basename $treatmentbam).filtered.wig
         # - {oprefix}.Peaks
-        # - previous versions: {oprefix}.bed.PeakTracks
-        # - $(dirname $oprefix)/track-$(basename $oprefix).bed
+        # - previous previous versions: {oprefix}.bed.PeakTracks
+        # - previous $(dirname $oprefix)/track-$(basename $oprefix).bed
+        # - current versions: {oprefix}.PeakTracks.bed
         peaks = '{outdir}/dfilter-{peak}/{sample}.Peaks',
         summits_bed = '{outdir}/dfilter-{peak}/{sample}_summits.bed',
         control_wig = '{outdir}/dfilter-{peak}/{sample}_control_lambda.wig',
@@ -321,7 +322,7 @@ rule dfilter:
         'mv $bed {output.summits_bed};'
         # control samples always called control so move this first (treatment samples might be called anything)
         'mv $od/control*wig {output.control_wig}_;'
-        'mv $od/filtered*wig {output.filtered_treatment_wig}_;'
+        'mv $od/*filtered.wig {output.filtered_treatment_wig}_;'
         # only one with wig extension left: treatment
         'mv $od/*wig {output.treatment_wig};'
         'mv {output.control_wig}_ {output.control_wig};'
