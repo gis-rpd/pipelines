@@ -37,17 +37,22 @@
       "mem" : 12G,
     },
 
-
     "dedup":
     {
        "time" : "4:00:00",
        "mem" : 8G,
     },
 
-    "lofreq_somatic" :
+    "lofreq_somatic":
     {
       "time" : "12:00:00",
       "mem" : 16G,
     }
-}    
+    "snpeff":
+    {
+      "time" : "02:00:00",
+      "mem" : 6G,
+    },
+
+}
 

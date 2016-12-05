@@ -1,35 +1,33 @@
-# FIXME needs tweaking
 {
-    # default rules applied to all rules, but overriden by rule-specific settings
+    # match short queue
     "__default__" :
     {
       "time" : "02:00:00",
-      "mem" : 2G,
+      "mem" : 1G,
     },
 
-    # longest we've seen on MUX3275@GIS: 28h
     "bq_recal" :
     {
       "time" : "30:00:00",
-      "mem" : 8G,
+      "mem" : 4G,
     },
     
     "unit_merge" :
     {
       "time" : "04:00:00",
-      "mem" : 4G,
+      "mem" : 1G,
     },
     
     "map_mdups_sort" :
     {
       "time" : "02:00:00",
-      "mem" : 18G,
+      "mem" : 10G,
     },
     
     "contamination_check" :
     {
       "time" : "06:00:00",
-      "mem" : 2G,
+      "mem" : 1G,
     }
 }    
                                                                 

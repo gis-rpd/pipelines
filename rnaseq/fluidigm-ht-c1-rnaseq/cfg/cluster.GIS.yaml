@@ -1,22 +1,27 @@
-# FIXME needs tweaking
 {
-    # default rules applied to all rules, but overriden by rule-specific settings
+    # match short queue
     "__default__":
     {
       "time" : "02:00:00",
-      "mem" : 4G,
+      "mem" : 1G,
     },
 
     "star_mapping":
     {
       "time" : "06:00:00",
-      "mem" : 42G,
+      "mem" : 34G,
     },
 
     "rnaseqQC":
     {
-      "time" : "01:00:00",
-      "mem" : 20G,
+      "time" : "02:00:00",
+      "mem" : 2G,
+    },
+    
+    "RSEM":
+    {
+      "time" : "02:00:00",
+      "mem" : 4G,
     },    
 }    
 

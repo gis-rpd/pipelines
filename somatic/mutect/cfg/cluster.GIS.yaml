@@ -1,54 +1,57 @@
-# FIXME needs tweaking
 {
-    # default rules applied to all rules, but overriden by rule-specific settings
+    # match short queue
     "__default__" :
     {
       "time" : "02:00:00",
-      "mem" : 2G,
+      "mem" : 1G,
     },
 
     "map_sort":
     {
       "time" : "12:00:00",
-      "mem" : 36G,
+      "mem" : 14G,
     },
 
     "dedup":
     {
        "time" : "4:00:00",
-       "mem" : 8G,
+       "mem" : 6G,
     },
 
     "gatk_realign_info":
     {
        "time" : "02:00:00",
-       "mem" : 24G,
+       "mem" : 4G,
     },
 
     "gatk_realign_bam":
     {
       "time" : "24:00:00",
-      "mem" : 24G,
+      "mem" : 6G,
     },
 
     "gatk_recalibrate_info":
     {
       "time" : "12:00:00",
-      "mem" : 24G,
+      "mem" : 4G,
     },
 
     "gatk_recalibrate_bam":
     {
       "time" : "28:00:00",
-      "mem" : 24G,
+      "mem" : 4G,
     },
 
     "mutect_per_region":
     {
       "time" : "4:00:00",
-      "mem" : 8G,
+      "mem" : 3G,
     },
-    
+    "snpeff":
+    {
+      "time" : "02:00:00",
+      "mem" : 6G,
+    },
     
 }    
 

@@ -43,19 +43,19 @@
 
     "gatk_selectvariants":
      {
-      "time" : "01:00:00",
+      "time" : "02:00:00",
       "mem" : 24G,
      },
 
     "gatk_hard_filter_snps":
     {
-      "time" : "01:00:00",
+      "time" : "02:00:00",
       "mem" : 24G,
     },
 
     "gatk_hard_filter_indels":
     {
-      "time" : "01:00:00",
+      "time" : "02:00:00",
       "mem" : 24G,
     },
 
@@ -67,8 +67,14 @@
 
     "gatk_apply_variant_recalibration":
     {
-      "time" : "01:00:00",
+      "time" : "02:00:00",
       "mem" : 24G,
+    },
+    
+    "snpeff":
+    {
+      "time" : "02:00:00",
+      "mem" : 6G,
     },
 
 }
