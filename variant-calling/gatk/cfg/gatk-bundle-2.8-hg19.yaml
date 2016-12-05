@@ -61,6 +61,7 @@ excl_chrom:
 - chrUn_gl000249
 g1k: $RPD_GENOMES/gatk-bundle/2.8/hg19/1000G_phase1.snps.high_confidence.hg19.vcf.gz
 genome: $RPD_GENOMES/gatk-bundle/2.8/hg19/ucsc.hg19.fasta
+snpeff_genome: hg19
 hapmap: $RPD_GENOMES/gatk-bundle/2.8/hg19/hapmap_3.3.hg19.vcf.gz
 mills: $RPD_GENOMES/gatk-bundle/2.8/hg19/Mills_and_1000G_gold_standard.indels.hg19.vcf.gz
 omni: $RPD_GENOMES/gatk-bundle/2.8/hg19/1000G_omni2.5.hg19.vcf.gz

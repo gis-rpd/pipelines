@@ -22,7 +22,7 @@ The following steps are performed:
 - Mutect results can be found in the `variants` subfolder. The most important are
     - `mutect.txt.gz`: Mutect's extended output
     - `mutect.wig.gz`: Coverage data
-    - `mutect.vcf.gz`: All variants
-    - `mutect.PASS.vcf.gz`: Only passed variants
+    - `mutect.vcf.gz`: All variants (annotated: `mutect.snpeff.vcf.gz`)
+    - `mutect.PASS.vcf.gz`: Only passed variants (annotated: `mutect.PASS.snpeff.vcf.gz`)
 
 

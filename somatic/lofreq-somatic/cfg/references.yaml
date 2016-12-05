@@ -1,4 +1,5 @@
 genome: $RPD_GENOMES/gatk-bundle/2.8/b37/human_g1k_v37_decoy.fasta
+snpeff_genome: GRCh37.75    
 dbsnp: $RPD_GENOMES/gatk-bundle/2.8/b37/dbsnp_138.b37.vcf.gz
 excl_chrom:
 - hs37d5

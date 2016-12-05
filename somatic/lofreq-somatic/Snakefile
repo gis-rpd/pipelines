@@ -27,9 +27,11 @@ shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 
+include: "../../rules/snpeff.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/sambamba.rules"
+include: "../../rules/vcf.rules"
 include: "../../rules/report.rules"
 include: "lofreq.rules"
 include: "lacer.rules"
@@ -48,8 +50,8 @@ VARIANTS_DIR = os.path.join(RESULT_OUTDIR, 'variants')
         
 rule final:
     input:
-        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.vcf.gz'),
-        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.vcf.gz'),
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.snpeff.vcf.gz.tbi'),
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.snpeff.vcf.gz.tbi'),
         "report.html"
 
 

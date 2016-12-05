@@ -16,5 +16,5 @@ The following steps are performed:
 ## Output
 
 - Recalibrated BAM file per sample: `{sample}.bwamem.lofreq.lacer.bam`
-- Called variants: `{sample}.bwamem.lofreq.lacer.{type}.vcf.gz`
+- Called variants: `{sample}.bwamem.lofreq.lacer.{type}.vcf.gz` (annotated: `{sample}.bwamem.lofreq.lacer.{type}.snpeff.vcf.gz`)
 - Mapping statistics: `{sample}.bwamem.lofreq.lacer.bamstats`

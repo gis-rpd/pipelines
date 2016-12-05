@@ -24,6 +24,7 @@ RESULT_OUTDIR = 'out'
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
+include: "../../rules/snpeff.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
@@ -55,9 +56,9 @@ rule final:
     input:
         expand(out_templ + ".bamstats/stats.txt",
                sample=config['samples']),
-        expand(out_templ + ".gt.{vartype}_{filters}.vcf.gz",
+        expand(out_templ + ".gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
                sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
-        expand(out_templ + ".concat.g.vcf.gz",
+        expand(out_templ + ".concat.g.vcf.gz.tbi",
                sample=config['samples']),
         report="report.html"
 

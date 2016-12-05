@@ -28,8 +28,10 @@ shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 
+include: "../../rules/snpeff.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
+include: "../../rules/vcf.rules"
 include: "../../rules/sambamba.rules"
 include: "../../rules/report.rules"
 include: "lofreq.rules"
@@ -48,7 +50,7 @@ if config['mark_dups']:
 out_template += ".lacer"
 rule final:
     input:
-        expand(out_template + ".{vartype}.vcf.gz", sample=config['samples'], vartype=["snps", "indels"]),
+        expand(out_template + ".{vartype}.snpeff.vcf.gz.tbi", sample=config['samples'], vartype=["snps", "indels"]),
         expand(out_template + ".bamstats/stats.txt", sample=config['samples']),
         "report.html"
 

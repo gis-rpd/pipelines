@@ -31,6 +31,7 @@ TUMOR_DIR = os.path.join(RESULT_OUTDIR, 'tumor')
 VARIANTS_DIR = os.path.join(RESULT_OUTDIR, 'variants')
 
 
+include: "../../rules/snpeff.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
@@ -51,7 +52,7 @@ assert sorted(config['samples']) == sorted(["normal", "tumor"])
 
 rule final:
     input:
-        os.path.join(VARIANTS_DIR, 'mutect.PASS.vcf.gz.tbi'),
+        os.path.join(VARIANTS_DIR, 'mutect.PASS.snpeff.vcf.gz.tbi'),
         "report.html"
 
 

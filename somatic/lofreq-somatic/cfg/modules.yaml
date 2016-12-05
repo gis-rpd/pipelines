@@ -6,3 +6,5 @@ lofreq: 2.1.2
 sambamba: 0.6.4
 samtools: 1.3
 split_bam_by_chr: 274f3fe
+snpeff: 4.2
+  

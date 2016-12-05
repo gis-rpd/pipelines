@@ -28,5 +28,7 @@ viterbi`, recalibrates base qualities with Lacer (author:
 - Realigned and recalibrated BAM file:
   `{sample}.bwamem.lofreq.dedup.lacer.bam` (`dedup` will be missing if
   mark duplicates was switched off)
-- Variants (`snps` or `indels`): BAM name + `.{vartype}.snps.vcf.gz`
+- Variants (`snps` or `indels`): BAM name + `.{vartype}.vcf.gz`
+- Variants annotated with SnpEff end in `.{vartype}.snpeff.vcf.gz`
+
 
