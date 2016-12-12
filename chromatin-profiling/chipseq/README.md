@@ -20,12 +20,12 @@ The following steps are performed:
 
 - Mapped and processed BAM files for control and treatment in the correspondly named subfolders
 - Peak calling results, motif discovery results and mapping stats can be found in the treatment subfolders. The most important are
-    -`treatment_peaks.xls`: Information about the called peaks and peaks coordinates (macs2 only)
-    -`treatment.Peaks`: Information about the called peaks and peaks coordinates (dfilter only)
-    -`treatment_summits.bed`: Bed format of the peak summits locations for every peak
-    -`treatment_control_lambda.bw`: Control tag density profile to Visualize in ucsc/igv
-    -`treatment_treat_pileup.bw`: Treatment tag density profile to Visualize in ucsc/igv
-    -`treatment_filtered_treatment.wig`: Background smoothened treatment tag density profile (dfilter only)
-    -`index.html and meme.html`: Discovered motif results
-    -`stats.txt`: Mapping rate stats
+    - `treatment_peaks.xls`: Information about the called peaks and peaks coordinates (macs2 only)
+    - `treatment.Peaks`: Information about the called peaks and peaks coordinates (dfilter only)
+    - `treatment_summits.bed`: Bed format of the peak summits locations for every peak
+    - `treatment_control_lambda.bw`: Control tag density profile to Visualize in ucsc/igv
+    - `treatment_treat_pileup.bw`: Treatment tag density profile to Visualize in ucsc/igv
+    - `treatment_filtered_treatment.wig`: Background smoothened treatment tag density profile (dfilter only)
+    - `index.html and meme.html`: Discovered motif results
+    - `stats.txt`: Mapping rate stats
 
