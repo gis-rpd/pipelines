@@ -5,8 +5,8 @@
 This pipeline calling peaks of ChIP-Seq data with peak caller programs MACS2 and DFilter.
 MACS version macs2 2.1.0.20150731; see [paper] (https://genomebiology.biomedcentral.com/articles/10.1186/gb-2008-9-9-r137) and [homepage] (https://github.com/taoliu/MACS)
 DFilter version 1.6; see [paper] (http://www.nature.com/nbt/journal/v31/n7/full/nbt.2596.html)
-and [faq] (http://collaborations.gis.a-star.edu.sg/~cmb6/kumarv1/dfilter/dfilter-FAQs.html) [homepage] (http://collaborations.gis.a-star.edu.sg/~cmb6/kumarv1/dfilter/tutorial.html#parameters)
-The motif discovery by meme prog. [homepage] (http://meme-suite.org/) see [paper] (http://nar.oxfordjournals.org/content/37/suppl_2/W202.full)
+and [homepage] (http://collaborations.gis.a-star.edu.sg/~cmb6/kumarv1/dfilter/tutorial.html#parameters), [faq] (http://collaborations.gis.a-star.edu.sg/~cmb6/kumarv1/dfilter/dfilter-FAQs.html)
+The motif discovery by meme prog. see [paper] (http://nar.oxfordjournals.org/content/37/suppl_2/W202.full) and [homepage] (http://meme-suite.org/)
 
 The following steps are performed:
 
