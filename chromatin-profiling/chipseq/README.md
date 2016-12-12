@@ -13,7 +13,7 @@ The following steps are performed:
 - Read mapping (see `cfg/references.yaml` for references used by default  and also refer to  option `--references-cfg`)
 - Filtering duplicated reads, unmapped reads and reads with bad mapping quality (-q 20) with samtools
 - Peak calling with MACS and DFilter with control and input samples (see `cfg/params.yaml` for parameters used by default  and also refer to  option ` --modules-cfg`)
-- Generating visualization files "BigWig" and extract sequences of extended peak summit region and  do motif discovery with meme
+- Generating visualization files "BigWig" and extract the sequences of extended peak summit region followed by motif discovery with meme
 - Annotating the peaks with nearest genes and genome wide region assignment
 
 ## Output
