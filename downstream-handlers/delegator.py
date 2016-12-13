@@ -243,10 +243,9 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                                 k = key_for_readunit(ru)
                                 readunits_dict[k] = dict(ru._asdict())
                                 sample_dict['readunits'] = readunits_dict
-   
-def main():                             sample_info[sample] = sample_dict
+                                sample_info[sample] = sample_dict
     return sample_info, mux_analysis_list
-
+def main():
     """main function
     """
     parser = argparse.ArgumentParser(description=__doc__)
