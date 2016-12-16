@@ -1,7 +1,9 @@
 *nohup.out
 
 # configs in separate repo
-etc/*yaml
+etc/mongo.yaml
+etc/rest.yaml
+etc/site.yaml
 
 # created on the fly from README.rst's
 *README.html

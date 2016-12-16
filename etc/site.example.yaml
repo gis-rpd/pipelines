@@ -1,0 +1,17 @@
+name: SITE-NAME
+smtp_server: SMTP-SERVER
+init: INIT-TO-SOURCE
+default_master_q:
+  enduser: QUEUENAME
+  production: QUEUENAME
+default_slave_q:
+  enduser: QUEUENAME
+  production: QUEUENAME
+bcl2fastq_seqdir_base: PATH
+bcl2fastq_outdir_base:
+  devel: PATH
+  production: PATH
+downstream_outdir_base:
+  devel: PATH
+  production: PATH
+                       
