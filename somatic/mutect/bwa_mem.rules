@@ -63,4 +63,4 @@ rule map_sort:
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate - - |"
-        " samtools sort $(echo \"({threads}+1)/2\" | bc) -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
+        " samtools sort -@ $(echo \"({threads}+1)/2\" | bc) -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
