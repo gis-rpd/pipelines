@@ -40,7 +40,7 @@
 # snakemake control job run time: 175h == 1 week
 #PBS -l walltime={MASTER_WALLTIME_H}:00:00
 # cpu & memory: memory shoots up for heavily multiplexed libraries
-#PBS -l select=1:mem=16g:ncpus=1
+#PBS -l select=1:mem=4g:ncpus=1
 # keep env so that qsub works
 #PBS -V
 # Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround

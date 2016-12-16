@@ -40,7 +40,7 @@
 # snakemake control job run time
 #$ -l h_rt={MASTER_WALLTIME_H}:00:00
 # memory: can be massive for complex DAGs
-#$ -l mem_free=16G
+#$ -l mem_free=4G
 # 'parallel env'
 #$ -pe OpenMP 1
 # run the job in the current working directory (where qsub is called)
