@@ -26,8 +26,8 @@ import requests
 
 #--- project specific imports
 #
-from services import SMTP_SERVER
-from services import rest_services
+from config import site_cfg
+from config import rest_services
 
 
 __author__ = "Andreas Wilm"
@@ -48,45 +48,6 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 # dir relative to Snakefile where configs are to be found
-CFG_DIR = "cfg"
-
-INIT = {
-    # FIXME make env instead? because caller knows, right?
-    'GIS': "/mnt/projects/rpd/init",
-    #'NSCC': "/seq/astar/gis/rpd/init",
-    'NSCC': '/home/users/astar/gis/gisshared/rpd/init',
-    'local': "true",# dummy command
-}
-
-
-DEFAULT_SLAVE_Q = {
-    'GIS': {
-        'enduser': None, 'production': None,
-    },
-    'NSCC': {
-        'enduser': None, 'production': 'production',
-    }
-}
-
-DEFAULT_MASTER_Q = {
-    'GIS': {
-        'enduser': None, 'production': None,
-    },
-    'NSCC': {
-        'enduser': None, 'production': 'production',
-    }
-}
-
-
-DOWNSTREAM_OUTDIR_BASE = {
-    'GIS': {
-        'devel': '/mnt/projects/rpd/testing/output/downstream',
-        'production': '/mnt/projects/userrig/solexa/downstream'},
-    'NSCC': {
-        'devel': '/seq/astar/gis/rpd/testing/output/downstream/',
-        'production': '/seq/astar/gis/seq/downstream'}
-}
-
 
 # from address, i.e. users should reply to to this
 # instead of rpd@gis to which we send email
@@ -104,20 +65,14 @@ PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
 
-def get_downstream_outdir(requestor, pipeline_name,
-                          pipeline_version=None, site=None,
-                          basedir_map=DOWNSTREAM_OUTDIR_BASE):
+def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
     """generate downstream output directory
     """
 
-    if not site:
-        site = get_site()
-    if site not in basedir_map:
-        raise ValueError(site)
     if is_devel_version():
-        basedir = basedir_map[site]['devel']
+        basedir = site_cfg['downstream_outdir_base']['devel']
     else:
-        basedir = basedir_map[site]['production']
+        basedir = site_cfg['downstream_outdir_base']['devel']
     if pipeline_version:
         pversion = pipeline_version
     else:
@@ -478,17 +433,9 @@ def is_devel_version():
 
 
 def get_site():
-    """Determine site where we're running. Throws ValueError if unknown
+    """Where are we running
     """
-    # gis detection is a bit naive... but socket.getfqdn() doesn't help here
-    # also possible: ip a | grep -q 192.168.190 && NSCC=1
-    # but will only work on lmn
-    if os.path.exists('/home/users/astar/gis/userrig'):# 'NSCC' in socket.getfqdn():
-        return "NSCC"
-    elif os.path.exists("/home/userrig"):
-        return "GIS"
-    else:
-        return "local"
+    return site_cfg['name']
 
 
 def get_cluster_cfgfile(cfg_dir):
@@ -504,13 +451,8 @@ def get_cluster_cfgfile(cfg_dir):
 def get_init_call():
     """return dotkit init call
     """
-    site = get_site()
-    try:
-        cmd = [INIT[get_site()]]
-    except KeyError:
-        raise ValueError("Unknown site '{}'".format(site))
-
-    if is_devel_version() and site != "local":
+    cmd = [site_cfg['init']]
+    if is_devel_version():
         cmd.append('-d')
 
     return cmd
@@ -597,20 +539,15 @@ def is_production_user():
 
 
 def get_default_queue(master_or_slave):
-    """FIXME:add-doc
+    """return cluster queue (for current user)
     """
 
     if is_production_user():
         user = 'production'
     else:
         user = 'enduser'
-    site = get_site()
-    if master_or_slave == 'master':
-        return DEFAULT_MASTER_Q[site][user]
-    elif master_or_slave == 'slave':
-        return DEFAULT_MASTER_Q[site][user]
-    else:
-        raise ValueError(master_or_slave)
+    key = 'default_{}_q'.format(master_or_slave)
+    return site_cfg[key][user]
 
 
 def send_status_mail(pipeline_name, success, analysis_id, outdir,
@@ -651,8 +588,7 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir,
     else:
         msg['To'] = email_for_user()
 
-    site = get_site()
-    server = smtplib.SMTP(SMTP_SERVER[site])
+    server = smtplib.SMTP(site_cfg['smtp_server'])
     try:
         server.send_message(msg)
         server.quit()
@@ -688,8 +624,7 @@ def send_mail(subject, body, toaddr=None, ccaddr=None,
             ccaddr += "@gis.a-star.edu.sg"
         msg['Cc'] = ccaddr
 
-    site = get_site()
-    server = smtplib.SMTP(SMTP_SERVER[site])
+    server = smtplib.SMTP(site_cfg['smtp_server'])
     try:
         server.send_message(msg)
         server.quit()
