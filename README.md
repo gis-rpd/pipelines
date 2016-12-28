@@ -113,6 +113,7 @@ In either case, you must not prefix the script with `python`.
 | Name | Category | Notes | @GIS | @NSCC |
 | ---  | ---      | ---   | ---  | ---   |
 | [bcl2fastq](bcl2fastq/README.md)                               | Production          | Not for end-users     | Y | Y |
+| [ChIP-seq](chromatin-profiling/chipseq/README.md)              | Chromatin Profiling |                       | Y | N |
 | [SG10K](custom/SG10K/README.md)                                | Custom              | Evaluation only       | Y | Y |
 | [BWA-MEM](mapping/BWA-MEM/README.md)                           | Mapping             |                       | Y | Y |
 | [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |
