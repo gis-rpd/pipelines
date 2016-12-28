@@ -1,10 +1,39 @@
-# FIXME needs tweaking
 {
-    # default rules applied to all rules, but overriden by rule-specific settings
+    # match short queue
     "__default__" :
     {
-      "time" : "12:00:00",
-      "mem" : 12G,
+      "time" : "02:00:00",
+      "mem" : 1G,
     },
+
+    "bdg_to_bw" : {
+      "time" : "02:00:00",
+      "mem" : 12G
+      },
+
+    "bwaaln_map_filter_sort_n" : {
+      "time" : "05:00:00",
+      "mem" : 6G
+      },
+      
+    "bwa_aln_sai" : {
+      "time" : "04:00:00",
+      "mem" : 8G
+      },
+      
+    "bwamem_map_filter_sort_n" : {
+      "time" : "03:00:00",
+      "mem" : 28G
+      },
+      
+    "dfilter" : {
+      "time" : "02:00:00",
+      "mem" : 10G
+      },
+      
+    "macs2" : {
+      "time" : "02:00:00",
+      "mem" : 4G
+      }
  }    
 

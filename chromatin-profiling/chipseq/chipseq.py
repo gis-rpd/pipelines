@@ -129,6 +129,11 @@ def main():
     choices = ['TF', 'histone-narrow', 'histone-broad']#, 'open-chromatin']
     parser.add_argument('-t', '--peak-type', required=True, choices=choices,
                         help="Peak type. One of {}".format(",".join(choices)))
+    parser.add_argument('--skip-macs2', action='store_true',
+                        help="Don't run MACS2")
+    parser.add_argument('--skip-dfilter', action='store_true',
+                        help="Don't run DFilter")
+
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -211,6 +216,8 @@ def main():
     logger.critical("Fixed genomesize. Should be 80%% of input")
     user_data['peak_type'] = args.peak_type
     user_data['mapper'] = args.mapper
+    user_data['skip_macs2'] = args.skip_macs2
+    user_data['skip_dfilter'] = args.skip_dfilter
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,

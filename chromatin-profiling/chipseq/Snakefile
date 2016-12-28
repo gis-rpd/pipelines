@@ -30,8 +30,9 @@ include: "../../rules/report.rules"
 include: "bwa_mem.rules"
 include: "bwa_aln.rules"
 
-# FIXME
-localrules: final, report
+
+localrules: final, report, dfilter_peak_to_fasta, macs2_peak_to_fasta
+
 
 
 CONTROL_DIR = os.path.join(RESULT_OUTDIR, 'control')
@@ -56,20 +57,30 @@ DFILTERPEAK_TO_ARG = {
 # method from peak arg by dash: {method}-{peak} and peak is translated
 # using the maps above to corresponding peak arguments
 #
+METHOD_PEAK_COMB = []
 if config['peak_type']  == "TF":
-    METHOD_PEAK_COMB = ["macs2-narrow"]
-    METHOD_PEAK_COMB.append("dfilter-TF")
+    if not config.get('skip_macs2'):
+        METHOD_PEAK_COMB = ["macs2-narrow"]
+    if not config.get('skip_dfilter'):
+        METHOD_PEAK_COMB.append("dfilter-TF")
 
 elif config['peak_type']  == "histone-narrow":
-    METHOD_PEAK_COMB = ["macs2-narrow"]
-    METHOD_PEAK_COMB.append("dfilter-narrow")
+    if not config.get('skip_macs2'):
+        METHOD_PEAK_COMB = ["macs2-narrow"]
+    if not config.get('skip_dfilter'):
+        METHOD_PEAK_COMB.append("dfilter-narrow")
 
 elif config['peak_type']  == "histone-broad":
-    METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
-    METHOD_PEAK_COMB.append("dfilter-broad")
+    if not config.get('skip_macs2'):
+        METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
+    if not config.get('skip_dfilter'):
+        METHOD_PEAK_COMB.append("dfilter-broad")
 
 else:
     raise ValueError(config['peak_type'])
+
+
+assert len(METHOD_PEAK_COMB), "FATAL: No peak calling method chosen"
 
 
 rule final:
