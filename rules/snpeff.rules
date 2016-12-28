@@ -1,0 +1,18 @@
+rule snpeff:
+    # requires bgzip and snpeff_wrapper installed. also requires config['snpeff_genome']
+    input:
+        vcf = '{prefix}.vcf.gz'
+    output:
+        vcf = '{prefix}.snpeff.vcf.gz'
+    message:
+        'Running SnpEff on {input.vcf}'
+    log:
+        '{prefix}.vcf.snpeff.log'
+    params:
+        genome = config['references']['snpeff_genome']
+    shell:
+        # - BROAD recommended use of '-onlyCoding true' still applicable (and now called -onlyProtein)? See http://gatkforums.broadinstitute.org/gatk/discussion/50/adding-genomic-annotations-using-snpeff-and-variantannotator
+        # - -nodownload:  won't have rights anyway
+        # - -noStats: don't create stats. will create at least create one file with fixed name in cwd otherwise (snpEff_summary.html)
+        'snpeff_wrapper -nodownload -noStats -verbose {params.genome} {input.vcf} 2>{log} | bgzip > {output.vcf}'
+    
