@@ -13,7 +13,7 @@
 
     "bwaaln_map_filter_sort_n" : {
       "time" : "05:00:00",
-      "mem" : 6G
+      "mem" : 8G
       },
       
     "bwa_aln_sai" : {
