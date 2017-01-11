@@ -109,6 +109,9 @@ def merge_cells(child_key, key):
 		elif str(key[child_key]) == "NOARCHIVE":
 			result += ("<span class='label label-pill label-primary'>" \
 				+ "NO ARCHIVE" + "</span>")
+		elif str(key[child_key]).upper() == "NOT-RECORDED":
+			result += ("<span class='label label-pill label-primary'>" \
+				+ "NOT RECORDED" + "</span>")
 		else:
 			result += str(key[child_key])
 	return result
