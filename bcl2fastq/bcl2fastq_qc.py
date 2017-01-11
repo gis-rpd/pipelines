@@ -85,22 +85,20 @@ def get_machine_type_from_run_num(run_num):
 def email_qcfails(qcfails, run_num, run_dir):
     """email qc failures
     """
-    
+
     if is_devel_version():
         toaddr = email_for_user()
         ccaddr = None
     else:
         toaddr = config['emails']
         ccaddr = "rpd@gis.a-star.edu.sg"
-        
+
     subject = "Bcl2fastq QC failures for {}".format(run_num)
     body = "The following bcl2fastq QC checks failed for {} ({})".format(run_num, run_dir)
     for f in qcfails:
         body += "\n- {}".format(f)
     send_mail(subject, body, toaddr=toaddr, ccaddr=ccaddr, pass_exception=False)
 
-
-    
 
 def log_qcfails_to_db():
     """log qc failures to db
@@ -345,7 +343,7 @@ def main():
         log_qcfails_to_db()
     else:
         logger.info("QC checks completed. No tests failed")
-    sys.stderr.write("FIXME Add email\n")
+
     sys.stderr.write("FIXME Add db logging\n")
 
 
