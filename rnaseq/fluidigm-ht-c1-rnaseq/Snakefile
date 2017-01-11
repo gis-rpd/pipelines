@@ -128,15 +128,60 @@ rule rnaseqQC:
         " find $(dirname {output}) -name \*tmp.txt\* -type f | xargs -r rm"
 
 
-rule wig2bigwig:
+# input files are tiny (multiplexed single cell), hence this process
+# is very fast. doesn't make sense to submit them separately (and also
+# repeatedly caused trouble (hanging))
+# 
+#rule wig2bigwig:
+#    input:
+#        wig = '{prefix}.wig',
+#        gsizes = config['references']['genome'] + ".sizes"
+#    output:
+#        '{prefix}.bw'
+#    shell:
+#        # FIXME replace mnt software later
+#        " /mnt/software/bin/wigToBigWig {input.wig} {input.gsizes} {output};"
+
+# star wig's bunched together
+rule wig2bigwig_star:
     input:
-        wig = '{prefix}.wig',
+        wig = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.wig"),
+                    sample=config['samples'],
+                    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                    strand=["str1", "str2"],
+                    genome=GENOME_BASENAME),
         gsizes = config['references']['genome'] + ".sizes"
     output:
-        '{prefix}.bw'
+        bw = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.bw"),
+                    sample=config['samples'],
+                    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                    strand=["str1", "str2"],
+                    genome=GENOME_BASENAME)
+    log:
+        os.path.join(RESULT_OUTDIR, "wig2bigwig_star.log")
     shell:
-        # FIXME replace mnt software later
-        " /mnt/software/bin/wigToBigWig {input.wig} {input.gsizes} {output};"
+        "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
+
+        
+# rsem wig's bunched together
+rule wig2bigwig_rsem:
+    input:
+        wig = expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig'),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
+        gsizes = config['references']['genome'] + ".sizes"
+    output:
+        bw = expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.bw'),
+                    sample=config['samples'], 
+                    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                    genome=GENOME_BASENAME)
+    log:
+        os.path.join(RESULT_OUTDIR, "wig2bigwig_rsem.log")
+    shell:
+        "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
+
+
 
 # star is very fast, esp for single cell data. parallel jobs create
 # all sorts of trouble, e.g race conditions during index loading and
