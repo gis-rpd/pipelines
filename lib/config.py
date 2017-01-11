@@ -19,7 +19,7 @@ ETC_PATH = os.path.abspath(
 SITE_CFG_FILE = os.path.join(ETC_PATH, 'site.yaml')
 REST_CFG_FILE = os.path.join(ETC_PATH, 'rest.yaml')
 MONGO_CFG_FILE = os.path.join(ETC_PATH, 'mongo.yaml')
-
+LEGACY_MAPPER_CFG_FILE = os.path.join(ETC_PATH, 'legacy_wrapper.yaml')
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -48,4 +48,11 @@ with open(MONGO_CFG_FILE, 'r') as stream:
     except yaml.YAMLError as exc:
         logger.fatal("Error in loading %s", MONGO_CFG_FILE)
         raise
-    
+
+with open(LEGACY_MAPPER_CFG_FILE, 'r') as stream:
+    try:
+        legacy_mapper = yaml.load(stream)
+    except yaml.YAMLError as exc:
+        logger.fatal("Error in loading %s", LEGACY_MAPPER_CFG_FILE)
+        raise
+
