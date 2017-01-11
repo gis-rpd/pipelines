@@ -4,3 +4,4 @@ rnaseqc: 1.1.8
 rsem: 1.2.31
 samtools: 1.3
 star: 2.5.2a
+ucsc-userapps: 338
