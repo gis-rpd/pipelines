@@ -49,6 +49,12 @@ with open(BCL2FASTQQC_CFG_FILE, 'r') as stream:
     except yaml.YAMLError as exc:
         logger.fatal("Error in loading %s", BCL2FASTQQC_CFG_FILE)
         raise
+with open(MONGO_CFG_FILE, 'r') as stream:
+    try:
+        mongo_conns = yaml.load(stream)
+    except yaml.YAMLError as exc:
+        logger.fatal("Error in loading %s", MONGO_CFG_FILE)
+        raise
 
 with open(LEGACY_MAPPER_CFG_FILE, 'r') as stream:
     try:
