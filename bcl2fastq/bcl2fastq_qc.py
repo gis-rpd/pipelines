@@ -45,6 +45,7 @@ from config import bcl2fastq_qc_conf as config
 from pipelines import is_devel_version
 from pipelines import email_for_user
 from pipelines import send_mail
+from pipelines import path_to_url
 
 
 __author__ = "Andreas Wilm"
@@ -61,12 +62,12 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
-DEMUX_HTML_FILE_PATTERN = r'.*Project_(\w+)/html/(\w+)/\w+/\w+/\w+/lane.html'
+DEMUX_HTML_FILE_PATTERN = r'.*Project_(\w+)/html/([\w-]+)/\w+/\w+/\w+/lane.html'
 
 
 def get_machine_type_from_run_num(run_num):
     """these are the values to be used in config for machine dependent settings"""
-    id_to_map = {
+    id_to_machine = {
         'MS001': 'miseq',
         'NS001': 'nextseq',
         'HS001': 'hiseq 2500',# rapid
@@ -78,14 +79,13 @@ def get_machine_type_from_run_num(run_num):
         'HS007': 'hiseq 4000',
     }
     machine_id = run_num.split('-')[0]
-    machine_type = id_to_map[machine_id]
+    machine_type = id_to_machine[machine_id]
     return machine_type
 
 
-def email_qcfails(qcfails, run_num, run_dir):
+def email_qcfails(subject, body):
     """email qc failures
     """
-
     if is_devel_version():
         toaddr = email_for_user()
         ccaddr = None
@@ -93,11 +93,8 @@ def email_qcfails(qcfails, run_num, run_dir):
         toaddr = config['emails']
         ccaddr = "rpd@gis.a-star.edu.sg"
 
-    subject = "Bcl2fastq QC failures for {}".format(run_num)
-    body = "The following bcl2fastq QC checks failed for {} ({})".format(run_num, run_dir)
-    for f in qcfails:
-        body += "\n- {}".format(f)
-    send_mail(subject, body, toaddr=toaddr, ccaddr=ccaddr, pass_exception=False)
+    send_mail(subject, body, toaddr=toaddr, ccaddr=ccaddr,
+              pass_exception=False)
 
 
 def log_qcfails_to_db():
@@ -293,7 +290,6 @@ def run_qc_checks(project_dirs, machine_type):
                 qcfails.append(
                     "Percent undetermined reads exceeding limits"
                     " ({} > {}) for lane {}".format(v, l, lane))
-
     return qcfails
 
 
@@ -304,6 +300,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-d', "--bcl2fastq-dir", required=True,
                         help="bcl2fastq directory (containing a conf.yaml)")
+    parser.add_argument('--no-mail', action='store_true',
+                        help="Don't send email on detected failures")
+    parser.add_argument('--no-dbupdate', action='store_true',
+                        help="Don't update DB on detected failures")
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
@@ -323,6 +323,9 @@ def main():
 
     assert os.path.isdir(args.bcl2fastq_dir)
     conf_file = os.path.join(args.bcl2fastq_dir, 'conf.yaml')
+    if not os.path.exists(conf_file):
+        logger.fatal("Expected config file missing: %s", conf_file)
+        sys.exit(1)
     with open(conf_file) as fh:
         bcl2fastq_cfg = yaml.safe_load(fh)
 
@@ -334,13 +337,25 @@ def main():
         d = os.path.join(args.bcl2fastq_dir, "out", mux_info['mux_dir'])
         assert os.path.exists(d)
         project_dirs.append(d)
+
     qcfails = run_qc_checks(project_dirs, machine_type)
+
     if qcfails:
-        logger.warning("The following QC checks failed")
+        subject = "bcl2fastq QC checks failed for {} ({}):".format(
+            run_num, args.bcl2fastq_dir)
+        body = "The following " + subject
         for f in qcfails:
-            logger.warning(" - %s", f)
-        email_qcfails(qcfails, run_num, args.bcl2fastq_dir)
-        log_qcfails_to_db()
+            body += "\n- {}".format(f)
+        body += "\nPlease double-check here: {}\n".format(
+            path_to_url(args.bcl2fastq_dir))
+
+        logger.warning(subject + "\n" + body)
+
+        if not args.no_mail:
+            email_qcfails(subject, body)
+
+        if not args.no_dbupdate:
+            log_qcfails_to_db()
     else:
         logger.info("QC checks completed. No tests failed")
 
