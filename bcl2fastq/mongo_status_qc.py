@@ -25,14 +25,12 @@ __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
-
 # global logger
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
-
 
 def main():
     """main function
@@ -63,7 +61,6 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
-
     user_name = getpass.getuser()
     if user_name != "userrig":
         logger.warning("Not a production user. Skipping sending of emails")
@@ -84,7 +81,6 @@ def main():
             out_dir = analysis["out_dir"]
             analysis_id = analysis['analysis_id']
             status = analysis['Status']
-            print(run_number, analysis_id, status)
             #Check if bcl2Fastq is completed successfully
             if analysis['Status'] != "SUCCESS":
                 logger.info("Analysis is not completed successfully under %s", out_dir)
@@ -98,7 +94,6 @@ def main():
                 continue
             try:
                 QC_status = "analysis.{}.QC_status".format(analysis_count)
-                print(QC_status)
                 status = subprocess.check_output(bcl2fastq_qc_cmd, stderr=subprocess.STDOUT)
                 if "QC_FAILED" in str(status):
                     logger.info("Update mongoDB for FAIL")
