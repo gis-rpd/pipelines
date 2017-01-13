@@ -51,18 +51,25 @@ if config['seqtype'] == 'WGS':
 else:
      var_filters = ['hfilter']
 
-     
-rule final:
-    input:
-        expand(out_templ + ".bamstats/stats.txt",
-               sample=config['samples']),
-        expand(out_templ + ".gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
-               sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
-        expand(out_templ + ".concat.g.vcf.gz.tbi",
-               sample=config['samples']),
-        report="report.html"
 
+if config.get('bam_only'):
+    rule final:
+        input:
+            expand(out_templ + ".bamstats/stats.txt",
+                   sample=config['samples']),
+            report="report.html",
+else:
+    rule final:
+        input:
+            expand(out_templ + ".bamstats/stats.txt",
+                   sample=config['samples']),    
+            expand(out_templ + ".gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
+                   sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
+            expand(out_templ + ".concat.g.vcf.gz.tbi",
+                   sample=config['samples']),    
+            report="report.html",
 
+            
 rule prep_bed_files:
     """Prepare bed files to be able to run haplotype caller per chromosome
     to speed things up. if we also have a global bed file intersect
