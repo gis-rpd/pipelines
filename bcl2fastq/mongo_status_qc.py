@@ -46,6 +46,8 @@ def main():
                         help="Number of days to look back (default {})".format(default))
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
+    parser.add_argument('--no-mail', action='store_true',
+                        help="Don't send email on detected failures")
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
@@ -88,7 +90,9 @@ def main():
             if not os.path.exists(out_dir):
                 logger.critical("Following directory listed in DB doesn't exist: %s", out_dir)
                 continue
-            bcl2fastq_qc_cmd = [bcl2fastq_qc_script, '-d', out_dir, '--no-mail']
+            bcl2fastq_qc_cmd = [bcl2fastq_qc_script, '-d', out_dir]
+            if args.no_mail:
+                bcl2fastq_qc_cmd.append("--no-mail")
             if args.dry_run:
                 logger.warning("Skipped following run: %s", out_dir)
                 continue
@@ -96,13 +100,13 @@ def main():
                 QC_status = "analysis.{}.QC_status".format(analysis_count)
                 status = subprocess.check_output(bcl2fastq_qc_cmd, stderr=subprocess.STDOUT)
                 if "QC_FAILED" in str(status):
-                    logger.info("Update mongoDB for FAIL")
                     db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
                         {"$set": {QC_status: "FAILED"}})
+                    logger.info("Demux QC failed for run: %s", run_number)
                 else:
-                    logger.info("Update mongoDB for SUCCESS")
                     db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
                         {"$set": {QC_status: "SUCCESS"}})
+                    logger.info("Demux QC SUCCESS for run: %s", run_number)
             except subprocess.CalledProcessError as e:
                 logger.fatal("The following command failed with return code %s: %s",
                              e.returncode, ' '.join(bcl2fastq_qc_cmd))
