@@ -113,7 +113,6 @@ def main():
                              e.returncode, ' '.join(bcl2fastq_qc_cmd))
                 logger.fatal("Output: %s", e.output.decode())
                 logger.fatal("Exiting")
-        sys.exit(0)
     connection.close()
 if __name__ == "__main__":
     logger.info("Demultiplexing QC status")
