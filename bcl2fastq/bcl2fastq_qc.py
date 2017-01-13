@@ -47,7 +47,6 @@ from pipelines import email_for_user
 from pipelines import send_mail
 from pipelines import path_to_url
 
-
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2017 Genome Institute of Singapore"
@@ -95,13 +94,6 @@ def email_qcfails(subject, body):
 
     send_mail(subject, body, toaddr=toaddr, ccaddr=ccaddr,
               pass_exception=False)
-
-
-def log_qcfails_to_db():
-    """log qc failures to db
-    """
-    logger.critical("log_qcfails_to_db() not implemented")
-
 
 def htmlparser_demux_table_to_dict(table_in, decimal_mark=".", thousands_sep=","):
     """cleans raw bcl2fastq html table formatting as created by htmlparser
@@ -302,8 +294,6 @@ def main():
                         help="bcl2fastq directory (containing a conf.yaml)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send email on detected failures")
-    parser.add_argument('--no-dbupdate', action='store_true',
-                        help="Don't update DB on detected failures")
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
@@ -348,18 +338,14 @@ def main():
             body += "\n- {}".format(f)
         body += "\nPlease double-check here: {}\n".format(
             path_to_url(args.bcl2fastq_dir))
-
+        body += "QC_FAILED"
         logger.warning(subject + "\n" + body)
 
         if not args.no_mail:
             email_qcfails(subject, body)
-
-        if not args.no_dbupdate:
-            log_qcfails_to_db()
     else:
         logger.info("QC checks completed. No tests failed")
-
-    sys.stderr.write("FIXME Add db logging\n")
+        logger.info("QC SUCCESS")
 
 
 if __name__ == '__main__':
