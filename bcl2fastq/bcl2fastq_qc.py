@@ -257,6 +257,14 @@ def run_qc_checks(project_dirs, machine_type):
                 "Yield under limit"
                 " ({} < {}) for lane {}".format(v, l, lane))
 
+        # test: pf
+        v = int(values['PF Clusters'] / 1000000.0)
+        l = config['min-pf-cluster-in-mil'][machine_type]
+        if v < float(l):
+            qcfails.append(
+                "PF clusters under limit"
+                " ({} < {}) for lane {}".format(v, l, lane))
+        
 
     # info about 'undetermined' sits elsewhere (only makes sense if demuxed)
     #
@@ -325,9 +333,15 @@ def main():
     project_dirs = []
     for _, mux_info in bcl2fastq_cfg["units"].items():
         d = os.path.join(args.bcl2fastq_dir, "out", mux_info['mux_dir'])
-        assert os.path.exists(d)
-        project_dirs.append(d)
+        if not os.path.exists(d):
+            logger.warning("Ignoring missing directory %s", d)
+        else:
+            project_dirs.append(d)
 
+    if len(project_dirs) == 0:
+        logger.error("Exiting because no project directories where found in %s", args.bcl2fastq_dir)
+        sys.exit(1)
+        
     qcfails = run_qc_checks(project_dirs, machine_type)
 
     if qcfails:
