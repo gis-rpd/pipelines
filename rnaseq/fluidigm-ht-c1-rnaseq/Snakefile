@@ -122,7 +122,7 @@ rule rnaseqQC:
     message:
         "Running RNASeqQC"            
     shell:
-        "outpref=`dirname {output.flag}`;"
+        " outpref=`dirname {output.flag}`;"
 	" samtools index {input.bam};"
         " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
         " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
