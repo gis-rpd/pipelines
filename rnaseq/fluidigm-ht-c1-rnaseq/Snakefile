@@ -108,11 +108,11 @@ rule RSEM:
 rule rnaseqQC:
     input:
         bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam",
-        bamidx = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai",
         rnaseqc_annotation = config['references']['rnaseqc_annotation'],
         ref = config['references']['genome']
     output:
-        touch("{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK")
+        bamidx = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai",
+        flag = touch("{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK")
     log:
         "{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC.log"    
     params:
@@ -122,10 +122,11 @@ rule rnaseqQC:
     message:
         "Running RNASeqQC"            
     shell:
-        "outpref=`dirname {output}`;"
+        "outpref=`dirname {output.flag}`;"
+	" samtools index {input.bam};"
         " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
         " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
-        " find $(dirname {output}) -name \*tmp.txt\* -type f | xargs -r rm"
+        " find $(dirname {output.flag}) -name \*tmp.txt\* -type f | xargs -r rm"
 
 
 # input files are tiny (multiplexed single cell), hence this process
@@ -159,8 +160,14 @@ rule wig2bigwig_star:
                     genome=GENOME_BASENAME)
     log:
         os.path.join(RESULT_OUTDIR, "wig2bigwig_star.log")
-    shell:
-        "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
+    #shell:
+    #    "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
+    run:
+        # if using bash argument length can be too long
+        for wig in input.wig:
+            bw = os.path.splitext(wig)[0] + ".bw"
+            shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
+
 
         
 # rsem wig's bunched together
@@ -178,8 +185,14 @@ rule wig2bigwig_rsem:
                     genome=GENOME_BASENAME)
     log:
         os.path.join(RESULT_OUTDIR, "wig2bigwig_rsem.log")
-    shell:
-        "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
+    #shell:
+    #    "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
+    run:
+        # if using bash argument length can be too long
+        for wig in input.wig:
+            bw = os.path.splitext(wig)[0] + ".bw"
+            shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
+
 
 
 
