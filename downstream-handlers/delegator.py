@@ -24,12 +24,12 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from config import rest_services
+from config import legacy_mapper
 from mongodb import mongodb_conn
 from pipelines import generate_window
 from pipelines import get_site
 from pipelines import send_mail
 from pipelines import get_machine_run_flowcell_id
-from pipelines import get_downstream_outdir
 from readunits import key_for_readunit
 
 ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
@@ -40,16 +40,6 @@ __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
-
-CRONJOB_BASE = {
-    'GIS': '/mnt/projects/rpd/pipelines/',
-    'NSCC': '/home/users/astar/gis/gisshared/rpd/pipelines/'
-}
-
-PIPELINE_MAPPER = {
-    'bwa_default_mapping': 'mapping/BWA-MEM',
-    'bwa_aln_mapping': 'mapping/BWA-MEM',
-}
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -72,11 +62,11 @@ def check_fastq(fastq_data_dir, libid, laneId):
             elif "L00laneId_R2_".replace("laneId", laneId) in base:
                 fq2 = file
         if fq2:
-           return (True, fq1, fq2)
+            return True, fq1, fq2
         else:
-            return (True, fq1, None)
+            return True, fq1, None
     else:
-        return (False, None, None)
+        return False, None, None
 
 def mongodb_update_runcomplete(run_num_flowcell, analysis_id, mux_id, insert_id, connection):
     """Change the status to DELEGATED in runcomplete collection of MongoDB
@@ -87,6 +77,7 @@ def mongodb_update_runcomplete(run_num_flowcell, analysis_id, mux_id, insert_id,
             'analysis.analysis_id' : analysis_id, \
             'analysis.per_mux_status.mux_id' : mux_id}, \
             {"$set": {insert_id: "DELEGATED", }})
+        logger.info("MONGO DB updated")
     except pymongo.errors.OperationFailure:
         logger.fatal("MongoDB OperationFailure")
         return False
@@ -106,7 +97,7 @@ def mongodb_insert_libjob(lib_info, connection):
         return True
 
 def mongodb_remove_muxjob(mux_id, run_id, ctime, connection):
-    """Delete libraries from MUX, runID and ctime
+    """Delete libraries from MUX, runID and ctime if insertion fails
     """
     try:
         db = connection.gisds.runcomplete
@@ -115,21 +106,21 @@ def mongodb_remove_muxjob(mux_id, run_id, ctime, connection):
         logger.fatal("mongoDB OperationFailure")
         sys.exit(1)
 
-def get_reference_info(analysis, pipeline_version, ref, site=None, basedir_map=CRONJOB_BASE):
-    """Get the reference yaml for each library
+def get_reference_info(analysis, pipeline_version, ref, site=None):
+    """reference yaml for each library
     """
     if not site:
         site = get_site()
-    if site not in basedir_map:
-        raise ValueError(site)
-    basedir = basedir_map[site]
+    basedir = legacy_mapper['cronjob_base'][site]
+    if ref == 'human_g1k_v37':
+        ref = 'b37'
     try:
-        new_analysis = PIPELINE_MAPPER[analysis]
+        new_analysis = legacy_mapper['pipeline_mapper'][analysis]
     except KeyError as e:
         logger.warning(str(e) + " Pipeline not mappped to newer version")
         return None
     ref_info = glob.glob(os.path.join(basedir, pipeline_version, \
-        new_analysis, 'cfg', '*' + ref+'.yaml'))
+        new_analysis, 'cfg', '*' + ref+'*.yaml'))
     if ref_info:
         with open(ref_info[0], 'r') as f:
             try:
@@ -138,21 +129,104 @@ def get_reference_info(analysis, pipeline_version, ref, site=None, basedir_map=C
             except yaml.YAMLError as exc:
                 print(exc)
                 return None
+
+def get_cmdline_info(child):
+    """Commandline info for GATK and LoFreq pipeline
+    """
+    analysis = legacy_mapper['pipeline_mapper'][child['Analysis']]
+    if 'variant-calling' in analysis:
+        bed = get_bed_file(child['SNV_ROI'])
+        if bed:
+            cmd_dict = {}
+            cmd_dict['bed'] = bed
+            cmd_dict['seqtype'] = get_seqtype(child['SNV_ROI'])
+            return cmd_dict
+    else:
+        return None
+
+def get_seqtype(roi):
+    """ seqtype for varinat calling pipelines
+    """
+    if 'exome' in roi.lower():
+        seqtype = 'WES'
+    elif 'target' in roi.lower():
+        seqtype = 'targeted'
+    else:
+        seqtype = 'WGS'
+    return seqtype
+
+def get_bed_file(roi):
+    """bed file for variant calling pipeline
+    """
+    roidir = legacy_mapper['roi_base']['devel']
+    roi_file = os.path.join(roidir+ roi+'.bed')
+    if os.path.exists(roi_file):
+        return roi_file
     else:
         return None
 
 def get_pipeline_version(pipeline_version):
-    """ Get pipeline version
+    """pipeline version
     """
     if pipeline_version:
         return pipeline_version
     else:
         return "current"
 
+def get_sample_info(child, rows, mux_analysis_list, mux_id, fastq_data_dir, \
+    run_num_flowcell, sample_info):
+    """Collects sample info from ELM JOSN
+    """
+    sample_cfg = {}
+    site = get_site()
+    ctime, _ = generate_window(1)
+    _, _, flowcellid = get_machine_run_flowcell_id(run_num_flowcell)
+    mux_analysis_list.add(mux_id)
+    sample_id = child['libraryId']
+    sample_cfg['requestor'] = rows['requestor']
+    sample_cfg['ctime'] = ctime
+    sample_cfg['site'] = site
+    try:
+        sample_cfg['pipeline_name'] = legacy_mapper['pipeline_mapper'][child['Analysis']].\
+        replace("/", "-")
+    except KeyError as e:
+        sample_cfg['pipeline_name'] = child['Analysis']
+        logger.warning(str(e) + " Pipeline not mappped to newer version")
+        return None
+    pipeline_version = get_pipeline_version(child['pipeline_version'] \
+        if 'pipeline_version' in rows else None)
+    sample_cfg['pipeline_version'] = pipeline_version
+    sample_cfg['pipeline_params'] = 'params'
+    ref_info = get_reference_info(child['Analysis'], \
+        sample_cfg['pipeline_version'], child['genome'])
+    if not ref_info:
+        logger.info("ref_info not available")
+        return None
+    cmdline_info = get_cmdline_info(child)
+    sample_cfg['references_cfg'] = ref_info
+    if cmdline_info:
+        sample_cfg['cmdline'] = cmdline_info
+    else:
+        sample_cfg['cmdline'] = None
+    readunits_dict = {}
+    status, fq1, fq2 = check_fastq(fastq_data_dir, child['libraryId'],\
+        rows['laneId'])
+    if status:
+        ru = ReadUnit(run_num_flowcell, flowcellid, child['libraryId'],\
+            rows['laneId'], None, fq1, fq2)
+        k = key_for_readunit(ru)
+        readunits_dict[k] = dict(ru._asdict())
+        sample_cfg['readunits'] = readunits_dict
+        if sample_info.get(sample_id, {}).get('readunits'):
+            sample_info[sample_id]['readunits'].update(readunits_dict)
+        else:
+            sample_info[sample_id] = sample_cfg
+    return sample_info
+
 def get_lib_details(run_num_flowcell, mux_list, testing):
     """Lib info collection from ELM per run
     """
-    _, run_num, flowcellid = get_machine_run_flowcell_id(run_num_flowcell)
+    _, run_num, _ = get_machine_run_flowcell_id(run_num_flowcell)
     # Call rest service to get component libraries
     if testing:
         rest_url = rest_services['run_details']['testing'].replace("run_num", run_num)
@@ -170,9 +244,8 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
     if rest_data.get('runId') is None:
         logger.info("JSON data is empty for run num %s", run_num)
         return sample_info
-    ctime, _ = generate_window(1)
     for mux_id, out_dir in mux_list:
-        fastq_data_dir = os.path.join(out_dir[0], 'out', "Project_"+mux_id)
+        fastq_data_dir = os.path.join(out_dir[0], 'out', "Project_"+ mux_id)
         if os.path.exists(fastq_data_dir):
             for rows in rest_data['lanes']:
                 if mux_id in rows['libraryId']:
@@ -181,70 +254,14 @@ def get_lib_details(run_num_flowcell, mux_list, testing):
                     if "MUX" in rows['libraryId']:
                         for child in rows['Children']:
                             if child['Analysis'] != "Sequence only":
-                                mux_analysis_list.add(mux_id)
-                                sample_dict = {}
-                                sample = child['libraryId']
-                                sample_dict['requestor'] = rows['requestor']
-                                sample_dict['ctime'] = ctime
-                                sample_dict['pipeline_name'] = child['Analysis']
-                                pipeline_version = get_pipeline_version(child['pipeline_version'] \
-                                    if 'pipeline_version' in rows else None)
-                                sample_dict['pipeline_version'] = pipeline_version
-                                sample_dict['pipeline_params'] = 'params'
-                                out_dir = get_downstream_outdir(
-                                    sample_dict['requestor'], sample_dict['pipeline_name'],
-                                    pipeline_version=sample_dict['pipeline_version'])
-                                ref_info = get_reference_info(child['Analysis'], \
-                                    sample_dict['pipeline_version'], child['genome'])
-                                if not ref_info:
-                                    continue
-                                sample_dict['references'] = ref_info
-                                sample_dict['out_dir'] = out_dir
-                                readunits_dict = {}
-                                status, fq1, fq2 = check_fastq(fastq_data_dir, child['libraryId'],\
-                                    rows['laneId'])
-                                if status:
-                                    ru = ReadUnit(run_num_flowcell, flowcellid, child['libraryId'],\
-                                        rows['laneId'], None, fq1, fq2)
-                                    k = key_for_readunit(ru)
-                                    readunits_dict[k] = dict(ru._asdict())
-                                    sample_dict['readunits'] = readunits_dict
-                                    if sample_info.get(sample, {}).get('readunits'):
-                                        sample_info[sample]['readunits'].update(readunits_dict)
-                                    else:
-                                        sample_info[sample] = sample_dict
+                                sample_info = get_sample_info(child, rows, mux_analysis_list, \
+                                    mux_id, fastq_data_dir, run_num_flowcell, sample_info)
                     else:
                         if rows['Analysis'] != "Sequence only":
-                            mux_analysis_list.add(mux_id)
-                            sample = rows['libraryId']
-                            status, fq1, fq2 = check_fastq(fastq_data_dir, rows['libraryId'], \
-                                rows['laneId'])
-                            if status:
-                                sample_dict = {}
-                                sample_dict['requestor'] = rows['requestor']
-                                sample_dict['ctime'] = ctime
-                                sample_dict['pipeline_name'] = rows['Analysis']
-                                pipeline_version = get_pipeline_version(rows['pipeline_version'] \
-                                    if 'pipeline_version' in rows else None)
-                                sample_dict['pipeline_version'] = pipeline_version
-                                sample_dict['pipeline_params'] = 'params'
-                                out_dir = get_downstream_outdir(
-                                    sample_dict['requestor'], sample_dict['pipeline_name'],
-                                    pipeline_version=sample_dict['pipeline_version'])
-                                ref_info = get_reference_info(rows['Analysis'], \
-                                    sample_dict['pipeline_version'], rows['genome'])
-                                if not ref_info:
-                                    continue
-                                sample_dict['references'] = ref_info
-                                sample_dict['out_dir'] = out_dir
-                                readunits_dict = {}
-                                ru = ReadUnit(run_num_flowcell, flowcellid, rows['libraryId'], \
-                                    rows['laneId'], None, fq1, fq2)
-                                k = key_for_readunit(ru)
-                                readunits_dict[k] = dict(ru._asdict())
-                                sample_dict['readunits'] = readunits_dict
-                                sample_info[sample] = sample_dict
+                            sample_info = get_sample_info(rows, rows, mux_analysis_list, \
+                                mux_id, fastq_data_dir, run_num_flowcell, sample_info)
     return sample_info, mux_analysis_list
+
 def main():
     """main function
     """
@@ -336,19 +353,32 @@ def main():
         if not bool(pipeline_params_dict):
             logger.warning("pipeline params is empty for run num %s", run_num_flowcell)
             continue
+        # Insert jobs into pipeline_runs collection
         for lib, lib_info in pipeline_params_dict.items():
+            job = {}
+            rd_list = {}
+            job['sample_cfg'] = {}
+            job['references_cfg'] = {}
+            job['cmdline'] = {}
             readunits_list = list()
-            for outer_key in lib_info:
+            rd_list['samples'] = {}
+            for outer_key, outer_value in lib_info.items():
                 if outer_key == 'readunits':
                     for inner_key in lib_info[outer_key]:
                         readunits_list.append(inner_key)
-            lib_info['samples'] = {}
-            lib_info['samples'][lib] = readunits_list
+                if outer_key == 'references_cfg':
+                    job['references_cfg'] = outer_value
+                elif outer_key == 'cmdline':
+                    job['cmdline'] = outer_value
+                else:
+                    job['sample_cfg'].update({outer_key:outer_value})
+                    rd_list['samples'] = readunits_list
+                    job['sample_cfg'].update(rd_list)
             if args.dry_run:
                 logger.warning("Skipping job delegation for %s", \
                     lib)
                 continue
-            res = mongodb_insert_libjob(lib_info, connection)
+            res = mongodb_insert_libjob(job, connection)
             if not res:
                 logger.critical("Skipping rest of analysis job submission" \
                      "for %s from %s", lib, lib_info.run_id)
@@ -365,6 +395,7 @@ def main():
                 mongodb_remove_muxjob(lib_info.mux_id, lib_info.run_id, \
                     lib_info.ctime, connection)
                 break
+        # Update runcomplete collection for delegated jobs
         if not args.dry_run and update_status:
             value = mongo_db_ref[run_num_flowcell]
             for mux_id, insert_id, analysis_id in value:
@@ -388,5 +419,5 @@ def main():
     connection.close()
 
 if __name__ == "__main__":
-    logger.info("Send email to Users and NGSP")
+    logger.info("Jobs delegated")
     main()

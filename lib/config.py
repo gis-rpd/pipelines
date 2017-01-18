@@ -19,7 +19,8 @@ ETC_PATH = os.path.abspath(
 SITE_CFG_FILE = os.path.join(ETC_PATH, 'site.yaml')
 REST_CFG_FILE = os.path.join(ETC_PATH, 'rest.yaml')
 MONGO_CFG_FILE = os.path.join(ETC_PATH, 'mongo.yaml')
-
+BCL2FASTQQC_CFG_FILE = os.path.join(ETC_PATH, 'bcl2fastq_qc.yaml')
+LEGACY_MAPPER_CFG_FILE = os.path.join(ETC_PATH, 'legacy_wrapper.yaml')
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -42,10 +43,22 @@ with open(REST_CFG_FILE, 'r') as stream:
         logger.fatal("Error loading %s", REST_CFG_FILE)
         raise
     
+with open(BCL2FASTQQC_CFG_FILE, 'r') as stream:
+    try:
+        bcl2fastq_qc_conf = yaml.load(stream)
+    except yaml.YAMLError as exc:
+        logger.fatal("Error in loading %s", BCL2FASTQQC_CFG_FILE)
+        raise
 with open(MONGO_CFG_FILE, 'r') as stream:
     try:
         mongo_conns = yaml.load(stream)
     except yaml.YAMLError as exc:
         logger.fatal("Error in loading %s", MONGO_CFG_FILE)
         raise
-    
+
+with open(LEGACY_MAPPER_CFG_FILE, 'r') as stream:
+    try:
+        legacy_mapper = yaml.load(stream)
+    except yaml.YAMLError as exc:
+        logger.fatal("Error in loading %s", LEGACY_MAPPER_CFG_FILE)
+        raise

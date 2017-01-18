@@ -119,6 +119,8 @@ def main():
     parser.add_argument('--raw-bam',
                         help="Advanced: Injects raw (pre dedup, BQSR etc.) BAM (overwrites fq options)."
                         " WARNING: reference and pre-processing need to match pipeline requirements")
+    parser.add_argument('--bam-only', action='store_true',
+                        help="Don't call variants, just process BAM file")
 
     args = parser.parse_args()
 
@@ -195,6 +197,7 @@ def main():
     user_data['seqtype'] = args.seqtype
     user_data['intervals'] = args.bed# always safe, might be used for WGS as well
     user_data['mark_dups'] = MARK_DUPS
+    user_data['bam_only'] = args.bam_only
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
