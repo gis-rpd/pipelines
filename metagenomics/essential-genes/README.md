@@ -19,4 +19,10 @@ latter.
 
 Your reference fasta file must match the given SNPeff genomes. Your
 genome of choice also has to be in the list of supported locally
-available databases, i.e. it might have to be downloaded first.
+available databases, i.e. it might have to be downloaded first (please
+contact us to do so)
+
+For admins: The command to use is `java -jar $SNPEFFDIR/snpEff.jar
+download -c $SNPEFFDIR/snpEff.config -v $SPECIES`. Also check first if
+the reference genome in question contains the same sequences (`dump -v
+-txt $genome`).

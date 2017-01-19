@@ -24,7 +24,7 @@ from elmlogger import ElmLogging, ElmUnit
 from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE_FMT, DBUPDATE_TRIGGER_FILE_MAXNUM
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # ANALYSIS_ID not necessarily part of config file and if not
@@ -95,8 +95,6 @@ def barcode_mismatch_arg_for_mux(wildcards):
 
 # NOTE: onstart, onsuccess and onerror are normally in logging.rules
 # for analysis pipelines but bcl2fastq needs special versions
-
-
 onstart:
     global elm_logger
 
@@ -119,6 +117,8 @@ onstart:
     elm_logger.start()
 
     
+# NOTE: onstart, onsuccess and onerror are normally in logging.rules
+# for analysis pipelines but bcl2fastq needs special versions
 onsuccess:
     elm_logger.stop(True)
 
@@ -143,7 +143,7 @@ onsuccess:
     if config.get('mail_on_completion', False):
         send_status_mail(config['ELM']['pipeline_name'], True,
                          "{} ({})".format(config['run_num'], config['ANALYSIS_ID']),
-                         os.path.abspath(RESULT_OUTDIR), extra_text)
+                         os.path.abspath(RESULT_OUTDIR), extra_text=extra_text)
     # cannot talk to mongodb from compute. use trigger file
     write_db_update_trigger(True)
 
@@ -221,7 +221,6 @@ rule bcl2fastq:
         samplesheet = config['samplesheet_csv'],
     output:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
-        results = os.path.join(RESULT_OUTDIR, "{muxdir}"),
     log:
         os.path.join(RESULT_OUTDIR, "{muxdir}.log")
     message:
@@ -232,8 +231,9 @@ rule bcl2fastq:
         barcode_mismatches = barcode_mismatch_arg_for_mux,
         tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
     run:
+        res_dir = os.path.dirname(output.flag)
         cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir %s" % RESULT_OUTDIR
-        cmd += " --stats-dir {output.results} --reports-dir {output.results}"
+        cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir) 
         cmd += " --sample-sheet {input.samplesheet} {params.usebases}"
         cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
         cmd += " %s" % bcl2fastq_threads_setting(threads)

@@ -40,7 +40,7 @@
 # snakemake control job run time: 175h == 1 week
 #PBS -l walltime={MASTER_WALLTIME_H}:00:00
 # cpu & memory: memory shoots up for heavily multiplexed libraries
-#PBS -l select=1:mem=16g:ncpus=1
+#PBS -l select=1:mem=4g:ncpus=1
 # keep env so that qsub works
 #PBS -V
 # Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
@@ -56,7 +56,7 @@ DRMAA_OFF=1
 DEFAULT_SLAVE_Q={DEFAULT_SLAVE_Q}
 SNAKEFILE={SNAKEFILE}
 LOGDIR="{LOGDIR}";# should be same as defined above
-DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60"
+DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60 --max-jobs-per-second 1 --keep-going"
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
 # --printshellcmds: also prints actual commands
@@ -77,7 +77,7 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
     fi
     if [ "$DRMAA_OFF" -eq 1 ]; then
         #clustercmd="--cluster \"qsub $clustercmd\""
-	clustercmd="--cluster-sync \"qsub -Wblock=true $clustercmd\""
+	    clustercmd="--cluster-sync \"qsub -Wblock=true $clustercmd\""
     else
         clustercmd="--drmaa \" $clustercmd -w n\""
     fi

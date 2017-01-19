@@ -15,7 +15,7 @@ if LIB_PATH not in sys.path:
 from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # non-login bash
@@ -54,6 +54,7 @@ rule coverage:
         'genomeCoverageBed -d -ibam {input.bam} | gzip > {output}'
 
         
+
 rule snpeff:
     input:
         vcfgz="{prefix}.vcf.gz",
@@ -68,10 +69,12 @@ rule snpeff:
     message:
         "Running SNPeff"
     shell:
+        # see also http://lab.loman.net/2012/11/16/how-to-get-snpeff-working-with-bacterial-genomes-from-ncbi/
         "SNPEFF_THREADS={threads} SNPEFF_MEM=8g snpeff_wrapper"
         " -c $(dirname $(which snpeff_wrapper))/snpEff.config"
-        " -noStats -csvStats {output.stats} -no-downstream -no-upstream -nodownload -v"
-        " {params.genome} {input.vcfgz} 2>{log} | bgzip > {output.vcfgz}"
+        " -nodownload -noStats -csvStats {output.stats}"
+        " -no-downstream -no-upstream -no-utr -no-intergenic" 
+        " -v {params.genome} {input.vcfgz} 2>{log} | bgzip > {output.vcfgz}"
     
 
 

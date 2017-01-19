@@ -40,7 +40,7 @@
 # snakemake control job run time
 #$ -l h_rt={MASTER_WALLTIME_H}:00:00
 # memory: can be massive for complex DAGs
-#$ -l mem_free=16G
+#$ -l mem_free=4G
 # 'parallel env'
 #$ -pe OpenMP 1
 # run the job in the current working directory (where qsub is called)
@@ -58,7 +58,7 @@ DRMAA_OFF=${{DRMAA_OFF:-0}}
 DEFAULT_SLAVE_Q={DEFAULT_SLAVE_Q}
 SNAKEFILE={SNAKEFILE}
 LOGDIR="{LOGDIR}";# should be same as defined above
-DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60"
+DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60 --max-jobs-per-second 1 --keep-going"
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
 # --printshellcmds: also prints actual commands
@@ -68,6 +68,7 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
     clustercmd="-pe OpenMP {{threads}} -l mem_free={{cluster.mem}} -l h_rt={{cluster.time}}"
+    # echo "DEBUG TESTING NEW JSV FILE" 1>&2; clustercmd="$clustercmd -jsv /opt/uge-8.1.7p3/scripts/jsv/job_verify_memfree_new3.pl"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     clustercmd="$clustercmd -cwd -e $LOGDIR -o $LOGDIR"
     if [ -n "$SLAVE_Q" ]; then
@@ -77,6 +78,8 @@ if [ "$ENVIRONMENT" == "BATCH" ]; then
     fi
     if [ "$DRMAA_OFF" -eq 1 ]; then
         clustercmd="--cluster \"qsub $clustercmd\""
+	    #clustercmd="--cluster-sync \"qsub -sync y $clustercmd\""
+        # doesn't work. see https://github.com/gis-rpd/pipelines/issues/83
     else
         clustercmd="--drmaa \" $clustercmd -w n\""
     fi

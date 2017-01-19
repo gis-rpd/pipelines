@@ -18,7 +18,7 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from services import rest_services
+from config import rest_services
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -38,6 +38,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--out_dir", required=True, help="out_dir")
     parser.add_argument("-m", "--mux_id", required=True, help="mux_id")
+    parser.add_argument("-l", "--lib_id", help="lib_id")
     parser.add_argument('-t', "--test_server", action='store_true', help="Use STATS uploading to"\
         "test-server here and when calling bcl2fastq wrapper (-t)")
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -45,7 +46,6 @@ def main():
     parser.add_argument('-q', '--quiet', action='count', default=0,
                         help="Decrease verbosity")
     args = parser.parse_args()
-    
     # Repeateable -v and -q for setting logging level.
     # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
     # and https://gist.github.com/andreas-wilm/b6031a84a33e652680d4
@@ -72,6 +72,8 @@ def main():
         rest_url = rest_services['sra_upload']['production']
         logger.info("send status to production server")
     email = "rpd@gis.a-star.edu.sg"
+    if args.lib_id:
+        lib_upload_status = False
     with open(confinfo) as fh_cfg:
         yaml_data = yaml.safe_load(fh_cfg)
         assert "run_num" in yaml_data
@@ -98,6 +100,8 @@ def main():
                             # if FASTQ data exists
                             if len(fastq_data) > 0:
                                 libraryId = child.split('_')[-1]
+                                if args.lib_id and args.lib_id != libraryId:
+                                    continue
                                 data['libraryId'] = libraryId
                                 data['muxId'] = mux_id
                                 data['runId'] = run_num
@@ -116,12 +120,17 @@ def main():
                                         sample_path)
                                     logger.info("JSON request was %s", data_json)
                                     logger.info("Response was %s", response.status_code)
+                                    if args.lib_id:
+                                        lib_upload_status = True
                                 else:
                                     logger.error("Uploading %s completed failed", sample_path)
                                     sys.exit(1)
                             else:
                                 logger.error("There are no fastq file genereated for %s", \
                                     child)
+                    if args.lib_id and not lib_upload_status:
+                        logger.error("Libray %s data is not available. Please check the" \
+                            " library name", args.lib_id)
                 else:
                     logger.info("Bcl2fastq is not completed for %s", mux_dir)
                     sys.exit(1)

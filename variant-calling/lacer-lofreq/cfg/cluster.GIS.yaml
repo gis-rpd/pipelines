@@ -1,34 +1,33 @@
-# FIXME needs tweaking
 {
-    # default rules applied to all rules, but overriden by rule-specific settings
+    # match short queue
     "__default__" :
     {
       "time" : "02:00:00",
-      "mem" : 2G,
+      "mem" : 1G,
     },
   
     "lofreq_call" :
     {
       "time" : "24:00:00",
-      "mem" : 8G,
+      "mem" : 4G,
     },
 
     "lacer_table" :
     {
       "time" : "18:00:00",
-      "mem" : 8G,
+      "mem" : 4G,
     },
 
     "lacer_apply" :
     {
       "time" : "08:00:00",
-      "mem" : 4G,
+      "mem" : 1G,
     },
 
     "lofreq_massage_sort" :
     {
       "time" : "08:00:00",
-      "mem" : 8G,
+      "mem" : 4G,
     },
         
     "map_split" :
@@ -40,8 +39,13 @@
     "dedup":
     {
        "time" : "4:00:00",
-       "mem" : 8G,
+       "mem" : 6G,
     },
-
+    "snpeff":
+    {
+      "time" : "02:00:00",
+      "mem" : 6G,
+    },
+                          
  }    
 

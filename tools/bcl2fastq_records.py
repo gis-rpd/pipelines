@@ -106,6 +106,12 @@ def merge_cells(child_key, key):
 		elif str(key[child_key]) == "TODO":
 			result += ("<span class='label label-pill label-default'>" \
 				+ str(key[child_key]) + "</span>")
+		elif str(key[child_key]) == "NOARCHIVE":
+			result += ("<span class='label label-pill label-primary'>" \
+				+ "NO ARCHIVE" + "</span>")
+		elif str(key[child_key]).upper() == "NOT-RECORDED":
+			result += ("<span class='label label-pill label-primary'>" \
+				+ "NOT RECORDED" + "</span>")
 		else:
 			result += str(key[child_key])
 	return result
@@ -164,7 +170,7 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 				if record["analysis"][-1]["Status"] == "STARTED":
 					analysis_started += 1
 					result += "<div class='hidden'>FINAL_STARTED</div>" 
-#                elif record["analysis"][-1]["Status"].find("FAILED") != -1:
+#                		elif record["analysis"][-1]["Status"].find("FAILED") != -1:
 				elif record["analysis"][-1]["Status"] == "FAILED":
 					analysis_failed += 1
 					result += "<div class='hidden'>FINAL_FAILED</div>" 
@@ -173,8 +179,8 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 					result += "<div class='hidden'>FINAL_SUCCESS</div>" 
 				else:
 					result += "<div class='hidden'>FINAL_SEQRUNFAILED</div>"
-			else:
-				result += "<div class='hidden'>FINAL_NONE</div>"
+#			else:
+#				result += "<div class='hidden'>FINAL_NONE</div>"
 
 			result += """
 			<table class='table table-bordered table-hover table-fixed table-compact analysis_table'>
@@ -251,6 +257,7 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 			result += "</tbody></table>"
 		else:
 			analysis_none += 1
+			result += "<div class='hidden'>FINAL_NONE</div>"
 			result += "<span class='label label-pill label-default'>NONE</span>"
 		result += "</td>"
 		result += "</tr>"

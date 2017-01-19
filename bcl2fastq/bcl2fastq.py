@@ -35,6 +35,7 @@ from pipelines import is_devel_version
 from pipelines import logger as aux_logger
 from pipelines import generate_timestamp
 from pipelines import get_cluster_cfgfile
+from config import site_cfg
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
 
 
@@ -53,20 +54,6 @@ CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
 
 # same as folder name. also used for cluster job names
 PIPELINE_NAME = "bcl2fastq"
-
-
-OUTDIR_BASE = {
-    'GIS': {
-        'devel': '/mnt/projects/rpd/testing/output/bcl2fastq',
-        'production': '/mnt/projects/userrig/solexa/'},
-    'NSCC': {
-        'devel': '/seq/astar/gis/rpd/testing/output/bcl2fastq/',
-        'production': '/seq/astar/gis/userrig/'}
-}
-SEQDIR_BASE = {
-    'GIS': '/mnt/seq/userrig/',
-    'NSCC': '/seq/astar/gis/seq/'
-}
 
 
 # global logger
@@ -103,7 +90,7 @@ def get_mux_units_from_cfgfile(cfgfile, restrict_to_lanes=None):
     return mux_units
 
 
-def run_folder_for_run_id(runid_and_flowcellid, site=None, basedir_map=SEQDIR_BASE):
+def run_folder_for_run_id(runid_and_flowcellid):
     """runid has to contain flowcell id
 
     AKA $RAWSEQDIR
@@ -113,11 +100,7 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None, basedir_map=SEQDIR_BA
     if machineid eq MS00
     """
 
-    if not site:
-        site = get_site()
-    if site not in basedir_map:
-        raise ValueError(site)
-    basedir = basedir_map[site]
+    basedir = site_cfg['bcl2fastq_seqdir_base']
 
     machineid, runid, flowcellid = get_machine_run_flowcell_id(
         runid_and_flowcellid)
@@ -131,19 +114,14 @@ def run_folder_for_run_id(runid_and_flowcellid, site=None, basedir_map=SEQDIR_BA
     return rundir
 
 
-def get_bcl2fastq_outdir(runid_and_flowcellid, site=None, basedir_map=OUTDIR_BASE):
-    """FIXME:add-doc
+def get_bcl2fastq_outdir(runid_and_flowcellid):
+    """where to write bcl2fastq output to
     """
 
-    if not site:
-        site = get_site()
-    if site not in basedir_map:
-        raise ValueError(site)
-
     if is_devel_version():
-        basedir = basedir_map[site]['devel']
+        basedir = site_cfg['bcl2fastq_outdir_base']['devel']
     else:
-        basedir = basedir_map[site]['production']
+        basedir = site_cfg['bcl2fastq_outdir_base']['production']
 
     machineid, runid, flowcellid = get_machine_run_flowcell_id(
         runid_and_flowcellid)

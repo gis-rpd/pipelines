@@ -45,6 +45,8 @@ rule map_sort:
     params:
         mark_short_splits = MARK_SHORT_SPLITS,
         bwa_mem_custom_args = config.get("bwa_mem_custom_args", ""),
+        # samtools threading has little effect on overall runtime. but on memory.
+        # use ~half the threads provided
         sort_mem = '250M',
         rg_id = lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
         lib_id = lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
@@ -53,12 +55,12 @@ rule map_sort:
     message:
         'Aligning PE reads, fixing mate information and converting to BAM'
     threads:
-        # 32 is where it seems to max out in GIS. samtools threading
-        # has little effect on overall runtime. but on memory. standard nodes at nscc only allow 24
+        # 32 is where it seems to max out in GIS.
+        # standard nodes at nscc only allow 24
         16
     shell:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
         " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate - - |"
-        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
+        " samtools sort -@ $(echo \"({threads}+1)/2\" | bc) -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"

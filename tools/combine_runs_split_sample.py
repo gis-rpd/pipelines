@@ -8,7 +8,6 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 
 
 def main(yaml_files):
-    readunits = {}
     samples = {}
     readunits = {}
     print("Reading {} files".format(len(yaml_files)))

@@ -25,8 +25,7 @@ the
 - Each pipeline has its own subfolder there and the corresponding wrapper
   script has the same name
   (e.g. `variant-calling/gatk/gatk.py`)
-- Each pipeline folder contains a README file (`README.md` and/or
-  `README.html`) describing the pipeline
+- Each pipeline folder contains a README file describing the pipeline
   (e.g. [`variant-calling/gatk/README.md`](variant-calling/gatk/README.md))
 - Furthermore, each pipeline folder contains an example flowchart of
   the workflow, called `example-dag.pdf` (see
@@ -114,6 +113,7 @@ In either case, you must not prefix the script with `python`.
 | Name | Category | Notes | @GIS | @NSCC |
 | ---  | ---      | ---   | ---  | ---   |
 | [bcl2fastq](bcl2fastq/README.md)                               | Production          | Not for end-users     | Y | Y |
+| [ChIP-seq](chromatin-profiling/chipseq/README.md)              | Chromatin Profiling |                       | Y | N |
 | [SG10K](custom/SG10K/README.md)                                | Custom              | Evaluation only       | Y | Y |
 | [BWA-MEM](mapping/BWA-MEM/README.md)                           | Mapping             |                       | Y | Y |
 | [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |

@@ -59,3 +59,5 @@ excl_chrom:
 - chrUn_gl000248
 - chrUn_gl000249
 genome: $RPD_GENOMES/gatk-bundle/2.8/hg19/ucsc.hg19.fasta
+snpeff_genome: hg19
+    

@@ -18,7 +18,8 @@ from collections import namedtuple
 Pipeline = namedtuple('Pipeline', ['cat', 'script'])
 
 
-SCRIPTS = ['custom/SG10K/SG10K.py',
+SCRIPTS = ['chromatin-profiling/chipseq/chipseq.py',
+           'custom/SG10K/SG10K.py',
            'mapping/BWA-MEM/BWA-MEM.py',
            'metagenomics/essential-genes/essential-genes.py',
            'rnaseq/fluidigm-ht-c1-rnaseq/fluidigm-ht-c1-rnaseq.py',

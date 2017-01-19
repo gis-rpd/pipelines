@@ -55,8 +55,8 @@ as defined in cfg/params.yaml) will be used as well.
 
 - BAM files:  `{sample}.bwamem.dedup.bqsr.bam` or `{sample}.bwamem.dedup.bam`, depending on whether BQSR was run or not (see above)
 - gVCF: `{bam}.concat.g.vcf.gz`
-- Hard-filtered snp/indel (vartype) calls: `{bam}.gt.{vartype}_hfilter.vcf.gz`
-- Recalibrated snp/indel  (vartype) calls (for WGS only): `{bam}.gt.{vartype}_vqsr.vcf.gz`
+- Hard-filtered snp/indel (vartype) calls: `{bam}.gt.{vartype}_hfilter.vcf.gz` and with annotation: `{bam}.gt.{vartype}_hfilter.snpeff.vcf.gz`
+- Recalibrated snp/indel  (vartype) calls (for WGS only): `{bam}.gt.{vartype}_vqsr.vcf.gz` and with annotation: `{bam}.gt.{vartype}_vqsr.snpeff.vcf.gz`
 
 
 ## References

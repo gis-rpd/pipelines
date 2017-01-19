@@ -1,11 +1,23 @@
-# FIXME needs tweaking
 {
-    # default rules applied to all rules, but overriden by rule-specific settings
+    # match short queue
     "__default__":
     {
-      "time" : "06:00:00",
-      "mem" : 12G,
+      "time" : "02:00:00",
+      "mem" : 1G,
     },
+    
+    "snpeff":
+    {
+      "time" : "02:00:00",
+      "mem" : 2G,
+    },
+
+    "map_mdups_sort":
+    {
+      "time" : "02:00:00",
+      "mem" : 4G,
+    },
+      
 }    
 
 

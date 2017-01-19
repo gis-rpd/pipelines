@@ -31,6 +31,7 @@ from pipelines import PipelineHandler
 from pipelines import get_default_queue
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
+from pipelines import email_for_user
 
 
 __author__ = "Andreas Wilm"
@@ -73,6 +74,9 @@ def main():
                         help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
+    default = email_for_user()
+    parser.add_argument('--mail', dest='mail_address', default=default,
+                        help="Send completion emails to this address (default: {})".format(default))
     #site = get_site()
     default = get_default_queue('slave')
     parser.add_argument('-w', '--slave-q', default=default,
@@ -115,8 +119,8 @@ def main():
     parser.add_argument('-t', "--seqtype", required=True,
                         choices=['WGS', 'WES', 'targeted'],
                         help="Sequencing type")
-    parser.add_argument('-l', "--intervals",
-                        help="Intervals file (e.g. bed file) listing regions of interest."
+    parser.add_argument('-l', "--bed",
+                        help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
     #parser.add_argument('-D', '--dont-mark-dups', action='store_true',
     #                    help="Don't mark duplicate reads")
@@ -197,14 +201,14 @@ def main():
     #        sys.exit(1)
 
     if args.seqtype in ['WES', 'targeted']:
-        if not args.intervals:
+        if not args.bed:
             logger.fatal("Analysis of exome and targeted sequence runs requires a bed file")
             sys.exit(1)
         else:
-            if not os.path.exists(args.intervals):
-                logger.fatal("Intervals file %s does not exist", args.sample_cfg)
+            if not os.path.exists(args.bed):
+                logger.fatal("Bed file %s does not exist", args.sample_cfg)
                 sys.exit(1)
-            logger.warning("Compatilibity between interval file and"
+            logger.warning("Compatilibity between bed file and"
                            " reference not checked")# FIXME
 
     # turn arguments into user_data that gets merged into pipeline config
@@ -212,13 +216,14 @@ def main():
     # generic data first
     user_data = dict()
     user_data['mail_on_completion'] = not args.no_mail
+    user_data['mail_address'] = args.mail_address
     user_data['readunits'] = readunits
     user_data['samples'] = samples
     if args.name:
         user_data['analysis_name'] = args.name
 
     user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = os.path.abspath(args.intervals) if args.intervals else None
+    user_data['intervals'] = os.path.abspath(args.bed) if args.bed else None
     # WARNING: this currently only works because these two are the only members in reference dict
     # Should normally only write to root level
     #user_data['mark_dups'] = not args.dont_mark_dups

@@ -16,16 +16,18 @@ import time
 from datetime import datetime, timedelta
 import calendar
 import json
-import requests
+import tarfile
+import glob
 
 #--- third-party imports
 #
 import yaml
+import requests
 
 #--- project specific imports
 #
-from services import SMTP_SERVER
-from services import rest_services
+from config import site_cfg
+from config import rest_services
 
 
 __author__ = "Andreas Wilm"
@@ -46,35 +48,6 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 # dir relative to Snakefile where configs are to be found
-CFG_DIR = "cfg"
-
-INIT = {
-    # FIXME make env instead? because caller knows, right?
-    'GIS': "/mnt/projects/rpd/init",
-    #'NSCC': "/seq/astar/gis/rpd/init",
-    'NSCC': '/home/users/astar/gis/gisshared/rpd/init',
-    'local': "true",# dummy command
-}
-
-
-DEFAULT_SLAVE_Q = {
-    'GIS': {
-        'enduser': None, 'production': None,
-    },
-    'NSCC': {
-        'enduser': None, 'production': 'production',
-    }
-}
-
-DEFAULT_MASTER_Q = {
-    'GIS': {
-        'enduser': None, 'production': None,
-    },
-    'NSCC': {
-        'enduser': None, 'production': 'production',
-    }
-}
-
 
 # from address, i.e. users should reply to to this
 # instead of rpd@gis to which we send email
@@ -92,6 +65,24 @@ PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
 
+def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
+    """generate downstream output directory
+    """
+
+    if is_devel_version():
+        basedir = site_cfg['downstream_outdir_base']['devel']
+    else:
+        basedir = site_cfg['downstream_outdir_base']['devel']
+    if pipeline_version:
+        pversion = pipeline_version
+    else:
+        pversion = get_pipeline_version(nospace=True)
+    outdir = "{basedir}/{requestor}/{pversion}/{pname}/{ts}".format(
+        basedir=basedir, requestor=requestor, pversion=pversion,
+        pname=pipeline_name, ts=generate_timestamp())
+    return outdir
+
+
 class PipelineHandler(object):
     """FIXME:add-doc
 
@@ -105,9 +96,12 @@ class PipelineHandler(object):
     RC_DIR = "rc"
 
     RC_FILES = {
-        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),# used to load dotkit
-        'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),# used to load snakemake
-        'SNAKEMAKE_ENV' : os.path.join(RC_DIR, 'snakemake_env.rc'),# used as bash prefix within snakemakejobs
+        # used to load dotkit
+        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),
+        # used to load snakemake
+        'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),
+        # used as bash prefix within snakemakejobs
+        'SNAKEMAKE_ENV' : os.path.join(RC_DIR, 'snakemake_env.rc'),
     }
 
     LOG_DIR_REL = "logs"
@@ -133,7 +127,7 @@ class PipelineHandler(object):
                  modules_cfgfile=None,
                  refs_cfgfile=None,
                  cluster_cfgfile=None):
-        """FIXME:add-doc
+        """init function
 
         pipeline_subdir: where default configs can be found, i.e pipeline subdir
         """
@@ -235,7 +229,8 @@ class PipelineHandler(object):
             fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
             fh.write("reuse -q miniconda-3\n")
             #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
-            fh.write("source activate snakemake-3.7.1\n")
+            #fh.write("source activate snakemake-3.7.1\n")
+            fh.write("source activate snakemake-3.8.2\n")
 
 
     def write_snakemake_env(self, overwrite=False):
@@ -269,7 +264,9 @@ class PipelineHandler(object):
 
 
     def write_run_template(self):
-        """FIXME:add-doc
+        """writes run template replacing placeholder with variables defined in
+        instance
+
         """
 
         d = {'SNAKEFILE': self.snakefile_abs,
@@ -300,7 +297,11 @@ class PipelineHandler(object):
             if not cfgfile:
                 continue
             with open(cfgfile) as fh:
-                cfg = dict(yaml.safe_load(fh))
+                try:
+                    cfg = dict(yaml.safe_load(fh))
+                except:
+                    logger.fatal("Loading %s failed", cfgfile)
+                    raise
             # to replace rpd vars the trick is to traverse
             # dictionary fully and replace all instances
             dump = json.dumps(cfg)
@@ -320,10 +321,9 @@ class PipelineHandler(object):
             if reffa:
                 assert 'num_chroms' not in merged_cfg['references']
                 merged_cfg['references']['num_chroms'] = len(list(
-                    chroms_and_lens_from_from_fasta(reffa)))
+                    chroms_and_lens_from_fasta(reffa)))
 
         return merged_cfg
-
 
 
     def write_merged_cfg(self, force_overwrite=False):
@@ -332,6 +332,14 @@ class PipelineHandler(object):
 
         config = self.read_cfgfiles()
         config.update(self.user_data)
+
+        b = config.get('intervals')
+        if b:
+            # bed only makes if we have a reference
+            f = config['references'].get('genome')
+            assert bed_and_indexed_fa_are_compatible(b, f), (
+                "{} not compatible with {}".format(b, f))
+
         assert 'ELM' not in config
         config['ELM'] = self.elm_data
 
@@ -343,7 +351,7 @@ class PipelineHandler(object):
 
 
     def setup_env(self):
-        """FIXME:add-doc
+        """create run environment
         """
 
         logger.info("Creating run environment in %s", self.outdir)
@@ -358,7 +366,6 @@ class PipelineHandler(object):
         self.write_dk_init(self.dk_init_file)
         self.write_snakemake_init(self.snakemake_init_file)
         self.write_run_template()
-
 
 
     def submit(self, no_run=False):
@@ -393,8 +400,7 @@ class PipelineHandler(object):
             logger.info("The (master) logfile is %s", master_log_abs)
 
 
-
-def get_pipeline_version():
+def get_pipeline_version(nospace=False):
     """determine pipeline version as defined by updir file
     """
     version_file = os.path.abspath(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
@@ -404,7 +410,7 @@ def get_pipeline_version():
     os.chdir(PIPELINE_ROOTDIR)
     if os.path.exists(".git"):
         commit = None
-        cmd = ['git', 'describe', '--always', '--dirty']
+        cmd = ['git', 'describe', '--always', '--tags']
         try:
             res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             commit = res.decode().strip()
@@ -412,6 +418,8 @@ def get_pipeline_version():
             pass
         if commit:
             version = "{} commit {}".format(version, commit)
+    if nospace:
+        version = version.replace(" ", "-")
     os.chdir(cwd)
     return version
 
@@ -425,17 +433,9 @@ def is_devel_version():
 
 
 def get_site():
-    """Determine site where we're running. Throws ValueError if unknown
+    """Where are we running
     """
-    # gis detection is a bit naive... but socket.getfqdn() doesn't help here
-    # also possible: ip a | grep -q 192.168.190 && NSCC=1
-    # but will only work on lmn
-    if os.path.exists('/home/users/astar/gis/userrig'):# 'NSCC' in socket.getfqdn():
-        return "NSCC"
-    elif os.path.exists("/home/userrig"):
-        return "GIS"
-    else:
-        return "local"
+    return site_cfg['name']
 
 
 def get_cluster_cfgfile(cfg_dir):
@@ -451,13 +451,8 @@ def get_cluster_cfgfile(cfg_dir):
 def get_init_call():
     """return dotkit init call
     """
-    site = get_site()
-    try:
-        cmd = [INIT[get_site()]]
-    except KeyError:
-        raise ValueError("Unknown site '{}'".format(site))
-
-    if is_devel_version() and site != "local":
+    cmd = [site_cfg['init']]
+    if is_devel_version():
         cmd.append('-d')
 
     return cmd
@@ -483,7 +478,6 @@ def get_rpd_vars():
             k, v = line.split('=')
             rpd_vars[k.strip()] = v.strip()
     return rpd_vars
-
 
 
 def generate_timestamp():
@@ -524,9 +518,10 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
     return machineid, runid, flowcellid
 
 
-# FIXME real_name() works at NSCC and GIS: getent passwd wilma | cut -f 5 -d :  | rev | cut -f 2- -d ' ' | rev
+# FIXME real_name() works at NSCC and GIS:
+# getent passwd wilma | cut -f 5 -d :  | rev | cut -f 2- -d ' ' | rev
 def email_for_user():
-    """FIXME:add-doc
+    """get email for user (naive)
     """
 
     user_name = getuser()
@@ -537,30 +532,26 @@ def email_for_user():
     return toaddr
 
 
-
 def is_production_user():
+    """true if run as production user
+    """
     return getuser() == "userrig"
 
 
 def get_default_queue(master_or_slave):
-    """FIXME:add-doc
+    """return cluster queue (for current user)
     """
 
     if is_production_user():
         user = 'production'
     else:
         user = 'enduser'
-    site = get_site()
-    if master_or_slave == 'master':
-        return DEFAULT_MASTER_Q[site][user]
-    elif master_or_slave == 'slave':
-        return DEFAULT_MASTER_Q[site][user]
-    else:
-        raise ValueError(master_or_slave)
+    key = 'default_{}_q'.format(master_or_slave)
+    return site_cfg[key][user]
 
 
 def send_status_mail(pipeline_name, success, analysis_id, outdir,
-                     extra_text=None, pass_exception=True):
+                     extra_text=None, pass_exception=True, to_address=None):
     """
     - pipeline_name: pipeline name
     - success: bool
@@ -592,10 +583,12 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir,
     msg = MIMEText(body)
     msg['Subject'] = subject
     msg['From'] = RPD_MAIL
-    msg['To'] = email_for_user()
+    if to_address:
+        msg['To'] = to_address
+    else:
+        msg['To'] = email_for_user()
 
-    site = get_site()
-    server = smtplib.SMTP(SMTP_SERVER[site])
+    server = smtplib.SMTP(site_cfg['smtp_server'])
     try:
         server.send_message(msg)
         server.quit()
@@ -603,7 +596,6 @@ def send_status_mail(pipeline_name, success, analysis_id, outdir,
         logger.fatal("Sending mail failed: %s", err)
         if not pass_exception:
             raise
-
 
 
 def send_mail(subject, body, toaddr=None, ccaddr=None,
@@ -632,8 +624,7 @@ def send_mail(subject, body, toaddr=None, ccaddr=None,
             ccaddr += "@gis.a-star.edu.sg"
         msg['Cc'] = ccaddr
 
-    site = get_site()
-    server = smtplib.SMTP(SMTP_SERVER[site])
+    server = smtplib.SMTP(site_cfg['smtp_server'])
     try:
         server.send_message(msg)
         server.quit()
@@ -679,7 +670,7 @@ def parse_regions_from_bed(bed):
             yield (chrom, start, end)
 
 
-def chroms_and_lens_from_from_fasta(fasta):
+def chroms_and_lens_from_fasta(fasta):
     """return sequence and their length as two tuple. derived from fai
     """
 
@@ -690,6 +681,19 @@ def chroms_and_lens_from_from_fasta(fasta):
             (s, l) = line.split()[:2]
             l = int(l)
             yield (s, l)
+
+
+def bed_and_indexed_fa_are_compatible(bed, fasta):
+    """checks whether samtools faidx'ed fasta is compatible with bed file
+    """
+
+    assert os.path.exists(bed), ("Missing file {}".format(bed))
+    assert os.path.exists(fasta), ("Missing fasta index {}".format(fasta))
+
+    bed_sqs = set([c for c, s, e in parse_regions_from_bed(bed)])
+    fa_sqs = [c for c, l in chroms_and_lens_from_fasta(fasta)]
+
+    return all([s in fa_sqs for s in bed_sqs])
 
 
 def path_to_url(out_path):
@@ -721,3 +725,41 @@ def mux_to_lib(mux_id, testing=False):
     for lib in rest_data['plexes']:
         lib_list.append(lib['libraryId'])
     return lib_list
+
+
+def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
+                          log_dir="logs/", overwrite=False):
+    """bundle log files in pipeline_outdir+result_outdir and
+    pipeline_outdir+log_dir to pipeline_outdir+logs.tar.gz and remove
+
+    See http://stackoverflow.com/questions/40602894/access-to-log-files for potential alternatives
+    """
+
+    for d in [pipeline_outdir,
+              os.path.join(pipeline_outdir, result_outdir),
+              os.path.join(pipeline_outdir, log_dir)]:
+        if not os.path.exists(d):
+            logger.warning("Missing directory %s. Skipping log bundling.", d)
+            return
+
+    bundle = os.path.join(log_dir, "logs.tar.gz")# relative to pipeline_outdir
+    if os.path.exists(os.path.join(pipeline_outdir, bundle)) and not overwrite:
+        logger.warning("Refusing to overwrite existing log bundle.")
+        return
+
+    orig_dir = os.getcwd()
+    os.chdir(pipeline_outdir)
+    # all log files associated with output files
+    logfiles = glob.glob(os.path.join(result_outdir, "**/*.log"), recursive=True)
+    # (cluster) log directory
+    logfiles.extend(glob.glob(os.path.join(log_dir, "*")))
+    # paranoid cleaning and some exclusion
+    logfiles = [f for f in logfiles if os.path.isfile(f)
+                and not f.endswith("snakemake.log")]
+
+    with tarfile.open(bundle, "w:gz") as tarfh:
+        for f in logfiles:
+            tarfh.add(f)
+            os.unlink(f)
+
+    os.chdir(orig_dir)

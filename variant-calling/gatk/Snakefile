@@ -14,16 +14,17 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import chroms_and_lens_from_from_fasta
+from pipelines import chroms_and_lens_from_fasta
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
+include: "../../rules/snpeff.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
@@ -50,18 +51,25 @@ if config['seqtype'] == 'WGS':
 else:
      var_filters = ['hfilter']
 
-     
-rule final:
-    input:
-        expand(out_templ + ".bamstats/stats.txt",
-               sample=config['samples']),
-        expand(out_templ + ".gt.{vartype}_{filters}.vcf.gz",
-               sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
-        expand(out_templ + ".concat.g.vcf.gz",
-               sample=config['samples']),
-        report="report.html"
 
+if config.get('bam_only'):
+    rule final:
+        input:
+            expand(out_templ + ".bamstats/stats.txt",
+                   sample=config['samples']),
+            report="report.html",
+else:
+    rule final:
+        input:
+            expand(out_templ + ".bamstats/stats.txt",
+                   sample=config['samples']),    
+            expand(out_templ + ".gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
+                   sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
+            expand(out_templ + ".concat.g.vcf.gz.tbi",
+                   sample=config['samples']),    
+            report="report.html",
 
+            
 rule prep_bed_files:
     """Prepare bed files to be able to run haplotype caller per chromosome
     to speed things up. if we also have a global bed file intersect
@@ -83,7 +91,7 @@ rule prep_bed_files:
     message:
         "Preparing intervals for splitting jobs"
     run:
-        for (i, (s, l)) in enumerate(chroms_and_lens_from_from_fasta(input.ref)):
+        for (i, (s, l)) in enumerate(chroms_and_lens_from_fasta(input.ref)):
             outbed = params.outbedfmt.format(i)
             tmpbed = outbed + ".tmp"
             # write one bed per chrom

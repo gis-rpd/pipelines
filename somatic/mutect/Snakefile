@@ -15,10 +15,10 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
-from pipelines import chroms_and_lens_from_from_fasta
+from pipelines import chroms_and_lens_from_fasta
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # non-login bash
@@ -31,6 +31,7 @@ TUMOR_DIR = os.path.join(RESULT_OUTDIR, 'tumor')
 VARIANTS_DIR = os.path.join(RESULT_OUTDIR, 'variants')
 
 
+include: "../../rules/snpeff.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
@@ -51,7 +52,7 @@ assert sorted(config['samples']) == sorted(["normal", "tumor"])
 
 rule final:
     input:
-        os.path.join(VARIANTS_DIR, 'mutect.PASS.vcf.gz.tbi'),
+        os.path.join(VARIANTS_DIR, 'mutect.PASS.snpeff.vcf.gz.tbi'),
         "report.html"
 
 
@@ -77,7 +78,7 @@ rule prep_bed_files:
     message:
         "Preparing intervals for splitting jobs"
     run:
-        for (i, (s, l)) in enumerate(chroms_and_lens_from_from_fasta(input.ref)):
+        for (i, (s, l)) in enumerate(chroms_and_lens_from_fasta(input.ref)):
             outbed = params.outbedfmt.format(i)
             tmpbed = outbed + ".tmp"
             # write one bed per chrom

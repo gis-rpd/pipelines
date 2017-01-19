@@ -12,7 +12,6 @@ import os
 import argparse
 import logging
 import subprocess
-from datetime import datetime
 
 #--- third-party imports
 #
@@ -55,7 +54,7 @@ def runs_from_db(testing=True, win=34):
     db = connection.gisds.pipeline_runs
     epoch_present, epoch_back = generate_window(win)
     results = db.find({"runs": {"$exists": True},
-                       "ctime": {"$gt": 1470127013000, "$lt": 1470127093000}})
+                       "ctime": {"$gt": 1470127013000, "$lt": 1470127093000}})# FIXME hardcoded?
     # results is a pymongo.cursor.Cursor which works like an iterator i.e. dont use len()
     logger.info("Found %d runs for last %s days", results.count(), win)
     for record in results:
@@ -120,8 +119,8 @@ def main():
                 if (update_info['start_time'] == start_time) and (update_info['DBid'] == str(_id)):
                     #Update the info from Trigger file
                     pipeline_status_script_cmd = [pipeline_status_script,
-                        '-r', update_info['DBid'], '-o', out_dir, '-s', update_info['status'],
-                        '-st', update_info['start_time']]
+                                                  '-r', update_info['DBid'], '-o', out_dir, '-s', update_info['status'],
+                                                  '-st', update_info['start_time']]
                     if args.testing:
                         pipeline_status_script_cmd.append("-t")
                     print(pipeline_status_script_cmd)

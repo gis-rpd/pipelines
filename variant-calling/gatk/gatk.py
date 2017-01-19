@@ -31,6 +31,8 @@ from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
 from pipelines import get_default_queue
+from pipelines import email_for_user
+
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
@@ -72,6 +74,9 @@ def main():
                         help="Give this analysis run a name (used in email and report)")
     parser.add_argument('--no-mail', action='store_true',
                         help="Don't send mail on completion")
+    default = email_for_user()
+    parser.add_argument('--mail', dest='mail_address', default=default,
+                        help="Send completion emails to this address (default: {})".format(default))
     default = get_default_queue('slave')
     parser.add_argument('-w', '--slave-q', default=default,
                         help="Queue to use for slave jobs (default: {})".format(default))
@@ -108,9 +113,14 @@ def main():
     parser.add_argument('-t', "--seqtype", required=True,
                         choices=['WGS', 'WES', 'targeted'],
                         help="Sequencing type")
-    parser.add_argument('-l', "--intervals",
-                        help="Intervals file (e.g. bed file) listing regions of interest."
+    parser.add_argument('-l', "--bed",
+                        help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
+    parser.add_argument('--raw-bam',
+                        help="Advanced: Injects raw (pre dedup, BQSR etc.) BAM (overwrites fq options)."
+                        " WARNING: reference and pre-processing need to match pipeline requirements")
+    parser.add_argument('--bam-only', action='store_true',
+                        help="Don't call variants, just process BAM file")
 
     args = parser.parse_args()
 
@@ -135,7 +145,7 @@ def main():
     # one) and readunit keys as value. readunits is a dict with
     # readunits (think: fastq pairs with attributes) as value
     if args.sample_cfg:
-        if any([args.fq1, args.fq2, args.sample]):
+        if any([args.fq1, args.fq2, args.sample, args.raw_bam]):
             logger.fatal("Config file overrides fastq and sample input arguments."
                          " Use one or the other")
             sys.exit(1)
@@ -143,39 +153,51 @@ def main():
             logger.fatal("Config file %s does not exist", args.sample_cfg)
             sys.exit(1)
         samples, readunits = get_samples_and_readunits_from_cfgfile(args.sample_cfg)
-    else:
-        if not all([args.fq1, args.sample]):
-            logger.fatal("Need at least fq1 and sample without config file")
-            sys.exit(1)
 
-        readunits = get_readunits_from_args(args.fq1, args.fq2)
-        # all readunits go into this one sample specified on the command-line
+    else:
         samples = dict()
-        samples[args.sample] = list(readunits.keys())
+        readunits = dict()
+
+        if args.raw_bam:
+            if not args.sample:
+                logger.fatal("Need sample name if not using config file")
+                sys.exit(1)
+            samples[args.sample] = []
+            assert os.path.exists(args.raw_bam)
+
+        else:
+            if not all([args.fq1, args.sample]):
+                logger.fatal("Need at least fq1 and sample if not using config file")
+                sys.exit(1)
+
+            readunits = get_readunits_from_args(args.fq1, args.fq2)
+            # all readunits go into this one sample specified on the command-line
+            samples = dict()
+            samples[args.sample] = list(readunits.keys())
 
     if args.seqtype in ['WES', 'targeted']:
-        if not args.intervals:
+        if not args.bed:
             logger.fatal("Analysis of exome and targeted sequence runs requires a bed file")
             sys.exit(1)
         else:
-            if not os.path.exists(args.intervals):
-                logger.fatal("Intervals file %s does not exist", args.sample_cfg)
+            if not os.path.exists(args.bed):
+                logger.fatal("Bed file %s does not exist", args.sample_cfg)
                 sys.exit(1)
-            logger.warning("Compatilibity between interval file and"
-                           " reference not checked")# FIXME
 
     # turn arguments into user_data that gets merged into pipeline config
     #
     # generic data first
     user_data = dict()
     user_data['mail_on_completion'] = not args.no_mail
+    user_data['mail_address'] = args.mail_address
     user_data['readunits'] = readunits
     user_data['samples'] = samples
     if args.name:
         user_data['analysis_name'] = args.name
     user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = os.path.abspath(args.intervals) if args.intervals else None
+    user_data['intervals'] =  os.path.abspath(args.bed) if args.bed else None# always safe, might be used for WGS as well
     user_data['mark_dups'] = MARK_DUPS
+    user_data['bam_only'] = args.bam_only
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
@@ -187,6 +209,15 @@ def main():
         refs_cfgfile=args.references_cfg,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
+
+    # inject existing BAM by symlinking (everything upstream is temporary anyway)
+    if args.raw_bam:
+        # target as defined in Snakefile!
+        target = os.path.join(args.outdir, "out", args.sample,
+                              "{}.bwamem.bam".format(args.sample))
+        os.makedirs(os.path.dirname(target))
+        os.symlink(os.path.abspath(args.raw_bam), target)
+
     pipeline_handler.submit(args.no_run)
 
 

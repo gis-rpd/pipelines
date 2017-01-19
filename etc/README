@@ -1,8 +1,0 @@
-This folder requires two files: 
-
-- mail.yaml defining 'GIS' and 'NSCC' smtp hosts
-- rest.yaml defining the following rest-services (with sub keys production and testing each):
-  - run_details
-  - lib_details
-  - sra_upload
-  - stats_upload

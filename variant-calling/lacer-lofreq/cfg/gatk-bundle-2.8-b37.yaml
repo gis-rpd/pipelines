@@ -61,3 +61,5 @@ excl_chrom:
 - GL000225.1
 - GL000192.1
 genome: $RPD_GENOMES/gatk-bundle/2.8/b37/human_g1k_v37_decoy.fasta
+snpeff_genome: GRCh37.75
+    

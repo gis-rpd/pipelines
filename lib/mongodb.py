@@ -12,7 +12,7 @@ import pymongo
 #--- project specific imports
 #
 from pipelines import get_site
-from services import mongo_conns
+from config import mongo_conns
 
 
 __author__ = "Andreas Wilm"
@@ -32,14 +32,12 @@ logger.addHandler(handler)
 
 def mongodb_conn(use_test_server=False):
     """Return connection to MongoDB server"""
-    site = get_site()
-    assert site in mongo_conns
     if use_test_server:
         logger.info("Using test MongoDB server")
-        constr = mongo_conns[site]['test']
+        constr = mongo_conns['test']
     else:
         logger.info("Using production MongoDB server")
-        constr = mongo_conns[site]['production']
+        constr = mongo_conns['production']
 
     try:
         connection = pymongo.MongoClient(constr)

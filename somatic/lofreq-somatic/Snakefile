@@ -15,7 +15,7 @@ if LIB_PATH not in sys.path:
 from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
 
 
-RESULT_OUTDIR = './out'
+RESULT_OUTDIR = 'out'
 
 
 # FIXME to conf once downstream handling clear
@@ -27,9 +27,11 @@ shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 
+include: "../../rules/snpeff.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/sambamba.rules"
+include: "../../rules/vcf.rules"
 include: "../../rules/report.rules"
 include: "lofreq.rules"
 include: "lacer.rules"
@@ -48,8 +50,8 @@ VARIANTS_DIR = os.path.join(RESULT_OUTDIR, 'variants')
         
 rule final:
     input:
-        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.vcf.gz'),
-        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.vcf.gz'),
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.snvs.snpeff.vcf.gz.tbi'),
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic_final_minus-dbsnp.indels.snpeff.vcf.gz.tbi'),
         "report.html"
 
 
@@ -76,6 +78,8 @@ rule lofreq_somatic:
         dbsnp = config['references']['dbsnp']
     output:
         rlx_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_{sample}_relaxed.vcf.gz'),
+                             sample=['normal', 'tumor']),
+        rlx_logs = expand(os.path.join(VARIANTS_DIR, 'lofreq_{sample}_relaxed.log'),
                              sample=['normal', 'tumor']),
         stringent_vars = expand(os.path.join(VARIANTS_DIR, 'lofreq_{sample}_stringent.{vartype}.vcf.gz'),
                                 sample=['normal', 'tumor'], vartype=['snvs', 'indels']),
