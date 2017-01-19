@@ -4,6 +4,7 @@
 etc/mongo.yaml
 etc/rest.yaml
 etc/site.yaml
+etc/bcl2fastq_qc.yaml
 
 # created on the fly from README.rst's
 *README.html
