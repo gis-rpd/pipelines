@@ -1,0 +1,87 @@
+
+{
+    # match short queue
+    "__default__":
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+
+    "bam_stats":
+    {
+      "time" : "04:00:00",
+      "mem" : 1G,
+    },
+
+    "map_sort":
+    {
+      "time" : "24:00:00",
+      "mem" : 14G,
+    },
+
+    "dedup":
+    {
+       "time" : "6:00:00",
+       "mem" : 6G,
+    },
+
+    "gatk_recalibrate_info":
+    {
+      "time" : "12:00:00",
+      "mem" : 8G,
+    },
+
+    "gatk_recalibrate_bam":
+    {
+      "time" : "36:00:00",
+      "mem" : 4G,
+    },
+
+    "gatk_haplotype_caller":
+    {
+      "time" : "36:00:00",
+      "mem" : 8G,
+    },
+
+    "gatk_genotyping":
+    {
+      "time" : "04:00:00",
+      "mem" : 16G,
+    },
+
+    "gatk_selectvariants":
+     {
+      "time" : "02:00:00",
+      "mem" : 2G,
+     },
+
+    "gatk_hard_filter_snps":
+    {
+      "time" : "02:00:00",
+      "mem" : 2G,
+    },
+
+    "gatk_hard_filter_indels":
+    {
+      "time" : "02:00:00",
+      "mem" : 2G,
+    },
+
+    "gatk_variant_recalibration":
+    {
+      "time" : "04:00:00",
+      "mem" : 8G,
+    },
+
+    "gatk_apply_variant_recalibration":
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+
+    "snpeff":
+    {
+      "time" : "02:00:00",
+      "mem" : 6G,
+    },
+}

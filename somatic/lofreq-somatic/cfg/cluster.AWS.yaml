@@ -1,0 +1,50 @@
+{
+    # match short queue
+    "__default__" :
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+  
+    "lacer_table" :
+    {
+      "time" : "18:00:00",
+      "mem" : 2G,
+    },
+
+    "lacer_apply" :
+    {
+      "time" : "08:00:00",
+      "mem" : 1G,
+    },
+
+    "lofreq_massage_sort" :
+    {
+      "time" : "08:00:00",
+      "mem" : 4G,
+    },       
+
+    "dedup":
+    {
+       "time" : "4:00:00",
+       "mem" : 2G,
+    },
+
+    "map_split" :
+    {
+      "time" : "12:00:00",
+      "mem" : 8G,
+    },
+
+    "lofreq_somatic" :
+    {
+      "time" : "12:00:00",
+      "mem" : 4G,
+    },
+    "snpeff":
+    {
+      "time" : "02:00:00",
+      "mem" : 6G,
+    },
+}    
+

@@ -1,0 +1,33 @@
+{
+    # match short queue
+    "__default__" :
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+
+    "bq_recal" :
+    {
+      "time" : "30:00:00",
+      "mem" : 4G,
+    },
+    
+    "unit_merge" :
+    {
+      "time" : "04:00:00",
+      "mem" : 1G,
+    },
+    
+    "map_mdups_sort" :
+    {
+      "time" : "02:00:00",
+      "mem" : 10G,
+    },
+    
+    "contamination_check" :
+    {
+      "time" : "06:00:00",
+      "mem" : 1G,
+    }
+}    
+                                                                
