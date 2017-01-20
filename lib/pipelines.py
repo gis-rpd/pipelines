@@ -96,8 +96,6 @@ class PipelineHandler(object):
     RC_DIR = "rc"
 
     RC_FILES = {
-        # used to load dotkit
-        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),
         # used to load snakemake
         'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),
         # used as bash prefix within snakemakejobs
@@ -162,8 +160,6 @@ class PipelineHandler(object):
             self.outdir, self.PIPELINE_CFGFILE)
 
         # RCs
-        self.dk_init_file = os.path.join(
-            self.outdir, self.RC_FILES['DK_INIT'])
         self.snakemake_init_file = os.path.join(
             self.outdir, self.RC_FILES['SNAKEMAKE_INIT'])
         self.snakemake_env_file = os.path.join(
@@ -210,27 +206,20 @@ class PipelineHandler(object):
 
 
     @staticmethod
-    def write_dk_init(rc_file, overwrite=False):
-        """write dotkit init rc
-        """
-        if not overwrite:
-            assert not os.path.exists(rc_file), rc_file
-        with open(rc_file, 'w') as fh:
-            fh.write("eval `{}`;\n".format(' '.join(get_init_call())))
-
-
-    @staticmethod
     def write_snakemake_init(rc_file, overwrite=False):
         """write snakemake init rc (loads miniconda and, activate source')
         """
         if not overwrite:
             assert not os.path.exists(rc_file), rc_file
         with open(rc_file, 'w') as fh:
-            fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
-            fh.write("reuse -q miniconda-3\n")
+            # init first so that modules are present
+            fh.write("{}\n".format(" ".join(get_init_call())))
+            fh.write("module load miniconda3\n")
+            # FIXME make config var
             #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
             #fh.write("source activate snakemake-3.7.1\n")
-            fh.write("source activate snakemake-3.8.2\n")
+            #fh.write("source activate snakemake-3.8.2\n")
+            fh.write("source activate snakemake-3.9.1\n")
 
 
     def write_snakemake_env(self, overwrite=False):
@@ -242,15 +231,16 @@ class PipelineHandler(object):
 
         with open(self.snakemake_env_file, 'w') as fh_rc:
             fh_rc.write("# used as bash prefix within snakemake\n\n")
-            fh_rc.write("# init dotkit\n")
-            fh_rc.write("source {}\n\n".format(os.path.relpath(self.dk_init_file, self.outdir)))
-
+            fh_rc.write("# make sure module command is defined (non-login shell). see http://lmod.readthedocs.io/en/latest/030_installing.html\n")
+            fh_rc.write("source /etc/bashrc\n")
             fh_rc.write("# load modules\n")
+            fh_rc.write("{}\n".format(" ".join(get_init_call())))
+
             with open(self.pipeline_cfgfile_out) as fh_cfg:
                 yaml_data = yaml.safe_load(fh_cfg)
                 assert "modules" in yaml_data
                 for k, v in yaml_data["modules"].items():
-                    fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
+                    fh_rc.write("module load {}/{}\n".format(k, v))
 
             fh_rc.write("\n")
             fh_rc.write("# unofficial bash strict has to come last\n")
@@ -313,7 +303,6 @@ class PipelineHandler(object):
             else:
                 assert cfgkey not in merged_cfg
                 merged_cfg[cfgkey] = cfg
-
         # determine num_chroms needed by some pipelines
         # FIXME ugly because sometimes not needed
         if merged_cfg.get('references'):
@@ -363,7 +352,6 @@ class PipelineHandler(object):
             self.write_cluster_config()
         self.write_merged_cfg()
         self.write_snakemake_env()
-        self.write_dk_init(self.dk_init_file)
         self.write_snakemake_init(self.snakemake_init_file)
         self.write_run_template()
 
@@ -451,10 +439,9 @@ def get_cluster_cfgfile(cfg_dir):
 def get_init_call():
     """return dotkit init call
     """
-    cmd = [site_cfg['init']]
+    cmd = ['source', site_cfg['init']]
     if is_devel_version():
-        cmd.append('-d')
-
+        cmd = ['RPD_TESTING=0'] + cmd
     return cmd
 
 
@@ -463,17 +450,17 @@ def get_rpd_vars():
     """
 
     cmd = get_init_call()
+    cmd = ' '.join(cmd) + ' && set | grep "^RPD_"'
     try:
-        res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        res = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
-        logger.fatal("Couldn't call init as '%s'", ' '.join(cmd))
+        logger.fatal("Couldn't call init %s. Result was: %s", cmd, res)
         raise
-
     rpd_vars = dict()
     for line in res.decode().splitlines():
-        if line.startswith('export '):
-            line = line.replace("export ", "")
-            line = ''.join([c for c in line if c not in '";\''])
+        if line.startswith('RPD_') and '=' in line:
+            #line = line.replace("export ", "")
+            #line = ''.join([c for c in line if c not in '";\''])
             #logger.debug("line = {}".format(line))
             k, v = line.split('=')
             rpd_vars[k.strip()] = v.strip()

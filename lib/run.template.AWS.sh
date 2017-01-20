@@ -41,8 +41,8 @@
 #$ -l h_rt={MASTER_WALLTIME_H}:00:00
 # memory: can be massive for complex DAGs
 #$ -l mem_free=4G
-# 'parallel env'
-#$ -pe OpenMP 1
+## 'parallel env'
+#$ -pe smp 1
 # run the job in the current working directory (where qsub is called)
 #$ -cwd
 # keep env so that qsub works
@@ -67,7 +67,7 @@ DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats 
 
 if [ "$ENVIRONMENT" == "BATCH" ]; then
     # define qsub options for all jobs spawned by snakemake
-    clustercmd="-pe OpenMP {{threads}} -l mem_free={{cluster.mem}} -l h_rt={{cluster.time}}"
+    clustercmd="-pe smp {{threads}} -l mem_free={{cluster.mem}} -l h_rt={{cluster.time}}"
     # echo "DEBUG TESTING NEW JSV FILE" 1>&2; clustercmd="$clustercmd -jsv /opt/uge-8.1.7p3/scripts/jsv/job_verify_memfree_new3.pl"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     clustercmd="$clustercmd -cwd -e $LOGDIR -o $LOGDIR"
