@@ -84,3 +84,4 @@ docs/_build/
 
 # PyBuilder
 target/
+.disabled-pipelines.txt
