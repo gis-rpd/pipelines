@@ -381,7 +381,18 @@ class PipelineHandler(object):
         else:
             logger.info("Starting pipeline: %s", cmd)
             #os.chdir(os.path.dirname(run_out))
-            _ = subprocess.check_output(cmd, shell=True)
+            try:
+                res = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                # if cluster has not compute nodes (e.g. AWS
+                # autoscaling to 0), UGE will throw an error, but job
+                # still gets submitted
+                if 'job is not allowed to run in any queue' in e.output.decode():
+                    logger.warning("Looks like cluster cooled down (no compute nodes available)."
+                                   " Job is submitted nevertheless and should start soon.")
+                else:
+                    raise
+
             submission_log_abs = os.path.abspath(os.path.join(self.outdir, self.submissionlog))
             master_log_abs = os.path.abspath(os.path.join(self.outdir, self.masterlog))
             logger.debug("For submission details see %s", submission_log_abs)
