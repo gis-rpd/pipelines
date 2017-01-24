@@ -6,16 +6,17 @@ full list of changes refer to the commit log.
 ## 2017-01
 
 - New pipelines:
-  - chromatin-profiling/chipseq running dfilter and macs2 as well as meme-chip
+  - chromatin-profiling/chipseq running dfilter and macs2, followed by meme-chip
 - Added default SNPeff annotation to all variant callers
-- Fasta and bed compatibilty now checked before running
+- Fasta and bed compatibility now checked before running
 - Added option to skip variant calling in GATK pipeline (--bam-only)
 - Added option to use precomputed BAM into GATK pipeline (--raw-bam)
-- Added several fixes to fluidigm-ht-c1-rnaseq to be able to robustly deal with the typically huge number of jobs
-- Cluster limit adjustements for all pipelines to reflect move from vmem to RSS in GIS, which means more effective use of resources and less chances of collateral damage by misbehaving jobs of other users
-- All logs are now automatically bundled on success
+- Several fixes for fluidigm-ht-c1-rnaseq to be able to better deal with the typically huge number of files and jobs
+- Cluster limit adjustments for all pipelines to reflect move from vmem to RSS in GIS
+- Log files are now automatically bundled on success
+- Job completion emails can now be send to other users
 - Version upgrades:
-  - snakemake 3.8
+  - snakemake 3.8.2
   - sambamba 0.6.5
 
 ## 2016-10:
