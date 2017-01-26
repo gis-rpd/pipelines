@@ -69,7 +69,7 @@ def get_machine_type_from_run_num(run_num):
     id_to_machine = {
         'MS001': 'miseq',
         'NS001': 'nextseq',
-        'HS001': 'hiseq 2500',# rapid
+        'HS001': 'hiseq 2500 rapid',
         'HS002': 'hiseq 2500',
         'HS003': 'hiseq 2500',
         'HS004': 'hiseq 2500',
