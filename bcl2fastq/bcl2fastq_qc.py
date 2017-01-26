@@ -352,14 +352,14 @@ def main():
             body += "\n- {}".format(f)
         body += "\nPlease double-check here: {}\n".format(
             path_to_url(args.bcl2fastq_dir))
-        body += "QC_FAILED"
-        logger.warning(subject + "\n" + body)
+        body += "QC_FAILED"# signal for callers
+        print(subject + "\n" + body)
 
         if not args.no_mail:
             email_qcfails(subject, body)
     else:
-        logger.info("QC checks completed. No tests failed")
-        logger.info("QC SUCCESS")
+        print("QC checks completed. No tests failed")
+        print("QC SUCCESS")# signal for callers
 
 
 if __name__ == '__main__':
