@@ -89,7 +89,7 @@ def email_qcfails(subject, body):
         toaddr = email_for_user()
         ccaddr = None
     else:
-        toaddr = config['emails']
+        toaddr = config['email']
         ccaddr = "rpd@gis.a-star.edu.sg"
 
     send_mail(subject, body, toaddr=toaddr, ccaddr=ccaddr,
