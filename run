@@ -17,7 +17,13 @@ from collections import namedtuple
 
 Pipeline = namedtuple('Pipeline', ['cat', 'script'])
 
-
+disabled_pipeline_cfg = ".disabled-pipelines.txt"
+disabled_pipelines = []
+if os.path.exists(disabled_pipeline_cfg):
+    with open(disabled_pipeline_cfg) as fh:
+        for line in fh:
+            disabled_pipelines.append(line.strip())
+    
 SCRIPTS = ['chromatin-profiling/chipseq/chipseq.py',
            'custom/SG10K/SG10K.py',
            'mapping/BWA-MEM/BWA-MEM.py',
@@ -27,8 +33,10 @@ SCRIPTS = ['chromatin-profiling/chipseq/chipseq.py',
            'somatic/lofreq-somatic/lofreq-somatic.py',
            'somatic/mutect/mutect.py',
            'variant-calling/gatk/gatk.py',
-           'variant-calling/lacer-lofreq/lacer-lofreq.py']
+           'variant-calling/lacer-lofreq/lacer-lofreq.py'
+       ]
 
+SCRIPTS = [s for s in SCRIPTS if s not in disabled_pipelines]
 
 def usage(fh, pipeline_map):
     """print usage info"""

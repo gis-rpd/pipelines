@@ -9,7 +9,7 @@ the
 ## Features
 
 - Cluster specifics are handled internally, i.e. users don't have to
-  worry about scheduler usage details etc.
+  worry about scheduler usage.
 - Built-in check-pointing: Easy restart and skipping of already
   completed steps
 - Pipelines work out of the box on GIS's aquila (UGE) or the
@@ -32,7 +32,7 @@ the
   e.g. [`variant-calling/gatk/example-dag.pdf`](variant-calling/gatk/example-dag.pdf))
   
   
-## Installation
+## Existing Installations
 
 The following installations are available at different sites (referred to as `RPD_PIPELINES` below):
 - GIS: `/mnt/projects/rpd/pipelines/`
@@ -113,7 +113,7 @@ In either case, you must not prefix the script with `python`.
 | Name | Category | Notes | @GIS | @NSCC |
 | ---  | ---      | ---   | ---  | ---   |
 | [bcl2fastq](bcl2fastq/README.md)                               | Production          | Not for end-users     | Y | Y |
-| [ChIP-seq](chromatin-profiling/chipseq/README.md)              | Chromatin Profiling |                       | Y | N |
+| [ChIP-seq](chromatin-profiling/chipseq/README.md)              | Chromatin Profiling |                       | Y | Y |
 | [SG10K](custom/SG10K/README.md)                                | Custom              | Evaluation only       | Y | Y |
 | [BWA-MEM](mapping/BWA-MEM/README.md)                           | Mapping             |                       | Y | Y |
 | [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |
@@ -124,7 +124,7 @@ In either case, you must not prefix the script with `python`.
 | [GATK](variant-calling/gatk/README.md)                         | Variant-calling     |                       | Y | Y |
 | [Lacer-LoFreq](variant-calling/lacer-lofreq/README.md)         | Variant-calling     |                       | Y | N |
 
-See `example-dag.pdf` in each pipeline's folder for a rough visual overview of the workflow.
+See `example-dag.pdf` in each pipeline's folder for a visual overview of the workflow.
 
 Note, pipelines start with fastq files as input (a few allow injection of BAM files).
 
@@ -133,7 +133,7 @@ Note, pipelines start with fastq files as input (a few allow injection of BAM fi
 - All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.7.1-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
 - Input will be a single fastq file or a pair of fastq files. Multiple of these can
   be given. Each pair is treated as one readunit (see also resulting
-  `conf.yaml` file) and gets its own readgroup assigned were
+  `conf.yaml` file) and gets its own readgroup assigned where
   appropriate.
 - Software versions are defined in each pipelines' `cfg/modules.yaml`
   and loaded via [dotkit](https://computing.llnl.gov/?set=jobs&page=dotkit)
@@ -143,7 +143,7 @@ Note, pipelines start with fastq files as input (a few allow injection of BAM fi
  (unless `--no-run` was used which gives you a chance to change the config file `conf.yaml`)
 - The actual run script is called `run.sh`
 - The main log file is `./logs/snakemake.log` (use `tail -f` to follow live progress)
-- After a successful run, the last line in the snakemake log file will
+- After a successful run, the last line in the mail log file will
   read: `(100%) done`
 - Cluster log files can be found in the respective `./logs/` sub-directory
 
@@ -184,19 +184,19 @@ described in the following:
 - Save the Excel sheet as CSV and run the following to convert it to a
   yaml config file: `tools/sample_conf.py -i <your>.csv -i
   <your>.yaml` Depending on how you created the CSV file you might
-  want to set the CSV delimiter with `-d`, e.g. "`-d ,`"
-- Use the created yaml file as input for the pipeline wrapper (usually "`--sample-cfg your.yaml`")
+  want to set the CSV delimiter with `-d`, e.g. `-d ,`
+- Use the created yaml file as input for the pipeline wrapper (option `--sample-cfg your.yaml`)
 
-Please note, not all pipelines support this feature, e.g. by design
-the somatic pipelines don't, but most others do (e.g. GATK,
-Lacer-LoFreq). In some cases multisample processing can lead to very
-high memory consumption by the snakemake master process itself. Since
-this is hard to avoid or predict, we in general discourage the use of
-multisample setups.
+Please note, not all pipelines support this feature (for example the
+somatic pipelines don't), but most do, e.g. GATK, Lacer-LoFreq. In
+some cases multisample processing can lead to very high memory
+consumption by the snakemake master process itself, a side-effect
+which is hard to predict.
 
-The above sample configuration can be used for single sample
-processing as well, however, here options `-s`, `-1` and `-2` will be
-sufficient for most cases.
+The above configuration can be used for single sample processing as
+well, however, for single samples the corresponding use of options
+`-s`, `-1` and `-2` is usually easierwill be sufficient for most
+cases..
 
 ## FAQ
 
@@ -218,7 +218,7 @@ You don't. It's taken care of automatically.
 
 #### Which Python version should I use?
 
-Never mind. Just call scripts without `python`.
+None! Call scripts without `python`.
 
 #### Pipeline execution failed. What now?
 
@@ -235,9 +235,10 @@ implementation priority.
 
 #### Can these pipelines be selected in / run from ELM?
 
-No and they never will be. We'll provide a separate web-interface for
-running pipelines soon.  For now you will have to use the command-line.
+No. For now you will have to use the command-line. The Datahub team is
+working on a separate web-interface for running pipelines.
 
-## Comments, Questions, Bug reports
+## Comments,
+Questions, Bug reports
 
 Contact us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu.sg)
