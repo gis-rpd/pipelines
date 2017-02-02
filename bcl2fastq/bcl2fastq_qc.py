@@ -232,6 +232,18 @@ def run_qc_checks(project_dirs, machine_type):
     logger.debug(pprint.pformat(lane_table))
 
     for lane, values in lane_table.items():
+        # test: pf
+        v = int(values['PF Clusters'] / 1000000.0)
+        l = config['min-pf-cluster-in-mil'][machine_type]
+        if v < float(l):
+            qcfails.append(
+                "PF clusters under limit"
+                " ({} < {}) for lane {}".format(v, l, lane))
+        logger.fatal("v=%s l=%s machine_type=%s", v, l, machine_type)
+        if v == 0:
+            # no passed reads? no point in continuing checks
+            continue
+        
         # test: perfect barcode
         v = values['% Perfect barcode']
         l = config['min-percent-perfect-barcode']
@@ -257,13 +269,6 @@ def run_qc_checks(project_dirs, machine_type):
                 "Yield under limit"
                 " ({} < {}) for lane {}".format(v, l, lane))
 
-        # test: pf
-        v = int(values['PF Clusters'] / 1000000.0)
-        l = config['min-pf-cluster-in-mil'][machine_type]
-        if v < float(l):
-            qcfails.append(
-                "PF clusters under limit"
-                " ({} < {}) for lane {}".format(v, l, lane))
         
 
     # info about 'undetermined' sits elsewhere (only makes sense if demuxed)
