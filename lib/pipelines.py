@@ -72,7 +72,7 @@ def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
     if is_devel_version():
         basedir = site_cfg['downstream_outdir_base']['devel']
     else:
-        basedir = site_cfg['downstream_outdir_base']['devel']
+        basedir = site_cfg['downstream_outdir_base']['production']
     if pipeline_version:
         pversion = pipeline_version
     else:
