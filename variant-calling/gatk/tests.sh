@@ -97,11 +97,14 @@ fi
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: targeted" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
-    eval $targeted_cmd_base -o $odir -v --no-run >> $log 2>&1
+    # also testing --extra-conf
+    eval $targeted_cmd_base -o $odir -v --extra-conf extrakey:extravalue --no-run >> $log 2>&1
     pushd $odir >> $log
+    grep -q extrakey conf.yaml && echo "extra-conf works" >> $log 2>&1 || exit 1
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     popd >> $log
     rm -rf $odir
+
     
     echo "Dryrun: WES" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
