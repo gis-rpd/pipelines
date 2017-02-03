@@ -196,7 +196,7 @@ def get_sample_info(child, rows, mux_analysis_list, mux_id, fastq_data_dir, \
     pipeline_version = get_pipeline_version(child['pipeline_version'] \
         if 'pipeline_version' in rows else None)
     sample_cfg['pipeline_version'] = pipeline_version
-    sample_cfg['pipeline_params'] = 'params'
+    #sample_cfg['pipeline_params'] = 'params'
     ref_info = get_reference_info(child['Analysis'], \
         sample_cfg['pipeline_version'], child['genome'])
     if not ref_info:
@@ -206,8 +206,7 @@ def get_sample_info(child, rows, mux_analysis_list, mux_id, fastq_data_dir, \
     sample_cfg['references_cfg'] = ref_info
     if cmdline_info:
         sample_cfg['cmdline'] = cmdline_info
-    else:
-        sample_cfg['cmdline'] = None
+
     readunits_dict = {}
     status, fq1, fq2 = check_fastq(fastq_data_dir, child['libraryId'],\
         rows['laneId'])
@@ -358,22 +357,28 @@ def main():
             job = {}
             rd_list = {}
             job['sample_cfg'] = {}
-            job['references_cfg'] = {}
-            job['cmdline'] = {}
+            #job['references_cfg'] = {}
+            #job['cmdline'] = {}
             readunits_list = list()
             rd_list['samples'] = {}
             for outer_key, outer_value in lib_info.items():
                 if outer_key == 'readunits':
                     for inner_key in lib_info[outer_key]:
                         readunits_list.append(inner_key)
+                    job['sample_cfg'].update({outer_key:outer_value})
                 if outer_key == 'references_cfg':
+                    job['references_cfg'] = {}
                     job['references_cfg'] = outer_value
                 elif outer_key == 'cmdline':
+                    job['cmdline'] = {}
                     job['cmdline'] = outer_value
+                elif outer_key != 'readunits':
+                    #job['sample_cfg'].update({outer_key:outer_value})
+                    job.update({outer_key:outer_value})
                 else:
-                    job['sample_cfg'].update({outer_key:outer_value})
                     rd_list['samples'] = readunits_list
                     job['sample_cfg'].update(rd_list)
+
             if args.dry_run:
                 logger.warning("Skipping job delegation for %s", \
                     lib)
