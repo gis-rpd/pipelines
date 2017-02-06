@@ -106,12 +106,11 @@ def merge_cells(child_key, key):
 		elif str(key[child_key]) == "TODO":
 			result += ("<span class='label label-pill label-default'>" \
 				+ str(key[child_key]) + "</span>")
-		elif str(key[child_key]) == "NOARCHIVE":
+		elif str(key[child_key]) == "DELEGATED" \
+			or str(key[child_key]) == "NOARCHIVE" \
+			or str(key[child_key]).upper() == "NOT-RECORDED":
 			result += ("<span class='label label-pill label-primary'>" \
-				+ "NO ARCHIVE" + "</span>")
-		elif str(key[child_key]).upper() == "NOT-RECORDED":
-			result += ("<span class='label label-pill label-primary'>" \
-				+ "NOT RECORDED" + "</span>")
+				+ str(key[child_key]).upper() + "</span>")
 		else:
 			result += str(key[child_key])
 	return result
@@ -225,15 +224,21 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 						</thead>
 						<tbody class='mux_tbody'>
 					"""
+					mux_list = []
 					for mux in analysis["per_mux_status"]:
-						result += "<tr>"
-						result += ("<td>" + merge_cells("mux_id", mux) + "</td>")
-						result += ("<td>" + merge_cells("ArchiveSubmission", mux) + "</td>")
-						result += ("<td>" + merge_cells("DownstreamSubmission", mux) + "</td>")
-						result += ("<td>" + merge_cells("StatsSubmission", mux) + "</td>")
-						result += ("<td>" + merge_cells("Status", mux) + "</td>")
-						result += ("<td>" + merge_cells("email_sent", mux) + "</td>")
-						result += "</tr>"
+						mux_list.append(mux["mux_id"])
+					mux_list.sort()
+					for key in mux_list:
+						for mux in analysis["per_mux_status"]:
+							if mux["mux_id"] == key:
+								result += "<tr>"
+								result += ("<td>" + merge_cells("mux_id", mux) + "</td>")
+								result += ("<td>" + merge_cells("ArchiveSubmission", mux) + "</td>")
+								result += ("<td>" + merge_cells("DownstreamSubmission", mux) + "</td>")
+								result += ("<td>" + merge_cells("StatsSubmission", mux) + "</td>")
+								result += ("<td>" + merge_cells("Status", mux) + "</td>")
+								result += ("<td>" + merge_cells("email_sent", mux) + "</td>")
+								result += "</tr>"
 					result += "</tbody></table>"
 				else:
 #                    result += "<span class='label label-pill label-default'>NONE</span>"
