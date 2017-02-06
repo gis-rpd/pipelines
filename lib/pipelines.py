@@ -18,6 +18,7 @@ import calendar
 import json
 import tarfile
 import glob
+import argparse
 
 #--- third-party imports
 #
@@ -51,6 +52,7 @@ logger.addHandler(handler)
 
 # from address, i.e. users should reply to to this
 # instead of rpd@gis to which we send email
+# FIXME both to config or external file
 RPD_MAIL = "rpd@gis.a-star.edu.sg"
 RPD_SIGNATURE = """
 --
@@ -72,7 +74,7 @@ def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
     if is_devel_version():
         basedir = site_cfg['downstream_outdir_base']['devel']
     else:
-        basedir = site_cfg['downstream_outdir_base']['devel']
+        basedir = site_cfg['downstream_outdir_base']['production']
     if pipeline_version:
         pversion = pipeline_version
     else:
@@ -266,7 +268,6 @@ class PipelineHandler(object):
     def write_run_template(self):
         """writes run template replacing placeholder with variables defined in
         instance
-
         """
 
         d = {'SNAKEFILE': self.snakefile_abs,
@@ -398,6 +399,48 @@ class PipelineHandler(object):
             master_log_abs = os.path.abspath(os.path.join(self.outdir, self.masterlog))
             logger.debug("For submission details see %s", submission_log_abs)
             logger.info("The (master) logfile is %s", master_log_abs)
+
+
+def default_argparser(cfg_dir):
+    """Create default argparser (use as parent) for pipeline calls. Needs point to pipelines config dir
+    """
+    
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('-o', "--outdir", required=True,
+                        help="Output directory (must not exist)")
+    parser.add_argument('--name',
+                        help="Give this analysis run a name (used in email and report)")
+    parser.add_argument('--no-mail', action='store_true',
+                        help="Don't send mail on completion")
+    default = email_for_user()
+    parser.add_argument('--mail', dest='mail_address', default=default,
+                        help="Send completion emails to this address (default: {})".format(default))
+    default = get_default_queue('slave')
+    parser.add_argument('-w', '--slave-q', default=default,
+                        help="Queue to use for slave jobs (default: {})".format(default))
+    default = get_default_queue('master')
+    parser.add_argument('-m', '--master-q', default=default,
+                        help="Queue to use for master job (default: {})".format(default))
+    parser.add_argument('-n', '--no-run', action='store_true')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help="Increase verbosity")
+    parser.add_argument('-q', '--quiet', action='count', default=0,
+                        help="Decrease verbosity")
+    parser.add_argument('--extra-conf', nargs='*', metavar="key:value",
+                        help="Advanced: Extra values written added config (overwriting values).")
+    cfg_group = parser.add_argument_group('Configuration files')
+    cfg_group.add_argument('--sample-cfg',
+                           help="Config-file (YAML) listing samples and readunits."
+                           " Collides with -1, -2 and -s")
+    for name, descr in [("references", "reference sequences"),
+                        ("params", "parameters"),
+                        ("modules", "modules")]:
+        default = os.path.abspath(os.path.join(cfg_dir, "{}.yaml".format(name)))
+        cfg_group.add_argument('--{}-cfg'.format(name),
+                               default=default,
+                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
+
+    return parser
 
 
 def get_pipeline_version(nospace=False):

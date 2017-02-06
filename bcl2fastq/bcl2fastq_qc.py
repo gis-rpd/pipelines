@@ -69,7 +69,7 @@ def get_machine_type_from_run_num(run_num):
     id_to_machine = {
         'MS001': 'miseq',
         'NS001': 'nextseq',
-        'HS001': 'hiseq 2500',# rapid
+        'HS001': 'hiseq 2500 rapid',
         'HS002': 'hiseq 2500',
         'HS003': 'hiseq 2500',
         'HS004': 'hiseq 2500',
@@ -89,7 +89,7 @@ def email_qcfails(subject, body):
         toaddr = email_for_user()
         ccaddr = None
     else:
-        toaddr = config['emails']
+        toaddr = config['email']
         ccaddr = "rpd@gis.a-star.edu.sg"
 
     send_mail(subject, body, toaddr=toaddr, ccaddr=ccaddr,
@@ -232,6 +232,18 @@ def run_qc_checks(project_dirs, machine_type):
     logger.debug(pprint.pformat(lane_table))
 
     for lane, values in lane_table.items():
+        # test: pf
+        v = int(values['PF Clusters'] / 1000000.0)
+        l = config['min-pf-cluster-in-mil'][machine_type]
+        if v < float(l):
+            qcfails.append(
+                "PF clusters under limit"
+                " ({} < {}) for lane {}".format(v, l, lane))
+        logger.fatal("v=%s l=%s machine_type=%s", v, l, machine_type)
+        if v == 0:
+            # no passed reads? no point in continuing checks
+            continue
+        
         # test: perfect barcode
         v = values['% Perfect barcode']
         l = config['min-percent-perfect-barcode']
@@ -257,13 +269,6 @@ def run_qc_checks(project_dirs, machine_type):
                 "Yield under limit"
                 " ({} < {}) for lane {}".format(v, l, lane))
 
-        # test: pf
-        v = int(values['PF Clusters'] / 1000000.0)
-        l = config['min-pf-cluster-in-mil'][machine_type]
-        if v < float(l):
-            qcfails.append(
-                "PF clusters under limit"
-                " ({} < {}) for lane {}".format(v, l, lane))
         
 
     # info about 'undetermined' sits elsewhere (only makes sense if demuxed)

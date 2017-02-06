@@ -90,7 +90,11 @@ def main():
             if not os.path.exists(out_dir):
                 logger.critical("Following directory listed in DB doesn't exist: %s", out_dir)
                 continue
-            bcl2fastq_qc_out = os.path.join(out_dir, "bcl2fastq_qc.txt")
+            if args.testing:
+                bcl2fastq_qc_out = os.path.join(out_dir, "bcl2fastq_qc.test.txt")
+            else:
+                bcl2fastq_qc_out = os.path.join(out_dir, "bcl2fastq_qc.txt")
+
             if os.path.exists(bcl2fastq_qc_out):
                 logger.critical("Refusing to overwrite existing file %s. Skipping QC check", bcl2fastq_qc_out)
                 continue
