@@ -192,7 +192,7 @@ def get_sample_info(child, rows, mux_analysis_list, mux_id, fastq_data_dir, \
     except KeyError as e:
         sample_cfg['pipeline_name'] = child['Analysis']
         logger.warning(str(e) + " Pipeline not mappped to newer version")
-        return None
+        return sample_info
     pipeline_version = get_pipeline_version(child['pipeline_version'] \
         if 'pipeline_version' in rows else None)
     sample_cfg['pipeline_version'] = pipeline_version
@@ -201,7 +201,7 @@ def get_sample_info(child, rows, mux_analysis_list, mux_id, fastq_data_dir, \
         sample_cfg['pipeline_version'], child['genome'])
     if not ref_info:
         logger.info("ref_info not available")
-        return None
+        return sample_info
     cmdline_info = get_cmdline_info(child)
     sample_cfg['references_cfg'] = ref_info
     if cmdline_info:
@@ -216,7 +216,7 @@ def get_sample_info(child, rows, mux_analysis_list, mux_id, fastq_data_dir, \
         k = key_for_readunit(ru)
         readunits_dict[k] = dict(ru._asdict())
         sample_cfg['readunits'] = readunits_dict
-        if sample_info.get(sample_id, {}).get('readunits'):
+        if sample_info.get(sample_id, {}).get('readunits', {}):
             sample_info[sample_id]['readunits'].update(readunits_dict)
         else:
             sample_info[sample_id] = sample_cfg
