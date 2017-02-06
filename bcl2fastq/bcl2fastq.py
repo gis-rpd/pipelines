@@ -166,6 +166,7 @@ def main():
         os.path.dirname(sys.argv[0]), "mongo_status.py"))
     assert os.path.exists(mongo_status_script)
 
+    # very different from downstream pipelines and hence no use of default_argparser
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
     parser.add_argument('-r', "--runid",
