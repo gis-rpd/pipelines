@@ -8,6 +8,7 @@ Unless specified by -w or --win, only the 7 most recent days of records are retr
 #
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
+from operator import itemgetter
 import os
 from pprint import PrettyPrinter
 import subprocess
@@ -224,21 +225,15 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 						</thead>
 						<tbody class='mux_tbody'>
 					"""
-					mux_list = []
-					for mux in analysis["per_mux_status"]:
-						mux_list.append(mux["mux_id"])
-					mux_list.sort()
-					for key in mux_list:
-						for mux in analysis["per_mux_status"]:
-							if mux["mux_id"] == key:
-								result += "<tr>"
-								result += ("<td>" + merge_cells("mux_id", mux) + "</td>")
-								result += ("<td>" + merge_cells("ArchiveSubmission", mux) + "</td>")
-								result += ("<td>" + merge_cells("DownstreamSubmission", mux) + "</td>")
-								result += ("<td>" + merge_cells("StatsSubmission", mux) + "</td>")
-								result += ("<td>" + merge_cells("Status", mux) + "</td>")
-								result += ("<td>" + merge_cells("email_sent", mux) + "</td>")
-								result += "</tr>"
+					for mux in sorted(analysis["per_mux_status"], key=itemgetter("mux_id")):
+						result += "<tr>"
+						result += ("<td>" + merge_cells("mux_id", mux) + "</td>")
+						result += ("<td>" + merge_cells("ArchiveSubmission", mux) + "</td>")
+						result += ("<td>" + merge_cells("DownstreamSubmission", mux) + "</td>")
+						result += ("<td>" + merge_cells("StatsSubmission", mux) + "</td>")
+						result += ("<td>" + merge_cells("Status", mux) + "</td>")
+						result += ("<td>" + merge_cells("email_sent", mux) + "</td>")
+						result += "</tr>"
 					result += "</tbody></table>"
 				else:
 #                    result += "<span class='label label-pill label-default'>NONE</span>"
