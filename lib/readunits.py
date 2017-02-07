@@ -130,17 +130,24 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
         fq1 = ru_plain.get('fq1')
         fq2 = ru_plain.get('fq2')
 
-        # if we have relative paths, make them abs relative to cfgfile
-        if not os.path.isabs(fq1):
+        # if we have s3 paths, leave them as they are, but make
+        # relative paths abs relative to cfgfile
+        if not os.path.isabs(fq1) and not fq1.startswith("s3://"):
             fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
-        if fq2 and not os.path.isabs(fq2):
+        if fq2 and not os.path.isabs(fq2) and not fq2.startswith("s3://"):
             fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
 
         for f in [fq1, fq2]:
-            if f and not os.path.exists(f):
+            if f and not os.path.exists(f) and not f.startswith("s3://"):
                 logger.fatal("Non-existing input file %s in config file %s", f, cfgfile)
                 if not raise_off:
                     raise ValueError(cfgfile)
+            
+        # if these are file on s3 then s3.rules will take care of this, but only if we change s3:// to s3/
+        if fq1.startswith("s3://"):
+            fq1 = fq1.replace("s3://", "s3/")
+        if fq2 and fq2.startswith("s3://"):
+            fq2 = fq2.replace("s3://", "s3/")
 
         ru = ReadUnit(run_id, flowcell_id, library_id, lane_id, rg_id,
                       fq1, fq2)
