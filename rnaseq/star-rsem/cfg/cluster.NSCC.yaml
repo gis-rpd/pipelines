@@ -1,22 +1,21 @@
 {
-    # default rules applied to all rules, but overriden by rule-specific settings
+    # match short queue
     "__default__":
     {
-      "time" : "08:00:00",
-      "mem" : 24G,
+      "time" : "02:00:00",
+      "mem" : 1G,
     },
 
     "star_mapping":
     {
-      # on ENCFF001RDF and ENCFF001RCX
       "time" : "02:00:00",
-      "mem" : 54G,
+      "mem" : 46G,
     },
     
     "RSEM":
     {
       "time" : "24:00:00",
-      "mem" : 16G,
+      "mem" : 12G,
     },
 
     "cuffdiff":
@@ -28,8 +27,14 @@
     "rnaseqc":
     {
       "time" : "02:00:00",
-      "mem" : 20G,
+      "mem" : 3G,
     },
+    
+    "wig2bigwig":
+    {
+      "time" : "02:00:00",
+      "mem" : 10G,
+    },    
 
 }    
 
