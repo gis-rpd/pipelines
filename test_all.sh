@@ -49,12 +49,21 @@ cd $(dirname $0)
 commit=$(git describe --always --dirty)
 
 for sh in $(find * -maxdepth 3 -mindepth 1 -name tests.sh); do
-
-    if false; then
-        if echo $sh | grep -q bcl2fastq; then
-            echo "WARN: Skipping bcl2fastq" 1>&2
-            continue
-        fi        
+    disabled_pipelines=""
+    if [ -s .disabled-pipelines.txt ]; then
+	disabled_pipelines=$(cat .disabled-pipelines.txt | xargs -n 1 dirname)
+    fi
+    echo "DEBUG: disabled_pipelines=$disabled_pipelines" 1>&2
+    skip=0
+    for p in $disabled_pipelines; do
+	if echo $sh | grep -q $p; then
+	    skip=1
+	    break
+	fi
+    done
+    if [ $skip -eq 1 ]; then
+	echo "WARNING: skipping $sh as requested" 1>&2
+	continue
     fi
     
     echo "------------------------------------------------------------"

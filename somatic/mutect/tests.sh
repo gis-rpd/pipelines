@@ -138,7 +138,7 @@ if [ $skip_real_runs -ne 1 ]; then
             qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -b y -cwd -V $mailopt -N $jobname -hold_jid $jid"
         fi
         echo "Submitting validation hold-job" | tee -a $log
-        pred=$odir/out/variants/mutect.PASS.vcf.gz
+        pred=$odir/out/variants/mutect.PASS.snpeff.vcf.gz
         # only subset validated, hence only sens test make sense
         $qsub "$(pwd)/validate.sh -T snps -t $EXOME_IN_HOUSE_VAL -p $pred -S 0.85" >> $log 2>&1
     else
@@ -164,9 +164,9 @@ if [ $skip_real_runs -ne 1 ]; then
             qsub="qsub -pe OpenMP 1 -l mem_free=1G -l h_rt=01:00:00 -j y -b y -cwd -V $mailopt -N $jobname -hold_jid $jid"
         fi
         echo "Submitting validation hold-job" | tee -a $log
-        pred=$odir/out/variants/mutect.PASS.vcf.gz
+        pred=$odir/out/variants/mutect.PASS.snpeff.vcf.gz
         # only subset validated, hence only sens test make sense
-        $qsub "$(pwd)/validate.sh -T snps -t $DREAM_WGS_TRUTH -p $pred -S 0.9 -P 0.9" >> $log 2>&1
+        $qsub "$(pwd)/validate.sh -T snps -t $DREAM_WGS_TRUTH -p $pred -S 0.9 -P 0.6" >> $log 2>&1
     else
         echo "Skipping as requested" | tee -a $log
     fi

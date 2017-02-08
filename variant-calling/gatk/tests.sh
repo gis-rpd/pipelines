@@ -69,8 +69,8 @@ SKIP_REAL_WGS=0
 
 
 WRAPPER=./gatk.py
-targeted_cmd_base="$WRAPPER --sample-cfg $TARGETED_CFG -t targeted -l $DUMMY_BED --name 'test:targeted'"
-wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:WES'"
+targeted_cmd_base="$WRAPPER --sample-cfg $TARGETED_CFG -t targeted -l $DUMMY_BED --name 'test:targeted'";# --bam-only"
+wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:WES'";# --bam-only"
 wes_run_cmd_base="../../run $(basename $WRAPPER .py) -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:run:WES'"
 wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS --name 'test:WGS'"
 
@@ -97,11 +97,14 @@ fi
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: targeted" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
-    eval $targeted_cmd_base -o $odir -v --no-run >> $log 2>&1
+    # also testing --extra-conf
+    eval $targeted_cmd_base -o $odir -v --extra-conf extrakey:extravalue --no-run >> $log 2>&1
     pushd $odir >> $log
+    grep -q extrakey conf.yaml && echo "extra-conf works" >> $log 2>&1 || exit 1
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     popd >> $log
     rm -rf $odir
+
     
     echo "Dryrun: WES" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir

@@ -28,10 +28,9 @@ from readunits import get_samples_and_readunits_from_cfgfile
 from readunits import get_readunits_from_args
 from pipelines import get_pipeline_version
 from pipelines import PipelineHandler
-from pipelines import get_default_queue
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
-from pipelines import email_for_user
+from pipelines import default_argparser
 
 
 __author__ = "Andreas Wilm"
@@ -64,42 +63,10 @@ def main():
     """main function
     """
 
+    default_parser = default_argparser(CFG_DIR)
     parser = argparse.ArgumentParser(description=__doc__.format(
-        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
-
-    # generic args
-    parser.add_argument('-o', "--outdir", required=True,
-                        help="Output directory (may not exist)")
-    parser.add_argument('--name',
-                        help="Give this analysis run a name (used in email and report)")
-    parser.add_argument('--no-mail', action='store_true',
-                        help="Don't send mail on completion")
-    default = email_for_user()
-    parser.add_argument('--mail', dest='mail_address', default=default,
-                        help="Send completion emails to this address (default: {})".format(default))
-    #site = get_site()
-    default = get_default_queue('slave')
-    parser.add_argument('-w', '--slave-q', default=default,
-                        help="Queue to use for slave jobs (default: {})".format(default))
-    default = get_default_queue('master')
-    parser.add_argument('-m', '--master-q', default=default,
-                        help="Queue to use for master job (default: {})".format(default))
-    parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=0,
-                        help="Increase verbosity")
-    parser.add_argument('-q', '--quiet', action='count', default=0,
-                        help="Decrease verbosity")
-    cfg_group = parser.add_argument_group('Configuration files (advanced)')
-    cfg_group.add_argument('--sample-cfg',
-                           help="Config-file (YAML) listing samples and readunits."
-                           " Collides with -1, -2 and -s")
-    for name, descr in [("references", "reference sequences"),
-                        ("params", "parameters"),
-                        ("modules", "modules")]:
-        default = os.path.abspath(os.path.join(CFG_DIR, "{}.yaml".format(name)))
-        cfg_group.add_argument('--{}-cfg'.format(name),
-                               default=default,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
+        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
+                                     parents=[default_parser])
 
     # pipeline specific args
     parser.add_argument("--normal-fq1", nargs="+",
@@ -223,7 +190,7 @@ def main():
         user_data['analysis_name'] = args.name
 
     user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = args.bed
+    user_data['intervals'] = os.path.abspath(args.bed) if args.bed else None
     user_data['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(

@@ -8,6 +8,7 @@ Unless specified by -w or --win, only the 7 most recent days of records are retr
 #
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
+from operator import itemgetter
 import os
 from pprint import PrettyPrinter
 import subprocess
@@ -106,12 +107,11 @@ def merge_cells(child_key, key):
 		elif str(key[child_key]) == "TODO":
 			result += ("<span class='label label-pill label-default'>" \
 				+ str(key[child_key]) + "</span>")
-		elif str(key[child_key]) == "NOARCHIVE":
+		elif str(key[child_key]) == "DELEGATED" \
+			or str(key[child_key]) == "NOARCHIVE" \
+			or str(key[child_key]).upper() == "NOT-RECORDED":
 			result += ("<span class='label label-pill label-primary'>" \
-				+ "NO ARCHIVE" + "</span>")
-		elif str(key[child_key]).upper() == "NOT-RECORDED":
-			result += ("<span class='label label-pill label-primary'>" \
-				+ "NOT RECORDED" + "</span>")
+				+ str(key[child_key]).upper() + "</span>")
 		else:
 			result += str(key[child_key])
 	return result
@@ -225,7 +225,7 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 						</thead>
 						<tbody class='mux_tbody'>
 					"""
-					for mux in analysis["per_mux_status"]:
+					for mux in sorted(analysis["per_mux_status"], key=itemgetter("mux_id")):
 						result += "<tr>"
 						result += ("<td>" + merge_cells("mux_id", mux) + "</td>")
 						result += ("<td>" + merge_cells("ArchiveSubmission", mux) + "</td>")
