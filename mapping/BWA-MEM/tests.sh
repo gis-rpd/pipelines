@@ -6,6 +6,8 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+PIPELINE=$(basename $(dirname $MYNAME))
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -36,6 +38,9 @@ while getopts "dr" opt; do
             ;;
     esac
 done
+
+
+module load samtools
 
 
 # readlink resolves links and makes path absolute
@@ -69,7 +74,6 @@ commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
 
-test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
@@ -80,7 +84,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG: PE through config" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_PE_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
@@ -96,7 +100,7 @@ fi
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: PE on command line" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-pe-cmdline.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py -1 $R1S1 -2 $R2S1 -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -104,7 +108,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     popd >> $log
 
     echo "Dryrun: PE through config" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-pe-config.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_PE_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -112,7 +116,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     popd >> $log
 
     echo "Dryrun: SR on command line" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py -1 $R1S1 -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -120,7 +124,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     popd >> $log
     
     echo "Dryrun: SR through config" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-se-cmdline.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_SR_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -128,7 +132,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     popd >> $log
 
     echo "Dryrun: 2-sample config" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-2-sample.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --sample-cfg $SPLIT1KONLY_2SAMPLE_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -143,7 +147,7 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run: checking whether SE reads in == reads out (-secondary)" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-se-in-eq-out.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --no-mail -1 $R1S1 -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
@@ -162,7 +166,7 @@ if [ $skip_real_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Real run: checking whether PE reads in == reads out (-secondary)" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-pe-in-eq-out.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --no-mail -1 $R1S1 -2 $R2S1 -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
@@ -181,7 +185,7 @@ if [ $skip_real_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Real run: checking whether PE dup reads are removed" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-pe-mdups.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s $SAMPLE -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
@@ -203,7 +207,7 @@ if [ $skip_real_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Real run: no dups marking should not mark dups" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-pe-no-mdups.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --no-mail -v -1 $RANDR1WDUPS -2 $RANDR2WDUPS -s $SAMPLE -D -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1
@@ -219,7 +223,7 @@ if [ $skip_real_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Real run: 2-sample config" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-2-sample.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./BWA-MEM.py --no-mail --sample-cfg $SPLIT1KONLY_2SAMPLE_CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     bash run.sh >> $log 2>&1

@@ -6,6 +6,8 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+PIPELINE=$(basename $(dirname $MYNAME))
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -63,7 +65,6 @@ commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
 
-test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
@@ -74,7 +75,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
     pushd $odir >> $log
     type=pdf
@@ -89,7 +90,7 @@ fi
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -105,7 +106,7 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 -o $odir >> $log 2>&1
     
 else
