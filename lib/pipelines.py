@@ -372,9 +372,9 @@ class PipelineHandler(object):
                 os.path.dirname(self.run_out), master_q_arg,
                 os.path.basename(self.run_out), self.submissionlog)
         else:
-            cmd = "cd {} && qsub {} {} >> {}".format(
-                os.path.dirname(self.run_out), master_q_arg,
-                os.path.basename(self.run_out), self.submissionlog)
+            cmd = "cd {} && {} {} {} >> {}".format(
+                os.path.dirname(self.run_out), site_cfg['master_submission_cmd'], 
+                master_q_arg, os.path.basename(self.run_out), self.submissionlog)
 
         if no_run:
             logger.warning("Skipping pipeline run on request. Once ready, use: %s", cmd)
