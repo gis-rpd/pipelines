@@ -118,27 +118,17 @@ def main():
         samples = dict()
         samples[args.sample] = list(readunits.keys())
 
-    # FIXME checks on reffa index (currently not exposed via args)
+    # FIXME implement checks on reffa index (currently not exposed via args)
 
-    # turn arguments into user_data that gets merged into pipeline config
+    # turn arguments into cfg_dict that gets merged into pipeline config
     #
-    # generic data first
-    user_data = dict()
-    user_data['mail_on_completion'] = not args.no_mail
-    user_data['mail_address'] = args.mail_address
-    user_data['readunits'] = readunits
-    user_data['samples'] = samples
-    if args.name:
-        user_data['analysis_name'] = args.name
+    cfg_dict = dict()
+    cfg_dict['readunits'] = readunits
+    cfg_dict['samples'] = samples
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        params_cfgfile=args.params_cfg,
-        modules_cfgfile=args.modules_cfg,
-        refs_cfgfile=args.references_cfg,
+        args, cfg_dict,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)

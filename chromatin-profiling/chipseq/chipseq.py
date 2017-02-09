@@ -93,7 +93,7 @@ def main():
     default = choices[0]
     parser.add_argument('--mapper', default=default, choices=choices,
                         help="Mapper to use. One of {}. Default {}".format(",".join(choices), default))
-    
+
     choices = ['TF', 'histone-narrow', 'histone-broad']#, 'open-chromatin']
     parser.add_argument('-t', '--peak-type', required=True, choices=choices,
                         help="Peak type. One of {}".format(",".join(choices)))
@@ -162,43 +162,35 @@ def main():
     assert sorted(samples) == sorted(["control", "treatment"])
 
 
-    # turn arguments into user_data that gets merged into pipeline config
+    # turn arguments into cfg_dict that gets merged into pipeline config
     #
-    # generic data first
-    user_data = dict()
-    user_data['mail_on_completion'] = not args.no_mail
-    user_data['mail_address'] = args.mail_address
-    user_data['readunits'] = readunits
-    user_data['samples'] = samples
-    if args.name:
-        user_data['analysis_name'] = args.name
+    cfg_dict = dict()
+    cfg_dict['readunits'] = readunits
+    cfg_dict['samples'] = samples
 
     # either paired end or not, but no mix allows
     if all([ru.get('fq2') for ru in readunits.values()]):
-        user_data['paired_end'] = True
+        cfg_dict['paired_end'] = True
     elif not any([ru.get('fq2') for ru in readunits.values()]):
-        user_data['paired_end'] = False
+        cfg_dict['paired_end'] = False
     else:
         logger.fatal("Mixed paired-end and single-end not allowed")
         sys.exit(1)
     logger.critical("Fixed genomesize. Should be 80%% of input")
-    user_data['peak_type'] = args.peak_type
-    user_data['mapper'] = args.mapper
-    user_data['skip_macs2'] = args.skip_macs2
-    user_data['skip_dfilter'] = args.skip_dfilter
+    cfg_dict['peak_type'] = args.peak_type
+    cfg_dict['mapper'] = args.mapper
+    cfg_dict['skip_macs2'] = args.skip_macs2
+    cfg_dict['skip_dfilter'] = args.skip_dfilter
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        params_cfgfile=args.params_cfg,
-        modules_cfgfile=args.modules_cfg,
-        refs_cfgfile=args.references_cfg,
+        args, cfg_dict,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
+
     if args.control_bam or args.treatment_bam:
         raise NotImplementedError("BAM injection not implemented yet")
+
     pipeline_handler.submit(args.no_run)
 
 
