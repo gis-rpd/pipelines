@@ -68,6 +68,9 @@ PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
 
+WORKFLOW_COMPLETION_FLAGFILE = "WORKFLOW_COMPLETE"
+
+
 def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
     """generate downstream output directory
     """
@@ -815,3 +818,11 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
             os.unlink(f)
 
     os.chdir(orig_dir)
+
+
+def mark_as_completed():
+    """Dropping a flag file marking analysis as complete"""
+    analysis_dir = os.getcwd()
+    flag_file = os.path.join(analysis_dir, WORKFLOW_COMPLETION_FLAGFILE)
+    with open(flag_file, 'a') as fh:
+        fh.write("{}\n".format(generate_timestamp()))
