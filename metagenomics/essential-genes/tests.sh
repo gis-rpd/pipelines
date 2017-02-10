@@ -43,14 +43,15 @@ done
 # readlink resolves links and makes path absolute
 test -z "$RPD_ROOT" && exit 1
 TEST_DATA_DIR=$RPD_ROOT/testing/data/essential-genes/
-REF=$TEST_DATA_DIR/NC_017550.1.fa
-GENOME=Propionibacterium_acnes_ATCC_11828_uid162177
+#REF=$TEST_DATA_DIR/NC_017550.1.fa
+#REF=$RPD_GENOMES/essential-genes/Propionibacterium_acnes/NC_017550.1.fa
+#GENOME=Propionibacterium_acnes_ATCC_11828_uid162177
 FQ1=$TEST_DATA_DIR/WBE005_decont_human_1.fastq.gz
 FQ2=$TEST_DATA_DIR/WBE005_decont_human_2.fastq.gz
 SAMPLE=WBE005
 
 
-for f in $REF $FQ1 $FQ2; do
+for f in $FQ1 $FQ2; do
     if [ ! -e $f ]; then
         echo "FATAL: non existant file $f" 1>&2
         exit 1
@@ -76,7 +77,8 @@ SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
+    #./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
+    ./essential-genes.py -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
     pushd $odir >> $log
     type=pdf
     dag=example-dag.$type
@@ -91,7 +93,8 @@ fi
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
+    #./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
+    ./essential-genes.py -1 $FQ1 -2 $FQ2 -s WBE005 --no-run --no-mail -o $odir >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     popd >> $log
@@ -107,7 +110,8 @@ fi
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    ./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 -o $odir >> $log 2>&1
+    #./essential-genes.py -g $GENOME -r $REF -1 $FQ1 -2 $FQ2 -s WBE005 -o $odir >> $log 2>&1
+    ./essential-genes.py -1 $FQ1 -2 $FQ2 -s WBE005 -o $odir >> $log 2>&1
     
 else
     echo "Real-run test skipped"

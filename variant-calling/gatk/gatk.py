@@ -152,42 +152,25 @@ def main():
                 logger.fatal("Bed file %s does not exist", args.sample_cfg)
                 sys.exit(1)
 
-    # turn arguments into user_data that gets merged into pipeline config
+    # turn arguments into cfg_dict (gets merged with other configs late)
     #
-    # generic data first
-    user_data = dict()
-    user_data['mail_on_completion'] = not args.no_mail
-    user_data['mail_address'] = args.mail_address
-    user_data['readunits'] = readunits
-    user_data['samples'] = samples
-    if args.name:
-        user_data['analysis_name'] = args.name
-    user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = os.path.abspath(args.bed) if args.bed else None# always safe, might be used for WGS as well
-    user_data['mark_dups'] = MARK_DUPS
-    user_data['bam_only'] = args.bam_only
+    cfg_dict = dict()
+    cfg_dict['readunits'] = readunits
+    cfg_dict['samples'] = samples
+    cfg_dict['seqtype'] = args.seqtype
+    cfg_dict['intervals'] = os.path.abspath(args.bed) if args.bed else None# always safe, might be used for WGS as well
+    cfg_dict['mark_dups'] = MARK_DUPS
+    cfg_dict['bam_only'] = args.bam_only
 
-    if args.extra_conf:
-        for keyvalue in args.extra_conf:
-            logger.critical("keyvalue=%s split=%s", keyvalue, keyvalue.split(":"))
-            assert keyvalue.count(":") == 1, ("Invalid argument for extra-conf")
-            k, v = keyvalue.split(":")
-            user_data[k] = v
-        
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        params_cfgfile=args.params_cfg,
-        modules_cfgfile=args.modules_cfg,
-        refs_cfgfile=args.references_cfg,
+        args, cfg_dict,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
 
-    # inject existing BAM by symlinking (everything upstream is temporary anyway)
+    # Inject existing BAM by symlinking (everything upstream is temporary anyway)
     if args.raw_bam:
-        # target as defined in Snakefile!
+        # WARNING: target as defined in Snakefile!
         target = os.path.join(args.outdir, "out", args.sample,
                               "{}.bwamem.bam".format(args.sample))
         os.makedirs(os.path.dirname(target))

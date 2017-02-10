@@ -126,33 +126,22 @@ def main():
     # FIXME checks on reffa index (currently not exposed via args)
 
 
-    # turn arguments into user_data that gets merged into pipeline config
+    # turn arguments into cfg_dict that gets merged into pipeline config
     #
-    # generic data first
-    user_data = dict()
-    user_data['mail_on_completion'] = not args.no_mail
-    user_data['mail_address'] = args.mail_address
-    user_data['readunits'] = readunits
-    user_data['samples'] = samples
-    if args.name:
-        user_data['analysis_name'] = args.name
+    cfg_dict = dict()
+    cfg_dict['readunits'] = readunits
+    cfg_dict['samples'] = samples
     
-
-    user_data['stranded'] = args.stranded
-    user_data['run_cuffdiff'] = args.run_cuffdiff
-    user_data['paired_end'] = any(ru.get('fq2') for ru in readunits.values())
-    if user_data['paired_end']:
+    cfg_dict['stranded'] = args.stranded
+    cfg_dict['run_cuffdiff'] = args.run_cuffdiff
+    cfg_dict['paired_end'] = any(ru.get('fq2') for ru in readunits.values())
+    if cfg_dict['paired_end']:
         assert all(ru.get('fq2') for ru in readunits.values()), (
             "Can't handle mix of paired-end and single-end")
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        params_cfgfile=args.params_cfg,
-        modules_cfgfile=args.modules_cfg,
-        refs_cfgfile=args.references_cfg,
+        args, cfg_dict,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
