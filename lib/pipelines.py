@@ -447,7 +447,7 @@ def default_argparser(cfg_dir, allow_missing_cfgfile=False):
             if allow_missing_cfgfile:
                 cfg_file = None
             else:
-                raise ValueErrro((cfg_file, allow_missing_cfgfile))
+                raise ValueError((cfg_file, allow_missing_cfgfile))
         cfg_group.add_argument('--{}-cfg'.format(name),
                                default=cfg_file,
                                help="Config-file (yaml) for {}. (default: {})".format(descr, default))            
