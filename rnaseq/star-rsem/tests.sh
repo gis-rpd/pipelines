@@ -6,7 +6,7 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
-PIPELINE=$(basename $(dirname $MYNAME))
+PIPELINE=$(basename $(dirname $(readlink -f $0)))
 DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
 toaddr() {

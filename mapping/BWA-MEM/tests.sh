@@ -6,16 +6,9 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
-PIPELINE=$(basename $(dirname $MYNAME))
+PIPELINE=$(basename $(dirname $(readlink -f $0)))
 DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
-toaddr() {
-    if [ $(whoami) == 'userrig' ]; then
-        echo "rpd@gis.a-star.edu.sg";
-    else
-        echo "$(whoami)@gis.a-star.edu.sg";
-    fi
-}
 
 usage() {
     echo "$MYNAME: run pipeline tests"

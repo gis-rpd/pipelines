@@ -1,9 +1,12 @@
 """Rules for interacting with AWS's S3
 """
 
+
 from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
-#S3 = S3RemoteProvider(access_key_id="###", secret_access_key="###")
-S3 = S3RemoteProvider()# works without access_key_id and secret_access_key on cfncluster
+# works without access_key_id and secret_access_key on cfncluster
+# (assuming correctly set permissions)
+S3 = S3RemoteProvider()
+
 
 rule copy_fastq_from_s3:
     input:
@@ -17,5 +20,4 @@ rule copy_fastq_from_s3:
     shell:
 	# copy file, keeping input structure
         "rsync -av {input} $(dirname {output})/ >& {log}"
-
 
