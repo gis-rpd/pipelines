@@ -70,6 +70,8 @@ assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
 WORKFLOW_COMPLETION_FLAGFILE = "WORKFLOW_COMPLETE"
 
+DOWNSTREAM_OUTDIR_TEMPLATE = "{basedir}/{user}/{pipelineversion}/{pipelinename}/{timestamp}"
+
 
 def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
     """generate downstream output directory
@@ -83,9 +85,9 @@ def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
         pversion = pipeline_version
     else:
         pversion = get_pipeline_version(nospace=True)
-    outdir = "{basedir}/{requestor}/{pversion}/{pname}/{ts}".format(
-        basedir=basedir, requestor=requestor, pversion=pversion,
-        pname=pipeline_name, ts=generate_timestamp())
+    outdir = DOWNSTREAM_OUTDIR_TEMPLATE.format(
+        basedir=basedir, user=requestor, pipelineversion=pversion,
+        pipelinename=pipeline_name, timestamp=generate_timestamp())
     return outdir
 
 
