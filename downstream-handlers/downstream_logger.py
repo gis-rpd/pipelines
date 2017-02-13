@@ -43,6 +43,15 @@ def dry_run_skip():
     logger.warning("Skipping the mongo updates")
     sys.exit(0)
 
+def check_completion_status(results, db_id, outdir):
+    """ Check if the analysis status has been updated
+    """
+    for record in results:
+        status = record['run'].get('status', None)
+        if status == "FAILED" or status == "SUCCESS":
+            logger.info("Status for %s under %s has already been updated", db_id, outdir)
+            sys.exit(0)
+
 def main():
     """main function"""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -108,12 +117,13 @@ def main():
             #Check if 'run.start_time' and 'outdir' exists
             results = db.find({"_id":ObjectId(args.db_id), "run.start_time":{"$exists": True}, \
              "outdir":{"$exists": True}})
+            #Check for analysis status updates
+            check_completion_status(results, args.db_id, args.outdir)
             if results.count() == 1:
                 logger.info("Re-running the analysis")
                 try:
                     if args.dry_run:
                         dry_run_skip()
-                    start_time = generate_timestamp()
                     db.update({"_id": ObjectId(args.db_id)},
                         {"$set":
                             {"run.status": "RESTART"
@@ -135,16 +145,12 @@ def main():
         if results.count() != 1:
             logger.info("Analysis not yet started")
             sys.exit(0)
-        #Check if analysis status
-        for record in results:
-            status = record['run'].get('status', None)
-            if status == "FAILED" or status == "SUCCESS":
-                logger.info("Status for %s under %s has been updated", args.db_id, args.outdir)
-                sys.exit(0)
+        #Check for analysis status updates
+        check_completion_status(results, args.db_id, args.outdir)
         snake_logs = os.path.join(args.outdir + "/logs/snakemake.log")
         if os.path.exists(snake_logs):
-            with open(snake_logs) as myfile:
-                last_line = list(myfile)[-1]
+            with open(snake_logs) as f:
+                last_line = list(f)[-1]
                 end_time_str = last_line.split("]")[0].replace("[", "")
                 end_time = datetime.strptime(end_time_str, '%a %b %d %H:%M:%S %Y').isoformat(). \
                 replace(":", "-")

@@ -145,31 +145,19 @@ def main():
             logger.warning("Compatilibity between bed file and"
                            " reference not checked")# FIXME
 
-    # turn arguments into user_data that gets merged into pipeline config
+    # turn arguments into cfg_dict that gets merged into pipeline config
     #
-    # generic data first
-    user_data = dict()
-    user_data['mail_on_completion'] = not args.no_mail
-    user_data['mail_address'] = args.mail_address
-    user_data['readunits'] = readunits
-    user_data['samples'] = samples
-    if args.name:
-        user_data['analysis_name'] = args.name
+    cfg_dict = dict()
+    cfg_dict['readunits'] = readunits
+    cfg_dict['samples'] = samples
 
-
-
-    user_data['seqtype'] = args.seqtype
-    user_data['intervals'] = os.path.abspath(args.bed) if args.bed else None
-    user_data['mark_dups'] = not args.dont_mark_dups
+    cfg_dict['seqtype'] = args.seqtype
+    cfg_dict['intervals'] = os.path.abspath(args.bed) if args.bed else None
+    cfg_dict['mark_dups'] = not args.dont_mark_dups
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        params_cfgfile=args.params_cfg,
-        modules_cfgfile=args.modules_cfg,
-        refs_cfgfile=args.references_cfg,
+        args, cfg_dict,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
 
     pipeline_handler.setup_env()

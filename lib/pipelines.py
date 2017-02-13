@@ -19,6 +19,7 @@ import json
 import tarfile
 import glob
 import argparse
+import copy
 
 #--- third-party imports
 #
@@ -86,10 +87,7 @@ def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
 
 
 class PipelineHandler(object):
-    """FIXME:add-doc
-
-    - FIXME needs cleaning up!
-    - FIXME check access of global vars
+    """Class that handles setting up and calling pipelines
     """
 
     # output
@@ -112,49 +110,59 @@ class PipelineHandler(object):
 
     # master max walltime in hours
     # note, this includes waiting for jobs in q
-    MASTER_WALLTIME_H = 120
+    MASTER_WALLTIME_H = 96
 
-    def __init__(self,
-                 pipeline_name,
-                 pipeline_subdir,
-                 outdir,
-                 user_data,
-                 pipeline_rootdir=PIPELINE_ROOTDIR,
-                 logger_cmd="true", # bash: not doing anything by default
+    def __init__(self, pipeline_name, pipeline_subdir,
+                 def_args,
+                 cfg_dict,
+                 cluster_cfgfile=None,
+                 logger_cmd="true",
                  site=None,
-                 master_q=None,
-                 slave_q=None,
-                 master_walltime_h=MASTER_WALLTIME_H,
-                 params_cfgfile=None,
-                 modules_cfgfile=None,
-                 refs_cfgfile=None,
-                 cluster_cfgfile=None):
+                 pipeline_rootdir=PIPELINE_ROOTDIR,
+                 master_walltime_h=MASTER_WALLTIME_H):
         """init function
 
-        pipeline_subdir: where default configs can be found, i.e pipeline subdir
+        - pipeline_subdir: where default configs can be found, i.e pipeline subdir
+        - def_args: argparser args. only default_parser_args handled, i.e. must be subset of that
+        - logger_cmd: the logger command run in run.sh. bash's 'true' doesn't do anything
+        - pipeline_rootdir: root dir for all pipelines, needed for access to run templates
         """
 
-        self.outdir = outdir
         self.pipeline_name = pipeline_name
         self.pipeline_version = get_pipeline_version()# external function
         self.pipeline_subdir = pipeline_subdir
-        self.user_data = user_data
 
         self.log_dir_rel = self.LOG_DIR_REL
         self.masterlog = self.MASTERLOG
         self.submissionlog = self.SUBMISSIONLOG
 
-        if params_cfgfile:
-            assert os.path.exists(params_cfgfile)
-        self.params_cfgfile = params_cfgfile
+        self.master_q = def_args.master_q
+        self.slave_q = def_args.slave_q
+        self.outdir = def_args.outdir
 
-        if modules_cfgfile:
-            assert os.path.exists(modules_cfgfile)
-        self.modules_cfgfile = modules_cfgfile
+        self.cfg_dict = copy.deepcopy(cfg_dict)
+        self.cfg_dict['mail_on_completion'] = not def_args.no_mail
+        self.cfg_dict['mail_address'] = def_args.mail_address
+        if def_args.name:
+            self.cfg_dict['analysis_name'] = def_args.name
 
-        if refs_cfgfile:
-            assert os.path.exists(refs_cfgfile)
-        self.refs_cfgfile = refs_cfgfile
+        if def_args.extra_conf:
+            for keyvalue in def_args.extra_conf:
+                assert keyvalue.count(":") == 1, ("Invalid argument for extra-conf")
+                k, v = keyvalue.split(":")
+                self.cfg_dict[k] = v
+
+        if def_args.params_cfg:
+            assert os.path.exists(def_args.params_cfg)
+        self.params_cfgfile = def_args.params_cfg
+
+        if def_args.modules_cfg:
+            assert os.path.exists(def_args.modules_cfg)
+        self.modules_cfgfile = def_args.modules_cfg
+
+        if def_args.references_cfg:
+            assert os.path.exists(def_args.references_cfg)
+        self.refs_cfgfile = def_args.references_cfg
 
         if cluster_cfgfile:
             assert os.path.exists(cluster_cfgfile)
@@ -179,8 +187,6 @@ class PipelineHandler(object):
                 site = "local"
         self.logger_cmd = logger_cmd
         self.site = site
-        self.master_q = master_q
-        self.slave_q = slave_q
         self.master_walltime_h = master_walltime_h
         self.snakefile_abs = os.path.abspath(
             os.path.join(pipeline_subdir, "Snakefile"))
@@ -188,13 +194,13 @@ class PipelineHandler(object):
 
         # cluster configs
         if self.cluster_cfgfile:
-            self.cluster_cfgfile_out = os.path.join(outdir, "cluster.yaml")
+            self.cluster_cfgfile_out = os.path.join(self.outdir, "cluster.yaml")
         # else: local
 
         # run template
         self.run_template = os.path.join(
             pipeline_rootdir, "lib", "run.template.{}.sh".format(self.site))
-        self.run_out = os.path.join(outdir, "run.sh")
+        self.run_out = os.path.join(self.outdir, "run.sh")
         assert os.path.exists(self.run_template)
 
         # we don't know for sure who's going to actually exectute
@@ -259,7 +265,7 @@ class PipelineHandler(object):
             fh_rc.write("set -euo pipefail;\n")
 
 
-    def write_cluster_config(self):
+    def write_cluster_cfg(self):
         """writes site dependend cluster config
         """
         shutil.copyfile(self.cluster_cfgfile, self.cluster_cfgfile_out)
@@ -331,24 +337,24 @@ class PipelineHandler(object):
         """writes config file for use in snakemake becaused on default config
         """
 
-        config = self.read_cfgfiles()
-        config.update(self.user_data)
+        master_cfg = self.read_cfgfiles()
+        master_cfg.update(self.cfg_dict)
 
-        b = config.get('intervals')
+        b = master_cfg.get('intervals')
+        # sanity check: bed only makes sense if we have a reference
         if b:
-            # bed only makes if we have a reference
-            f = config['references'].get('genome')
+            f = master_cfg['references'].get('genome')
             assert bed_and_indexed_fa_are_compatible(b, f), (
                 "{} not compatible with {}".format(b, f))
 
-        assert 'ELM' not in config
-        config['ELM'] = self.elm_data
+        assert 'ELM' not in master_cfg
+        master_cfg['ELM'] = self.elm_data
 
         if not force_overwrite:
             assert not os.path.exists(self.pipeline_cfgfile_out)
         with open(self.pipeline_cfgfile_out, 'w') as fh:
             # default_flow_style=None(default)|True(least readable)|False(most readable)
-            yaml.dump(config, fh, default_flow_style=False)
+            yaml.dump(master_cfg, fh, default_flow_style=False)
 
 
     def setup_env(self):
@@ -361,7 +367,7 @@ class PipelineHandler(object):
         os.makedirs(os.path.join(self.outdir, self.RC_DIR))
 
         if self.site != "local":
-            self.write_cluster_config()
+            self.write_cluster_cfg()
         self.write_merged_cfg()
         self.write_snakemake_env()
         self.write_dk_init(self.dk_init_file)
@@ -370,7 +376,7 @@ class PipelineHandler(object):
 
 
     def submit(self, no_run=False):
-        """FIXME:add-doc
+        """submit pipeline run
         """
 
         if self.master_q:
@@ -401,10 +407,11 @@ class PipelineHandler(object):
             logger.info("The (master) logfile is %s", master_log_abs)
 
 
-def default_argparser(cfg_dir):
-    """Create default argparser (use as parent) for pipeline calls. Needs point to pipelines config dir
+def default_argparser(cfg_dir, allow_missing_cfgfile=False):
+    """Create default argparser (use as parent) for pipeline calls. Needs
+    point to pipelines config dir
     """
-    
+
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (must not exist)")
@@ -435,10 +442,15 @@ def default_argparser(cfg_dir):
     for name, descr in [("references", "reference sequences"),
                         ("params", "parameters"),
                         ("modules", "modules")]:
-        default = os.path.abspath(os.path.join(cfg_dir, "{}.yaml".format(name)))
+        cfg_file = os.path.abspath(os.path.join(cfg_dir, "{}.yaml".format(name))) 
+        if not os.path.exists(cfg_file):
+            if allow_missing_cfgfile:
+                cfg_file = None
+            else:
+                raise ValueError((cfg_file, allow_missing_cfgfile))
         cfg_group.add_argument('--{}-cfg'.format(name),
-                               default=default,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
+                               default=cfg_file,
+                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))            
 
     return parser
 
@@ -561,8 +573,6 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
     return machineid, runid, flowcellid
 
 
-# FIXME real_name() works at NSCC and GIS:
-# getent passwd wilma | cut -f 5 -d :  | rev | cut -f 2- -d ' ' | rev
 def email_for_user():
     """get email for user (naive)
     """
@@ -749,6 +759,7 @@ def path_to_url(out_path):
     else:
         #raise ValueError(out_path)
         return out_path
+
 
 def mux_to_lib(mux_id, testing=False):
     """returns the component libraries for MUX
