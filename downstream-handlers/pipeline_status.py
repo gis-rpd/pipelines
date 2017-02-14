@@ -48,7 +48,7 @@ def main():
                         help="Start time", required=True)
     parser.add_argument('-o', "--out",
                         help="Analysis output directory")
-    parser.add_argument('-t', "--test_server", action='store_true')
+    parser.add_argument('-t', "--test-server", action='store_true')
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
     parser.add_argument('-v', '--verbose', action='count', default=0,

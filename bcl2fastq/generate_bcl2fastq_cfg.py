@@ -120,7 +120,7 @@ def main():
                         dest="rundir",
                         required=True,
                         help="rundir, e.g. /mnt/seq/userrig/HS004/HS004-PE-R00139_BC6A7HANXX")
-    parser.add_argument('-t', "--test_server", action='store_true')
+    parser.add_argument('-t', "--test-server", action='store_true')
     parser.add_argument("-o", "--outdir",
                         required=True,
                         dest="outdir",
