@@ -67,6 +67,7 @@ def main():
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
     
+    parser._optionals.title = "Arguments"
     # pipeline specific args
     parser.add_argument('-1', "--fq1", nargs="+",
                         help="FastQ file/s (gzip only)."
