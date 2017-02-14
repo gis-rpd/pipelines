@@ -27,15 +27,18 @@ from pipelines import is_devel_version
 from config import site_cfg
 
 
-STAGE_OUT_WORKER = os.path.abspath(os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "stage_out.sh"))
-
 # global logger
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
+
+
+STAGE_OUT_WORKER = os.path.abspath(os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "stage_out.sh"))
+
+S3_BUCKET = "s3://rpd-workflows-out"
 
 
 def main():
@@ -63,10 +66,13 @@ def main():
 
     for flagfile in glob.glob(os.path.join(
             dirglob, WORKFLOW_COMPLETION_FLAGFILE)):
-        dir = os.path.dirname(flagfile)
+        dir = os.path.abspath(os.path.dirname(flagfile))
+        
         logger.info("Starting staging out of %s", dir)
         try:
-            cmd = [STAGE_OUT_WORKER, '-r', dir]
+            s3prefix = S3_BUCKET
+            s3prefix = os.path.join(s3prefix, os.path.relpath(dir, basedir))
+            cmd = [STAGE_OUT_WORKER, '-p', s3prefix, '-r', dir]
             _ = subprocess.check_output(cmd)
         except subprocess.CalledProcessError as e:
             logger.fatal("%s failed with exit code %s: %s. Will try to continue", 

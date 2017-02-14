@@ -12,7 +12,7 @@ set -euo pipefail
 ## This script is licensed under the terms of the MIT license.
 ## https://opensource.org/licenses/MIT
 
-DEFAULT_BUCKET="s3://rpd-workflows-out/"
+S3_PREFIX="s3://rpd-workflows-out/"
 
 LOCKFILE="";# set later depending on input
 LOCKFD=99
@@ -33,11 +33,11 @@ unlock()            { _lock u; }   # drop a lock
 
 usage() { 
     myname=$(basename $0)
-    echo "$myname: upload tarball of given directory dir to given S3 bucket" 1>&2
-    echo "Usage: $myname [-u | -b s3bucket (default: $DEFAULT_BUCKET)] [-r] [-f] dir" 1>&2
+    echo "$myname: upload tarball of given directory dir to S3" 1>&2
+    echo "Usage: $myname [-u | -p s3-prefix (default: $S3_PREFIX)] [-r] [-f] dir" 1>&2
     echo "Options:" 1>&2
     echo " -u unlock : Unlock directory (UNUSED)" 1>&2
-    echo " -b bucket : Use this bucket instead of $DEFAULT_BUCKET" 1>&2
+    echo " -p bucket : Use this prefix instead of the default ($S3_PREFIX)" 1>&2
     echo " -r        : Remove local copy after upload" 1>&2
     echo " -f        : Force overwrite" 1>&2
     #echo "Example: $myname -b bucket] dir " 1>&2
@@ -48,14 +48,14 @@ usage() {
 unlock=0
 remove=0
 force=0
-bucket=$DEFAULT_BUCKET
-while getopts "b:urf" o; do
+s3prefix=$S3_PREFIX
+while getopts "p:urf" o; do
   case "${o}" in
+        p)
+            s3prefix=${OPTARG}
+            ;;
         u)
             unlock=1
-            ;;
-        b)
-            bucket=${OPTARG}
             ;;
         r)
             remove=1
@@ -70,11 +70,11 @@ while getopts "b:urf" o; do
 done
 shift $((OPTIND-1))
 
+s3prefix=$(echo $s3prefix | sed -e "s,/*$,,");# beware the double slash
+
 if [ $# != 1 ]; then
     usage
 fi
-
-bucket=$(echo $bucket | sed -e "s,/*$,,");# beware the double slash
 
 if [ $unlock -eq 1 ]; then
     echo "FATAL: option unlock not implemented (useful at all?)" 1>&2
@@ -86,12 +86,12 @@ if [ ! -d $wdir ]; then
     echo "FATAL: Non-existant workflow directory \"$wdir\"" 1>&2
     exit 1
 fi
+
 flagfile=logs/snakemake.log
 if [ ! -e $wdir/$flagfile ]; then
     echo "FATAL: Don't recognize \"$wdir\" as workflow directory" 1>&2
     exit 1
 fi
-
 
 LOCKFILE=$wdir/$(basename $0).LOCK
 #echo "Trying to lock $wdir (using $LOCKFILE)"
@@ -102,22 +102,20 @@ if ! exlock_now; then
     exit 1
 fi
 
-
 pushd $wdir >/dev/null
 cd ..
 wdirbase=$(basename $wdir)
 tarball=${wdirbase}.tgz
 
-
 # first check if exists
-if aws s3 ls $bucket | grep -qw $tarball 2>/dev/null; then
+if aws s3 ls $s3prefix | grep -qw $tarball 2>/dev/null; then
     if [ $force -ne 1 ]; then
 	echo "FATAL: refusing to overwrite exising object. Please use --force if needed" 1>&2
 	exit 1
     fi
 fi
 
-uri=$(echo ${bucket}/$tarball)
+uri=$(echo ${s3prefix}/$tarball)
 #cat<<EOF
 tar c --exclude '*/.snakemake/*' $wdirbase | aws s3 cp - $uri
 #EOF
