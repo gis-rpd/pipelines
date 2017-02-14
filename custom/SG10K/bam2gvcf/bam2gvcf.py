@@ -100,6 +100,7 @@ def main():
                                default=default,
                                help="Config-file (yaml) for {}. (default: {})".format(descr, default))
 
+    parser._optionals.title = "Arguments"
     # pipeline specific args
     #parser.add_argument('-1', "--fq1", nargs="+",
     #                    help="FastQ file/s (gzip only)."

@@ -171,6 +171,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
+    parser._optionals.title = "Arguments"
     # pipeline specific args
     parser.add_argument('-r', "--runid",
                         help="Run ID plus flowcell ID (clashes with -d)")
@@ -345,9 +346,6 @@ def main():
 
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
-
-
-
 
 
 if __name__ == "__main__":

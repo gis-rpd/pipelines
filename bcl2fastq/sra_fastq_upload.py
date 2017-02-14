@@ -39,7 +39,7 @@ def main():
     parser.add_argument("-o", "--out_dir", required=True, help="out_dir")
     parser.add_argument("-m", "--mux_id", required=True, help="mux_id")
     parser.add_argument("-l", "--lib_id", help="lib_id")
-    parser.add_argument('-t', "--test_server", action='store_true', help="Use STATS uploading to"\
+    parser.add_argument('-t', "--test-server", action='store_true', help="Use STATS uploading to"\
         "test-server here and when calling bcl2fastq wrapper (-t)")
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
