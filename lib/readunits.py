@@ -67,13 +67,31 @@ def gen_rg_pu_id(unit):
         return "PU-" + unit['rg_id']
 
 
+# Taken from https://github.com/broadinstitute/viral-ngs/blob/master/pipes/rules/demux.rules
+def objectify_remote(uri):
+    if uri.lower().startswith('s3://'):
+        import snakemake.remote.S3
+        remote = snakemake.remote.S3.RemoteProvider()
+        return remote.remote(uri[5:])
+    elif uri.lower().startswith('gs://'):
+        import snakemake.remote.GS
+        remote = snakemake.remote.GS.RemoteProvider()
+        return remote.remote(uri[5:])
+    elif uri.lower().startswith('sftp://'):
+        import snakemake.remote.SFTP
+        remote = snakemake.remote.SFTP.RemoteProvider()
+        return remote.remote(uri[7:])
+    return uri
+
+
 def fastqs_from_unit(unit):
     """FIXME is this really needed?
     """
+
     if unit['fq2']:
-        return unit['fq1'], unit['fq2']
+        return objectify_remote(unit['fq1']), objectify_remote(unit['fq2'])
     else:
-        return unit['fq1']
+        return objectify_remote(unit['fq1'])
 
 
 def readunit_is_paired(unit):
@@ -88,7 +106,7 @@ def fastqs_from_unit_as_list(unit):
     fqs.append(unit['fq1'])
     if unit['fq2']:
         fqs.append(unit['fq2'])
-    return fqs
+    return [objectify_remote(x) for x in fqs]
 
 
 def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
@@ -142,12 +160,6 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
                 logger.fatal("Non-existing input file %s in config file %s", f, cfgfile)
                 if not raise_off:
                     raise ValueError(cfgfile)
-            
-        # if these are file on s3 then s3.rules will take care of this, but only if we change s3:// to s3/
-        if fq1.startswith("s3://"):
-            fq1 = fq1.replace("s3://", "s3/")
-        if fq2 and fq2.startswith("s3://"):
-            fq2 = fq2.replace("s3://", "s3/")
 
         ru = ReadUnit(run_id, flowcell_id, library_id, lane_id, rg_id,
                       fq1, fq2)
