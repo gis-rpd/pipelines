@@ -13,13 +13,15 @@ from email.mime.text import MIMEText
 from getpass import getuser
 #import socket
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 import calendar
 import json
 import tarfile
 import glob
 import argparse
 import copy
+from collections import deque
 
 #--- third-party imports
 #
@@ -67,6 +69,39 @@ Scientific & Research Computing
 PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
+
+def snakemake_log_status(log):
+    """
+    Return exit status and timestamp (isoformat string) as tuple.
+    Exit status is either "SUCCESS" or "ERROR" or None
+    If exit status is None timestamp will be last seen timestamp or empty and the status unknown
+
+    Parses last lines of log, which could look like
+    [Fri Jun 17 11:13:16 2016] Exiting because a job execution failed. Look above for error message
+    [Fri Jul 15 01:29:12 2016] 17 of 17 steps (100%) done
+    [Thu Nov 10 22:45:27 2016] Nothing to be done.
+    """
+    
+    # this is by design a bit fuzzy
+    with open(log) as fh:
+        last_lines = deque(fh, maxlen=10)
+    status = None
+    last_etime = None
+    while last_lines: # iterate from end
+        line = last_lines.pop()
+        if line.startswith("["):# time stamp required
+            estr = line[1:].split("]")[0]
+            etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+            if not last_etime:
+                last_etime = etime# first is last. useful for undefined status
+            if 'steps (100%) done' in line or "Nothing to be done" in line:
+                status = "SUCCESS"
+                break
+            elif 'Exiting' in line:
+                status = "ERROR"
+                break
+    return status, etime
+    
 
 def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
     """generate downstream output directory

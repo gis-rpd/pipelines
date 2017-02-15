@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """MongoDB status updates for the downstream pipeline
 """
+
 # standard library imports
 import logging
 import sys
 import os
 import argparse
-from datetime import datetime
+import pprint
+import datetime
 
 #--- third party imports
-# WARN: need in conda root and snakemake env
+#
 import pymongo
 from bson.objectid import ObjectId
+import dateutil
 
 #--- project specific imports
 #
@@ -20,11 +23,12 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
+from pipelines import PipelineHandler
 from pipelines import generate_timestamp
-from pipelines import is_devel_version
-from pipelines import send_mail
 from pipelines import is_production_user
+from pipelines import snakemake_log_status
 from mongodb import mongodb_conn
+
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -33,28 +37,144 @@ __license__ = "The MIT License (MIT)"
 
 
 # global logger
-logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter(
+LOGGER = logging.getLogger(__name__)
+HANDLER = logging.StreamHandler()
+HANDLER.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
-logger.addHandler(handler)
+LOGGER.addHandler(HANDLER)
 
 
-def dry_run_skip():
-    """Skipping mongoDB updates for dry run option
+THRESHOLD_H_SINCE_LAST_TIMESTAMP = 24
+THRESHOLD_H_SINCE_START = 72
+
+
+def list_job(db, db_id, dry_run):
+    """Just list entry for this db_id
     """
-    logger.warning("Dryrun: Skipping Mongo update")
-    sys.exit(0)
+
+    if dry_run:# only for compat with other function
+        return
+
+    if db_id == "all":# not a good idea...
+        cursor = db.find()
+        for r in cursor:
+            pprint.pprint(r)
+    else:
+        cursor = db.find_one({"_id": ObjectId(db_id)})
+        assert cursor, "No objects found with db-id {}".format(db_id)
+        pprint.pprint(cursor)
 
 
-def check_completion_status(results, db_id, outdir):
-    """ Check if the analysis status has been updated
+def check_completion(db, db_id, dry_run):
+    """Update values for already started job based on log file in outdir
     """
-    for record in results:
-        status = record['run'].get('status', None)
-        if status == "FAILED" or status == "SUCCESS":
-            logger.info("Status for %s under %s has already been updated", db_id, outdir)
-            sys.exit(0)
+
+    cursor = db.find_one({"_id": ObjectId(db_id)})
+    assert cursor, "No object found with db-id {}".format(db_id)
+
+    if not cursor.get('run'):
+        LOGGER.critical("Looks like job %s was never started (run entry missing)", db_id)
+        sys.exit(1)
+
+    old_status = cursor['run'].get('status')
+    start_time = cursor['run'].get('start_time')
+    if not old_status or not start_time:
+        LOGGER.critical("Job start for %s was not logged properly (status or start_time not set)", db_id)
+        sys.exit(1)
+    elif old_status != "STARTED":
+        LOGGER.critical("Status for job %s already set to %s", db_id, old_status)
+        sys.exit(1)
+
+    outdir = cursor['run'].get('outdir')
+    assert outdir, ("outdir missing for started job %s", db_id)
+
+    if dry_run:
+        LOGGER.info("Skipping due to dryrun option")
+        return
+
+    snakelog = os.path.join(outdir, PipelineHandler.MASTERLOG)
+    LOGGER.info("Checking snakemake log %s for status of job %s", snakelog, db_id)
+    if not os.path.exists(snakelog):
+        LOGGER.critical("Expected snakemake log file %s doesn't exist.", snakelog)
+        sys.exit(1)
+
+    status, end_time = snakemake_log_status(snakelog)
+
+    LOGGER.info("Job %s has status %s (end time %s)", db_id, status, end_time.isoformat())
+    if status == "SUCCESS":
+        assert end_time
+        db.update({"_id": ObjectId(db_id)},
+                  {"$set": {"run.status": "SUCCESS", "run.end_time": end_time.isoformat()}})
+    elif status == "ERROR":
+        assert end_time
+        db.update({"_id": ObjectId(db_id)},
+                  {"$set": {"run.status": "FAILED", "run.end_time": end_time.isoformat()}})
+    else:
+        if end_time:# without status end_time means last seen time in snakemake
+            delta = datetime.now() - dateutil.parser.parse(end_time)
+            diff_min, _diff_secs = divmod(delta.days * 86400 + delta.seconds, 60)
+            diff_hours = diff_min/60.0
+            if diff_hours > THRESHOLD_H_SINCE_LAST_TIMESTAMP:
+                LOGGER.critical("Last update for job id %s was seen %s hours ago", db_id, diff_hours)
+
+        delta = datetime.now() - dateutil.parser.parse(start_time)
+        diff_min, _diff_secs = divmod(delta.days * 86400 + delta.seconds, 60)
+        diff_hours = diff_min/60.0
+        if diff_hours > THRESHOLD_H_SINCE_START:
+            LOGGER.critical("Job id %s was started %s hours ago", db_id, diff_hours)
+
+
+
+def started_or_restarted(db, db_id, outdir, dry_run):
+    """Update records for started or restarted analysis
+    """
+
+    cursor = db.find_one({"_id": ObjectId(db_id)})
+    assert cursor, "No objects found with db-id {}".format(db_id)
+
+    # determine if this is a start or a restart (or a mistake)
+    if cursor['run'] and cursor['outdir']:
+        assert cursor['run']['start_time']
+        assert cursor['run'].get('status') is None, (pprint.pprint(cursor))
+        mode = 'restart'
+    elif cursor['run'] is None and cursor['outdir'] is None:
+        mode = 'start'
+    else:
+        raise ValueError(db_id, cursor['run'], cursor['outdir'])
+
+    LOGGER.info("Updating %sed job %s", mode, db_id)
+    if dry_run:
+        LOGGER.info("Skipping due to dryrun option")
+        return
+
+    if mode == 'start':
+        start_time = generate_timestamp()
+        res = db.update_one(
+            {"_id": ObjectId(db_id)},
+            {"$set": {"outdir": outdir,
+                      "run": {"start_time" : start_time, "status" : "STARTED"}}})
+        assert res.modified_count == 1, (
+            "Modified {} documents instead of 1".format(res.modified_count))
+
+    elif mode == 'restart':
+        res = db.update_one({"_id": ObjectId(db_id)},
+                            {"$set": {"run.status": "RESTART"}})
+        assert res.modified_count == 1, (
+            "Modified {} documents instead of 1".format(res.modified_count))
+
+        res = db.update_one({"_id": ObjectId(db_id)},
+                            {"$unset": {"run.end_time": ""}})
+        assert res.modified_count == 1, (
+            "Modified {} documents instead of 1".format(res.modified_count))
+
+        res = db.update_one({"_id": ObjectId(db_id)},
+                            {"$inc":{"run.num_restarts": 1}})
+        assert res.modified_count == 1, (
+            "Modified {} documents instead of 1".format(res.modified_count))
+
+    else:
+        raise ValueError(mode)
+
 
 def main():
     """main function"""
@@ -62,10 +182,10 @@ def main():
     parser.add_argument('-d', "--db-id",
                         help="DB id", required=True,)
     parser.add_argument('-o', "--outdir",
-                        help="out directory", required=True)
+                        help="out directory")
     parser.add_argument('-m', "--mode",
                         help="mode", required=True,
-                        choices=['start', 'check'])
+                        choices=['start', 'check', 'list'])
     parser.add_argument('-t', "--test-server", action='store_true')
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
@@ -77,116 +197,42 @@ def main():
 
     # Repeateable -v and -q for setting logging level.
     # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
-    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+    LOGGER.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
     if not is_production_user():
-        logger.warning("Not a production user. Skipping MongoDB update")
+        LOGGER.warning("Not a production user. Skipping MongoDB update")
         sys.exit(1)
-
-    if is_devel_version() or args.testing:
-        mail_to = 'veeravallil'# domain added in mail function
 
     connection = mongodb_conn(args.test_server)
     if connection is None:
         sys.exit(1)
-    logger.info("Database connection established")
+    LOGGER.info("Database connection established")
     db = connection.gisds.pipeline_runs
 
-    if args.mode == "start":
-        #Check if 'run' and 'outdir' does not exists
-        results = db.find({"_id":ObjectId(args.db_id), "run":{"$exists": False}, \
-            "outdir":{"$exists": False}})
-        if results.count() == 1:
-            logger.info("Starting the analysis")
-            try:
-                if args.dry_run:
-                    dry_run_skip()
-                start_time = generate_timestamp()
-                db.update({"_id": ObjectId(args.db_id)},
-                          {"$set": {"outdir": args.outdir,
-                                    "run": {"start_time" : start_time, "status" : "STARTED"}}})
-            except pymongo.errors.OperationFailure:
-                logger.fatal("mongoDB OperationFailure")
+    try:
+        if args.mode == "start":
+            if not args.outdir:
+                LOGGER.fatal("Need output directory for mode %s", args.mode)
                 sys.exit(1)
+            started_or_restarted(db, args.db_id, args.outdir, args.dry_run)
+
+        elif args.mode == "check":
+            check_completion(db, args.db_id, args.dry_run)
+
+        elif args.mode == "list":
+            list_job(db, args.db_id, args.dry_run)
+
         else:
-            #Check if 'run.start_time' and 'outdir' exists
-            results = db.find({"_id":ObjectId(args.db_id), "run.start_time":{"$exists": True}, \
-             "outdir":{"$exists": True}})
-            #Check for analysis status updates
-            check_completion_status(results, args.db_id, args.outdir)
-            if results.count() == 1:
-                logger.info("Re-running the analysis")
-                try:
-                    if args.dry_run:
-                        dry_run_skip()
-                    res = db.update({"_id": ObjectId(args.db_id)},
-                                    {"$set": {"run.status": "RESTART"}})
-                    assert res.modified_count == 1, (
-                        "Modified {} documents instead of 1".format(res.modified_count))
+            raise ValueError(args.mode)
 
-                    res = db.update({"_id": ObjectId(args.db_id)},
-                                    {"$unset": {"run.end_time": ""}})
-                    assert res.modified_count == 1, (
-                        "Modified {} documents instead of 1".format(res.modified_count))
+    except pymongo.errors.OperationFailure as e:
+        LOGGER.fatal("MongoDB failure while updating db-id %s", args.db_id)
+        sys.exit(1)
 
-                    res = db.update({"_id": ObjectId(args.db_id)},
-                                    {"$inc":{"run.num_restarts": 1}})
-                    assert res.modified_count == 1, (
-                        "Modified {} documents instead of 1".format(res.modified_count))
-
-                except (pymongo.errors.OperationFailure, AssertionError) as e:
-                    logger.fatal("MongoDB update failure while updating db-id %s",
-                                 args.db_id)
-                    sys.exit(1)
-
-    elif args.mode == "check":
-        logger.info("Checking snakemake logs for completion time and status")
-        #Check if analysis has been started/restarted
-        results = db.find({"_id":ObjectId(args.db_id), "run.status":{"$exists": True}})
-        if results.count() != 1:
-            logger.info("Analysis not yet started")
-            sys.exit(0)
-        #Check for analysis status updates
-        check_completion_status(results, args.db_id, args.outdir)
-        snake_logs = os.path.join(args.outdir + "/logs/snakemake.log")
-        if os.path.exists(snake_logs):
-            with open(snake_logs) as f:
-                last_line = list(f)[-1]
-                end_time_str = last_line.split("]")[0].replace("[", "")
-                end_time = datetime.strptime(end_time_str, '%a %b %d %H:%M:%S %Y').isoformat(). \
-                replace(":", "-")
-                if "100%" in last_line:
-                    try:
-                        if args.dry_run:
-                            dry_run_skip()
-                        db.update({"_id": ObjectId(args.db_id)},
-                                  {"$set": {"run.status": "SUCCESS", "run.end_time": end_time}})
-                    except pymongo.errors.OperationFailure:
-                        logger.fatal("mongoDB OperationFailure")
-                        sys.exit(1)
-                elif "Exiting" in last_line:
-                    try:
-                        if args.dry_run:
-                            dry_run_skip()
-                        db.update({"_id": ObjectId(args.db_id)},
-                                  {"$set": {"run.status": "FAILED", "run.end_time": end_time}})
-                        subject = "Analysis under {}".format(args.outdir)
-                        body = subject + " FAILED"
-                        send_mail(subject, body, mail_to)
-                    except pymongo.errors.OperationFailure:
-                        logger.fatal("mongoDB OperationFailure")
-                        sys.exit(1)
-                else:
-                    logger.info("Analysis is not yet completed under %s", args.outdir)
-        else:
-            logger.critical("snake_logs does not exists")
-    else:
-        raise ValueError(args.mode)
-    # close the connection to MongoDB
     connection.close()
 
 
 if __name__ == "__main__":
-    logger.info("MongoDB status update starting")
+    LOGGER.info("MongoDB status update starting")
     main()
-    logger.info("Successful program exit")
+    LOGGER.info("Successful program exit")
