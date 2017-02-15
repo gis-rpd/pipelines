@@ -8,9 +8,10 @@
 from argparse import ArgumentParser
 from datetime import date
 from hashlib import md5
+from os import mkdir
 from os.path import abspath, dirname, exists, isdir, join, realpath
 from pprint import PrettyPrinter
-from shutil import rmtree
+from shutil import move, rmtree
 from sys import path
 import tarfile
 
@@ -62,8 +63,7 @@ def main():
                 print("If run folder does not exist: warn and continue")
 
                 print("For all runs in DB where raw-deleted in DB is empty")
-                print(generate_timestamp())
-
+                print("CHECK CURRENT TIME STARTED:\t" + generate_timestamp())
                 if "raw_deleted" not in document:
                     db.update({"_id": document["_id"]},
                                 {"$push":
@@ -73,8 +73,54 @@ def main():
                                 }
                             })
 
+                if not exists(args.dir + "/tarballs"):
+                    mkdir(args.dir + "/tarballs", 0o770)
+                if not exists(args.dir + "/tarballs/tmp"):
+                    mkdir(args.dir + "/tarballs/tmp", 0o770)
+
+                if exists(args.dir + "/" + get_machine_run_flowcell_id(args.run)[0] + "/" + args.run):
+                    print("Tar run folder (/mnt/seq/tarballs/tmp/$run.tar) || exit 1")
+                    with tarfile.open(args.dir + "/tarballs/tmp/" + args.run + ".tar", "x") as tar:
+                        tar.add(args.dir + "/" + get_machine_run_flowcell_id(args.run)[0] + "/" + args.run)
+
+                    print("Move tar from /mnt/seq/tarballs/tmp to /mnt/seq/tarballs/ || exit 1")
+                    move(args.dir + "/tarballs/tmp/" + args.run + ".tar", args.dir + "/tarballs/" + args.run + ".tar")
+
+                    print("Create md5 sum of tarball and write to tarball.md5 || exit 1")
+                    md5sum = ""
+                    with open(args.dir + "/tarballs/" + args.run + ".tar", "rb") as tar:
+                        tarhash = md5()
+                        tarhash.update(tar.read())
+                        md5sum = tarhash.hexdigest()
+                        print(md5sum)
+                    with open(args.dir + "/tarballs/" + args.run + ".md5", "w") as md5file:
+                        md5file.write(md5sum)
+
+                    print("Delete run folder || exit 1")
+                    rmtree(args.dir + "/" + get_machine_run_flowcell_id(args.run)[0] + "/" + args.run)
+
+                    print("Set raw-deleted to done:timestamp in DB || exit 1")
+                    print("CHECK CURRENT TIME DONE:\t" + generate_timestamp())
+
+#                    if "raw_deleted" in document:
+                    if "started_timestamp" in document["raw_deleted"]:
+                        start_time = ""
+                        for result in db.find({"_id": document["_id"]}):
+                            print(result["raw_deleted"])
+                            start_time = result["raw_deleted"][0]["started_timestamp"]
+
+                        db.update({"_id": document["_id"]},
+                                    {"$set":
+                                        {"raw_deleted": {
+                                            "started_timestamp": start_time,
+                                            "done_timestamp": generate_timestamp()
+                                        }
+                                    }
+                                })
+ 
+
     #            db.update({"_id": document["_id"]}, {"$pop": {"raw_deleted": -1}})
-                for result in db.find({"raw_deleted": {"$exists": True}}):
+                for result in db.find({"raw_deleted": {"$exists": True}, "run": args.run}):
                     PrettyPrinter(indent=2).pprint(result)
 
 

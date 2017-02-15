@@ -187,8 +187,7 @@ def get_sample_info(child, rows, mux_analysis_list, mux_id, fastq_data_dir, \
     sample_cfg['ctime'] = ctime
     sample_cfg['site'] = site
     try:
-        sample_cfg['pipeline_name'] = legacy_mapper['pipeline_mapper'][child['Analysis']].\
-        replace("/", "-")
+        sample_cfg['pipeline_name'] = legacy_mapper['pipeline_mapper'][child['Analysis']]
     except KeyError as e:
         sample_cfg['pipeline_name'] = child['Analysis']
         logger.warning(str(e) + " Pipeline not mappped to newer version")
