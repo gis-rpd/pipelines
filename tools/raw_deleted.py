@@ -28,7 +28,7 @@ from pipelines import generate_timestamp, get_machine_run_flowcell_id
 
 __author__ = "LIEW Jun Xian"
 __email__ = "liewjx@gis.a-star.edu.sg"
-__copyright__ = "2016 Genome Institute of Singapore"
+__copyright__ = "2017 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 
@@ -102,24 +102,26 @@ def main():
                     print("Set raw-deleted to done:timestamp in DB || exit 1")
                     print("CHECK CURRENT TIME DONE:\t" + generate_timestamp())
 
-#                    if "raw_deleted" in document:
-                    if "started_timestamp" in document["raw_deleted"]:
-                        start_time = ""
-                        for result in db.find({"_id": document["_id"]}):
-                            print(result["raw_deleted"])
-                            start_time = result["raw_deleted"][0]["started_timestamp"]
+                    if "raw_deleted" in document:
+                        print ("raw_deleted in document")
+                        if "started_timestamp" in document["raw_deleted"]:
+                            start_time = ""
+                            for result in db.find({"_id": document["_id"]}):
+                                print(result["raw_deleted"])
+                                start_time = result["raw_deleted"]["started_timestamp"]
 
-                        db.update({"_id": document["_id"]},
-                                    {"$set":
-                                        {"raw_deleted": {
-                                            "started_timestamp": start_time,
-                                            "done_timestamp": generate_timestamp()
+                            db.update({"_id": document["_id"]},
+                                        {"$set":
+                                            {"raw_deleted": {
+                                                "started_timestamp": start_time,
+                                                "done_timestamp": generate_timestamp()
+                                            }
                                         }
-                                    }
-                                })
+                                    })
  
 
-    #            db.update({"_id": document["_id"]}, {"$pop": {"raw_deleted": -1}})
+#                db.update({"_id": document["_id"]}, {"$pop": {"raw_deleted": -1}})
+#                db.update({"_id": document["_id"]}, {"$unset": {"raw_deleted": -1}})
                 for result in db.find({"raw_deleted": {"$exists": True}, "run": args.run}):
                     PrettyPrinter(indent=2).pprint(result)
 
