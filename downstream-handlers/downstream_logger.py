@@ -135,7 +135,7 @@ def started_or_restarted(db, db_id, outdir, dry_run):
     # determine if this is a start or a restart (or a mistake)
     if cursor.get('run') and cursor.get('outdir'):
         assert cursor['run']['start_time']
-        assert cursor['run'].get('status') is None, (pprint.pprint(cursor))
+        assert cursor['run'].get('status') is not None
         mode = 'restart'
     elif cursor.get('run') is None and cursor.get('outdir') is None:
         mode = 'start'
