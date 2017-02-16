@@ -55,8 +55,8 @@ def list_job(db, db_id, dry_run):
     if dry_run:# only for compat with other function
         return
 
-    if db_id == "all":# not a good idea...
-        cursor = db.find()
+    if db_id == "STARTED":
+        cursor = db.find({"run.status": "STARTED"})
         for r in cursor:
             pprint.pprint(r)
     else:
@@ -133,11 +133,11 @@ def started_or_restarted(db, db_id, outdir, dry_run):
     assert cursor, "No objects found with db-id {}".format(db_id)
 
     # determine if this is a start or a restart (or a mistake)
-    if cursor['run'] and cursor['outdir']:
+    if cursor.get('run') and cursor.get('outdir'):
         assert cursor['run']['start_time']
         assert cursor['run'].get('status') is None, (pprint.pprint(cursor))
         mode = 'restart'
-    elif cursor['run'] is None and cursor['outdir'] is None:
+    elif cursor.get('run') is None and cursor.get('outdir') is None:
         mode = 'start'
     else:
         raise ValueError(db_id, cursor['run'], cursor['outdir'])
@@ -180,7 +180,7 @@ def main():
     """main function"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-d', "--db-id",
-                        help="DB id", required=True,)
+                        help="DB id (in check and list mode you can use 'STARTED' for all started jobs)", required=True,)
     parser.add_argument('-o', "--outdir",
                         help="out directory")
     parser.add_argument('-m', "--mode",
