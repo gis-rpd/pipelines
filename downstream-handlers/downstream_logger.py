@@ -69,59 +69,68 @@ def check_completion(db, db_id, dry_run):
     """Update values for already started job based on log file in outdir
     """
 
-    cursor = db.find_one({"_id": ObjectId(db_id)})
-    assert cursor, "No object found with db-id {}".format(db_id)
-
-    if not cursor.get('run'):
-        LOGGER.critical("Looks like job %s was never started (run entry missing)", db_id)
-        sys.exit(1)
-
-    old_status = cursor['run'].get('status')
-    start_time = cursor['run'].get('start_time')
-    if not old_status or not start_time:
-        LOGGER.critical("Job start for %s was not logged properly (status or start_time not set)", db_id)
-        sys.exit(1)
-    elif old_status != "STARTED":
-        LOGGER.critical("Status for job %s already set to %s", db_id, old_status)
-        sys.exit(1)
-
-    outdir = cursor['run'].get('outdir')
-    assert outdir, ("outdir missing for started job %s", db_id)
-
-    if dry_run:
-        LOGGER.info("Skipping due to dryrun option")
-        return
-
-    snakelog = os.path.join(outdir, PipelineHandler.MASTERLOG)
-    LOGGER.info("Checking snakemake log %s for status of job %s", snakelog, db_id)
-    if not os.path.exists(snakelog):
-        LOGGER.critical("Expected snakemake log file %s doesn't exist.", snakelog)
-        sys.exit(1)
-
-    status, end_time = snakemake_log_status(snakelog)
-
-    LOGGER.info("Job %s has status %s (end time %s)", db_id, status, end_time.isoformat())
-    if status == "SUCCESS":
-        assert end_time
-        db.update({"_id": ObjectId(db_id)},
-                  {"$set": {"run.status": "SUCCESS", "run.end_time": end_time.isoformat()}})
-    elif status == "ERROR":
-        assert end_time
-        db.update({"_id": ObjectId(db_id)},
-                  {"$set": {"run.status": "FAILED", "run.end_time": end_time.isoformat()}})
+    if db_id == 'STARTED':
+        cursor = db.find({"run.status": "STARTED"})
+        LOGGER.info("Will check %s started jobs", cursor.count())
     else:
-        if end_time:# without status end_time means last seen time in snakemake
-            delta = datetime.now() - dateutil.parser.parse(end_time)
+        cursor = db.find_one({"_id": ObjectId(db_id)})
+        assert cursor, "No object found with db-id {}".format(db_id)
+
+    for record in cursor:
+        db_id = record['_id']# in case we used 'STARTED'
+        if not record.get('run'):
+            LOGGER.critical("Looks like job %s was never started (run entry missing)", db_id)
+            continue
+
+        old_status = record['run'].get('status')
+        start_time = record['run'].get('start_time')
+        if not old_status or not start_time:
+            LOGGER.critical("Job start for %s was not logged properly (status or start_time not set)", db_id)
+            continue
+        elif old_status != "STARTED":
+            LOGGER.critical("Status for job %s already set to %s", db_id, old_status)
+            sys.exit(1)
+
+        outdir = record.get('outdir')
+        assert outdir, ("outdir missing for started job %s", db_id)
+
+        if dry_run:
+            LOGGER.info("Skipping due to dryrun option")
+            return
+
+        snakelog = os.path.join(outdir, PipelineHandler.MASTERLOG)
+        LOGGER.info("Checking snakemake log %s for status of job %s", snakelog, db_id)
+        if not os.path.exists(snakelog):
+            LOGGER.critical("Expected snakemake log file %s for job %s doesn't exist.", snakelog, db_id)
+            continue
+
+        status, end_time = snakemake_log_status(snakelog)
+
+        LOGGER.info("Job %s has status %s (end time %s)",
+                    db_id, status, end_time)
+        if status == "SUCCESS":
+            assert end_time
+            db.update({"_id": ObjectId(db_id)},
+                      {"$set": {"run.status": "SUCCESS",
+                                "run.end_time": end_time}})
+        elif status == "ERROR":
+            assert end_time
+            db.update({"_id": ObjectId(db_id)},
+                      {"$set": {"run.status": "FAILED",
+                                "run.end_time": end_time}})
+        else:
+            if end_time:# without status end_time means last seen time in snakemake
+                delta = datetime.now() - dateutil.parser.parse(end_time)
+                diff_min, _diff_secs = divmod(delta.days * 86400 + delta.seconds, 60)
+                diff_hours = diff_min/60.0
+                if diff_hours > THRESHOLD_H_SINCE_LAST_TIMESTAMP:
+                    LOGGER.critical("Last update for job id %s was seen %s hours ago", db_id, diff_hours)
+
+            delta = datetime.now() - dateutil.parser.parse(start_time)
             diff_min, _diff_secs = divmod(delta.days * 86400 + delta.seconds, 60)
             diff_hours = diff_min/60.0
-            if diff_hours > THRESHOLD_H_SINCE_LAST_TIMESTAMP:
-                LOGGER.critical("Last update for job id %s was seen %s hours ago", db_id, diff_hours)
-
-        delta = datetime.now() - dateutil.parser.parse(start_time)
-        diff_min, _diff_secs = divmod(delta.days * 86400 + delta.seconds, 60)
-        diff_hours = diff_min/60.0
-        if diff_hours > THRESHOLD_H_SINCE_START:
-            LOGGER.critical("Job id %s was started %s hours ago", db_id, diff_hours)
+            if diff_hours > THRESHOLD_H_SINCE_START:
+                LOGGER.critical("Job id %s was started %s hours ago", db_id, diff_hours)
 
 
 
@@ -186,7 +195,8 @@ def main():
     parser.add_argument('-m', "--mode",
                         help="mode", required=True,
                         choices=['start', 'check', 'list'])
-    parser.add_argument('-t', "--test-server", action='store_true')
+    parser.add_argument('-t', "--test-db", action='store_true',
+                        help="Use test database")
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -203,7 +213,7 @@ def main():
         LOGGER.warning("Not a production user. Skipping MongoDB update")
         sys.exit(1)
 
-    connection = mongodb_conn(args.test_server)
+    connection = mongodb_conn(args.test_db)
     if connection is None:
         sys.exit(1)
     LOGGER.info("Database connection established")
