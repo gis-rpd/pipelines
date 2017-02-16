@@ -46,7 +46,7 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-def start_analysis(record, testing):
+def start_analysis(record, testing, dry_run):
     """ Start the analysis
     """
     print("Start analysis")
@@ -87,6 +87,9 @@ def start_analysis(record, testing):
     if extra_conf:
         pipeline_cmd += extra_conf
     logger.info(pipeline_cmd)
+    if dry_run:
+        logger.info("Skipping dryrun option")
+        return
     try:
         _ = subprocess.check_output(pipeline_cmd, stderr=subprocess.STDOUT, shell=True)
     except subprocess.CalledProcessError as e:
@@ -143,7 +146,7 @@ def main():
         "ctime": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found %s runs to start analysis", results.count())
     for record in results:
-        start_analysis(record, args.testing)
+        start_analysis(record, args.testing, args.dry_run)
 
 if __name__ == "__main__":
     logger.info("Send email to Users and NGSP")
