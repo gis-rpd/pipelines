@@ -8,13 +8,13 @@ import sys
 import os
 import argparse
 import pprint
-import datetime
+from datetime import datetime
 
 #--- third party imports
 #
 import pymongo
 from bson.objectid import ObjectId
-import dateutil
+import dateutil.parser
 
 #--- project specific imports
 #
@@ -60,7 +60,7 @@ def list_job(db, db_id, dry_run):
         for r in cursor:
             pprint.pprint(r)
     else:
-        cursor = db.find_one({"_id": ObjectId(db_id)})
+        cursor = db.find({"_id": ObjectId(db_id)})
         assert cursor, "No objects found with db-id {}".format(db_id)
         pprint.pprint(cursor)
 
@@ -73,7 +73,7 @@ def check_completion(db, db_id, dry_run):
         cursor = db.find({"run.status": "STARTED"})
         LOGGER.info("Will check %s started jobs", cursor.count())
     else:
-        cursor = db.find_one({"_id": ObjectId(db_id)})
+        cursor = db.find({"_id": ObjectId(db_id)})
         assert cursor, "No object found with db-id {}".format(db_id)
 
     for record in cursor:
@@ -105,7 +105,6 @@ def check_completion(db, db_id, dry_run):
             continue
 
         status, end_time = snakemake_log_status(snakelog)
-
         LOGGER.info("Job %s has status %s (end time %s)",
                     db_id, status, end_time)
         if status == "SUCCESS":
@@ -125,14 +124,12 @@ def check_completion(db, db_id, dry_run):
                 diff_hours = diff_min/60.0
                 if diff_hours > THRESHOLD_H_SINCE_LAST_TIMESTAMP:
                     LOGGER.critical("Last update for job id %s was seen %s hours ago", db_id, diff_hours)
-
-            delta = datetime.now() - dateutil.parser.parse(start_time)
+            #Re-convert start_time from isoformat as it happens in generate_timestamp()
+            delta = datetime.now() - dateutil.parser.parse(start_time.replace("-", ":"))
             diff_min, _diff_secs = divmod(delta.days * 86400 + delta.seconds, 60)
             diff_hours = diff_min/60.0
             if diff_hours > THRESHOLD_H_SINCE_START:
                 LOGGER.critical("Job id %s was started %s hours ago", db_id, diff_hours)
-
-
 
 def started_or_restarted(db, db_id, outdir, dry_run):
     """Update records for started or restarted analysis
