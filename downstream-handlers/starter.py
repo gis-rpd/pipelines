@@ -21,7 +21,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import generate_window, is_devel_version
-from pipelines import get_downstream_outdir
+from pipelines import get_downstream_outdir, is_production_user
 from mongodb import mongodb_conn
 path_devel = LIB_PATH + "/../../"
 
@@ -96,7 +96,7 @@ def start_analysis(record, testing, dry_run):
         logger.fatal("The following command failed with return code %s: %s",
             e.returncode, ' '.join(pipeline_cmd))
         logger.fatal("Output: %s", e.output.decode())
-
+    sys.exit()
 def get_pipeline_path(site, pipeline_name, pipeline_version):
     """ get the pipeline path
     """
@@ -137,6 +137,10 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+    if not is_production_user():
+        logger.warning("Not a production user. Skipping MongoDB update")
+        sys.exit(1)
+
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
