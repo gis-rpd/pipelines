@@ -31,6 +31,11 @@ shlock()            { _lock s; }   # obtain a shared lock
 unlock()            { _lock u; }   # drop a lock
 
 
+log() {
+    logger -s -t $(basename $0) "$@"
+}
+
+
 usage() { 
     myname=$(basename $0)
     echo "$myname: upload tarball of given directory dir to S3" 1>&2
@@ -77,19 +82,19 @@ if [ $# != 1 ]; then
 fi
 
 if [ $unlock -eq 1 ]; then
-    echo "FATAL: option unlock not implemented (useful at all?)" 1>&2
+    log "FATAL: option unlock not implemented (useful at all?)"
     exit 1
 fi
 
 wdir=$(readlink -f $1) || exit 1
 if [ ! -d $wdir ]; then
-    echo "FATAL: Non-existant workflow directory \"$wdir\"" 1>&2
+    log "FATAL: Non-existant workflow directory \"$wdir\""
     exit 1
 fi
 
 flagfile=logs/snakemake.log
 if [ ! -e $wdir/$flagfile ]; then
-    echo "FATAL: Don't recognize \"$wdir\" as workflow directory" 1>&2
+    log "FATAL: Don't recognize \"$wdir\" as workflow directory"
     exit 1
 fi
 
@@ -98,7 +103,7 @@ LOCKFILE=$wdir/$(basename $0).LOCK
 _prepare_locking
 # avoid running multiple instances of script
 if ! exlock_now; then
-    echo "FATAL: couldn't aquire lock" 1>&2
+    log "FATAL: couldn't aquire lock"
     exit 1
 fi
 
@@ -110,7 +115,7 @@ tarball=${wdirbase}.tgz
 # first check if exists
 if aws s3 ls $s3prefix | grep -qw $tarball 2>/dev/null; then
     if [ $force -ne 1 ]; then
-	echo "FATAL: refusing to overwrite exising object. Please use --force if needed" 1>&2
+	log "FATAL: refusing to overwrite exising object. Please use --force if needed"
 	exit 1
     fi
 fi
