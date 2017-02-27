@@ -39,18 +39,34 @@ class ElmLogging(object):
         assert isinstance(paths, list)
         if not paths:
             return -1
-        cmd = ['du', '-sc']
-        cmd.extend(paths)
 
-        try:
-            res = subprocess.check_output(cmd)
-        except subprocess.CalledProcessError:
-            return -1
+        size = 0
 
-        total_line = res.decode().splitlines()[-1]
-        if not total_line.endswith("total"):
-            return -1
-        size = int(total_line.split()[0])
+        for p in paths:
+            if p.startswith("s3://"):
+                cmd = ['aws', 's3', 'ls', '--summarize', p]
+                try:
+                    res = subprocess.check_output(cmd)
+                except subprocess.CalledProcessError:
+                    return -1
+    
+                total_line = res.decode().splitlines()[-1]
+                if not "Total Size:" in total_line:
+                    return -1
+                size += int(total_line.split()[-1])
+
+            else:
+                cmd = 'DU_BLOCK_SIZE=1 du -sc ' + p
+                try:
+                    res = subprocess.check_output(cmd, shell=True)
+                except subprocess.CalledProcessError:
+                    return -1
+    
+                total_line = res.decode().splitlines()[-1]
+                if not total_line.endswith("total"):
+                    return -1
+                size += int(total_line.split()[0])
+
         return size
 
 
