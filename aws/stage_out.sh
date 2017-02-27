@@ -41,7 +41,7 @@ usage() {
     echo "$myname: upload tarball of given directory dir to S3" 1>&2
     echo "Usage: $myname [-u | -p s3-prefix (default: $S3_PREFIX)] [-r] [-f] dir" 1>&2
     echo "Options:" 1>&2
-    echo " -u unlock : Unlock directory (UNUSED)" 1>&2
+    echo " -u unlock : Unlock directory" 1>&2
     echo " -p bucket : Use this prefix instead of the default ($S3_PREFIX)" 1>&2
     echo " -r        : Remove local copy after upload" 1>&2
     echo " -f        : Force overwrite" 1>&2
@@ -50,7 +50,7 @@ usage() {
 }
 
 
-unlock=0
+unlock_please=0
 remove=0
 force=0
 s3prefix=$S3_PREFIX
@@ -60,7 +60,7 @@ while getopts "p:urf" o; do
             s3prefix=${OPTARG}
             ;;
         u)
-            unlock=1
+            unlock_please=1
             ;;
         r)
             remove=1
@@ -81,11 +81,6 @@ if [ $# != 1 ]; then
     usage
 fi
 
-if [ $unlock -eq 1 ]; then
-    log "FATAL: option unlock not implemented (useful at all?)"
-    exit 1
-fi
-
 wdir=$(readlink -f $1) || exit 1
 if [ ! -d $wdir ]; then
     log "FATAL: Non-existant workflow directory \"$wdir\""
@@ -99,11 +94,19 @@ if [ ! -e $wdir/$flagfile ]; then
 fi
 
 LOCKFILE=$wdir/$(basename $0).LOCK
+
+if [ $unlock_please -eq 1 ]; then
+    # is this the correct way of doing it?
+    test -f $LOCKFILE && rm -f $LOCKFILE
+    exit 0
+fi
+
+
 #echo "Trying to lock $wdir (using $LOCKFILE)"
 _prepare_locking
 # avoid running multiple instances of script
 if ! exlock_now; then
-    log "FATAL: couldn't aquire lock"
+    log "FATAL: couldn't aquire lock $LOCKFILE"
     exit 1
 fi
 
@@ -126,6 +129,8 @@ tar c --exclude '*/.snakemake/*' $wdirbase | aws s3 cp - $uri
 #EOF
 
 popd >/dev/null
+
+unlock
 
 if [ $remove -eq 1 ]; then
     # save to remove since we checked above that it does exist and is
