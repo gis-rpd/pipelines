@@ -96,7 +96,7 @@ def start_analysis(record, testing, dry_run):
         logger.fatal("The following command failed with return code %s: %s",
             e.returncode, ' '.join(pipeline_cmd))
         logger.fatal("Output: %s", e.output.decode())
-    sys.exit()
+    
 def get_pipeline_path(site, pipeline_name, pipeline_version):
     """ get the pipeline path
     """
@@ -153,5 +153,4 @@ def main():
         start_analysis(record, args.testing, args.dry_run)
 
 if __name__ == "__main__":
-    logger.info("Send email to Users and NGSP")
     main()
