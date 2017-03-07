@@ -49,7 +49,6 @@ logger.addHandler(handler)
 def start_analysis(record, testing, dry_run):
     """ Start the analysis
     """
-    print("Start analysis")
     pipeline_params = " "
     extra_conf = " --extra-conf "
     extra_conf += "db-id:" + str(record['_id'])

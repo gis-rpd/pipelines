@@ -84,7 +84,7 @@ def snakemake_log_status(log):
     
     # this is by design a bit fuzzy
     with open(log) as fh:
-        last_lines = deque(fh, maxlen=10)
+        last_lines = deque(fh, maxlen=60)
     status = None
     last_etime = None
     while last_lines: # iterate from end
