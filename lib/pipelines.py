@@ -15,6 +15,7 @@ from getpass import getuser
 import time
 from datetime import datetime
 from datetime import timedelta
+import dateutil.relativedelta
 import calendar
 import json
 import tarfile
@@ -620,6 +621,14 @@ def isoformat_to_epoch_time(ts):
     epoch_time = calendar.timegm(dt.timetuple()) + dt.microsecond/1000000.0
     return epoch_time
 
+def relative_epoch_time(epoch_time1, epoch_time2):
+    """
+    Relative time difference between two epoch time
+    """
+    dt1 = datetime.fromtimestamp(epoch_time1)
+    dt2 = datetime.fromtimestamp(epoch_time2)
+    rd = dateutil.relativedelta.relativedelta(dt1, dt2)
+    return rd
 
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
