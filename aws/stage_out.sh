@@ -113,29 +113,34 @@ fi
 pushd $wdir >/dev/null
 cd ..
 wdirbase=$(basename $wdir)
-tarball=${wdirbase}.tgz
+tarball=${wdirbase}.tar
+uri=$(echo ${s3prefix}/$tarball)
 
 # first check if exists
-if aws s3 ls $s3prefix | grep -qw $tarball 2>/dev/null; then
+# careful: object acts as prefix on s3 and might list a lot of other stuff
+if aws s3 ls $uri >/dev/null; then
     if [ $force -ne 1 ]; then
 	log "FATAL: refusing to overwrite exising object. Please use --force if needed"
 	exit 1
     fi
 fi
 
-uri=$(echo ${s3prefix}/$tarball)
-#cat<<EOF
-tar c --exclude '*/.snakemake/*' $wdirbase | aws s3 cp - $uri
-#EOF
 
-popd >/dev/null
+# we need a tarball because we might have symlinks which are not supported in s3
+# streaming tar is a nice idea, but can hang in pratice. So let's create a copy first
+# tar c --exclude '*/.snakemake/*' $wdirbase | aws s3 cp - $uri
 
-unlock
-
+tar cf $tarball --exclude '*/.snakemake/*' $wdirbase
 if [ $remove -eq 1 ]; then
     # save to remove since we checked above that it does exist and is
     # a real workflow dir
     rm -rf $wdir
 fi
+aws s3 cp $tarball $uri
+rm $tarball
+
+popd >/dev/null
+
+unlock
 
 #echo "Done"
