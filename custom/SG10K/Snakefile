@@ -51,6 +51,8 @@ rule final:
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
                sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qc.txt'),
+               sample=config['samples']),
         "report.html"
     message:
         """
@@ -59,7 +61,23 @@ rule final:
     # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
 
 
+rule sample_qc:
+    input:
+        bam = '{prefix}.bam'
+    output:
+        qc = '{prefix}.qc.txt'
+    log:
+        '{prefix}.qc.log'
+    message:
+        'Running sample QC'
+    params:
+        minbq = 20
+    shell:
+        "{{ n=$(samtools view -h -f 0x2 {input.bam} | samtools depth -q {params.minbq} - | datamash sum 3);"
+        "echo 'Number of bases (in properly aligned reads with minbq {params.minbq}): $n' > {output.qc};"
+        " }} >& {log}"
 
+        
 rule contamination_check:
     input:
         bam = os.path.join(RESULT_OUTDIR, '{prefix}.bam'),
