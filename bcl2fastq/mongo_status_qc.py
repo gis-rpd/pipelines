@@ -90,6 +90,14 @@ def main():
             if not os.path.exists(out_dir):
                 logger.critical("Following directory listed in DB doesn't exist: %s", out_dir)
                 continue
+            if args.testing:
+                bcl2fastq_qc_out = os.path.join(out_dir, "bcl2fastq_qc.test.txt")
+            else:
+                bcl2fastq_qc_out = os.path.join(out_dir, "bcl2fastq_qc.txt")
+            if os.path.exists(bcl2fastq_qc_out):
+                logger.critical("Refusing to overwrite existing file %s. Skipping QC check", bcl2fastq_qc_out)
+                continue
+                
             bcl2fastq_qc_cmd = [bcl2fastq_qc_script, '-d', out_dir]
             if args.no_mail:
                 bcl2fastq_qc_cmd.append("--no-mail")
@@ -107,6 +115,8 @@ def main():
                     db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
                         {"$set": {QC_status: "SUCCESS"}})
                     logger.info("Demux QC SUCCESS for run: %s", run_number)
+                with open(bcl2fastq_qc_out, 'w') as fh:
+                    fh.write(status.decode())
             except subprocess.CalledProcessError as e:
                 logger.fatal("The following command failed with return code %s: %s",
                              e.returncode, ' '.join(bcl2fastq_qc_cmd))
