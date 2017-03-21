@@ -66,7 +66,7 @@ def runs_from_db(db, win=34):
         analysis_epoch_time = isoformat_to_epoch_time(end_time+"+08:00")
         epoch_time_now = isoformat_to_epoch_time(generate_timestamp()+"+08:00")
         rd = relative_epoch_time(epoch_time_now, analysis_epoch_time)
-        if status == 'SUCCESS' and rd.days > 2:
+        if status == 'SUCCESS' and rd.days > 21:
             yield runid_and_flowcellid
 
 def run_folder_for_run_id(runid_and_flowcellid):
