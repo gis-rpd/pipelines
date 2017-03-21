@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+"""FIXME:add-doc
 """
 
 
@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 from datetime import date
 from hashlib import md5
 from os import mkdir
-from os.path import abspath, dirname, exists, isdir, join, realpath
+from os.path import abspath, dirname, exists, join, realpath
 from pprint import PrettyPrinter
 from shutil import move, rmtree
 from sys import path
@@ -54,7 +54,7 @@ def main():
     #            if (date.today() - date(last_date[0], last_date[1], last_date[2])).days < 120:
                 print("If last bcl2fastq < 4 months (see DB): continue")
                 if exists(args.dir + "/" + get_machine_run_flowcell_id(args.run)[0] + "/" + args.run):
-                    print("dir exists") 
+                    print("dir exists")
                 if exists(args.dir + "/" + get_machine_run_flowcell_id(args.run)[0] + "/" + args.run + ".tar"):
                     print("tar exists")
                 if exists(args.dir + "/" + get_machine_run_flowcell_id(args.run)[0] + "/" + args.run + ".tgz"):
@@ -66,12 +66,7 @@ def main():
                 print("CHECK CURRENT TIME STARTED:\t" + generate_timestamp())
                 if "raw_deleted" not in document:
                     db.update({"_id": document["_id"]},
-                                {"$push":
-                                    {"raw_deleted": {
-                                        "started_timestamp": generate_timestamp()
-                                    }
-                                }
-                            })
+                              {"$push": {"raw_deleted": {"started_timestamp": generate_timestamp()}}})
 
                 if not exists(args.dir + "/tarballs"):
                     mkdir(args.dir + "/tarballs", 0o770)
@@ -118,7 +113,7 @@ def main():
                                     }
                                 }
                             })
- 
+
 
 #                db.update({"_id": document["_id"]}, {"$pop": {"raw_deleted": -1}})
 #                db.update({"_id": document["_id"]}, {"$unset": {"raw_deleted": -1}})

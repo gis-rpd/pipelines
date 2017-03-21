@@ -3,13 +3,11 @@
 collection: gisds.runcomplete
 """
 
-
 #--- standard library imports
 #
 from argparse import ArgumentParser
 from os.path import abspath, dirname, join, realpath
 from sys import path
-import ldap
 
 #--- project specific imports
 #
