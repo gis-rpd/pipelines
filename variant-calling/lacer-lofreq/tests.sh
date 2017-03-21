@@ -48,6 +48,8 @@ WGS_FQ1=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_1.fastq.gz
 WGS_FQ2=$RPD_ROOT/testing/data/illumina-platinum-NA12878/ERR091571_2.fastq.gz
 DUMMY_BED=$RPD_ROOT/testing/data/illumina-platinum-NA12878/human_g1k_v37_decoy_chr21.bed
 TRUSEQ_BED=$RPD_ROOT/testing/data/illumina-platinum-NA12878/exome/truseq-exome-targeted-regions-manifest-v1-2.nochr.bed
+DREAM_WGS_DIR=$RPD_ROOT/testing/data/somatic/icgc-tcga-dream-somatic/synthetic.challenge.set3/
+INJ_BAM=$DREAM_WGS_DIR/normal.bam
 
 rootdir=$(readlink -f $(dirname $0))
 cd $rootdir
@@ -108,6 +110,24 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
     popd >> $log
 
+    cat<<EOF
+    echo "Dryrun: WES bam-only" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    eval $wes_cmd_base -o $odir -v --bam-only --no-run >> $log 2>&1
+    pushd $odir >> $log
+    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+    rm -rf $odir
+    popd >> $log
+
+    echo "Dryrun: WES proc-bam" | tee -a $log
+    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    eval $wes_cmd_base -o $odir -v --proc-bam $INJ_BAM --no-run >> $log 2>&1
+    pushd $odir >> $log
+    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+    rm -rf $odir
+    popd >> $log
+
+EOF
     echo "Dryrun: WGS" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
     eval $wgs_cmd_base -o $odir -v --no-run >> $log 2>&1
