@@ -25,7 +25,7 @@ from mongodb import mongodb_conn
 from pipelines import generate_window, is_production_user
 from pipelines import isoformat_to_epoch_time, generate_timestamp
 from pipelines import get_machine_run_flowcell_id
-from pipelines import relative_epoch_time
+from pipelines import relative_epoch_time, send_mail
 from config import site_cfg
 
 __author__ = "Lavanya Veeravalli"
@@ -80,7 +80,7 @@ def run_folder_for_run_id(runid_and_flowcellid):
     rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
     return rundir
 
-def start_archieve(db, runid_and_flowcellid):
+def purge(db, runid_and_flowcellid):
     """
     Archiving function
     """
@@ -117,7 +117,7 @@ def start_archieve(db, runid_and_flowcellid):
                 "Modified {} documents instead of 1".format(res.modified_count))
         subject = "Moving of {} to {} failed".format(rundir, dest_dir)
         body = subject
-        send_email(subject, body, toaddr='veeravallil', ccaddr=None)
+        send_mail(subject, body, toaddr='veeravallil', ccaddr=None)
 
 def main():
     """main function
@@ -162,7 +162,7 @@ def main():
             logger.info("Skipping dryrun option %s", run)
             continue
         try:
-            start_archieve(db, run)
+            purge(db, run)
         except pymongo.errors.OperationFailure as e:
             logger.fatal("MongoDB failure while updating db-id %s", args.db_id)
             sys.exit(1)

@@ -69,6 +69,11 @@ def scheme_for_fastq(fastq):
     schemes['cram'] = re.compile(# FIXME untested
         r'(?P<library_id>[A-Za-z0-9-]+)_(?P<run_id>[A-Za-z0-9-]+)_L0*(?P<lane_id>[A-Za-z0-9-]+)_R(?P<read_no>[12]).fastq.gz')
 
+    schemes['manual'] = re.compile(# FIXME untested. only for temp sg10k upload
+        r'(?P<run_id>[A-Za-z0-9-]+)_(?P<flowcell>[A-Za-z0-9-]+)_(?P<library_id>[A-Za-z0-9-]+)-(?P<barcode>[A-Za-z0-9-]+)_(?P<stuff>[A-Za-z0-9-]+)_L0*(?P<lane_id>[0-9-]+)_R(?P<read_no>[12])_(?P<part>[A-Za-z0-9-]+).fastq.gz')
+    # WHH2464/HS007-PE-R00089_AH7CWVBBXX_WHH2464-TCCGCGAA-TCAGAGCC_S142_L008_R1_001.fastq.gz
+
+    
     scheme_re = None#pylint
     for scheme_name, scheme_re in schemes.items():
         match = scheme_re.match(os.path.basename(fastq))
@@ -86,13 +91,16 @@ def readunits_for_sampledir(sampledir):
     """
 
     # determine naming scheme and loop through fastqs assuming fixed scheme
-    fq1s = glob.glob(os.path.join(sampledir, "*R1.fastq.gz"))
+    fq1s = glob.glob(os.path.join(sampledir, "*_R1*.fastq.gz"))
+    assert len(fq1s), ("No files with matching names found")
     scheme = scheme_for_fastq(fq1s[0])
     readunits = dict()
     for fq1 in fq1s:
         match = scheme.search(os.path.basename(fq1))
         mgroups = match.groupdict()
-        fq2 = fq1.replace("R1.fastq.gz", "R2.fastq.gz")
+        assert fq1.count("_R1") == 1, ("More than one occurence of _R1 in {}".format(fq1))
+        fq2 = fq1.replace("_R1", "_R2")
+        
         if not os.path.exists(fq2):
             fq2 = None
         rg = None
