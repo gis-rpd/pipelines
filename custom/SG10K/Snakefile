@@ -74,7 +74,7 @@ rule sample_qc:
         minbq = 20
     shell:
         "{{ n=$(samtools view -h -f 0x2 {input.bam} | samtools depth -q {params.minbq} - | datamash sum 3);"
-        "echo 'Number of bases (in properly aligned reads with minbq {params.minbq}): $n' > {output.qc};"
+        "echo \"Number of bases (in properly aligned reads with minbq {params.minbq}): $n\" > {output.qc};"
         " }} >& {log}"
 
         
