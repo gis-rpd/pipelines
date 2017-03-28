@@ -74,8 +74,8 @@ def runs_from_db(db, win=14):
                     mongo_list = (run_number, downstream_id, analysis_id, out_dir)
                     if mux_id in mux_list:
                         #Send email the above message
-                        logger.info("MUX %s has been analyzed more than 1 time succeessfully, \
-                            send email", mux_id)
+                        logger.info("MUX %s from %s has been analyzed more than 1 time succeessfully,\
+                            send email", mux_id, run_number)
                         del mux_list[mux_id]
                     else:
                         mux_list[mux_id] = mongo_list
@@ -167,7 +167,6 @@ def main():
         mail_to = 'veeravallil'# domain added in mail function
     else:
         mail_to = 'rpd'
-
     run_records = runs_from_db(db, args.win)
     trigger = 0
     for run in run_records:
@@ -177,7 +176,7 @@ def main():
                 trigger = 1
             else:
                 #send email alert
-                logger.warning("MUX %s, already exists, please check", mux)
+                logger.warning("%s from %s, already exists, please check", mux, info[0])
                 continue
         if args.break_after_first and trigger == 1:
             logger.info("Stopping after first run")
