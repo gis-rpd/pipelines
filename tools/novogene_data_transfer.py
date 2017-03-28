@@ -106,6 +106,7 @@ def start_data_transfer(db, mux, info, site):
     if not os.path.exists(fastq_dest):
         try:
             #Change the mongoDB status
+            os.makedirs(fastq_dest)
             logger.info("data transfer started for %s from %s", mux, run_number)
             update_mongodb(db, run_number, analysis_id, downstream_id, "COPYING")
             _ = subprocess.check_output(rsync_cmd, shell=True, stderr=subprocess.STDOUT)
