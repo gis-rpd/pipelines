@@ -126,7 +126,7 @@ rule unit_merge_n:
     message:
         "Merging files (sorted by name)"
     threads:
-        8
+        4
     run:
         if len(input) > 1:
             shell("samtools merge -n -@ {threads} {output} {input} >& {log};")

@@ -115,7 +115,7 @@ rule unit_merge:
     message:
         "Merging units to {output}"
     threads:
-        8
+        4
     run:
         # readgroup and pg now different, so make PG and RG uniq (default)
         if len(input) > 1:
@@ -147,9 +147,9 @@ rule mutect_per_region:
         "Calling somatic variants with MuTect"
     params:
         frac_cont_arg = "--fraction_contamination {}".format(config["frac_cont"]) if config.get("frac_cont") else ""
+    # previously set higher to work around UGE/Java/OS vmem problem in GIS
     threads:
-        # purely due to our java/qsub problem which seemingly limits vm per core
-        2
+        1
     shell:
         # https://www.broadinstitute.org/cancer/cga/mutect_run
         #  --enable_extended_output

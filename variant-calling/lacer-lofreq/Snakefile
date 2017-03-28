@@ -98,7 +98,7 @@ rule unit_merge:
     message:
         "Merging units to samples"
     threads:
-        8
+        4
     run:
         # readgroup and pg now different, so make PG and RG uniq (default)
         if len(input) > 1:
