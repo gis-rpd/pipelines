@@ -11,7 +11,7 @@ import logging
 import yaml
 
 #--- project specific imports
-#
+#NOVOGENE_CFG_FILE
 # add lib dir for this pipeline installation to PYTHONPATH
 ETC_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "etc"))
@@ -21,6 +21,7 @@ REST_CFG_FILE = os.path.join(ETC_PATH, 'rest.yaml')
 MONGO_CFG_FILE = os.path.join(ETC_PATH, 'mongo.yaml')
 BCL2FASTQQC_CFG_FILE = os.path.join(ETC_PATH, 'bcl2fastq_qc.yaml')
 LEGACY_MAPPER_CFG_FILE = os.path.join(ETC_PATH, 'legacy_wrapper.yaml')
+NOVOGENE_CFG_FILE = os.path.join(ETC_PATH, 'novogene.yaml')
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -59,6 +60,13 @@ with open(MONGO_CFG_FILE, 'r') as stream:
 with open(LEGACY_MAPPER_CFG_FILE, 'r') as stream:
     try:
         legacy_mapper = yaml.load(stream)
+    except yaml.YAMLError as exc:
+        logger.fatal("Error in loading %s", LEGACY_MAPPER_CFG_FILE)
+        raise
+
+with open(NOVOGENE_CFG_FILE, 'r') as stream:
+    try:
+        novogene_conf = yaml.load(stream)
     except yaml.YAMLError as exc:
         logger.fatal("Error in loading %s", LEGACY_MAPPER_CFG_FILE)
         raise
