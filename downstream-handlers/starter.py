@@ -23,7 +23,7 @@ if LIB_PATH not in sys.path:
 from pipelines import generate_window, is_devel_version
 from pipelines import get_downstream_outdir, is_production_user
 from mongodb import mongodb_conn
-path_devel = LIB_PATH + "/../../"
+path_devel = LIB_PATH + "/../"
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
