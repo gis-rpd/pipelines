@@ -104,11 +104,14 @@ def insert_muxjob(connection, mux, job):
     """
     try:
         db = connection.gisds.pipeline_runs_copy
-        db.insert_one(job)
+        _id = db.insert_one(job)
+        job_id = _id.inserted_id
         logger.info("Job inserted for MUX %s", mux)
     except pymongo.errors.OperationFailure:
         logger.fatal("mongoDB OperationFailure")
         sys.exit(1)
+    if job_id:
+        return job_id
 
 def get_mux_details(run_number, mux_id, fastq_dest):
     sample_list = glob.glob(os.path.join(fastq_dest, "*"+ mux_id, 'Sample_*'))
@@ -131,6 +134,11 @@ def get_mux_details(run_number, mux_id, fastq_dest):
             R2 = [i for i, s in enumerate(v) if '_R2_' in s]
             fq1 = v[R1[0]]
             fq2 = v[R2[0]]
+            if not fq1 and not fq2:
+                logger.critical("Please check the data integrity for %s from %s", \
+                    mux_id, run_number)
+                #send_mail
+                sys.exit(1)
             ru = ReadUnit(run_number, flowcellid, lib, lane, None, fq1, fq2)
             k = key_for_readunit(ru)
             readunits_dict[k] = dict(ru._asdict())
@@ -177,8 +185,8 @@ def start_data_transfer(connection, mux, mux_info, site):
             job['pipeline_version'] = 'current'
             job['ctime'] = ctime
         logger.info("data transfer successfully completed for %s from %s", mux, run_number)
-        insert_muxjob(connection, mux, job)
-        update_downstream_mux(connection, run_number, analysis_id, downstream_id, "SUCCESS")
+        job_id = insert_muxjob(connection, mux, job)
+        update_downstream_mux(connection, run_number, analysis_id, downstream_id, job_id)
         return True
     else:
         return False
