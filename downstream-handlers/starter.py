@@ -101,8 +101,8 @@ def start_analysis(record, testing, dry_run):
         logger.info("Skipping dryrun option")
         return
     try:
-        print(pipeline_cmd)
-        #TEST _ = subprocess.check_output(pipeline_cmd, stderr=subprocess.STDOUT, shell=True)
+        logger.info(pipeline_cmd)
+        _ = subprocess.check_output(pipeline_cmd, stderr=subprocess.STDOUT, shell=True)
     except subprocess.CalledProcessError as e:
         logger.fatal("The following command failed with return code %s: %s",
             e.returncode, ' '.join(pipeline_cmd))
