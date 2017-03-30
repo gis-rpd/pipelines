@@ -75,9 +75,13 @@ def start_analysis(record, testing, dry_run):
             logger.info("pipeline_cmd")
             for key, value in outer_value.items():
                 pipeline_params += " --" + key + " " + value
-    #pipeline path
+    #pipeline path for production and testing
+    if testing:
+        pipeline_version = ""
+    else:
+        pipeline_version = record['pipeline_version']
     pipeline_path = get_pipeline_path(record['site'], record['pipeline_name'], \
-        record['pipeline_version'])
+        pipeline_version)
     pipeline_script = os.path.join(pipeline_path, (os.path.split(pipeline_path)[-1] + ".py"))
     pipeline_cmd = pipeline_script + " --sample-cfg " + sample_cfg  + " -o " + outdir + " -n"
     if not sample_cfg:
