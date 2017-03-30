@@ -103,7 +103,7 @@ def insert_muxjob(connection, mux, job):
     """Insert records into pipeline_runs collection of MongoDB
     """
     try:
-        db = connection.gisds.pipeline_runs_copy
+        db = connection.gisds.pipeline_runs
         _id = db.insert_one(job)
         job_id = _id.inserted_id
         logger.info("Job inserted for MUX %s", mux)
@@ -184,6 +184,7 @@ def start_data_transfer(connection, mux, mux_info, site):
             job['pipeline_name'] = 'custom/SG10K'
             job['pipeline_version'] = 'current'
             job['ctime'] = ctime
+            job['requestor'] = 'userrig'
         logger.info("data transfer successfully completed for %s from %s", mux, run_number)
         job_id = insert_muxjob(connection, mux, job)
         update_downstream_mux(connection, run_number, analysis_id, downstream_id, job_id)
@@ -199,6 +200,8 @@ def main():
                         help="Only process first run returned")
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Don't run anything")
+    parser.add_argument('-s', "--site",
+                        help="site information")
     default = 14
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
@@ -225,6 +228,10 @@ def main():
         logger.warning("Not a production user. Skipping MongoDB update")
         sys.exit(1)
     connection = mongodb_conn(args.testing)
+    if not args.site:
+        site = 'NSCC'
+    else:
+        site = args.site
     if connection is None:
         sys.exit(1)
     if is_devel_version() or args.testing:
@@ -238,7 +245,7 @@ def main():
             if args.dry_run:
                 logger.warning("Skipping job delegation for %s", mux)
                 continue
-            res = start_data_transfer(connection, mux, mux_info, site='nscc')
+            res = start_data_transfer(connection, mux, mux_info, site)
             if res:
                 trigger = 1
             else:

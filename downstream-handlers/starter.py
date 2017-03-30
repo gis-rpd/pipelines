@@ -57,6 +57,7 @@ def start_analysis(record, testing, dry_run):
         record['pipeline_version'])
     # sample_cfg and references_cfg
     references_cfg = ""
+    sample_cfg = ""
     for outer_key, outer_value in record.items():
         if outer_key == 'sample_cfg':
             logger.info("write temp sample_config")
@@ -78,7 +79,10 @@ def start_analysis(record, testing, dry_run):
     pipeline_path = get_pipeline_path(record['site'], record['pipeline_name'], \
         record['pipeline_version'])
     pipeline_script = os.path.join(pipeline_path, (os.path.split(pipeline_path)[-1] + ".py"))
-    pipeline_cmd = pipeline_script + " --sample-cfg " + sample_cfg  + " -o " + outdir
+    pipeline_cmd = pipeline_script + " --sample-cfg " + sample_cfg  + " -o " + outdir + " -n"
+    if not sample_cfg:
+        logger.critical("Job doesn't have sample_cfg %s", str(record['_id']))
+        sys.exit(1)
     if references_cfg:
         ref_params = " --references-cfg " + references_cfg
         pipeline_cmd += ref_params
@@ -144,16 +148,14 @@ def main():
     if not is_production_user():
         logger.warning("Not a production user. Skipping MongoDB update")
         sys.exit(1)
-
     if not args.site:
         site = 'NSCC'
     else:
         site = args.site
-    print(site)
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
-    db = connection.gisds.pipeline_runs_copy
+    db = connection.gisds.pipeline_runs
     epoch_present, epoch_back = generate_window(args.win)
     results = db.find({"run" : {"$exists": False}, "site" : site,
         "ctime": {"$gt": epoch_back, "$lt": epoch_present}})
