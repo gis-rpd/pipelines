@@ -252,9 +252,9 @@ def main():
                 #send_mail alert
                 logger.warning("%s from %s, already exists, please check", mux, mux_info[0])
                 continue
-        if args.break_after_first and trigger == 1:
-            logger.info("Stopping after first run")
-            break
+            if args.break_after_first and trigger == 1:
+                logger.info("Stopping after first run")
+                break
 
 if __name__ == "__main__":
     main()
