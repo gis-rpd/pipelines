@@ -22,7 +22,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from mongodb import mongodb_conn
-from pipelines import is_production_user, is_devel_version
+from pipelines import is_production_user, is_devel_version, send_mail
 from pipelines import generate_window, get_machine_run_flowcell_id
 from config import novogene_conf
 from readunits import key_for_readunit
@@ -52,7 +52,6 @@ def runs_from_db(connection, win=14):
         run_number = record['run']
         logger.debug("record: %s", record)
         if not record.get('analysis'):
-            logger.critical("run is missing for DB-id %s", record['_id'])
             continue
         run_records = {}
         for (analysis_count, analysis) in enumerate(record['analysis']):
@@ -79,9 +78,8 @@ def runs_from_db(connection, win=14):
                     mux_status.get('DownstreamSubmission') == "TODO":
                     mux_info = (run_number, downstream_id, analysis_id, out_dir)
                     if mux_id in run_records:
-                        #Send email the above message
                         logger.info("MUX %s from %s has been analyzed more than 1 time \
-                            succeessfully, send email", mux_id, run_number)
+                            succeessfully, please check", mux_id, run_number)
                         del run_records[mux_id]
                     else:
                         run_records[mux_id] = mux_info
@@ -99,6 +97,20 @@ def update_downstream_mux(connection, run_number, analysis_id, downstream_id, St
         logger.fatal("MongoDB OperationFailure")
         sys.exit(1)
 
+def check_mux_data_transfer_status(connection, mux_info):
+    """Check MUX data is getting transferred
+    """
+    db = connection.gisds.runcomplete
+    try:
+        status = db.find({"run": mux_info[0], 'analysis.analysis_id' : mux_info[2],
+                    mux_info[1] : "COPYING"})
+        status_count = status.count()
+    except pymongo.errors.OperationFailure:
+        logger.fatal("MongoDB OperationFailure")
+        sys.exit(1)
+    if status_count == 1:
+        return True
+
 def insert_muxjob(connection, mux, job):
     """Insert records into pipeline_runs collection of MongoDB
     """
@@ -114,6 +126,8 @@ def insert_muxjob(connection, mux, job):
         return job_id
 
 def get_mux_details(run_number, mux_id, fastq_dest):
+    """Fastq details etc for a MUX
+    """
     sample_list = glob.glob(os.path.join(fastq_dest, "*"+ mux_id, 'Sample_*'))
     _, _, flowcellid = get_machine_run_flowcell_id(run_number)
     sample_info = {}
@@ -137,7 +151,6 @@ def get_mux_details(run_number, mux_id, fastq_dest):
             if not fq1 and not fq2:
                 logger.critical("Please check the data integrity for %s from %s", \
                     mux_id, run_number)
-                #send_mail
                 sys.exit(1)
             ru = ReadUnit(run_number, flowcellid, lib, lane, None, fq1, fq2)
             k = key_for_readunit(ru)
@@ -147,7 +160,7 @@ def get_mux_details(run_number, mux_id, fastq_dest):
             sample_info['samples'] = samples_dict
     return sample_info
 
-def start_data_transfer(connection, mux, mux_info, site):
+def start_data_transfer(connection, mux, mux_info, site, mail_to):
     """ Data transfer from source to destination
     """
     bcl_path = mux_info[3]
@@ -165,11 +178,14 @@ def start_data_transfer(connection, mux, mux_info, site):
             update_downstream_mux(connection, run_number, analysis_id, downstream_id, "COPYING")
             _ = subprocess.check_output(rsync_cmd, shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            logger.fatal("The following command failed with return code %s: %s",
-                         e.returncode, ' '.join(rsync_cmd))
+            body = "The following command failed with return code {}: {}". \
+                format(e.returncode, rsync_cmd)
+            subject = "rsync failed for {} from {}".format(mux, run_number)
+            logger.fatal(body)
             logger.fatal("Output: %s", e.output.decode())
             logger.fatal("Exiting")
             #Send_mail
+            send_mail(subject, body, toaddr=mail_to, ccaddr=None)
             #Delete the partial info being rsync
             update_downstream_mux(connection, run_number, analysis_id, downstream_id, "ERROR")
             sys.exit(1)
@@ -190,6 +206,8 @@ def start_data_transfer(connection, mux, mux_info, site):
         update_downstream_mux(connection, run_number, analysis_id, downstream_id, job_id)
         return True
     else:
+        logger.critical("Mux %s from %s directory already exists under %s", mux, \
+            run_number, os.path.join(novogene_conf['FASTQ_DEST'][site]))
         return False
 
 def main():
@@ -245,13 +263,13 @@ def main():
             if args.dry_run:
                 logger.warning("Skipping job delegation for %s", mux)
                 continue
-            res = start_data_transfer(connection, mux, mux_info, site)
+            #Check if mux data is getting transferred
+            find = check_mux_data_transfer_status(connection, mux_info)
+            if find:
+                continue
+            res = start_data_transfer(connection, mux, mux_info, site, mail_to)
             if res:
                 trigger = 1
-            else:
-                #send_mail alert
-                logger.warning("%s from %s, already exists, please check", mux, mux_info[0])
-                continue
         if args.break_after_first and trigger == 1:
             logger.info("Stopping after first run")
             break
