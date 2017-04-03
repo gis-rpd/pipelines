@@ -12,6 +12,7 @@ import glob
 #--- third party imports
 #
 import pymongo
+import yaml
 
 # project specific imports
 #
@@ -39,6 +40,8 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
+yaml.Dumper.ignore_aliases = lambda *args: True
+
 def runs_from_db(connection, win=14):
     """Get the runs from pipeline_run collections"""
     db = connection.gisds.runcomplete
@@ -65,8 +68,6 @@ def runs_from_db(connection, win=14):
                                     run_number, analysis_id)
                     continue
                 if mux_status.get('Status', None) != "SUCCESS":
-                    logger.info("MUX %s from %s is not SUCCESS. Skipping downstream analysis",
-                                mux_status['mux_id'], run_number)
                     continue
                 mux_id = mux_status['mux_id']
                 out_dir = analysis['out_dir']
@@ -154,9 +155,15 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
     fastq_src = os.path.join(bcl_path, "out", "Project_"+mux)
     bcl_dir = os.path.basename(bcl_path)
     if is_devel_version():
-        fastq_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['devel'], mux, run_number, bcl_dir)
+        fastq_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['devel'], \
+            mux, run_number, bcl_dir)
+        yaml_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['devel'], \
+            mux, mux +"_multisample.yaml")
     else:
-        fastq_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], mux, run_number, bcl_dir)
+        fastq_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], \
+            mux, run_number, bcl_dir)
+        yaml_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], \
+            mux, mux+ "_multisample.yaml")
     rsync_cmd = 'rsync -va %s %s' % (fastq_src, fastq_dest)
     if not os.path.exists(fastq_dest):
         try:
@@ -180,6 +187,11 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
             sys.exit(1)
         #Update the mongoDB for successful data transfer
         sample_info = get_mux_details(run_number, mux, fastq_dest)
+        #Touch rsync complete file
+        with open(os.path.join(fastq_dest, "rsync_complete.txt"), "w") as f:
+            f.write("")
+        with open(yaml_dest, 'w') as fh:
+            yaml.dump(dict(sample_info), fh, default_flow_style=False)
         job = {}
         job['sample_cfg'] = {}
         for outer_key, outer_value in sample_info.items():
@@ -196,7 +208,7 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
         return True
     else:
         logger.critical("Mux %s from %s directory already exists under %s", mux, \
-            run_number, os.path.join(novogene_conf['FASTQ_DEST'][site]))
+            run_number, fastq_dest)
         return False
 
 def main():
