@@ -8,7 +8,6 @@ import os
 import argparse
 import subprocess
 import glob
-from collections import namedtuple
 
 #--- third party imports
 #
@@ -24,11 +23,10 @@ if LIB_PATH not in sys.path:
 from mongodb import mongodb_conn
 from pipelines import is_production_user, is_devel_version, send_mail
 from pipelines import generate_window, get_machine_run_flowcell_id
+from pipelines import generate_timestamp
 from config import novogene_conf
-from readunits import key_for_readunit
+from readunits import readunits_for_sampledir
 
-ReadUnit = namedtuple('ReadUnit', ['run_id', 'flowcell_id', 'library_id',
-                                   'lane_id', 'rg_id', 'fq1', 'fq2'])
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
@@ -118,7 +116,7 @@ def insert_muxjob(connection, mux, job):
         db = connection.gisds.pipeline_runs
         _id = db.insert_one(job)
         job_id = _id.inserted_id
-        logger.info("Job inserted for MUX %s", mux)
+        logger.info("Job inserted for %s", mux)
     except pymongo.errors.OperationFailure:
         logger.fatal("mongoDB OperationFailure")
         sys.exit(1)
@@ -129,53 +127,44 @@ def get_mux_details(run_number, mux_id, fastq_dest):
     """Fastq details etc for a MUX
     """
     sample_list = glob.glob(os.path.join(fastq_dest, "*"+ mux_id, 'Sample_*'))
-    _, _, flowcellid = get_machine_run_flowcell_id(run_number)
-    sample_info = {}
+    _, run_id, flowcell_id = get_machine_run_flowcell_id(run_number)
     readunits_dict = {}
     samples_dict = {}
-    for sample in sample_list:
-        sample_fastq_list = glob.glob(os.path.join(sample, '*fastq.gz'))
-        #Check if R1 and R2 pairs for each lane are equal
-        if len(sample_fastq_list)%2 == 0:
-            lane_dict = {}
-            for x in sorted(sample_fastq_list):
-                lane_id = os.path.basename(x).split('_')
-                indices = [i for i, s in enumerate(lane_id) if 'L00' in s]
-                lane_dict.setdefault(lane_id[indices[0]][-1], []).append(x)
-        for lane, v in lane_dict.items():
-            lib = (os.path.basename(sample).split('_')[1])
-            R1 = [i for i, s in enumerate(v) if '_R1_' in s]
-            R2 = [i for i, s in enumerate(v) if '_R2_' in s]
-            fq1 = v[R1[0]]
-            fq2 = v[R2[0]]
-            if not fq1 and not fq2:
-                logger.critical("Please check the data integrity for %s from %s", \
-                    mux_id, run_number)
-                sys.exit(1)
-            ru = ReadUnit(run_number, flowcellid, lib, lane, None, fq1, fq2)
-            k = key_for_readunit(ru)
-            readunits_dict[k] = dict(ru._asdict())
-            sample_info['readunits'] = readunits_dict
-            samples_dict.setdefault(lib, []).append(k)
-            sample_info['samples'] = samples_dict
-    return sample_info
+    for sample_dir in sample_list:
+        readunits = readunits_for_sampledir(sample_dir)
+        # insert run id and flowcell id which can't be inferred from filename
+        for ru in readunits.values():
+            ru['run_id'] = run_id
+            ru['flowcell_id'] = flowcell_id
+        lib_ids = [ru['library_id'] for ru in readunits.values()]
+        assert len(set(lib_ids)) == 1
+        sample_name = lib_ids[0]
+        assert sample_name not in samples_dict
+        samples_dict[sample_name] = list(readunits.keys())
+        for k, v in readunits.items():
+            assert k not in readunits_dict
+            readunits_dict[k] = v
+    return {'samples': samples_dict,
+        'readunits': readunits_dict}
 
 def start_data_transfer(connection, mux, mux_info, site, mail_to):
     """ Data transfer from source to destination
     """
-    bcl_path = mux_info[3]
+    run_number, downstream_id, analysis_id, bcl_path = mux_info
     fastq_src = os.path.join(bcl_path, "out", "Project_"+mux)
-    bcl_dir = os.path.basename(mux_info[3])
-    run_number = mux_info[0]
-    analysis_id = mux_info[2]
-    downstream_id = mux_info[1]
-    fastq_dest = os.path.join(novogene_conf['FASTQ_DEST'][site], mux, run_number, bcl_dir)
-    rsync_cmd = '/usr/bin/rsync -va %s %s' % (fastq_src, fastq_dest)
+    bcl_dir = os.path.basename(bcl_path)
+    if is_devel_version():
+        fastq_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['devel'], mux, run_number, bcl_dir)
+    else:
+        fastq_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], mux, run_number, bcl_dir)
+    rsync_cmd = 'rsync -va %s %s' % (fastq_src, fastq_dest)
     if not os.path.exists(fastq_dest):
         try:
             os.makedirs(fastq_dest)
             logger.info("data transfer started for %s from %s", mux, run_number)
-            update_downstream_mux(connection, run_number, analysis_id, downstream_id, "COPYING")
+            st_time = generate_timestamp()
+            update_downstream_mux(connection, run_number, analysis_id, downstream_id, \
+                "COPYING_" + st_time)
             _ = subprocess.check_output(rsync_cmd, shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             body = "The following command failed with return code {}: {}". \
@@ -218,8 +207,10 @@ def main():
                         help="Only process first run returned")
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Don't run anything")
-    parser.add_argument('-s', "--site",
-                        help="site information")
+    default = "NSCC"
+    parser.add_argument('-s', "--site", default=default,
+                        help="site information (default = {})".format(default),
+                        choices=['NSCC', 'GIS'])
     default = 14
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
@@ -246,10 +237,6 @@ def main():
         logger.warning("Not a production user. Skipping MongoDB update")
         sys.exit(1)
     connection = mongodb_conn(args.testing)
-    if not args.site:
-        site = 'NSCC'
-    else:
-        site = args.site
     if connection is None:
         sys.exit(1)
     if is_devel_version() or args.testing:
@@ -261,13 +248,13 @@ def main():
     for run in run_records:
         for mux, mux_info in run.items():
             if args.dry_run:
-                logger.warning("Skipping job delegation for %s", mux)
+                logger.warning("Skipping job delegation for %s from %s", mux, mux_info[0])
                 continue
             #Check if mux data is getting transferred
             find = check_mux_data_transfer_status(connection, mux_info)
             if find:
                 continue
-            res = start_data_transfer(connection, mux, mux_info, site, mail_to)
+            res = start_data_transfer(connection, mux, mux_info, args.site, mail_to)
             if res:
                 trigger = 1
         if args.break_after_first and trigger == 1:
