@@ -178,7 +178,7 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
         except subprocess.CalledProcessError as e:
             body = "The following command failed with return code {}: {}". \
                 format(e.returncode, rsync_cmd)
-            subject = "rsync failed for {} from {}".format(mux, run_number)
+            subject = "{} from {}: SG10K data transfer ({}) failed".format(mux, run_number, site)
             logger.fatal(body)
             logger.fatal("Output: %s", e.output.decode())
             logger.fatal("Exiting")
@@ -207,7 +207,7 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
         logger.info("Data transfer completed successfully for %s from %s", mux, run_number)
         job_id = insert_muxjob(connection, mux, job)
         update_downstream_mux(connection, run_number, analysis_id, downstream_id, job_id)
-        subject = "{} SG10K data transfer (NSCC)".format(mux)
+        subject = "{} from {}: SG10K data transfer ({}) completed".format(mux, run_number, site)
         body = "data transfer successfully completed for {} from {}".format(mux, run_number)
         send_mail(subject, body, toaddr=mail_to, ccaddr=None)
         return True
