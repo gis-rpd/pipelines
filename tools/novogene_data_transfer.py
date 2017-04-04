@@ -48,7 +48,7 @@ def runs_from_db(connection, win=14):
     epoch_present, epoch_back = generate_window(win)
     results = db.find({"run" : {"$regex" : "^NG00"},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
-    logger.info("Found %d runs for last %s days", results.count(), win)
+    logger.info("Found %d runs", results.count())
     for record in results:
         run_number = record['run']
         logger.debug("record: %s", record)
@@ -102,7 +102,9 @@ def check_mux_data_transfer_status(connection, mux_info):
     db = connection.gisds.runcomplete
     try:
         status = db.find({"run": mux_info[0], 'analysis.analysis_id' : mux_info[2],
-                    mux_info[1] : "COPYING"})
+            mux_info[1] : {"$regex" : "^COPYING_"}})
+                    #mux_info[1] : "COPYING"})
+
         status_count = status.count()
     except pymongo.errors.OperationFailure:
         logger.fatal("MongoDB OperationFailure")
@@ -202,9 +204,12 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
             job['pipeline_version'] = 'current'
             job['ctime'] = ctime
             job['requestor'] = 'userrig'
-        logger.info("data transfer successfully completed for %s from %s", mux, run_number)
+        logger.info("Data transfer completed successfully for %s from %s", mux, run_number)
         job_id = insert_muxjob(connection, mux, job)
         update_downstream_mux(connection, run_number, analysis_id, downstream_id, job_id)
+        subject = "{} SG10K data transfer (NSCC)".format(mux)
+        body = "data transfer successfully completed for {} from {}".format(mux, run_number)
+        send_mail(subject, body, toaddr=mail_to, ccaddr=None)
         return True
     else:
         logger.critical("Mux %s from %s directory already exists under %s", mux, \
