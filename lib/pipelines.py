@@ -63,6 +63,11 @@ Scientific & Research Computing
 """.format(RPD_MAIL)
 
 
+# generic single core io bound modules defined in rules/
+# written such that it can be directly used as input to localrules
+FAST_SINGLE_THREAD_IO_BOUND_RULES = "bgzip, tabix, bam_index, bam_stats, bam_idxstats, samtools_fasta_index"
+
+
 # ugly
 PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
@@ -229,10 +234,7 @@ class PipelineHandler(object):
             fh.write("{}\n".format(" ".join(get_init_call())))
             fh.write("module load miniconda3\n")
             # FIXME make config var
-            #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
-            #fh.write("source activate snakemake-3.7.1\n")
-            #fh.write("source activate snakemake-3.8.2\n")
-            fh.write("source activate snakemake-3.9.1\n")
+            fh.write("source activate snakemake-3.11.2\n")
 
 
     def write_snakemake_env(self, overwrite=False):

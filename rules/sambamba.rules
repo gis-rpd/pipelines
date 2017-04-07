@@ -10,6 +10,6 @@ rule dedup:
     threads:
         8
     shell:
-        "sambamba markdup -t {threads} {input} {output}"
+        "sambamba markdup -t {threads} --tmpdir $(dirname {output}) {input} {output}"
 
         
