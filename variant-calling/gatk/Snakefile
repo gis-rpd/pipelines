@@ -15,8 +15,6 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import chroms_and_lens_from_fasta
-from pipelines import get_site
-from pipelines import FAST_SINGLE_THREAD_IO_BOUND_RULES
 
 
 RESULT_OUTDIR = 'out'
@@ -40,12 +38,6 @@ include: "gatk_hard_filter.rules"
 
 
 localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter_snps, gatk_hardfilter_indels
-if get_site() == "AWS":
-   # add all generic single core io bound modules defined in rules/
-   # note: directive can be used multiple times
-   localrules: FAST_SINGLE_THREAD_IO_BOUND_RULES
-
-
 
 # expected output depends on options
 out_templ = os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem")

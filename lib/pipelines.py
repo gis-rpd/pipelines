@@ -63,11 +63,6 @@ Scientific & Research Computing
 """.format(RPD_MAIL)
 
 
-# generic single core io bound modules defined in rules/
-# written such that it can be directly used as input to localrules
-FAST_SINGLE_THREAD_IO_BOUND_RULES = "bgzip, tabix, bam_index, bam_stats, bam_idxstats, samtools_fasta_index"
-
-
 # ugly
 PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
