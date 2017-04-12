@@ -187,8 +187,7 @@ def get_sample_info(child, rows, mux_analysis_list, mux_id, fastq_data_dir, \
     sample_cfg['ctime'] = ctime
     sample_cfg['site'] = site
     try:
-        sample_cfg['pipeline_name'] = legacy_mapper['pipeline_mapper'][child['Analysis']].\
-        replace("/", "-")
+        sample_cfg['pipeline_name'] = legacy_mapper['pipeline_mapper'][child['Analysis']]
     except KeyError as e:
         sample_cfg['pipeline_name'] = child['Analysis']
         logger.warning(str(e) + " Pipeline not mappped to newer version")
@@ -357,8 +356,7 @@ def main():
             job = {}
             rd_list = {}
             job['sample_cfg'] = {}
-            #job['references_cfg'] = {}
-            #job['cmdline'] = {}
+            job['sample_cfg'] = {}
             readunits_list = list()
             rd_list['samples'] = {}
             for outer_key, outer_value in lib_info.items():
@@ -373,10 +371,9 @@ def main():
                     job['cmdline'] = {}
                     job['cmdline'] = outer_value
                 elif outer_key != 'readunits':
-                    #job['sample_cfg'].update({outer_key:outer_value})
                     job.update({outer_key:outer_value})
                 else:
-                    rd_list['samples'] = readunits_list
+                    rd_list['samples'][lib] = readunits_list
                     job['sample_cfg'].update(rd_list)
 
             if args.dry_run:

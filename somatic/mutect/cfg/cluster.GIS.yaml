@@ -14,8 +14,8 @@
 
     "dedup":
     {
-       "time" : "4:00:00",
-       "mem" : 6G,
+       "time" : "6:00:00",
+       "mem" : 8G,
     },
 
     "gatk_realign_info":

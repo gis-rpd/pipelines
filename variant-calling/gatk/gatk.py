@@ -68,6 +68,7 @@ def main():
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
 
+    parser._optionals.title = "Arguments"
     # pipeline specific args
     parser.add_argument('-1', "--fq1", nargs="+",
                         help="FastQ file/s (gzip only)."
@@ -85,7 +86,10 @@ def main():
                         help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
     parser.add_argument('--raw-bam',
-                        help="Advanced: Injects raw (pre dedup, BQSR etc.) BAM (overwrites fq options)."
+                        help="Advanced: Injects raw (pre-dedup, pre-BQSR etc.) BAM (overwrites fq options)."
+                        " WARNING: reference needs to match pipeline requirements")
+    parser.add_argument('--proc-bam',
+                        help="Advanced: Injects processed (post-dedup, post-BQSR etc.) BAM (overwrites fq options)."
                         " WARNING: reference and pre-processing need to match pipeline requirements")
     parser.add_argument('--bam-only', action='store_true',
                         help="Don't call variants, just process BAM file")
@@ -108,13 +112,12 @@ def main():
         logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
 
-
     # samples is a dictionary with sample names as key (mostly just
     # one) and readunit keys as value. readunits is a dict with
     # readunits (think: fastq pairs with attributes) as value
     if args.sample_cfg:
-        if any([args.fq1, args.fq2, args.sample, args.raw_bam]):
-            logger.fatal("Config file overrides fastq and sample input arguments."
+        if any([args.fq1, args.fq2, args.sample, args.raw_bam, args.proc_bam]):
+            logger.fatal("Config file overrides fastq and sample arguments."
                          " Use one or the other")
             sys.exit(1)
         if not os.path.exists(args.sample_cfg):
@@ -122,26 +125,35 @@ def main():
             sys.exit(1)
         samples, readunits = get_samples_and_readunits_from_cfgfile(args.sample_cfg)
 
-    else:
+    else:# no sample config, so input is either fastq or existing bam
         samples = dict()
-        readunits = dict()
 
-        if args.raw_bam:
-            if not args.sample:
-                logger.fatal("Need sample name if not using config file")
-                sys.exit(1)
+        if not args.sample:
+            logger.fatal("Need sample name if not using config file")
+            sys.exit(1)
+
+        if args.raw_bam or args.proc_bam:
+            assert not args.fq1, ("BAM injection overwrites fastq arguments")
+
+            if args.raw_bam:
+                assert os.path.exists(args.raw_bam)
+                assert not args.proc_bam, ("Cannot inject raw and processed BAM")
+            if args.proc_bam:
+                assert os.path.exists(args.proc_bam)
+                assert not args.raw_bam, ("Cannot inject raw and processed BAM")
+
+            readunits = dict()
             samples[args.sample] = []
-            assert os.path.exists(args.raw_bam)
 
-        else:
-            if not all([args.fq1, args.sample]):
-                logger.fatal("Need at least fq1 and sample if not using config file")
-                sys.exit(1)
+        elif args.fq1:
 
             readunits = get_readunits_from_args(args.fq1, args.fq2)
             # all readunits go into this one sample specified on the command-line
-            samples = dict()
             samples[args.sample] = list(readunits.keys())
+
+        else:
+            logger.fatal("Need at least one fastq files as argument if not using config file")
+            sys.exit(1)
 
     if args.seqtype in ['WES', 'targeted']:
         if not args.bed:
@@ -169,12 +181,22 @@ def main():
     pipeline_handler.setup_env()
 
     # Inject existing BAM by symlinking (everything upstream is temporary anyway)
+    # WARNING: filename has to match definition in Snakefile!
     if args.raw_bam:
-        # WARNING: target as defined in Snakefile!
         target = os.path.join(args.outdir, "out", args.sample,
                               "{}.bwamem.bam".format(args.sample))
         os.makedirs(os.path.dirname(target))
         os.symlink(os.path.abspath(args.raw_bam), target)
+    elif args.proc_bam:
+        target = os.path.join(args.outdir, "out", args.sample,
+                              "{}.bwamem".format(args.sample))
+        if cfg_dict['mark_dups']:
+            target += ".dedup"
+        if cfg_dict['seqtype'] != 'targeted':
+            target += ".bqsr"
+        target += ".bam"
+        os.makedirs(os.path.dirname(target))
+        os.symlink(os.path.abspath(args.proc_bam), target)
 
     pipeline_handler.submit(args.no_run)
 

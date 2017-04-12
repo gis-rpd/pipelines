@@ -48,12 +48,20 @@ out_template = os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq')
 if config['mark_dups']:
     out_template += ".dedup"
 out_template += ".lacer"
-rule final:
-    input:
-        expand(out_template + ".{vartype}.snpeff.vcf.gz.tbi", sample=config['samples'], vartype=["snps", "indels"]),
-        expand(out_template + ".bamstats/stats.txt", sample=config['samples']),
-        "report.html"
 
+if config.get('bam_only'):
+    rule final:
+        input:
+            "report.html",
+            expand(out_template + ".bamstats/stats.txt", sample=config['samples'])
+else:
+    rule final:
+        input:
+            "report.html",
+            expand(out_template + ".bamstats/stats.txt", sample=config['samples']),
+            expand(out_template + ".{vartype}.snpeff.vcf.gz.tbi", sample=config['samples'], vartype=["snps", "indels"])
+
+    
 
 rule vcf_split:
     input:

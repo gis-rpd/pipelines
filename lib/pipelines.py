@@ -13,13 +13,16 @@ from email.mime.text import MIMEText
 from getpass import getuser
 #import socket
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+import dateutil.relativedelta
 import calendar
 import json
 import tarfile
 import glob
 import argparse
 import copy
+from collections import deque
 
 #--- third-party imports
 #
@@ -67,11 +70,43 @@ Scientific & Research Computing
 PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
-
 WORKFLOW_COMPLETION_FLAGFILE = "WORKFLOW_COMPLETE"
 
 DOWNSTREAM_OUTDIR_TEMPLATE = "{basedir}/{user}/{pipelineversion}/{pipelinename}/{timestamp}"
 
+
+def snakemake_log_status(log):
+    """
+    Return exit status and timestamp (isoformat string) as tuple.
+    Exit status is either "SUCCESS" or "ERROR" or None
+    If exit status is None timestamp will be last seen timestamp or empty and the status unknown
+
+    Parses last lines of log, which could look like
+    [Fri Jun 17 11:13:16 2016] Exiting because a job execution failed. Look above for error message
+    [Fri Jul 15 01:29:12 2016] 17 of 17 steps (100%) done
+    [Thu Nov 10 22:45:27 2016] Nothing to be done.
+    """
+    
+    # this is by design a bit fuzzy
+    with open(log) as fh:
+        last_lines = deque(fh, maxlen=60)
+    status = None
+    last_etime = None
+    while last_lines: # iterate from end
+        line = last_lines.pop()
+        if line.startswith("["):# time stamp required
+            estr = line[1:].split("]")[0]
+            etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+            if not last_etime:
+                last_etime = etime# first is last. useful for undefined status
+            if 'steps (100%) done' in line or "Nothing to be done" in line:
+                status = "SUCCESS"
+                break
+            elif 'Exiting' in line:
+                status = "ERROR"
+                break
+    return status, etime
+    
 
 def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
     """generate downstream output directory
@@ -119,16 +154,14 @@ class PipelineHandler(object):
                  def_args,
                  cfg_dict,
                  cluster_cfgfile=None,
-                 logger_cmd="true",
+                 logger_cmd=None,
                  site=None,
-                 pipeline_rootdir=PIPELINE_ROOTDIR,
                  master_walltime_h=MASTER_WALLTIME_H):
         """init function
 
         - pipeline_subdir: where default configs can be found, i.e pipeline subdir
-        - def_args: argparser args. only default_parser_args handled, i.e. must be subset of that
-        - logger_cmd: the logger command run in run.sh. bash's 'true' doesn't do anything
-        - pipeline_rootdir: root dir for all pipelines, needed for access to run templates
+        - def_args: argparser args. only default_argparser handled, i.e. must be subset of that
+        - logger_cmd: the logger command used in run.sh. bash's 'true' doesn't do anything. Uses downstream default with conf db-id if set to None and logging is on.
         """
 
         self.pipeline_name = pipeline_name
@@ -186,7 +219,24 @@ class PipelineHandler(object):
             except ValueError:
                 logger.warning("Unknown site")
                 site = "local"
-        self.logger_cmd = logger_cmd
+
+        # DB logging of execution
+        if def_args.db_logging in ['n', 'no', 'off']:
+            # use bash's true, which doesn't do anything
+            self.logger_cmd = 'true'
+        elif def_args.db_logging in ['y', 'yes', 'on', 't', 'test', 'testing']:
+            # trust caller if given, otherwise use the default logger
+            # which depends on db-id
+            if not logger_cmd:
+                assert self.cfg_dict['db-id'], ("Need db-id config value for logging")
+                scr = os.path.join(PIPELINE_ROOTDIR, 'downstream-handlers', 'downstream_logger.py')
+                logger_cmd = "{} -d {} -o {} -m start".format(scr, self.cfg_dict['db-id'], self.outdir)
+                if def_args.db_logging in ['t', 'test', 'testing']:
+                    logger_cmd += " -t"
+                self.logger_cmd = logger_cmd
+        else:
+            raise ValueError(def_args.db_logging)
+
         self.site = site
         self.master_walltime_h = master_walltime_h
         self.snakefile_abs = os.path.abspath(
@@ -200,7 +250,7 @@ class PipelineHandler(object):
 
         # run template
         self.run_template = os.path.join(
-            pipeline_rootdir, "lib", "run.template.{}.sh".format(self.site))
+            PIPELINE_ROOTDIR, "lib", "run.template.{}.sh".format(self.site))
         self.run_out = os.path.join(self.outdir, "run.sh")
         assert os.path.exists(self.run_template)
 
@@ -335,7 +385,7 @@ class PipelineHandler(object):
         # sanity check: bed only makes sense if we have a reference
         if b:
             f = master_cfg['references'].get('genome')
-            assert bed_and_indexed_fa_are_compatible(b, f), (
+            assert bed_and_fa_are_compat(b, f), (
                 "{} not compatible with {}".format(b, f))
 
         assert 'ELM' not in master_cfg
@@ -414,36 +464,46 @@ def default_argparser(cfg_dir, allow_missing_cfgfile=False):
     """
 
     parser = argparse.ArgumentParser(add_help=False)
+    parser._optionals.title = "Output"
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (must not exist)")
-    parser.add_argument('--name',
-                        help="Give this analysis run a name (used in email and report)")
-    parser.add_argument('--no-mail', action='store_true',
-                        help="Don't send mail on completion")
+    
+    rep_group = parser.add_argument_group('Reporting')
+    rep_group.add_argument('--name',
+                           help="Give this analysis run a name (used in email and report)")
+    rep_group.add_argument('--no-mail', action='store_true',
+                           help="Don't send mail on completion")
     default = email_for_user()
-    parser.add_argument('--mail', dest='mail_address', default=default,
-                        help="Send completion emails to this address (default: {})".format(default))
+    rep_group.add_argument('--mail', dest='mail_address', default=default,
+                           help="Send completion emails to this address (default: {})".format(default))
+    default = "y" if is_production_user() else 'n'
+    rep_group.add_argument('--db-logging', choices=('y', 'n', 't'), default=default,
+                           #help=argparse.SUPPRESS)# hidden
+                            help="Log execution in DB: n=no; y=yes (only allowed as production user); t=yes (only as production user and for downstream pipelines)")
+    rep_group.add_argument('-v', '--verbose', action='count', default=0,
+                           help="Increase verbosity")
+    rep_group.add_argument('-q', '--quiet', action='count', default=0,
+                           help="Decrease verbosity")
+
+    q_group = parser.add_argument_group('Run behaviour')
     default = get_default_queue('slave')
-    parser.add_argument('-w', '--slave-q', default=default,
-                        help="Queue to use for slave jobs (default: {})".format(default))
+    q_group.add_argument('-w', '--slave-q', default=default,
+                         help="Queue to use for slave jobs (default: {})".format(default))
     default = get_default_queue('master')
-    parser.add_argument('-m', '--master-q', default=default,
-                        help="Queue to use for master job (default: {})".format(default))
-    parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=0,
-                        help="Increase verbosity")
-    parser.add_argument('-q', '--quiet', action='count', default=0,
-                        help="Decrease verbosity")
-    parser.add_argument('--extra-conf', nargs='*', metavar="key:value",
-                        help="Advanced: Extra values written added config (overwriting values).")
-    cfg_group = parser.add_argument_group('Configuration files')
+    q_group.add_argument('-m', '--master-q', default=default,
+                         help="Queue to use for master job (default: {})".format(default))
+    q_group.add_argument('-n', '--no-run', action='store_true')
+
+    cfg_group = parser.add_argument_group('Configuration')
+    cfg_group.add_argument('--extra-conf', nargs='*', metavar="key:value",
+                           help="Advanced: Extra values written added config (overwriting values).")
     cfg_group.add_argument('--sample-cfg',
                            help="Config-file (YAML) listing samples and readunits."
                            " Collides with -1, -2 and -s")
     for name, descr in [("references", "reference sequences"),
                         ("params", "parameters"),
                         ("modules", "modules")]:
-        cfg_file = os.path.abspath(os.path.join(cfg_dir, "{}.yaml".format(name))) 
+        cfg_file = os.path.abspath(os.path.join(cfg_dir, "{}.yaml".format(name)))
         if not os.path.exists(cfg_file):
             if allow_missing_cfgfile:
                 cfg_file = None
@@ -451,7 +511,7 @@ def default_argparser(cfg_dir, allow_missing_cfgfile=False):
                 raise ValueError((cfg_file, allow_missing_cfgfile))
         cfg_group.add_argument('--{}-cfg'.format(name),
                                default=cfg_file,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))            
+                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
 
     return parser
 
@@ -560,6 +620,14 @@ def isoformat_to_epoch_time(ts):
     epoch_time = calendar.timegm(dt.timetuple()) + dt.microsecond/1000000.0
     return epoch_time
 
+def relative_epoch_time(epoch_time1, epoch_time2):
+    """
+    Relative time difference between two epoch time
+    """
+    dt1 = datetime.fromtimestamp(epoch_time1)
+    dt2 = datetime.fromtimestamp(epoch_time2)
+    rd = dateutil.relativedelta.relativedelta(dt1, dt2)
+    return rd
 
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
@@ -736,7 +804,7 @@ def chroms_and_lens_from_fasta(fasta):
             yield (s, l)
 
 
-def bed_and_indexed_fa_are_compatible(bed, fasta):
+def bed_and_fa_are_compat(bed, fasta):
     """checks whether samtools faidx'ed fasta is compatible with bed file
     """
 

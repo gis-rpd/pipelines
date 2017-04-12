@@ -7,8 +7,6 @@ import sys
 import os
 import argparse
 import collections
-import datetime
-import dateutil.relativedelta
 
 #--- third party imports
 # /
@@ -21,7 +19,7 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from mongodb import mongodb_conn
 from pipelines import generate_window, isoformat_to_epoch_time
-from pipelines import send_mail
+from pipelines import send_mail, relative_epoch_time
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -125,9 +123,7 @@ def main():
                 analysis_id = last_analysis.get("analysis_id")
                 analysis_epoch_time = isoformat_to_epoch_time(analysis_id+"+08:00")
                 run_completion_time = timestamp/1000
-                dt1 = datetime.datetime.fromtimestamp(run_completion_time)
-                dt2 = datetime.datetime.fromtimestamp(analysis_epoch_time)
-                rd = dateutil.relativedelta.relativedelta(dt1, dt2)
+                rd = relative_epoch_time(run_completion_time, analysis_epoch_time)
                 if rd.days > 3:
                     extra_text += "Analysis for run {} was started {} days ago. "\
                         "Please check. \n".format(v, rd.days)
