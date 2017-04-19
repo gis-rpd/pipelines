@@ -1,6 +1,8 @@
 """ELM Logging functions
 """
 
+# standard library imports
+#
 import os
 import socket
 from datetime import datetime
@@ -9,7 +11,13 @@ import json
 #from collections import OrderedDict
 from collections import namedtuple
 
-from pipelines import generate_timestamp
+# third party imports
+#
+#/
+
+# project specific imports
+#
+from utils import generate_timestamp
 
 
 ElmUnit = namedtuple('ElmUnit', [

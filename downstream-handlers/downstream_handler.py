@@ -10,7 +10,6 @@ import logging
 import sys
 import os
 import argparse
-#import pprint
 import glob
 from datetime import datetime
 
@@ -30,10 +29,9 @@ from mongodb import mongodb_conn
 from pipelines import is_production_user
 from pipelines import generate_window
 from pipelines import get_downstream_outdir
-from pipelines import generate_timestamp
-from pipelines import timestamp_from_string
 from pipelines import snakemake_log_status
 from pipelines import PipelineHandler
+from starterflag import StarterFlag
 
 
 
@@ -55,58 +53,6 @@ LOGGER.addHandler(HANDLER)
 THRESHOLD_H_SINCE_LAST_TIMESTAMP = 24
 THRESHOLD_H_SINCE_START = 72
 
-
-class StarterFlag(object):
-    """Flag files indicating analysis start
-    """
-
-    pattern = "STARTER_FLAG.{timestamp}"
-
-
-    def __init__(self, filename=None):
-        """
-        """
-
-        if filename:
-            self.read(filename)
-        else:
-            self.filename = None
-            self.timestamp = None
-            self.dbid = None
-
-
-    def _timestamp_from_filename(self, filename):
-        """Get timestamp from filename
-        """
-
-        tstr = os.path.basename(filename).replace(
-            self.pattern.format(timestamp=""), "")
-        return timestamp_from_string(tstr)
-
-
-    def read(self, filename):
-        """Read flag file (timestamp and dbid)
-        """
-        self.filename = filename
-        self.timestamp = self._timestamp_from_filename(self.filename)
-        with open(self.filename, 'r') as fh:
-            self.dbid = fh.read().decode()
-
-
-    def write(self, dirname, dbid, timestamp=None):
-        """Write starter flag file
-        """
-
-        if not timestamp:
-            timestamp = generate_timestamp()
-        self.timestamp = timestamp
-        self.dbid = dbid
-        self.filename = os.path.join(dirname, self.pattern.format(timestamp=self.timestamp))
-
-        assert not os.path.exists(self.filename), (
-            "StartFlag {} already exists".format(self.filename))
-        with open(self.filename, 'w') as fh:
-            fh.write(dbid)
 
 
 def list_starterflags(path):

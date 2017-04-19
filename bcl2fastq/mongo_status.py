@@ -19,9 +19,10 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import generate_timestamp, get_site
-from mongodb import mongodb_conn
+from utils import generate_timestamp
+from pipelines import get_site
 from pipelines import is_production_user
+from mongodb import mongodb_conn
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -71,7 +72,8 @@ def main():
     if not is_production_user():
         logger.warning("Not a production user. Skipping MongoDB update")
         sys.exit(1)
-
+    user_name = "userrig"
+            
     run_number = args.runid
     connection = mongodb_conn(args.test_server)
     if connection is None:

@@ -75,7 +75,7 @@ def main():
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
-    if not is is_production_user():
+    if not is_production_user():
         logger.warning("Not a production user. Skipping MongoDB update")
         sys.exit(1)
 

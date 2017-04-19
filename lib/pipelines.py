@@ -15,7 +15,6 @@ from getpass import getuser
 import time
 from datetime import datetime
 from datetime import timedelta
-import dateutil.relativedelta
 import calendar
 import json
 import tarfile
@@ -28,11 +27,15 @@ from collections import deque
 #
 import yaml
 import requests
+import dateutil.relativedelta
 
 #--- project specific imports
 #
 from config import site_cfg
 from config import rest_services
+from utils import generate_timestamp
+from utils import chroms_and_lens_from_fasta
+from utils import bed_and_fa_are_compat
 
 
 __author__ = "Andreas Wilm"
@@ -82,7 +85,7 @@ def snakemake_log_status(log):
     [Fri Jul 15 01:29:12 2016] 17 of 17 steps (100%) done
     [Thu Nov 10 22:45:27 2016] Nothing to be done.
     """
-    
+
     # this is by design a bit fuzzy
     with open(log) as fh:
         last_lines = deque(fh, maxlen=60)
@@ -102,7 +105,7 @@ def snakemake_log_status(log):
                 status = "ERROR"
                 break
     return status, etime
-    
+
 
 def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
     """generate downstream output directory
@@ -120,6 +123,7 @@ def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
         basedir=basedir, requestor=requestor, pversion=pversion,
         pname=pipeline_name, ts=generate_timestamp())
     return outdir
+
 
 
 class PipelineHandler(object):
@@ -225,14 +229,12 @@ class PipelineHandler(object):
             # use bash's true, which doesn't do anything
             self.logger_cmd = 'true'
         elif def_args.db_logging in ['y', 'yes', 'on', 't', 'test', 'testing']:
-            # trust caller if given, otherwise use the default logger
-            # which depends on db-id
+            # trust caller if given, otherwise use the default logger which depends on db-id
             if not logger_cmd:
                 assert self.cfg_dict['db-id'], ("Need db-id config value for logging")
-                scr = os.path.join(PIPELINE_ROOTDIR, 'downstream-handlers', 'downstream_logger.py')
-                logger_cmd = "{} -d {} -o {} -m start".format(scr, self.cfg_dict['db-id'], self.outdir)
-                if def_args.db_logging in ['t', 'test', 'testing']:
-                    logger_cmd += " -t"
+                # run.sh has a path to snakemake so should contain a path to python3
+                scr = os.path.join(PIPELINE_ROOTDIR, 'downstream-handlers', 'downstream_started.py')
+                logger_cmd = "{} -d {} -o {}".format(scr, self.cfg_dict['db-id'], self.outdir)
                 self.logger_cmd = logger_cmd
         else:
             raise ValueError(def_args.db_logging)
@@ -467,7 +469,7 @@ def default_argparser(cfg_dir, allow_missing_cfgfile=False):
     parser._optionals.title = "Output"
     parser.add_argument('-o', "--outdir", required=True,
                         help="Output directory (must not exist)")
-    
+
     rep_group = parser.add_argument_group('Reporting')
     rep_group.add_argument('--name',
                            help="Give this analysis run a name (used in email and report)")
@@ -479,7 +481,7 @@ def default_argparser(cfg_dir, allow_missing_cfgfile=False):
     default = "y" if is_production_user() else 'n'
     rep_group.add_argument('--db-logging', choices=('y', 'n', 't'), default=default,
                            #help=argparse.SUPPRESS)# hidden
-                            help="Log execution in DB: n=no; y=yes (only allowed as production user); t=yes (only as production user and for downstream pipelines)")
+                           help="Log execution in DB: n=no; y=yes (only allowed as production user); t=yes (only as production user and for downstream pipelines)")
     rep_group.add_argument('-v', '--verbose', action='count', default=0,
                            help="Increase verbosity")
     rep_group.add_argument('-q', '--quiet', action='count', default=0,
@@ -596,20 +598,6 @@ def get_rpd_vars():
     return rpd_vars
 
 
-def generate_timestamp():
-    """generate ISO8601 timestamp incl microsends, but with colons
-    replaced to avoid problems if used as file name
-    """
-    return datetime.isoformat(datetime.now()).replace(":", "-")
-
-
-def timestamp_from_string(analysis_id):
-    """
-    converts output of generate_timestamp(), e.g. 2016-05-09T16-43-32.080740 back to timestamp
-    """
-    dt = datetime.strptime(analysis_id, '%Y-%m-%dT%H-%M-%S.%f')
-    return dt
-
 
 def isoformat_to_epoch_time(ts):
     """
@@ -630,13 +618,25 @@ def relative_epoch_time(epoch_time1, epoch_time2):
     rd = dateutil.relativedelta.relativedelta(dt1, dt2)
     return rd
 
+
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
     Expected string format is machine-runid_flowcellid
-    """
-    # be lenient and allow full path
-    runid_and_flowcellid = runid_and_flowcellid.rstrip("/").split('/')[-1]
 
+    >>> get_machine_run_flowcell_id("HS002-SR-R00224_BC9A6MACXX")
+    ('HS002', 'HS002-SR-R00224', 'BC9A6MACXX')
+    >>> get_machine_run_flowcell_id("/path/to/seq/HS002-SR-R00224_BC9A6MACXX")
+    ('HS002', 'HS002-SR-R00224', 'BC9A6MACXX')
+    >>> get_machine_run_flowcell_id("HS002_SR_R00224_BC9A6MACXX")
+    Traceback (most recent call last):
+      ...
+    AssertionError: Wrong format: HS002_SR_R00224_BC9A6MACXX
+    """
+    
+    # strip away path
+    runid_and_flowcellid = runid_and_flowcellid.rstrip("/").split('/')[-1]
+    assert runid_and_flowcellid.count("_") == 1, (
+        "Wrong format: {}".format(runid_and_flowcellid))
     runid, flowcellid = runid_and_flowcellid.split("_")
     machineid = runid.split("-")[0]
     return machineid, runid, flowcellid
@@ -777,45 +777,6 @@ def generate_window(days=7):
     f = d.strftime("%Y-%m-%d %H:%m:%S")
     epoch_back = int(time.mktime(time.strptime(f, pattern)))*1000
     return (epoch_present, epoch_back)
-
-
-def parse_regions_from_bed(bed):
-    """yields regions from bed as three tuple
-    """
-
-    with open(bed) as fh:
-        for line in fh:
-            if line.startswith('#') or not len(line.strip()) or line.startswith('track '):
-                continue
-            chrom, start, end = line.split()[:3]
-            start, end = int(start), int(end)
-            yield (chrom, start, end)
-
-
-def chroms_and_lens_from_fasta(fasta):
-    """return sequence and their length as two tuple. derived from fai
-    """
-
-    fai = fasta + ".fai"
-    assert os.path.exists(fai), ("{} not indexed".format(fasta))
-    with open(fai) as fh:
-        for line in fh:
-            (s, l) = line.split()[:2]
-            l = int(l)
-            yield (s, l)
-
-
-def bed_and_fa_are_compat(bed, fasta):
-    """checks whether samtools faidx'ed fasta is compatible with bed file
-    """
-
-    assert os.path.exists(bed), ("Missing file {}".format(bed))
-    assert os.path.exists(fasta), ("Missing fasta index {}".format(fasta))
-
-    bed_sqs = set([c for c, s, e in parse_regions_from_bed(bed)])
-    fa_sqs = [c for c, l in chroms_and_lens_from_fasta(fasta)]
-
-    return all([s in fa_sqs for s in bed_sqs])
 
 
 def path_to_url(out_path):
