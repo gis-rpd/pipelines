@@ -228,7 +228,7 @@ class PipelineHandler(object):
         if def_args.db_logging in ['n', 'no', 'off']:
             # use bash's true, which doesn't do anything
             self.logger_cmd = 'true'
-        elif def_args.db_logging in ['y', 'yes', 'on', 't', 'test', 'testing']:
+        elif def_args.db_logging in ['y', 'yes', 'on']:
             # trust caller if given, otherwise use the default logger which depends on db-id
             if not logger_cmd:
                 assert self.cfg_dict['db-id'], ("Need db-id config value for logging")
@@ -479,9 +479,9 @@ def default_argparser(cfg_dir, allow_missing_cfgfile=False):
     rep_group.add_argument('--mail', dest='mail_address', default=default,
                            help="Send completion emails to this address (default: {})".format(default))
     default = "y" if is_production_user() else 'n'
-    rep_group.add_argument('--db-logging', choices=('y', 'n', 't'), default=default,
+    rep_group.add_argument('--db-logging', choices=('y', 'n'), default=default,
                            #help=argparse.SUPPRESS)# hidden
-                           help="Log execution in DB: n=no; y=yes (only allowed as production user); t=yes (only as production user and for downstream pipelines)")
+                           help="Log execution in DB: n=no; y=yes (only allowed as production user))")
     rep_group.add_argument('-v', '--verbose', action='count', default=0,
                            help="Increase verbosity")
     rep_group.add_argument('-q', '--quiet', action='count', default=0,

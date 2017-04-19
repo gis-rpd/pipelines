@@ -16,3 +16,13 @@ i.e. our specialized MongoDB setup used for logging and tracking
 - Test scripts expect `RPD_ROOT` to be set
 - ELM logging goes to `RPD_ELMLOGDIR`
 
+# Install Preview
+
+- `src=pipelines.git/`
+- `pushd $src; vstr=$(git rev-parse --short HEAD); popd`
+- `dest=pipelines-preview/pipelines-$vstr`
+- `rsync -av --exclude '.git/' --exclude '*~' --exclude '/tmp/' --exclude 'etc/' --exclude '*/_*' --exclude '*.check.*'  $src/ $dest`
+- set interpreter in shebang of $dest/run
+- `mkdir $dest/etc`
+- copy yaml of choice to $dest/etc/ and link site.yaml
+
