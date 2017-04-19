@@ -219,10 +219,8 @@ def main():
     """main function
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-n', "--dry-run", action='store_true',
-                        help="Don't run anything")
-    parser.add_argument('-s', "--site",
-                        help="site information")
+    parser.add_argument('-n', "--dryrun", action='store_true',
+                        help="Don't actually update DB (best used in conjunction with -v -v)")
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test-server. Don't do anything")
     default = 14
@@ -294,13 +292,13 @@ def main():
             sflag = StarterFlag(matches[0])
             assert sflag.dbid == dbid
 
-            set_started(dbcol, sflag.dbid, sflag.timestamp, dryrun=False)
+            set_started(dbcol, sflag.dbid, sflag.timestamp, dryrun=args.dryrun)
 
             os.unlink(sflag.filename)
 
         elif job['execution'].get('status') in ['STARTED', 'RESTARTED']:
             LOGGER.info('Job %s in %s set as re|started so checking on completion', dbid, out_dir)
-            set_completion_if(dbcol, sflag.dbid, out_dir, dryrun=False)
+            set_completion_if(dbcol, sflag.dbid, out_dir, dryrun=args.dryrun)
             raise(NotImplementedError(
                 "Run downstream_logger.py in `check` mode (also use args.testing) with db-id {} in {}".format(dbid, out_dir)))
 
