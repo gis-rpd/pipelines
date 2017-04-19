@@ -23,7 +23,7 @@ if LIB_PATH not in sys.path:
 from pipelines import generate_window, is_devel_version
 from pipelines import get_downstream_outdir, is_production_user
 from mongodb import mongodb_conn
-path_devel = LIB_PATH + "/../../"
+path_devel = LIB_PATH + "/../"
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -35,8 +35,8 @@ PRODUCTION_PIPELINE_VERSION = {
         'production': '/mnt/projects/rpd/pipelines/',
         'devel': path_devel},
     'NSCC': {
-        'devel': '/seq/astar/gis/rpd/pipelines.git/',
-        'production': 'devl'}
+        'devel': '/home/users/astar/gis/gisshared/rpd/pipelines.git/',
+        'production': '/home/users/astar/gis/gisshared/rpd/pipelines/'}
 }
 
 # global logger
@@ -55,7 +55,9 @@ def start_analysis(record, testing, dry_run):
     extra_conf += " requestor:" + record['requestor']
     outdir = get_downstream_outdir(record['requestor'], record['pipeline_name'], \
         record['pipeline_version'])
-    # sample_cfg and reference_cfg
+    # sample_cfg and references_cfg
+    references_cfg = ""
+    sample_cfg = ""
     for outer_key, outer_value in record.items():
         if outer_key == 'sample_cfg':
             logger.info("write temp sample_config")
@@ -65,20 +67,29 @@ def start_analysis(record, testing, dry_run):
                 yaml.dump(outer_value, fh, default_flow_style=False)
         elif outer_key == 'references_cfg':
             logger.info("write temp reference_config")
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', prefix='reference_cfg_', \
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', prefix='references_cfg_', \
                 delete=False) as fh:
-                reference_cfg = fh.name
+                references_cfg = fh.name
                 yaml.dump(outer_value, fh, default_flow_style=False)
         elif outer_key == 'cmdline':
             logger.info("pipeline_cmd")
             for key, value in outer_value.items():
                 pipeline_params += " --" + key + " " + value
-    #pipeline path
+    #pipeline path for production and testing
+    if testing:
+        pipeline_version = ""
+    else:
+        pipeline_version = record['pipeline_version']
     pipeline_path = get_pipeline_path(record['site'], record['pipeline_name'], \
-        record['pipeline_version'])
+        pipeline_version)
     pipeline_script = os.path.join(pipeline_path, (os.path.split(pipeline_path)[-1] + ".py"))
-    pipeline_cmd = pipeline_script + " --sample-cfg " + sample_cfg + " --references-cfg " \
-        + reference_cfg + " -o " + outdir
+    pipeline_cmd = pipeline_script + " --sample-cfg " + sample_cfg  + " -o " + outdir + " -n"
+    if not sample_cfg:
+        logger.critical("Job doesn't have sample_cfg %s", str(record['_id']))
+        sys.exit(1)
+    if references_cfg:
+        ref_params = " --references-cfg " + references_cfg
+        pipeline_cmd += ref_params
     if testing:
         pipeline_cmd += " --db-logging t"
     if pipeline_params:
@@ -90,12 +101,12 @@ def start_analysis(record, testing, dry_run):
         logger.info("Skipping dryrun option")
         return
     try:
+        logger.info(pipeline_cmd)
         _ = subprocess.check_output(pipeline_cmd, stderr=subprocess.STDOUT, shell=True)
     except subprocess.CalledProcessError as e:
         logger.fatal("The following command failed with return code %s: %s",
             e.returncode, ' '.join(pipeline_cmd))
         logger.fatal("Output: %s", e.output.decode())
-    
 def get_pipeline_path(site, pipeline_name, pipeline_version):
     """ get the pipeline path
     """
@@ -115,6 +126,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Don't run anything")
+    parser.add_argument('-s', "--site",
+                        help="site information")
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
     default = 14
@@ -139,13 +152,16 @@ def main():
     if not is_production_user():
         logger.warning("Not a production user. Skipping MongoDB update")
         sys.exit(1)
-
+    if not args.site:
+        site = 'NSCC'
+    else:
+        site = args.site
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
     db = connection.gisds.pipeline_runs
     epoch_present, epoch_back = generate_window(args.win)
-    results = db.find({"run" : {"$exists": False},
+    results = db.find({"run" : {"$exists": False}, "site" : site,
         "ctime": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found %s runs to start analysis", results.count())
     for record in results:

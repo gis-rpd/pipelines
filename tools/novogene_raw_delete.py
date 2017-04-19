@@ -24,7 +24,7 @@ if LIB_PATH not in sys.path:
 from mongodb import mongodb_conn
 from pipelines import generate_window, is_production_user
 from pipelines import isoformat_to_epoch_time, generate_timestamp
-from pipelines import get_machine_run_flowcell_id
+from pipelines import get_machine_run_flowcell_id, is_devel_version
 from pipelines import relative_epoch_time, send_mail
 from config import site_cfg
 
@@ -40,15 +40,13 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-# FIXME Testing for HS001 runs instead of NG*** runs
-#basedir = site_cfg['bcl2fastq_seqdir_base'].replace("userrig", "novogene")
-basedir = site_cfg['bcl2fastq_seqdir_base']
-archiveDir = basedir.replace("userrig", "novogene") + "toDelete"
+basedir = site_cfg['bcl2fastq_seqdir_base'].replace("userrig", "novogene")
+archiveDir = basedir + "toDelete"
 
 def runs_from_db(db, win=34):
     """Get the runs from pipeline_run collections"""
     epoch_present, epoch_back = generate_window(win)
-    results = db.find({"run" : {"$regex" : "^HS001"}, "raw-delete": {"$exists": False},
+    results = db.find({"run" : {"$regex" : "^NG00"}, "raw-delete": {"$exists": False},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found %d runs for last %s days", results.count(), win)
     for record in results:
@@ -66,9 +64,9 @@ def runs_from_db(db, win=34):
         if not status or not end_time:
             continue
         analysis_epoch_time = isoformat_to_epoch_time(end_time+"+08:00")
-        present_epoch_time = isoformat_to_epoch_time(generate_timestamp()+"+08:00")
-        rd = relative_epoch_time(present_epoch_time, analysis_epoch_time)
-        if status == 'SUCCESS' and rd.days > 2:
+        epoch_time_now = isoformat_to_epoch_time(generate_timestamp()+"+08:00")
+        rd = relative_epoch_time(epoch_time_now, analysis_epoch_time)
+        if status == 'SUCCESS' and rd.days > 21:
             yield runid_and_flowcellid
 
 def run_folder_for_run_id(runid_and_flowcellid):
@@ -82,22 +80,23 @@ def run_folder_for_run_id(runid_and_flowcellid):
 
 def purge(db, runid_and_flowcellid):
     """
-    Archiving function
+    purging data from /mnt/seq/novogene
     """
     rundir = run_folder_for_run_id(runid_and_flowcellid)
     if not os.path.exists(rundir):
         logger.fatal("Run directory '%s' does not exist.\n", rundir)
         return
     start_time = generate_timestamp()
-    res = db.update_one({"run": runid_and_flowcellid},
-                                    {"$set":
-                                     {"raw-delete": {
-                                         "start_time" : start_time,
-                                         "Status" :  "STARTED",
-                                     }}})
-    assert res.modified_count == 1, (
-            "Modified {} documents instead of 1".format(res.modified_count))
+    res = db.update_one({"run": runid_and_flowcellid}, \
+                        {"$set": \
+                            {"raw-delete": { \
+                                "start_time" : start_time, \
+                                "Status" :  "STARTED", \
+                        }}})
+    assert res.modified_count == 1, ("Modified {} documents instead of 1". \
+        format(res.modified_count))
     #FIXME shutil copyfile instead of MOVE to  dest directory.. for testing purpopse touch a file
+    #Change form copy file to rmtree
     logger.info("Start archiving of %s", runid_and_flowcellid)
     src_dir = os.path.join(rundir, 'RTAComplete.txt')
     dest_dir = os.path.join(archiveDir, runid_and_flowcellid+"_RTAComplete.txt")
@@ -105,19 +104,19 @@ def purge(db, runid_and_flowcellid):
         shutil.copyfile(src_dir, dest_dir)
         end_time = generate_timestamp()
         res = db.update_one({"run": runid_and_flowcellid},
-                            {"$set": {"raw-delete.Status": "SUCCESS",
+                            {"$set": {"raw-delete.Status": "SUCCESS", \
                                 "raw-delete.end_time": end_time}})
-        assert res.modified_count == 1, (
-                "Modified {} documents instead of 1".format(res.modified_count))
+        assert res.modified_count == 1, ("Modified {} documents instead of 1". \
+            format(res.modified_count))
     except EnvironmentError:
         logger.CRITICAL("Error happened while copying")
-        res = db.update_one({"run": runid_and_flowcellid},
+        res = db.update_one({"run": runid_and_flowcellid}, \
                             {"$unset": {"raw-delete": ""}})
-        assert res.modified_count == 1, (
-                "Modified {} documents instead of 1".format(res.modified_count))
+        assert res.modified_count == 1, ("Modified {} documents instead of 1". \
+            format(res.modified_count))
         subject = "Moving of {} to {} failed".format(rundir, dest_dir)
         body = subject
-        send_mail(subject, body, toaddr='veeravallil', ccaddr=None)
+        send_mail(subject, body, toaddr=mail_to, ccaddr=None)
 
 def main():
     """main function
@@ -156,10 +155,18 @@ def main():
     if connection is None:
         sys.exit(1)
     db = connection.gisds.runcomplete
+    if is_devel_version() or args.testing:
+        mail_to = 'veeravallil'# domain added in mail function
+    else:
+        mail_to = 'rpd'
     run_records = runs_from_db(db, args.win)
+    body = ""
     for run in run_records:
         if args.dry_run:
             logger.info("Skipping dryrun option %s", run)
+            body += "Analysis for {} has been completed 3 week ago. Please move or delete" \
+                .format(run)
+            body += "\n"
             continue
         try:
             purge(db, run)
@@ -170,7 +177,11 @@ def main():
             logger.info("Stopping after first sequencing run")
             break
         connection.close()
-               
+    if body:
+        subject = "Novogene raw data deletion"
+        print(body)
+        send_mail(subject, body, toaddr=mail_to, ccaddr=None)
+
 if __name__ == "__main__":
     main()
 

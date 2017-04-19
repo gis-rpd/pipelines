@@ -97,6 +97,9 @@ def main():
     for record in results:
         run_number = record['run']
         analysis = record['analysis']
+        # Downstream analysis will not be intiated for Novogene (NG00*) runs
+        if "NG00" in run_number:
+            continue
         for analysis in record['analysis']:
             out_dir = analysis.get("out_dir")
 
