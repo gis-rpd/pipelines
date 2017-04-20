@@ -87,6 +87,8 @@ if [ ! -d $wdir ]; then
     exit 1
 fi
 
+log "Preparing to stage out $wdir"
+
 flagfile=logs/snakemake.log
 if [ ! -e $wdir/$flagfile ]; then
     log "FATAL: Don't recognize \"$wdir\" as workflow directory"
@@ -113,14 +115,16 @@ fi
 pushd $wdir >/dev/null
 cd ..
 wdirbase=$(basename $wdir)
-tarball=${wdirbase}.tar
-uri=$(echo ${s3prefix}/$tarball)
+tarball=${wdirbase}.tar;# just the basename
+tarlog=${tarball}.log.gz;# just the basename
 
 # first check if exists
 # careful: object acts as prefix on s3 and might list a lot of other stuff
+uri=${s3prefix}/$tarball
 if aws s3 ls $uri >/dev/null; then
     if [ $force -ne 1 ]; then
-	log "FATAL: refusing to overwrite exising object. Please use --force if needed"
+	log "FATAL: refusing to overwrite existing object at $uri. Please use --force if needed"
+	unlock
 	exit 1
     fi
 fi
@@ -128,19 +132,22 @@ fi
 
 # we need a tarball because we might have symlinks which are not supported in s3
 # streaming tar is a nice idea, but can hang in pratice. So let's create a copy first
-# tar c --exclude '*/.snakemake/*' $wdirbase | aws s3 cp - $uri
+# tar c --exclude '*/.snakemake/*' $wdirbase | aws s3 cp - ${s3prefix}/$tarball
 
-tar cf $tarball --exclude '*/.snakemake/*' $wdirbase
+tar cvf $tarball --exclude '*/.snakemake/*' $wdirbase | gzip > $tarlog
 if [ $remove -eq 1 ]; then
     # save to remove since we checked above that it does exist and is
     # a real workflow dir
     rm -rf $wdir
 fi
-aws s3 cp $tarball $uri
+aws s3 cp $tarball $s3prefix/
 rm $tarball
+aws s3 cp $tarlog $s3prefix/
+rm $tarlog
 
 popd >/dev/null
 
 unlock
 
-#echo "Done"
+log "Successfully staged out $wdir to $s3prefix"
+

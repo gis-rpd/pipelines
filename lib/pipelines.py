@@ -75,7 +75,7 @@ assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
 WORKFLOW_COMPLETION_FLAGFILE = "WORKFLOW_COMPLETE"
 
-DOWNSTREAM_OUTDIR_TEMPLATE = "{basedir}/{user}/{pipelineversion}/{pipelinename}/{timestamp}"
+DOWNSTREAM_OUTDIR_TEMPLATE = "{basedir}/{user}/{pipelinename}-version-{pipelineversion}/{timestamp}"
 
 
 def snakemake_log_status(log):
@@ -528,14 +528,14 @@ def get_pipeline_version(nospace=False):
     os.chdir(PIPELINE_ROOTDIR)
     if os.path.exists(".git"):
         commit = None
-        cmd = ['git', 'describe', '--always', '--tags']
+        cmd = ['git', 'rev-parse', '--short', 'HEAD']
         try:
             res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             commit = res.decode().strip()
         except (subprocess.CalledProcessError, OSError) as _:
             pass
         if commit:
-            version = "{} commit {}".format(version, commit)
+            version = "{} {}".format(version, commit)
     if nospace:
         version = version.replace(" ", "-")
     os.chdir(cwd)

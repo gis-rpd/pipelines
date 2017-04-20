@@ -71,7 +71,7 @@ def main():
         logger.info("Starting staging out of %s", dir)
         try:
             s3prefix = S3_BUCKET
-            s3prefix = os.path.join(s3prefix, os.path.relpath(dir, basedir))
+            s3prefix = os.path.join(s3prefix, os.path.normpath(os.path.join(os.path.relpath(dir, basedir), "..")))
             cmd = [STAGE_OUT_WORKER, '-p', s3prefix, '-r', dir]
             _ = subprocess.check_output(cmd)
         except subprocess.CalledProcessError as e:
