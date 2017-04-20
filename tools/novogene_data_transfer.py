@@ -22,9 +22,12 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from mongodb import mongodb_conn
-from pipelines import is_production_user, is_devel_version, send_mail
-from pipelines import generate_window, get_machine_run_flowcell_id
-from pipelines import generate_timestamp
+from pipelines import is_production_user
+from pipelines import is_devel_version
+from pipelines import send_mail
+from pipelines import generate_window
+from pipelines import get_machine_run_flowcell_id
+from utils import generate_timestamp
 from config import novogene_conf
 from readunits import readunits_for_sampledir
 

@@ -36,10 +36,9 @@ rule gatk_haplotype_caller:
     threads:
         # original comment: "haplotype caller currently does not reliably
         # use more than 2 threads".  we found it to not work reliably with
-        # anything >1 need to request for more anyway to make our
-        # UGE/OS/Java heapspace problem go away.  won't use in in nct
-        # though
-        4
+        # anything >1.
+        # previously set higher to work around UGE/Java/OS vmem problem in GIS
+        1
     run:
         # no need to call if bed is empty
         num_regs = 0

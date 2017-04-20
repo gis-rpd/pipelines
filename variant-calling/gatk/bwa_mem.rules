@@ -37,7 +37,7 @@ rule unit_merge:
     message:
         "Merging files"
     threads:
-        8
+        4
     run:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")

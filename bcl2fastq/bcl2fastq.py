@@ -33,10 +33,10 @@ from pipelines import PipelineHandler
 from pipelines import get_machine_run_flowcell_id
 from pipelines import is_devel_version
 from pipelines import logger as aux_logger
-from pipelines import generate_timestamp
 from pipelines import get_cluster_cfgfile
 from pipelines import default_argparser
 from config import site_cfg
+from utils import generate_timestamp
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
 
 

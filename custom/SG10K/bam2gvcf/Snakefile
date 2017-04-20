@@ -15,7 +15,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 
-from pipelines import chroms_and_lens_from_fasta
+from utils import chroms_and_lens_from_fasta
 
         
 

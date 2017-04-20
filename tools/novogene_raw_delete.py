@@ -22,11 +22,15 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from mongodb import mongodb_conn
-from pipelines import generate_window, is_production_user
-from pipelines import isoformat_to_epoch_time, generate_timestamp
-from pipelines import get_machine_run_flowcell_id, is_devel_version
-from pipelines import relative_epoch_time, send_mail
+from pipelines import generate_window
+from pipelines import is_production_user
+from pipelines import isoformat_to_epoch_time
+from pipelines import get_machine_run_flowcell_id
+from pipelines import is_devel_version
+from pipelines import relative_epoch_time
+from pipelines import send_mail
 from config import site_cfg
+from utils import generate_timestamp
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"

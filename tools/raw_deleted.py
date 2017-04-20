@@ -23,7 +23,8 @@ LIB_PATH = abspath(join(dirname(realpath(__file__)), "..", "lib"))
 if LIB_PATH not in path:
     path.insert(0, LIB_PATH)
 from mongodb import mongodb_conn
-from pipelines import generate_timestamp, get_machine_run_flowcell_id
+from utils import generate_timestamp
+from pipelines import get_machine_run_flowcell_id
 
 
 __author__ = "LIEW Jun Xian"

@@ -1,9 +1,9 @@
 import getpass
 
 from pipelines import send_status_mail
-from pipelines import generate_timestamp
 from pipelines import bundle_and_clean_logs
 from pipelines import mark_as_completed
+from utils import generate_timestamp
 from elmlogger import ElmLogging
 from elmlogger import ElmUnit
 

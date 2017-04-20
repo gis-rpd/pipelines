@@ -67,9 +67,11 @@ rule gatk_realign_bam:
         "{prefix}.realn.bam.log"
     params:
         custom=config.get("params_gatk", "")
-    # single threaded only, but ask for more due to java/scheduler problem
-    threads: 4
-    message: "Running IndelRealigner"
+    threads:
+        # previously set higher to work around UGE/Java/OS vmem problem in GIS
+        1
+    message:
+        "Running IndelRealigner"
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T IndelRealigner -R {input.ref} {params.custom}"
@@ -93,7 +95,8 @@ rule gatk_recalibrate_info:
         intervals_arg=_get_intervals_arg(),
         custom=config.get("params_gatk", "")
     # might need opt
-    threads: 8
+    threads:
+        8
     message:
         "{} BaseRecalibrator".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
     run:
@@ -121,7 +124,8 @@ rule gatk_recalibrate_bam:
     params:
         custom=config.get("params_gatk", "")
     # set to 8 in original files. maxes out at that value on aquila
-    threads: 8
+    threads:
+        8
     message: "{} PrintReads for Recal".format("Skipping" if config['seqtype'] == 'targeted' else "Running")
     run:
         if config['seqtype'] == 'targeted':

@@ -33,8 +33,8 @@ rule gatk_hard_filter_snps:
         filter_name = 'snp_default_hard_filter',
         filter_expr = 'QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'
     threads:
-        # not used by needed as UGE/Java/OS workaround in GIS
-        4
+        # previously set higher to work around UGE/Java/OS vmem problem in GIS
+        1
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T VariantFiltration -R {input.ref} -V {input.vcf}"
@@ -54,8 +54,8 @@ rule gatk_hard_filter_indels:
         filter_name = 'indel_default_hard_filter',
         filter_expr = 'QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0'
     threads:
-        # not used by needed as UGE/Java/OS workaround in GIS
-        4
+        # previously set higher to work around UGE/Java/OS vmem problem in GIS
+        1
     shell:
         "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
         " -T VariantFiltration -R {input.ref} -V {input.vcf}"

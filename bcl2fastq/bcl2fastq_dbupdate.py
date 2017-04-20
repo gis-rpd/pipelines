@@ -28,8 +28,9 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from mongodb import mongodb_conn
-from pipelines import generate_window, timestamp_from_string
+from pipelines import generate_window
 from pipelines import PipelineHandler
+from utils import timestamp_from_string
 
 
 __author__ = "Andreas Wilm"
