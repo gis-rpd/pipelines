@@ -51,7 +51,7 @@ class StarterFlag(object):
         self.filename = filename
         self.timestamp = self._timestamp_from_filename(self.filename)
         with open(self.filename, 'r') as fh:
-            self.dbid = fh.read().decode()
+            self.dbid = fh.read().encode().decode()
 
 
     def write(self, dirname, dbid, timestamp=None):
