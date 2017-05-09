@@ -72,7 +72,7 @@ rep1_pe_basecmd="$WRAPPER --control-fq1 $CTRL_R1 --treatment-fq1 $REP1_R1"
 rep1_se_basecmd="$WRAPPER --control-fq1 $CTRL_R1 --treatment-fq1 $REP1_R1"
 
 
-echo 'FIXME test qualilty of results' 1>&2
+echo 'FIXME test quality of results' 1>&2
 echo 'FIXME bam injection' 1>&2
 
 
