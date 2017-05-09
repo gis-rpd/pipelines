@@ -291,8 +291,8 @@ class PipelineHandler(object):
             fh.write("reuse -q miniconda-3\n")
             #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
             #fh.write("source activate snakemake-3.7.1\n")
-            fh.write("source activate snakemake-3.8.2\n")
-
+            #fh.write("source activate snakemake-3.8.2\n")
+            fh.write("source activate snakemake-3.11.2\n")
 
     def write_snakemake_env(self, overwrite=False):
         """creates rc file for use as 'bash prefix', which also loads modules defined in cfgfile
