@@ -125,7 +125,9 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: WES injected raw" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
-    eval $wes_cmd_base -o $odir --raw-bam $INJ_BAM -v --no-run >> $log 2>&1
+    _wes_cmd_base="$WRAPPER -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:WES'";# --bam-only"
+    eval $_wes_cmd_base -o $odir --raw-bam $INJ_BAM -v --no-run >> $log 2>&1
+
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     popd >> $log
@@ -133,7 +135,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     echo "Dryrun: WES injected post processed" | tee -a $log
     odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
-    eval $wes_cmd_base -o $odir --proc-bam $INJ_BAM -v --no-run >> $log 2>&1
+    eval $_wes_cmd_base -o $odir --proc-bam $INJ_BAM -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     popd >> $log

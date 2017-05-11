@@ -117,7 +117,7 @@ def main():
     # readunits (think: fastq pairs with attributes) as value
     if args.sample_cfg:
         if any([args.fq1, args.fq2, args.sample, args.raw_bam, args.proc_bam]):
-            logger.fatal("Config file overrides fastq and sample arguments."
+            logger.fatal("Config file overrides fastq, sample and BAM arguments."
                          " Use one or the other")
             sys.exit(1)
         if not os.path.exists(args.sample_cfg):

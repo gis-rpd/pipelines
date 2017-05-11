@@ -112,20 +112,35 @@ if [ $SKIP_DAG -eq 0 ]; then
 fi
 
 
+if [ $(whoami) == 'userrig' ]; then
+    is_production_user=1
+else
+    is_production_user=0
+fi
+    
+
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
-    echo "Dryrun: mongo_status.py fake run" 1>&2
-    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
-    iso8601ms=${iso8601ns:0:26}
-    ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -s SUCCESS -t -v
 
+    echo "Dryrun: mongo_status.py fake run" 1>&2
+    if [ $is_production_user -eq 1 ]; then
+        iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+        iso8601ms=${iso8601ns:0:26}
+        ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -s SUCCESS -t -v
+    else
+        echo "Not a production user. Skipping" 1>&2
+    fi
     
     echo "Dryrun: mongo_status_per_mux.py fake run" 1>&2
-    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
-    iso8601ms=${iso8601ns:0:26}
-    ./mongo_status_per_mux.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -i FAKE -d /tmp/FAKE -s FAILED -t -v
-    
+    if [ $is_production_user -eq 1 ]; then
+        iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+        iso8601ms=${iso8601ns:0:26}
+        ./mongo_status_per_mux.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -i FAKE -d /tmp/FAKE -s FAILED -t -v
+    else
+        echo "Not a production user. Skipping" 1>&2
+    fi
+        
 
     echo "Dryrun: bcl2fastq_starter.py" | tee -a $log
     ./bcl2fastq_starter.py -n -1 -v >> $log 2>&1 
@@ -134,12 +149,11 @@ if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: bcl2fastq_dbupdate.py" | tee -a $log
     ./bcl2fastq_dbupdate.py -n -t -v >> $log 2>&1
 
-
     r="MS001-PE-R00315_000000000-ANBGU"
     echo "Dryrun: Testing failed seq run $r"  | tee -a $log
     if [ $(get_site) == 'NSCC' ]; then
 	    echo "Test not available at NSCC" | tee -a $log;
-    else
+    elif [ $is_production_user -eq 1 ]; then
         odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $r | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
         ./bcl2fastq.py -r $r -o $odir --no-run -t >> $log 2>&1
         if [ ! -e "$odir"/SEQRUNFAILED ]; then
@@ -157,6 +171,9 @@ if [ $skip_dry_runs -ne 1 ]; then
             popd >> $log
             rm -rf $odir
         done
+    else
+        # because this will try to update the db for seqrunfailed
+        echo "Not a production user. Skipping" 1>&2        
     fi
     
     echo "Dryrun tests successfully completed"

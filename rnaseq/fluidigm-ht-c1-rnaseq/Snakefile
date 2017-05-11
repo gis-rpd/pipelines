@@ -5,6 +5,7 @@ from itertools import chain
 import hashlib
 import tempfile
 import glob
+import sys
 
 # third party imports
 #
@@ -71,63 +72,138 @@ rule final:
 
 
 rule RSEM:
-    # FIXME some code duplication with rnaseq. sync often
+    # FIXME some code duplication with rnaseq pipeline. sync the two every now and then.
+    # since very fast, loop over samples
     input:
-        bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
+        bams = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
+        #bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
         rsemidx = config['references']['rsemidx'] + ".seq",
         gtfdesc = config['references']['gtfsourcefile']
     output:
-        genecount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results",
-        isocount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results",
-        gbam = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam",
-        wig = temp("{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig"),
-        plot = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.pdf"
+        genecounts = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
+        isocounts = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
+        gbams = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
+        wigs = temp(expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME)),
+        plots = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.pdf"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
+        #genecount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results",
+        #isocount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results",
+        #gbam = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam",
+        #wig = temp("{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig"),
+        #plot = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.pdf"
     message:
         "Running RSEM"
     params:
-        rsemidx=config['references']['rsemidx']
+        rsemidx = config['references']['rsemidx']
     log:
-        "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.log"
+        os.path.join(RESULT_OUTDIR, "RSEM.log")
     threads:
-        6# using 5 in practice after loading is complete
-    shell:
-        " {{ outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
-        " rsem-calculate-expression --bam --output-genome-bam"
-        " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
-        " --seed 12345 -p {threads} --forward-prob 0.5"
-        " {input.bam} {params.rsemidx} $outpref >& {log};"
-        " ls ${{outpref}}*bam | grep -v genome.sorted.bam | xargs -r rm;"
-        " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
-        " rsem-plot-model $outpref {output.plot}; }} >& {log};"
-        " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $9, $10}}'> {output.genecount}.desc;"
-        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $11, $12}}' > {output.isocount}.desc;"
-        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tgene_type\\tgene_name\\n/' {output.genecount}.desc;"
-        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\tgene_type\\tgene_name\\n/' {output.isocount}.desc"
+        #6# using 5 in practice after loading is complete
+        1# either combine all jobs into one or reduce #threads to 1
+    run:
+        for bam, genecount, isocount, gbam, wig, plot in zip(
+                input.bams, output.genecounts, output.isocounts, output.gbams, output.wigs, output.plots):
 
+            # if the input bam is empty rsem will fail and the whole
+            # pipeline is stuck.  therefore, check if the file is
+            # empty, and if yes, create fake output files
+            res = shell("samtools view -c {}".format(bam), read=True)# alternatie to read is iterable
+            if res.decode().rstrip() == "0":
+                for f in [genecount, isocount, gbam, wig, plot]:
+                    with open(f, 'w') as fh:
+                        fh.write("WARNING: input bam is empty: {}\n".format(bam))
+                continue
+            
+            cmd = "outpref=$(echo {} | sed -e 's,.genes.results,,'); ".format(genecount)
+            cmd += " rsem-calculate-expression --bam --output-genome-bam"
+            cmd += " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
+            cmd += " --seed 12345 -p {threads} --forward-prob 0.5"
+            cmd += " {} {{params.rsemidx}} $outpref;".format(bam)
+            cmd += " ls ${{outpref}}*bam | grep -v genome.sorted.bam | xargs -r rm;"
+            cmd += " rsem-bam2wig {} {} $outpref;".format(gbam, wig)
+            shell(cmd)
+
+            # rsem-plot-model can sometimes fail for unknown reasons
+            cmd = "rsem-plot-model $outpref {};".format(plot)
+            try:
+                shell(cmd)
+            except CalledProcessError:
+                sys.stderr.write("The following command failed: {}\n".format(cmd))
+                sys.stderr.write("Creating dummy pdf output file to be able to continue\n")
+                    with open(plot, 'w') as fh:
+                        fh.write("WARNING: the following command failed {}\n".format(cmd))
+                
+            cmd = " grep -v gene_id {genecount} | paste - {gtfdesc}.genesdesc | awk '{{{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $9, $10}}}}'> {genecount}.desc;".format(
+                genecount=genecount, gtfdesc=input.gtfdesc)
+            cmd += " grep -v gene_id {isocount} | paste - {gtfdesc}.transcriptsdesc | awk '{{{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $11, $12}}}}' > {isocount}.desc;".format(
+                isocount=isocount, gtfdesc=input.gtfdesc)
+            cmd += " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tgene_type\\tgene_name\\n/' {}.desc;".format(genecount)
+            cmd += " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\tgene_type\\tgene_name\\n/' {}.desc".format(isocount)
+            shell(cmd)
         
 rule rnaseqQC:
+    # since very fast, loop over samples
     input:
-        bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam",
+        bam = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
         rnaseqc_annotation = config['references']['rnaseqc_annotation'],
         ref = config['references']['genome']
     output:
-        bamidx = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai",
-        flag = touch("{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK")
+        bamidx = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai"),
+                        sample = config['samples'],
+                        row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                        genome=GENOME_BASENAME),
+        flag = touch(expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME)),
     log:
-        "{dir}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC.log"    
-    params:
-        sample=lambda wc: wc.sample + "-ROW" + wc.row
+        os.path.join(RESULT_OUTDIR, "rnaseqQC.log")
+    #params:
+    #    sample = lambda wc: wc.sample + "-ROW" + wc.row
     threads:
-        4
+        2
     message:
-        "Running RNASeqQC"            
-    shell:
-        " outpref=`dirname {output.flag}`;"
-	" samtools index {input.bam};"
-        " RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000 -s '{params.sample}|{input.bam}|RNASeqQC'"
-        " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
-        " find $(dirname {output.flag}) -name \*tmp.txt\* -type f | xargs -r rm"
+        "Running RNASeqQC"
+    run:
+        for bam, flag in zip(input.bam, output.flag):
+            # if the input bam is empty rnaseq will fail and the whole
+            # pipeline is stuck.  therefore, check if the file is
+            # empty, and if yes, create fake output files
+            res = shell("samtools view -c {}".format(bam), read=True)# alternatie to read is iterable
+            if res.decode().rstrip() == "0":
+                for f in [bamidx, flag]:
+                    with open(f, 'w') as fh:
+                        fh.write("WARNING: input bam is empty: {}\n".format(bam))
+                continue
 
+            cmd = "outpref=`dirname {}`;".format(flag)
+            cmd += "sample=`basename {} | cut -f -2 -d _ | tr '_' '-'`;".format(bam)
+            cmd += "samtools index {};".format(bam)
+            cmd += "RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000"
+            cmd += " -s \"$sample|{}|RNASeqQC\"".format(bam)
+            cmd += " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+            cmd += "find $(dirname {}) -name \*tmp.txt\* -type f | xargs -r rm".format(flag)
+            shell(cmd)
 
 # input files are tiny (multiplexed single cell), hence this process
 # is very fast. doesn't make sense to submit them separately (and also
@@ -165,18 +241,30 @@ rule wig2bigwig_star:
     run:
         # if using bash argument length can be too long
         for wig in input.wig:
+            # empty input shouldn't create trouble (empty could mean first line is just ^variableStep...)
+            wig_ok = 0
+            num_lines = 0
+            with open(wig) as fh:
+                for line in fh:
+                    num_lines += 1
+                    if num_lines > 1:
+                        wig_ok = 1
+                        break
+                    
             bw = os.path.splitext(wig)[0] + ".bw"
-            shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
+            if wig_ok:
+                shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
+            else:
+                with open(bw, 'w') as fh:
+                    fh.write("Empty input file {}\n".format(wig))
 
-
-        
 # rsem wig's bunched together
 rule wig2bigwig_rsem:
     input:
         wig = expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig'),
-               sample=config['samples'], 
-               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-               genome=GENOME_BASENAME),
+                     sample=config['samples'], 
+                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
         gsizes = config['references']['genome'] + ".sizes"
     output:
         bw = expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.bw'),
@@ -194,9 +282,7 @@ rule wig2bigwig_rsem:
             shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
 
 
-
-
-# star is very fast, esp for single cell data. parallel jobs create
+# STAR is very fast, esp for single cell data. parallel jobs create
 # all sorts of trouble, e.g race conditions during index loading and
 # unloading. just run in series
 rule star_mapping:
@@ -216,22 +302,18 @@ rule star_mapping:
         #counts = "{dir}/{sample}_ROW{row}_{genome}_ReadsPerGene.out.tab",
         #wig = "{dir}/{sample}_ROW{row}_{genome}_Signal.Unique.str1.out.wig",
         # in series:
-        bams = expand(os.path.join(RESULT_OUTDIR,
-                                   "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+        bams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
                       row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                       genome=GENOME_BASENAME),
-        transbams = expand(os.path.join(RESULT_OUTDIR,
-                                        "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam"),
+        transbams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam"),
                            row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                            genome=GENOME_BASENAME),
-        counts = expand(os.path.join(RESULT_OUTDIR,
-                                     "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_ReadsPerGene.out.tab"),
+        counts = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_ReadsPerGene.out.tab"),
                         row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                         genome=GENOME_BASENAME),
-        wigs = temp(expand(os.path.join(RESULT_OUTDIR,
-                                   "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Signal.Unique.{strand}.out.wig"),
-                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-                      strand=["str1", "str2"],
+        wigs = temp(expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Signal.Unique.{strand}.out.wig"),
+                           row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                           strand=["str1", "str2"],
                       genome=GENOME_BASENAME)),
     log:
         os.path.join(RESULT_OUTDIR, "{sample}/star.log")
@@ -293,6 +375,7 @@ rule star_mapping:
             cmd += " --alignMatesGapMax {}".format(params.alignMatesGapMax)
             cmd += " --limitBAMsortRAM {}".format(params.limitBAMsortRAM)
             cmd += " --outFileNamePrefix {}".format(outpref)
+            # seems to write Log.out and Log.progress.out to pwd anyway. See also https://groups.google.com/forum/#!topic/rna-star/0ZxWeoeoIqk
             cmd += " --readFilesIn {}".format(r2)
             cmd += " >> {} 2>&1".format(log)
             shell(cmd)
@@ -315,24 +398,32 @@ rule star_mapping:
         
 rule trimming:
     input:
-        fq="{prefix}_R2.fastq.gz"
+        #fq="{prefix}_R2.fastq.gz"
+        fq = expand(os.path.join(RESULT_OUTDIR, "{{sample}}", FDEMUX_SUBDIR,
+                            "{{sample}}_ROW{row}_merged_R2.fastq.gz"),
+                            row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
     output:
-        fq="{prefix}_R2.trimmed.fastq.gz"
+        #fq="{prefix}_R2.trimmed.fastq.gz"
+        fq = expand(os.path.join(RESULT_OUTDIR, "{{sample}}", FDEMUX_SUBDIR,
+                            "{{sample}}_ROW{row}_merged_R2.trimmed.fastq.gz"),
+                            row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
+       
     message:
-        "Running trimming"
-    log:
-        "{prefix}_R2.trimmed.log"
+        "Running trimming on all rows at once"
+    #log:
+    #    os.path.join(RESULT_OUTDIR, "{sample}", FDEMUX_SUBDIR, "{sample}.trimming.log")
     params:
         trim_tail_right=1,
         min_len=20
-    shell:
-        # if fed with rubbish prinseq prints an error and happily
-        # exits with code 0. checking for zero size not enough since possibly valid
-        "{{ zcat {input.fq} | prinseq-lite.pl -trim_tail_right {params.trim_tail_right}"
-         " -min_len {params.min_len} -fastq stdin -out_good stdout -out_bad null | gzip > {output.fq}; }} >& log;"
-         #" test -z $(gzip -cd {output.fq} | head -c1) && false; }} >& {log}"
-         # returns always false?
-    
+    run:
+        for fqin, fqout in zip(input.fq, output.fq):
+            # if fed with rubbish prinseq prints an error and happily
+            # exits with code 0. checking for zero size not enough since possibly valid
+            cmd = "zcat {} | prinseq-lite.pl -trim_tail_right {{params.trim_tail_right}}".format(fqin)
+            cmd += " -min_len {{params.min_len}} -fastq stdin -out_good stdout -out_bad null | gzip > {};".format(fqout)
+            #" test -z $(gzip -cd {output.fq} | head -c1) && false; }} >& {log}"
+            # returns always false?
+            shell(cmd)
 
 rule fluidigm_demux:
     # WARNING:
