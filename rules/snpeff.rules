@@ -1,3 +1,6 @@
+# usually completes within minutes so no need to use threading either
+# (unless maybe used for multi sample vcf files)
+localrules: snpeff
 rule snpeff:
     # requires bgzip and snpeff_wrapper installed. also requires config['snpeff_genome']
     input:

@@ -6,6 +6,8 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+PIPELINE=$(basename $(dirname $(readlink -f $0)))
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -52,7 +54,6 @@ commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
 
-test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
@@ -63,7 +64,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG: $SAMPLE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./SG10K.py --sample-cfg $CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
@@ -79,7 +80,7 @@ fi
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: $SAMPLE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./SG10K.py --sample-cfg $CFG -o $odir --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -94,7 +95,7 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run: $SAMPLE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./SG10K.py --sample-cfg $CFG -o $odir --name "test:$(basename $CFG)" >> $log 2>&1
     echo "FIXME IMPLEMENT: test number of reads etc. as extra submitted job"
 else

@@ -6,6 +6,7 @@ Original author: Johannes Köster (http://johanneskoester.bitbucket.org)
 Original license: MIT
 """
 
+localrules: samtools_fasta_index
 rule samtools_fasta_index:
     input:
         "{prefix}.{suffix}"
@@ -17,6 +18,7 @@ rule samtools_fasta_index:
         "samtools faidx {input} >& {log};"
 
 
+localrules: map_rate
 rule map_rate:
     """better to use bamstats/stats.txt as input
 
@@ -32,6 +34,7 @@ rule map_rate:
         "cat {input} | awk '{{a+=$3; u+=$4}} END {{printf \"%.3f%% reads map\\n\", a/(a+u)*100.0}}' > {output} 2> {log}"
 
 
+localrules: bam_idxstats
 rule bam_idxstats:
     """rarely needed. bam_stats much better"""
     input:
@@ -45,6 +48,7 @@ rule bam_idxstats:
         "samtools idxstats {input.bam} > {output} 2> {log};"
 
 
+localrules: bam_stats
 rule bam_stats:
     input:
         bam="{prefix}.bam"
@@ -59,6 +63,7 @@ rule bam_stats:
         "plot-bamstats -p $(echo {output.plothtml} | sed -e 's,.html,,') {output.stats}; }} >&{log}"
         
 
+localrules: bam_index
 rule bam_index:
     input:
         "{prefix}.bam"

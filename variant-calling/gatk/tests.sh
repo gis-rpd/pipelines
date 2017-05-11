@@ -6,6 +6,9 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+#PIPELINE=$(basename $(dirname $MYNAME))
+PIPELINE=$(basename $(dirname $(readlink -f $0)))
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -58,7 +61,6 @@ commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
 
-test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
@@ -81,7 +83,7 @@ wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS --name 'tes
 SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG: WES" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
@@ -98,7 +100,7 @@ fi
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: targeted" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     # also testing --extra-conf
     eval $targeted_cmd_base -o $odir -v --extra-conf extrakey:extravalue --no-run >> $log 2>&1
     pushd $odir >> $log
@@ -108,7 +110,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
     
     echo "Dryrun: WES" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -116,7 +118,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: WES bam only" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wes_cmd_base -o $odir --bam-only -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -124,7 +126,8 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: WES injected raw" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     _wes_cmd_base="$WRAPPER -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:WES'";# --bam-only"
     eval $_wes_cmd_base -o $odir --raw-bam $INJ_BAM -v --no-run >> $log 2>&1
 
@@ -134,8 +137,9 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: WES injected post processed" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $_wes_cmd_base -o $odir --proc-bam $INJ_BAM -v --no-run >> $log 2>&1
+
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     popd >> $log
@@ -143,7 +147,7 @@ if [ $skip_dry_runs -ne 1 ]; then
 
     # FIXME run wrapper should be tested somewhere else
     echo "Dryrun: WES through run wrapper" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes-run.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wes_run_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -151,7 +155,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: WGS" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wgs_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -168,7 +172,7 @@ fi
 if [ $skip_real_runs -ne 1 ]; then
     if [ $SKIP_REAL_TARGETED -eq 0 ]; then
         echo "Realrun: targeted" | tee -a $log
-        odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+	odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
         eval $targeted_cmd_base -o $odir -v >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
@@ -179,7 +183,7 @@ if [ $skip_real_runs -ne 1 ]; then
     
     if [ $SKIP_REAL_WES -eq 0 ]; then
         echo "Realrun: WES" | tee -a $log
-        odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+	odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
         eval $wes_cmd_base -o $odir -v >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
@@ -191,7 +195,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     if [ $SKIP_REAL_WGS -eq 0 ]; then
         echo "Realrun: WGS" | tee -a $log
-        odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
+	odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
         eval $wgs_cmd_base -o $odir -v >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')

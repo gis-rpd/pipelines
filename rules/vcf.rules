@@ -4,6 +4,7 @@ Requires htslib
 """
 
 
+localrules: bgzip
 rule bgzip:
     input:
         "{prefix}.vcf"
@@ -12,12 +13,14 @@ rule bgzip:
     log:
         "{prefix}.vcf.gz.log"
     threads:
-        2
+        # local rule so use 1 thread
+        1
     shell:
         # do not delete input
         "bgzip -@ {threads} -c {input} > {output} 2> {log}"
 
         
+localrules: tabix
 rule tabix:
     input:
         "{prefix}.vcf.gz"

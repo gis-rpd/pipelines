@@ -24,30 +24,32 @@
 #
 # - LOCAL_MASTER: run snakemaster locally and submit worker jobs
 
-# PBS Pro options:
-# The #PBS must be used to specify PBS Pro options
+# UGE options:
+# The #$ must be used to specify the grid engine options used by qsub. 
 # declare a name for this job to be sample_job
-#PBS -N {PIPELINE_NAME}.master
+#$ -N {PIPELINE_NAME}.master
 # logs
-#PBS -o {LOGDIR}
+#$ -o {LOGDIR}
 # combine stdout/stderr
-#PBS -j oe
-# snakemake control job run time: 175h == 1 week
-#PBS -l walltime={MASTER_WALLTIME_H}:00:00
-# cpu & memory: memory shoots up for heavily multiplexed libraries
-#PBS -l select=1:mem=4g:ncpus=1
+#$ -j y
+# snakemake control job run time
+#$ -l h_rt={MASTER_WALLTIME_H}:00:00
+# memory: can be massive for complex DAGs
+#$ -l mem_free=4G
+## 'parallel env'
+#$ -pe smp 1
+# run the job in the current working directory (where qsub is called)
+#$ -cwd
 # keep env so that qsub works
-#PBS -V
-# Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
-# Email address (for abort and kills only, everything else handled by snakemake)
-#PBS -M {MAILTO}
-#PBS -m a
+#$ -V
+# email address (for abort and kills only, everything else handled by snakemake)
+#$ -M {MAILTO}
+#$ -m a
 
 
 DEBUG=${{DEBUG:-0}}
-#export DRMAA_LIBRARY_PATH=
-#DRMAA_OFF=${{DRMAA_OFF:-0}}
-DRMAA_OFF=1
+export DRMAA_LIBRARY_PATH=$SGE_ROOT/lib/lx-amd64/libdrmaa.so
+DRMAA_OFF=${{DRMAA_OFF:-0}}
 LOCAL_CORES=${{LOCAL_CORES:-1}}
 DEFAULT_SLAVE_Q={DEFAULT_SLAVE_Q}
 LOCAL_MASTER=${{LOCAL_MASTER:-0}}
@@ -62,19 +64,19 @@ DEFAULT_SNAKEMAKE_ARGS="--local-cores $LOCAL_CORES --restart-times 1 --rerun-inc
 
 if [ "$ENVIRONMENT" == "BATCH" ] || [ $LOCAL_MASTER -eq 1 ]; then
     # define qsub options for all jobs spawned by snakemake
-    clustercmd="-l select=1:ncpus={{threads}}:mem={{cluster.mem}} -l walltime={{cluster.time}}"
+    clustercmd="-pe smp {{threads}} -l mem_free={{cluster.mem}} -l h_rt={{cluster.time}}"
+    # echo "DEBUG TESTING NEW JSV FILE" 1>&2; clustercmd="$clustercmd -jsv /opt/uge-8.1.7p3/scripts/jsv/job_verify_memfree_new3.pl"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
-    clustercmd="$clustercmd -e $LOGDIR -o $LOGDIR"
-    # PBS: cwd (workaround for missing SGE option "-cwd")
-    cd $PBS_O_WORKDIR
+    clustercmd="$clustercmd -cwd -e $LOGDIR -o $LOGDIR"
     if [ -n "$SLAVE_Q" ]; then
         clustercmd="$clustercmd -q $SLAVE_Q"
     elif [ -n "$DEFAULT_SLAVE_Q" ]; then 
         clustercmd="$clustercmd -q $DEFAULT_SLAVE_Q"
     fi
     if [ "$DRMAA_OFF" -eq 1 ]; then
-        #clustercmd="--cluster \"qsub $clustercmd\""
-	    clustercmd="--cluster-sync \"qsub -Wblock=true $clustercmd\""
+        clustercmd="--cluster \"qsub $clustercmd\""
+	    #clustercmd="--cluster-sync \"qsub -sync y $clustercmd\""
+        # doesn't work. see https://github.com/gis-rpd/pipelines/issues/83
     else
         clustercmd="--drmaa \" $clustercmd -w n\""
     fi
@@ -87,8 +89,7 @@ else
 fi
 
 
-# dotkit setup
-source rc/dk_init.rc || exit 1
+# TMP no need to load dotkit. we are using modules now
 
 # snakemake setup
 source rc/snakemake_init.rc || exit 1
