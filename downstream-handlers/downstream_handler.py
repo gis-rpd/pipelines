@@ -119,10 +119,12 @@ def start_cmd_execution(record, site, out_dir, testing):
     try:
         LOGGER.info(pipeline_cmd)
         _ = subprocess.check_output(pipeline_cmd, stderr=subprocess.STDOUT, shell=True)
+        return True
     except subprocess.CalledProcessError as e:
         LOGGER.fatal("The following command failed with return code %s: %s",
             e.returncode, ' '.join(pipeline_cmd))
         LOGGER.fatal("Output: %s", e.output.decode())
+        return False
     
 def get_pipeline_path(site, pipeline_name, pipeline_version):
     """ get the pipeline path
@@ -300,19 +302,18 @@ def main():
             # logged via flagfiles.  No active logging here so that
             # flag files logging just works.
 
-            # FIXME Start new run by calling the resp. wrapper with resp. parameters
             if args.dryrun:
                 LOGGER.info("Skipping dry run option")
                 continue
-            start_cmd_execution(job, site, out_dir, args.testing)
-            res = dbcol.update_one(
-                {"_id": dbid},
-                {"$set": {"execution.out_dir": out_dir}})
-            assert res.modified_count == 1, (
-                "Modified {} documents instead of 1".format(res.modified_count))
-            
-            #raise(NotImplementedError("Start new run for {}".format(dbid)))
-
+            status = start_cmd_execution(job, site, out_dir, args.testing)
+            if status:
+                res = dbcol.update_one(
+                    {"_id": dbid},
+                    {"$set": {"execution.out_dir": out_dir}})
+                assert res.modified_count == 1, (
+                    "Modified {} documents instead of 1".format(res.modified_count))
+            else:
+                LOGGER.warning("Job {} could not be started".format(dbid))
         elif list_starterflags(out_dir):# out_dir cannot be none because it's part of execution dict 
             LOGGER.info('Job {} in {} started but not yet logged as such in DB'.format(
                 dbid, out_dir))
