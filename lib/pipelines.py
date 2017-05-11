@@ -280,8 +280,7 @@ class PipelineHandler(object):
             # init first so that modules are present
             fh.write("{}\n".format(" ".join(get_init_call())))
             fh.write("module load miniconda3\n")
-            # FIXME make config var
-            fh.write("source activate snakemake-3.11.2\n")
+            fh.write("source activate {}\n".format(site_cfg['snakemake_env']))
 
 
 
@@ -295,10 +294,8 @@ class PipelineHandler(object):
         with open(self.snakemake_env_file, 'w') as fh_rc:
             fh_rc.write("# used as bash prefix within snakemake\n\n")
             fh_rc.write("# make sure module command is defined (non-login shell). see http://lmod.readthedocs.io/en/latest/030_installing.html\n")
-            fh_rc.write("source /etc/bashrc\n")
-            fh_rc.write("# load modules\n")
             fh_rc.write("{}\n".format(" ".join(get_init_call())))
-
+            fh_rc.write("# load modules\n")
             with open(self.pipeline_cfgfile_out) as fh_cfg:
                 yaml_data = yaml.safe_load(fh_cfg)
                 assert "modules" in yaml_data
@@ -455,8 +452,10 @@ class PipelineHandler(object):
                 else:
                     raise
 
-            submission_log_abs = os.path.abspath(os.path.join(self.outdir, self.submissionlog))
-            master_log_abs = os.path.abspath(os.path.join(self.outdir, self.masterlog))
+            submission_log_abs = os.path.abspath(os.path.join(
+                self.outdir, self.submissionlog))
+            master_log_abs = os.path.abspath(os.path.join(
+                self.outdir, self.masterlog))
             logger.debug("For submission details see %s", submission_log_abs)
             logger.info("The (master) logfile is %s", master_log_abs)
 
@@ -572,7 +571,7 @@ def get_init_call():
     """
     cmd = ['source', site_cfg['init']]
     if is_devel_version():
-        cmd = ['RPD_TESTING=0'] + cmd
+        cmd = ['RPD_TESTING=1'] + cmd
     return cmd
 
 

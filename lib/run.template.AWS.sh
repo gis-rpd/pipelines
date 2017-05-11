@@ -34,8 +34,8 @@
 #$ -j y
 # snakemake control job run time
 #$ -l h_rt={MASTER_WALLTIME_H}:00:00
-# memory: can be massive for complex DAGs
-#$ -l mem_free=4G
+# memory: memory can be high for complex DAGs and depends on local rules
+#$ -l mem_free=8G
 ## 'parallel env'
 #$ -pe smp 1
 # run the job in the current working directory (where qsub is called)
@@ -87,9 +87,6 @@ else
     CLUSTER_ARGS=""
     N_ARG="--cores 8"
 fi
-
-
-# TMP no need to load dotkit. we are using modules now
 
 # snakemake setup
 source rc/snakemake_init.rc || exit 1

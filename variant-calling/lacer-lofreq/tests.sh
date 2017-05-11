@@ -112,7 +112,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     popd >> $log
 
     echo "Dryrun: WES bam-only" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wes_cmd_base -o $odir -v --bam-only --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -120,7 +120,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     popd >> $log
 
     echo "Dryrun: WES proc-bam" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     _wes_cmd_base="$WRAPPER -s NA12878-WES -l $TRUSEQ_BED -t WES --name 'test:WES'"
     eval $_wes_cmd_base -o $odir -v --proc-bam $INJ_BAM --no-run >> $log 2>&1
     pushd $odir >> $log
