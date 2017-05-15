@@ -27,7 +27,7 @@ from pipelines import is_devel_version
 from pipelines import send_mail
 from pipelines import generate_window
 from pipelines import get_machine_run_flowcell_id
-from pipelines import generate_timestamp
+from utils import generate_timestamp
 from config import novogene_conf
 from readunits import readunits_for_sampledir
 

@@ -46,7 +46,7 @@ __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2017 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
-PRODUCTION_PIPELINE_VERSION = {
+PIPELINE_VERSION = {
     'GIS': {
         'production': '/mnt/projects/rpd/pipelines/',
         'devel': path_devel},
@@ -115,7 +115,6 @@ def start_cmd_execution(record, site, out_dir, testing):
         pipeline_cmd += pipeline_params
     if extra_conf:
         pipeline_cmd += extra_conf
-    LOGGER.info(pipeline_cmd)
     try:
         LOGGER.info(pipeline_cmd)
         _ = subprocess.check_output(pipeline_cmd, stderr=subprocess.STDOUT, shell=True)
@@ -129,7 +128,7 @@ def start_cmd_execution(record, site, out_dir, testing):
 def get_pipeline_path(site, pipeline_name, pipeline_version):
     """ get the pipeline path
     """
-    basedir_map = PRODUCTION_PIPELINE_VERSION
+    basedir_map = PIPELINE_VERSION
     if site not in basedir_map:
         raise ValueError(site)
     if is_devel_version():
@@ -174,12 +173,12 @@ def set_completion_if(dbcol, dbid, out_dir, dryrun=False):
 
     if status == "SUCCESS":
         assert end_time
-        dbcol.update_one({"_id": dbid},
+        dbcol.update_one({"_id": ObjectId(dbid)},
                          {"$set": {"execution.status": "SUCCESS",
                                    "execution.end_time": end_time}})
     elif status == "ERROR":
         assert end_time
-        dbcol.update_one({"_id": dbid},
+        dbcol.update_one({"_id": ObjectId(dbid)},
                          {"$set": {"execution.status": "FAILED",
                                    "execution.end_time": end_time}})
     else:
@@ -224,18 +223,18 @@ def set_started(dbcol, dbid, start_time, dryrun=False):
             "Modified {} documents instead of 1".format(res.modified_count))
 
     elif mode == 'restart':
-        res = dbcol.update_one({"_id": dbid},
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
                                {"$set": {"execution.status": "RESTART"}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
-        res = dbcol.update_one({"_id": dbid},
-                               {"$unset": {"run.end_time": ""}})
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
+                               {"$unset": {"execution.end_time": ""}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
-        res = dbcol.update_one({"_id": dbid},
-                               {"$inc":{"run.num_restarts": 1}})
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
+                               {"$inc":{"execution.num_restarts": 1}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
@@ -308,7 +307,7 @@ def main():
             status = start_cmd_execution(job, site, out_dir, args.testing)
             if status:
                 res = dbcol.update_one(
-                    {"_id": dbid},
+                    {"_id": ObjectId(dbid)},
                     {"$set": {"execution.out_dir": out_dir}})
                 assert res.modified_count == 1, (
                     "Modified {} documents instead of 1".format(res.modified_count))
