@@ -597,7 +597,6 @@ def get_rpd_vars():
     return rpd_vars
 
 
-
 def isoformat_to_epoch_time(ts):
     """
     Converts ISO8601 format (analysis_id) into epoch time
@@ -607,6 +606,7 @@ def isoformat_to_epoch_time(ts):
                    minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
     epoch_time = calendar.timegm(dt.timetuple()) + dt.microsecond/1000000.0
     return epoch_time
+
 
 def relative_epoch_time(epoch_time1, epoch_time2):
     """
@@ -826,9 +826,9 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
             return
 
     bundle = os.path.join(log_dir, "logs.tar.gz")# relative to pipeline_outdir
-    if os.path.exists(os.path.join(pipeline_outdir, bundle)) and not overwrite:
-        logger.warning("Refusing to overwrite existing log bundle.")
-        return
+    if not overwrite and os.path.exists(os.path.join(pipeline_outdir, bundle)):
+        bundle = os.path.join(log_dir, "logs.{}.tar.gz".format(generate_timestamp()))
+        assert not os.path.exists(os.path.join(pipeline_outdir, bundle))
 
     orig_dir = os.getcwd()
     os.chdir(pipeline_outdir)
