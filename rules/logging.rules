@@ -2,6 +2,7 @@ import getpass
 
 from pipelines import send_status_mail
 from pipelines import bundle_and_clean_logs
+from pipelines import mark_as_completed
 from utils import generate_timestamp
 from elmlogger import ElmLogging
 from elmlogger import ElmUnit
@@ -50,6 +51,7 @@ onsuccess:
             pipeline_name, True, analysis_name, os.path.abspath(RESULT_OUTDIR),
             to_address=mail_address)
     bundle_and_clean_logs(".")
+    mark_as_completed()
 
         
 onerror:
@@ -57,7 +59,7 @@ onerror:
     analysis_name = config.get('analysis_name', ",".join(config['samples']))
     pipeline_name = config['ELM']['pipeline_name']
     mail_address = config.get('mail_address')
-    if config.get('mail_on_completion'):
+    if mail_address and config.get('mail_on_completion'):
         send_status_mail(
             pipeline_name, False, analysis_name, os.path.abspath(RESULT_OUTDIR),
             to_address=mail_address)

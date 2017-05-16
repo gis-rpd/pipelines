@@ -8,6 +8,8 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+PIPELINE=$(basename $(dirname $(readlink -f $0)))
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -65,7 +67,6 @@ commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
 
-test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
@@ -80,7 +81,7 @@ wgs_cmd_base="$WRAPPER --normal-bam $DREAM_WGS_NORMAL_BAM --tumor-bam $DREAM_WGS
 SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG: WES" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
@@ -97,7 +98,7 @@ fi
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: WES" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wes_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -105,7 +106,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: WGS" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $wgs_cmd_base -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -122,7 +123,7 @@ fi
 if [ $skip_real_runs -ne 1 ]; then
     echo "Realrun: WES" | tee -a $log
     if [ $SKIP_EXOME_IN_HOUSE -eq 0 ]; then
-        odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+	odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
         eval $wes_cmd_base -o $odir -v >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
@@ -148,7 +149,7 @@ if [ $skip_real_runs -ne 1 ]; then
     echo "Realrun: WGS" | tee -a $log
     if [ $SKIP_DREAM_WGS -eq 0 ]; then
         
-        odir=$(mktemp -d ${test_outdir_base}-wgs.XXXXXXXXXX) && rmdir $odir
+	odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
         eval $wgs_cmd_base -o $odir -v >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')

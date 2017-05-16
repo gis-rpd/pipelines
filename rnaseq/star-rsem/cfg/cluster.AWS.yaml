@@ -1,0 +1,41 @@
+{
+    # match short queue
+    "__default__":
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+
+    "star_mapping":
+    {
+      "time" : "02:00:00",
+      "mem" : 46G,
+    },
+    
+    "RSEM":
+    {
+      "time" : "24:00:00",
+      "mem" : 12G,
+    },
+
+    "cuffdiff":
+    {
+      "time" : "24:00:00",
+      "mem" : 8G,
+    },
+
+    "rnaseqc":
+    {
+      "time" : "02:00:00",
+      "mem" : 3G,
+    },
+    
+    "wig2bigwig":
+    {
+      "time" : "02:00:00",
+      "mem" : 6G,
+    },    
+
+}    
+
+

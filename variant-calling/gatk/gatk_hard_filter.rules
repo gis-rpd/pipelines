@@ -2,6 +2,7 @@ assert 'references' in config
 assert 'genome' in config['references']
 
 
+localrules: gatk_selectvariants
 rule gatk_selectvariants:
     input:
         vcf='{prefix}.vcf.gz',
@@ -12,7 +13,7 @@ rule gatk_selectvariants:
         "{prefix}.{type,(snp|indel)}.vcf.gz.log"
     params:
         type = lambda wildcards: wildcards.type.upper()
-    threads: 4
+    threads: 1
     message:
         "Extracting {params.type} from {input.vcf}"
     shell:
@@ -20,7 +21,7 @@ rule gatk_selectvariants:
         " -R {input.ref} -V {input.vcf} -o {output.vcf}"
         " -T SelectVariants -nt {threads} -selectType {params.type} >& {log}"
 
-
+localrules: gatk_hard_filter_snps
 rule gatk_hard_filter_snps:
     input:
         vcf='{prefix}.snp.vcf.gz',
@@ -41,7 +42,7 @@ rule gatk_hard_filter_snps:
         " -o {output.vcf} --filterExpression '{params.filter_expr}'"
         " --filterName {params.filter_name} >& {log}"
 
-
+localrules: gatk_hard_filter_indels
 rule gatk_hard_filter_indels:
     input:
         vcf='{prefix}.indel.vcf.gz',

@@ -6,6 +6,7 @@ import hashlib
 import tempfile
 import glob
 import sys
+from subprocess import CalledProcessError
 
 # third party imports
 #
@@ -147,8 +148,8 @@ rule RSEM:
             except CalledProcessError:
                 sys.stderr.write("The following command failed: {}\n".format(cmd))
                 sys.stderr.write("Creating dummy pdf output file to be able to continue\n")
-                    with open(plot, 'w') as fh:
-                        fh.write("WARNING: the following command failed {}\n".format(cmd))
+                with open(plot, 'w') as fh:
+                    fh.write("WARNING: the following command failed {}\n".format(cmd))
                 
             cmd = " grep -v gene_id {genecount} | paste - {gtfdesc}.genesdesc | awk '{{{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $9, $10}}}}'> {genecount}.desc;".format(
                 genecount=genecount, gtfdesc=input.gtfdesc)

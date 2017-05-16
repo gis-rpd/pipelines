@@ -41,7 +41,7 @@ MAX_ALL = 10000
 MAX_AGE = 5
 # max percent usage of predefined FSs
 MAX_DF = 90
-FS_TO_CHECK = ["/mnt/seq", "/mnt/projects/rpd", "/mnt/projects/userrig"]
+FS_TO_CHECK = ["/mnt/seq", "/mnt/projects/rpd", "/mnt/projects/userrig", "/mnt/seq/novogene"]
 # max age in days for timestamp window of interest
 MAX_WINDOW = 7
 # max age in days for started runs
