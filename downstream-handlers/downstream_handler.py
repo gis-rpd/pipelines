@@ -46,7 +46,7 @@ __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2017 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
-PRODUCTION_PIPELINE_VERSION = {
+PIPELINE_VERSION = {
     'GIS': {
         'production': '/mnt/projects/rpd/pipelines/',
         'devel': path_devel},
@@ -115,19 +115,20 @@ def start_cmd_execution(record, site, out_dir, testing):
         pipeline_cmd += pipeline_params
     if extra_conf:
         pipeline_cmd += extra_conf
-    LOGGER.info(pipeline_cmd)
     try:
         LOGGER.info(pipeline_cmd)
         _ = subprocess.check_output(pipeline_cmd, stderr=subprocess.STDOUT, shell=True)
+        return True
     except subprocess.CalledProcessError as e:
         LOGGER.fatal("The following command failed with return code %s: %s",
             e.returncode, ' '.join(pipeline_cmd))
         LOGGER.fatal("Output: %s", e.output.decode())
+        return False
     
 def get_pipeline_path(site, pipeline_name, pipeline_version):
     """ get the pipeline path
     """
-    basedir_map = PRODUCTION_PIPELINE_VERSION
+    basedir_map = PIPELINE_VERSION
     if site not in basedir_map:
         raise ValueError(site)
     if is_devel_version():
@@ -172,12 +173,12 @@ def set_completion_if(dbcol, dbid, out_dir, dryrun=False):
 
     if status == "SUCCESS":
         assert end_time
-        dbcol.update_one({"_id": dbid},
+        dbcol.update_one({"_id": ObjectId(dbid)},
                          {"$set": {"execution.status": "SUCCESS",
                                    "execution.end_time": end_time}})
     elif status == "ERROR":
         assert end_time
-        dbcol.update_one({"_id": dbid},
+        dbcol.update_one({"_id": ObjectId(dbid)},
                          {"$set": {"execution.status": "FAILED",
                                    "execution.end_time": end_time}})
     else:
@@ -222,18 +223,18 @@ def set_started(dbcol, dbid, start_time, dryrun=False):
             "Modified {} documents instead of 1".format(res.modified_count))
 
     elif mode == 'restart':
-        res = dbcol.update_one({"_id": dbid},
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
                                {"$set": {"execution.status": "RESTART"}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
-        res = dbcol.update_one({"_id": dbid},
-                               {"$unset": {"run.end_time": ""}})
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
+                               {"$unset": {"execution.end_time": ""}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
-        res = dbcol.update_one({"_id": dbid},
-                               {"$inc":{"run.num_restarts": 1}})
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
+                               {"$inc":{"execution.num_restarts": 1}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
@@ -269,7 +270,7 @@ def main():
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
-    LOGGER.info("Database connection established")
+    #LOGGER.info("Database connection established")
     dbcol = connection.gisds.pipeline_runs
     site = get_site()
     epoch_now, epoch_then = generate_window(args.win)
@@ -300,19 +301,18 @@ def main():
             # logged via flagfiles.  No active logging here so that
             # flag files logging just works.
 
-            # FIXME Start new run by calling the resp. wrapper with resp. parameters
             if args.dryrun:
                 LOGGER.info("Skipping dry run option")
                 continue
-            start_cmd_execution(job, site, out_dir, args.testing)
-            res = dbcol.update_one(
-                {"_id": dbid},
-                {"$set": {"execution.out_dir": out_dir}})
-            assert res.modified_count == 1, (
-                "Modified {} documents instead of 1".format(res.modified_count))
-            
-            #raise(NotImplementedError("Start new run for {}".format(dbid)))
-
+            status = start_cmd_execution(job, site, out_dir, args.testing)
+            if status:
+                res = dbcol.update_one(
+                    {"_id": ObjectId(dbid)},
+                    {"$set": {"execution.out_dir": out_dir}})
+                assert res.modified_count == 1, (
+                    "Modified {} documents instead of 1".format(res.modified_count))
+            else:
+                LOGGER.warning("Job {} could not be started".format(dbid))
         elif list_starterflags(out_dir):# out_dir cannot be none because it's part of execution dict 
             LOGGER.info('Job {} in {} started but not yet logged as such in DB'.format(
                 dbid, out_dir))
@@ -325,7 +325,7 @@ def main():
             set_started(dbcol, sflag.dbid, str(sflag.timestamp), dryrun=args.dryrun)
             os.unlink(sflag.filename)
 
-        elif job['execution'].get('status') in ['STARTED', 'RESTARTED']:
+        elif job['execution'].get('status') in ['STARTED', 'RESTART']:
             LOGGER.info('Job %s in %s set as re|started so checking on completion', dbid, out_dir)
             set_completion_if(dbcol, dbid, out_dir, dryrun=args.dryrun)
 
