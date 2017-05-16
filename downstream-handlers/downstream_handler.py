@@ -270,7 +270,7 @@ def main():
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
-    LOGGER.info("Database connection established")
+    #LOGGER.info("Database connection established")
     dbcol = connection.gisds.pipeline_runs
     site = get_site()
     epoch_now, epoch_then = generate_window(args.win)
@@ -325,7 +325,7 @@ def main():
             set_started(dbcol, sflag.dbid, str(sflag.timestamp), dryrun=args.dryrun)
             os.unlink(sflag.filename)
 
-        elif job['execution'].get('status') in ['STARTED', 'RESTARTED']:
+        elif job['execution'].get('status') in ['STARTED', 'RESTART']:
             LOGGER.info('Job %s in %s set as re|started so checking on completion', dbid, out_dir)
             set_completion_if(dbcol, dbid, out_dir, dryrun=args.dryrun)
 
