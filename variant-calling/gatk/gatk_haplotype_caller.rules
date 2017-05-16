@@ -60,6 +60,7 @@ rule gatk_haplotype_caller:
 
 
 ruleorder: gatk_catvariants > gatk_haplotype_caller
+localrules: gatk_catvariants
 rule gatk_catvariants:
     input:
         # With the following things would normally fail with

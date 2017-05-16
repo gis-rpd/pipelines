@@ -37,7 +37,7 @@ include: "gatk_variant_recalibrator.rules"
 include: "gatk_hard_filter.rules"
 
 
-localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter_snps, gatk_hardfilter_indels
+localrules: final, report, prep_bed_files
 
 # expected output depends on options
 out_templ = os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem")
