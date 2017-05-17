@@ -9,7 +9,7 @@
     "gatk_haplotype_caller":
     {
       "time" : "24:00:00",
-      "mem" : 24G,
+      "mem" : 4G,
     },
 
 }

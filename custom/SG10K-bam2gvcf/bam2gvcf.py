@@ -70,7 +70,7 @@ def main():
     # pipeline specific args
     parser.add_argument('--sample-bam-map', required=True,
                         help="Yaml file listing BAM file input (value)"
-                        " per sample (key; reuse for output filenames here)")
+                        " per sample (key; reused for output filenames here)")
 
     args = parser.parse_args()
 
