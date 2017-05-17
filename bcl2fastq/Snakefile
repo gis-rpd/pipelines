@@ -217,7 +217,6 @@ rule bcl2fastq:
     https://support.illumina.com/content/dam/illumina-support/documents/documentation/software_documentation/bcl2fastq/bcl2fastq2-v2-17-software-guide-15051736-g.pdf
     """
     input: 
-        rundir = config['rundir'],
         samplesheet = config['samplesheet_csv'],
     output:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
@@ -232,7 +231,7 @@ rule bcl2fastq:
         tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
     run:
         res_dir = os.path.dirname(output.flag)
-        cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir %s" % RESULT_OUTDIR
+        cmd = "bcl2fastq --runfolder-dir {config[rundir]} --output-dir %s" % RESULT_OUTDIR
         cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir) 
         cmd += " --sample-sheet {input.samplesheet} {params.usebases}"
         cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
