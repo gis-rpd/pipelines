@@ -97,7 +97,6 @@ def snakemake_log_status(log):
     last_etime = None
     while last_lines: # iterate from end
         line = last_lines.pop()
-        print(line)
         if "Refusing to overwrite existing log bundle" in line:
             continue
         if line.startswith("["):# time stamp required
