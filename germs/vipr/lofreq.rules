@@ -1,0 +1,23 @@
+MAXDEPTH = 100000
+
+
+rule lofreq_call:
+    input:
+        bam = '{prefix}.bam',
+        bai = '{prefix}.bam.bai',
+        reffa = config['FIXMEreferences']['genome'],
+        refidx = config['FIXMEreferences']['genome'] + ".fai",
+    output:
+        vcf = '{prefix}.both.vcf.gz'
+    log:
+        '{prefix}.both.vcf.log'
+    message:
+        "Calling variants with LoFreq"
+    threads:
+        8
+    params:
+        maxdepth = MAXDEPTH
+    shell:
+        "lofreq call-parallel --pp-threads {threads} --call-indels"
+        " -l {input.bed} -f {input.reffa} -o {output.vcf}"
+        " -d {params.maxdepth} {input.bam} >& {log}"

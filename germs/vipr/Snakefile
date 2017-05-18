@@ -1,0 +1,256 @@
+# standard library imports
+#
+import os
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+
+
+RESULT_OUTDIR = 'out'
+
+
+# FIXME to conf once downstream handling clear
+MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+RESULT_OUTDIR = 'out'
+
+
+# FIXME hardcoded path
+include: "../../rules/samtools.rules"
+include: "bwa_mem.rules"
+#include: "lofreq.rules"
+
+   
+rule final:
+    input:
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/spades/scaffolds.fasta_QC/nucmer.delta'),
+               sample = config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/tadpole/contigs.fa_QC/nucmer.delta'),
+               sample = config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/mapping/{method}/{sample}.bwamem.lofreq.bam'),
+               method = ["spades", "tadpole"], sample = config['samples']),
+        #expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/tadpole/gap-filled-assembly.fa'),
+        #       sample = config['samples']),
+
+
+rule read_qc:
+    input:
+        fq1 = lambda wc: config['readunits'][wc.unit]['fq1'],
+        fq2 = lambda wc: config['readunits'][wc.unit]['fq2'],
+    output:
+        fq1 = "{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair1.fastq.gz",
+        fq2 = "{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair2.fastq.gz"
+    log:
+        "{prefix}/{sample}/reads/trimmed/{unit}-skewer.log"
+    message:
+        "Running QC (trimming and filtering) on input reads"
+    threads:
+        4# FIXME
+    #conda:
+    params:
+        endqual = 3,
+        minlen = 31,
+        filter_many_ns_arg = "-n",
+    shell:
+        # skewer cannot read from stream so needs to be run per pair
+        "{{ "
+        "outprefix=$(echo {output.fq1} | sed -e 's,-trimmed-pair1.fastq.gz,,');"
+        "skewer --quiet -t {threads} -m pe -n -q {params.endqual}"
+        " -l {params.minlen} -z -o $outprefix {input.fq1} {input.fq2};"
+        " }} >& {log}"
+
+        
+rule combine_trim:
+    input:
+        # this looks rather clumsy but somehow works, i.e. returns a list
+        fq1 = lambda wc: ["{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair1.fastq.gz".format(
+            prefix=wc.prefix, sample=wc.sample, unit=ru) for ru in config['samples'][wc.sample]],
+        fq2 = lambda wc: ["{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair2.fastq.gz".format(
+            prefix=wc.prefix, sample=wc.sample, unit=ru) for ru in config['samples'][wc.sample]],
+    output:
+        fq1 = "{prefix}/{sample}/reads/R1.fastq.gz",
+        fq2 = "{prefix}/{sample}/reads/R2.fastq.gz"
+    log:
+        "{prefix}/{sample}/reads/combine.log"
+    message:
+        "Combining pairs (if needed). See log file {log}"
+    threads:
+        1
+    # FIXME looks like this overwrites if pairs are given
+    #conda:
+    #params:
+    run:
+        assert len(input.fq1) == len(input.fq2)
+        if len(input.fq1) > 1:
+            shell("{{ zcat {input.fq1} | gzip > {output.fq1}; zcat {input.fq2} | gzip > {output.fq2}; }} >& {log};")
+        else:
+            shell("{{ ln -v {input.fq1} {output.fq1}; ln -v {input.fq2} {output.fq2}; }} >& {log};")
+
+            
+rule bbnorm:
+    input:
+        # assuming these are fully processed and merged if original input was split
+        fq1 = "{prefix}/reads/R1.fastq.gz",
+        fq2 = "{prefix}/reads/R2.fastq.gz"
+    output:
+        fq1 = "{prefix}/reads/R1.norm.fastq.gz",
+        fq2 = "{prefix}/reads/R2.norm.fastq.gz"
+    log:
+        "{prefix}/reads/norm.log"
+    message:
+        "Normalizing reads with bbnorm"
+    threads:
+        # runs in minutes for this type of data, so no need to speed up further
+        4# FIXME 1
+    #conda:
+    #    "envs/bbmap.yaml"
+    params:
+        javamem = '-Xmx8g',
+        extra_args = ""# ecc=t
+    shell:
+        "{{ "
+        "bbnorm.sh {params.javamem} {params.extra_args} threads={threads}"
+        " in={input.fq1} in2={input.fq2} out={output.fq1} out2={output.fq2};"
+        " }} >& {log}"
+
+
+rule spades:
+    input:
+        fq1 = "{prefix}/reads/R1.norm.fastq.gz",
+        fq2 = "{prefix}/reads/R2.norm.fastq.gz"
+    output:
+        scaffolds = "{prefix}/assembly/spades/scaffolds.fasta",
+        contigs = "{prefix}/assembly/spades/contigs.fasta",
+        auxtar = "{prefix}/assembly/spades/aux.tar.gz"
+    log:
+        "{prefix}/assembly/spades/spades.log"
+    message:
+        "Assembling normalized reads with Spades"
+    threads:
+        # runs in minutes for normed data, so no need to speed up further
+        4# FIXME 1
+    #conda:
+    #    "envs/spades.yaml"
+    params:
+        mem_g = 8
+    shell:
+        "{{ "
+        "outd=$(dirname {output.contigs});"
+        "spades.py -t {threads} -m {params.mem_g} --pe1-1 {input.fq1} --pe1-2 {input.fq2} -o $outd;"
+        # cleanup
+        "tar -czf {output.auxtar} --remove-files"
+        " --exclude {output.scaffolds} --exclude {output.auxtar} --exclude {output.contigs}"
+        " --exclude {log} $outd/*;"
+        " }} >& {log}"
+
+
+rule tadpole:
+    input:
+        # assuming these are fully processed and merged if original input was split
+        fq1 = "{prefix}/reads/R1.fastq.gz",
+        fq2 = "{prefix}/reads/R2.fastq.gz"
+    output:
+        contigs="{prefix}/assembly/tadpole/contigs.fa",
+        scaffolds="{prefix}/assembly/tadpole/scaffolds.fasta"# fake to look the same as spades
+    log:
+        "{prefix}/assembly/tadpole/contigs.log"
+    message:
+        "Assembling reads with BBtools' tadpole"
+    threads:
+        # runs in minutes for this type of data, so no need to speed up further
+        4# FIXME 1
+    #conda:
+    #    "envs/bbmap.yaml"
+    params:
+        javamem='-Xmx8g'
+    shell:
+        '{{ '
+        'tadpole.sh {params.javamem} threads={threads} in={input.fq1} in2={input.fq2} out={output.contigs};'
+        ' ln -s $(basename {output.contigs}) {output.scaffolds};'
+        'touch -h {output.scaffolds};'# see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
+        '}} >& {log}'
+
+        
+rule nucmer_qc:
+    """FIXME simple enough to be local rule"""
+    input:
+        ref = config['references']['genome'],# FIXME: config['references']['references']['genome']
+        query = "{prefix}.{suffix}"
+    output:
+        delta = "{prefix}.{suffix,(fasta|fa)}_QC/nucmer.delta",
+        delta_plot = "{prefix}.{suffix,(fasta|fa)}_QC/nucmer.coords.png",
+        coords = "{prefix}.{suffix,(fasta|fa)}_QC/nucmer.coords",
+        tiling = "{prefix}.{suffix,(fasta|fa)}_QC/nucmer.tiling",
+        tiling_plot = "{prefix}.{suffix,(fasta|fa)}_QC/nucmer.tiling.png",
+    log:
+        "{prefix}.{suffix}_QC/log.txt"
+    message:
+        "Running assembly QC with nucmer"
+    threads:
+        1
+    #conda:
+    params:
+        # using coverage info for plot doesn't make sense because it was inferred from normalized reads.
+        plotargs = "--nocoverage -s medium"
+    shell:
+        "{{ "
+        "nucmer -p $(echo {output.delta} | sed -e 's,.delta$,,') {input.ref} {input.query};"
+        "show-coords {output.delta} > {output.coords};"
+        # show all contigs/scaffolds
+        "mummerplot {params.plotargs} -p $(echo {output.delta_plot} | sed -e 's,.png$,,') --png {output.delta};"
+        # show tiling contigs/scaffolds
+        "show-tiling {output.delta} > {output.tiling};"
+        "mummerplot {params.plotargs} -p $(echo {output.tiling_plot} | sed -e 's,.png$,,') --png {output.tiling};"
+        " }} >& {log}"
+
+
+rule contig_joined:
+    input:
+        ref = config['references']['genome'],# FIXME: config['references']['references']['genome']
+        contigs = "{prefix}/{sample}/assembly/{method}/scaffolds.fasta",
+    output:
+        '{prefix}/{sample}/assembly/{method}/gap-filled-assembly.fa'
+    log:
+        '{prefix}/{sample}/assembly/{method}/gap-filled-assembly.log'
+    message:
+        'Filling gaps in assembly with reference'
+    #threads:
+    #conda:
+    params:
+        seqid = lambda wc: wc.sample + "-gap-filled-" + wc.method + "-assembly"
+    shell:
+        "simple_contig_joiner.py -c {input.contigs} -r {input.ref}"
+        " -o {output} -s {params.seqid} >& {log}"
+    
+
+rule map_prep:
+    """Mapping should happen elsewhere. Link the referencs over there to
+    keep things clean"""
+    input:
+        fa = '{prefix}/assembly/{method}/gap-filled-assembly.fa'
+    output:
+        fa = '{prefix}/mapping/{method}/ref.fa'
+    #log:
+    #    '{prefix}/mapping/{method}/ref.log'
+    message:
+        'Linking assembled reference to mapping folder'
+    run:
+        relpath_to_src = os.path.relpath(input.fa, start=os.path.dirname(output.fa))
+        #relpath_to_src = os.path.join(relpath_to_srcdir, os.path.basename(input.fa))
+        os.symlink(relpath_to_src, output.fa)
+        shell('touch -h {output.fa}')# see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
