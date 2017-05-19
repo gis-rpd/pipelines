@@ -106,10 +106,12 @@ def run_folder_for_run_id(runid_and_flowcellid):
     machineid, runid, flowcellid = get_machine_run_flowcell_id(
         runid_and_flowcellid)
 
-    if machineid.startswith('MS00'):
+    if machineid.startswith('MS00'):# FIXME needs proper cfg handling
         # FIXME untested and unclear for NSCC
         rundir = "{}/{}/MiSeqOutput/{}_{}".format(basedir, machineid, runid, flowcellid)
     else:
+        if machineid.startswith('NG0'):# FIXME needs proper cfg handling
+            basedir = basedir.replace("userrig", "novogene")    
         rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
 
     return rundir
