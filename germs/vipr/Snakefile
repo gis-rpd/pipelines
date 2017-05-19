@@ -33,19 +33,17 @@ RESULT_OUTDIR = 'out'
 # FIXME hardcoded path
 include: "../../rules/samtools.rules"
 include: "bwa_mem.rules"
-#include: "lofreq.rules"
+include: "lofreq.rules"
 
    
 rule final:
     input:
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/spades/scaffolds.fasta_QC/nucmer.delta'),
-               sample = config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/tadpole/contigs.fa_QC/nucmer.delta'),
-               sample = config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/mapping/{method}/{sample}.bwamem.lofreq.bam'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/{method}/scaffolds.fasta_QC/nucmer.delta'),
+                method = ["spades", "tadpole"], sample = config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/mapping/{method}/{sample}.bwamem.lofreq.vcf.gz'),
                method = ["spades", "tadpole"], sample = config['samples']),
-        #expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/tadpole/gap-filled-assembly.fa'),
-        #       sample = config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/mapping/{method}/{sample}.bwamem.lofreq.cov.gz'),
+               method = ["spades", "tadpole"], sample = config['samples']),
 
 
 rule read_qc:
@@ -75,6 +73,7 @@ rule read_qc:
         " }} >& {log}"
 
         
+localrules: combine_trim
 rule combine_trim:
     input:
         # this looks rather clumsy but somehow works, i.e. returns a list
@@ -181,7 +180,7 @@ rule tadpole:
     shell:
         '{{ '
         'tadpole.sh {params.javamem} threads={threads} in={input.fq1} in2={input.fq2} out={output.contigs};'
-        ' ln -s $(basename {output.contigs}) {output.scaffolds};'
+        'ln -s $(basename {output.contigs}) {output.scaffolds};'# so that all assemblers seem to output 'scaffolds.fasta'
         'touch -h {output.scaffolds};'# see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
         '}} >& {log}'
 
@@ -218,10 +217,11 @@ rule nucmer_qc:
         "mummerplot {params.plotargs} -p $(echo {output.tiling_plot} | sed -e 's,.png$,,') --png {output.tiling};"
         " }} >& {log}"
 
-
+        
+localrules: contig_joined
 rule contig_joined:
     input:
-        ref = config['references']['genome'],# FIXME: config['references']['references']['genome']
+        ref = config['references']['genome'],
         contigs = "{prefix}/{sample}/assembly/{method}/scaffolds.fasta",
     output:
         '{prefix}/{sample}/assembly/{method}/gap-filled-assembly.fa'
@@ -236,12 +236,14 @@ rule contig_joined:
     shell:
         "simple_contig_joiner.py -c {input.contigs} -r {input.ref}"
         " -o {output} -s {params.seqid} >& {log}"
-    
 
+        
+localrules: map_prep
 rule map_prep:
     """Mapping should happen elsewhere. Link the referencs over there to
     keep things clean"""
     input:
+        # we always map against gap-filled-assembly.fa (not scaffolds.fasta)
         fa = '{prefix}/assembly/{method}/gap-filled-assembly.fa'
     output:
         fa = '{prefix}/mapping/{method}/ref.fa'
@@ -254,3 +256,21 @@ rule map_prep:
         #relpath_to_src = os.path.join(relpath_to_srcdir, os.path.basename(input.fa))
         os.symlink(relpath_to_src, output.fa)
         shell('touch -h {output.fa}')# see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
+
+
+rule genomecov:
+    input:
+        bam = '{prefix}.bam'
+    output:
+        covgz = '{prefix}.cov.gz'
+    log:
+        '{prefix}.cov.log'
+    message:
+        'Computing coverage per position'
+    #threads:
+    #conda:
+    #params:
+    shell:
+        "{{ "
+        " bedtools genomecov -d -ibam {input.bam} | gzip > {output.covgz};"
+        " }} >& {log}"

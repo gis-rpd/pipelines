@@ -5,4 +5,5 @@ skewer: 0.2.2
 bbmap: 37.17
 spades: 3.10.1
 mummer: 3.23
+bedtools: 2.25.0
 simple-contig-joiner: b3650b6

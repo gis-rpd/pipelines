@@ -15,7 +15,8 @@ assert 'platform' in config
 # FIXME to conf once downstream handling clear
 MARK_SHORT_SPLITS="-M"# "-M" or ""
 
-                         
+
+localrules: bwa_index
 rule bwa_index:
     input:
         fa = "{prefix}.{suffix}"
