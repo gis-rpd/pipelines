@@ -68,5 +68,5 @@ with open(NOVOGENE_CFG_FILE, 'r') as stream:
     try:
         novogene_conf = yaml.load(stream)
     except yaml.YAMLError as exc:
-        logger.fatal("Error in loading %s", LEGACY_MAPPER_CFG_FILE)
+        logger.fatal("Error in loading %s", NOVOGENE_CFG_FILE)
         raise

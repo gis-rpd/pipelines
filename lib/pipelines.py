@@ -101,13 +101,16 @@ def snakemake_log_status(log):
             continue
         if line.startswith("["):# time stamp required
             estr = line[1:].split("]")[0]
-            etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+            try:
+                etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+            except:
+                continue
             if not last_etime:
                 last_etime = etime# first is last. useful for undefined status
             if 'steps (100%) done' in line or "Nothing to be done" in line:
                 status = "SUCCESS"
                 break
-            elif 'Exiting' in line:
+            elif 'Exiting' in line or "Error" in line:
                 status = "ERROR"
                 break
     return status, etime
