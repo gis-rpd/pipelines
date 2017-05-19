@@ -76,6 +76,7 @@ def get_machine_type_from_run_num(run_num):
         'HS005': 'macrogen',
         'HS006': 'hiseq 4000',
         'HS007': 'hiseq 4000',
+        'HS008': 'hiseq 4000',
         'NG001': 'novogene hiseq x5',
         'NG002': 'novogene hiseq x5',
         'NG003': 'novogene hiseq x5',

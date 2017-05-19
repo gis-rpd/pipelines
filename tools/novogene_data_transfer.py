@@ -74,6 +74,9 @@ def runs_from_db(connection, win=14):
                     continue
                 mux_id = mux_status['mux_id']
                 out_dir = analysis['out_dir']
+                if not os.path.exists(out_dir):
+                    logger.warning("Direcotry does not exists %s", out_dir)
+                    continue
                 downstream_id = "analysis.{}.per_mux_status.{}.DownstreamSubmission".format(
                     analysis_count, mux_count)
                 if mux_status.get('Status') == "SUCCESS" and \
@@ -207,6 +210,13 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
             job['pipeline_version'] = 'current'
             job['ctime'] = ctime
             job['requestor'] = 'userrig'
+            if is_devel_version():
+                novogene_outdir = os.path.join(novogene_conf['NOVOGENE_OUTDIR'][site]['devel'], \
+                    mux)
+            else:
+                novogene_outdir = os.path.join(novogene_conf['NOVOGENE_OUTDIR'][site]['production'],
+                    mux)
+            job['out_dir_override'] = novogene_outdir
         logger.info("Data transfer completed successfully for %s from %s", mux, run_number)
         job_id = insert_muxjob(connection, mux, job)
         update_downstream_mux(connection, run_number, analysis_id, downstream_id, job_id)

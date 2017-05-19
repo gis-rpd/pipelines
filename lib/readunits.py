@@ -72,13 +72,31 @@ def gen_rg_pu_id(unit):
         return "PU-" + unit['rg_id']
 
 
+# Taken from https://github.com/broadinstitute/viral-ngs/blob/master/pipes/rules/demux.rules
+def objectify_remote(uri):
+    if uri.lower().startswith('s3://'):
+        import snakemake.remote.S3
+        remote = snakemake.remote.S3.RemoteProvider()
+        return remote.remote(uri[5:])
+    elif uri.lower().startswith('gs://'):
+        import snakemake.remote.GS
+        remote = snakemake.remote.GS.RemoteProvider()
+        return remote.remote(uri[5:])
+    elif uri.lower().startswith('sftp://'):
+        import snakemake.remote.SFTP
+        remote = snakemake.remote.SFTP.RemoteProvider()
+        return remote.remote(uri[7:])
+    return uri
+
+
 def fastqs_from_unit(unit):
     """FIXME is this really needed?
     """
+
     if unit['fq2']:
-        return unit['fq1'], unit['fq2']
+        return objectify_remote(unit['fq1']), objectify_remote(unit['fq2'])
     else:
-        return unit['fq1']
+        return objectify_remote(unit['fq1'])
 
 
 def readunit_is_paired(unit):
@@ -93,7 +111,7 @@ def fastqs_from_unit_as_list(unit):
     fqs.append(unit['fq1'])
     if unit['fq2']:
         fqs.append(unit['fq2'])
-    return fqs
+    return [objectify_remote(x) for x in fqs]
 
 
 def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
@@ -135,14 +153,15 @@ def get_samples_and_readunits_from_cfgfile(cfgfile, raise_off=False):
         fq1 = ru_plain.get('fq1')
         fq2 = ru_plain.get('fq2')
 
-        # if we have relative paths, make them abs relative to cfgfile
-        if not os.path.isabs(fq1):
+        # if we have s3 paths, leave them as they are, but make
+        # relative paths abs relative to cfgfile
+        if not os.path.isabs(fq1) and not fq1.startswith("s3://"):
             fq1 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq1))
-        if fq2 and not os.path.isabs(fq2):
+        if fq2 and not os.path.isabs(fq2) and not fq2.startswith("s3://"):
             fq2 = os.path.abspath(os.path.join(os.path.dirname(cfgfile), fq2))
 
         for f in [fq1, fq2]:
-            if f and not os.path.exists(f):
+            if f and not os.path.exists(f) and not f.startswith("s3://"):
                 logger.fatal("Non-existing input file %s in config file %s", f, cfgfile)
                 if not raise_off:
                     raise ValueError(cfgfile)

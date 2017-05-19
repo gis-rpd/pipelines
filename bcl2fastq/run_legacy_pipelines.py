@@ -143,7 +143,7 @@ def main():
                                 _ = subprocess.check_output(cmd, shell=True)
                             except subprocess.CalledProcessError as e:
                                 logger.fatal("The following command failed with return code %s: %s",
-                                             e.returncode, ' '.join(cmd))
+                                             e.returncode, cmd)
                                 logger.fatal("Output: %s", e.output.decode())
                                 logger.fatal("Exiting")
                                 #send_status_mail

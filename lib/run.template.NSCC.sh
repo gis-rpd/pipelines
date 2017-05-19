@@ -1,33 +1,28 @@
 #!/bin/bash
 
-# to run this submission script on the NSCC use:
-#   qsub [-q production] run.sh
-# or to run locally use
+# Use the following to submit the workflow to the cluster:
+#   qsub [-q queue] run.sh [>> log/submission.log]
+# To run everythin locally use
 #   bash run.sh
-# for reruns on aquila use:
-#   qsub run.sh >> log/submission.log
+# To run the master process locally but submit worker jobs:
+#   LOCAL_MASTER=1 bash run.sh
+# For reruns, just run the same as above
 #
-# The environment variable EXTRA_SNAKEMAKE_ARGS will be passed down to
-# snakemake. This allows for example to execute a dryrun:
-#   EXTRA_SNAKEMAKE_ARGS="--dryrun" bash|qsub run.sh
-# or alternatively:
-#   export EXTRA_SNAKEMAKE_ARGS="--dryrun"
+# You can change the behaviour of this script through the following environment variables:
+#
+# - EXTRA_SNAKEMAKE_ARGS will be passed down to snakemake. This allows
+#   for example to execute a dryrun: EXTRA_SNAKEMAKE_ARGS="--dryrun"
 #   bash|qsub run.sh
 #
-# The environment variable SLAVE_Q will be used to specify a queue for
-# the "worker processes" (otherwise DEFAULT_SLAVE_Q set here will be used
-# or scheduler decides if empty)
+# - SLAVE_Q: specify queue for the "worker processes" (otherwise
+#   DEFAULT_SLAVE_Q set here will be used or scheduler decides if
+#   empty)
 #
-# The environment variable DRMAA_OFF will disable DRMAA if set to 1
-# 
-# If the environment variable DEBUG is set the snakemake command will
-# be printed but not exectuted
+# - DRMAA_OFF: disables DRMAA if set to 1
 #
-# Potentially useful arguments:
-# --keep-going : irritating. best to fail immediately
-# --notemp : for debug only
-# --forceall : for debug only
-# --dryrun : just print what would happen
+# - DEBUG: if set the snakemake command will be printed but not  exectuted
+#
+# - LOCAL_MASTER: run snakemaster locally and submit worker jobs
 
 # PBS Pro options:
 # The #PBS must be used to specify PBS Pro options
@@ -39,8 +34,8 @@
 #PBS -j oe
 # snakemake control job run time: 175h == 1 week
 #PBS -l walltime={MASTER_WALLTIME_H}:00:00
-# cpu & memory: memory shoots up for heavily multiplexed libraries
-#PBS -l select=1:mem=4g:ncpus=1
+# cpu & memory: memory can be high for complex DAGs and depends on local rules
+#PBS -l select=1:mem=8g:ncpus=1
 # keep env so that qsub works
 #PBS -V
 # Equivalent for SGE's -cwd doesn't exist in PBS Pro. See below for workaround
@@ -53,17 +48,19 @@ DEBUG=${{DEBUG:-0}}
 #export DRMAA_LIBRARY_PATH=
 #DRMAA_OFF=${{DRMAA_OFF:-0}}
 DRMAA_OFF=1
+LOCAL_CORES=${{LOCAL_CORES:-1}}
 DEFAULT_SLAVE_Q={DEFAULT_SLAVE_Q}
+LOCAL_MASTER=${{LOCAL_MASTER:-0}}
 SNAKEFILE={SNAKEFILE}
 LOGDIR="{LOGDIR}";# should be same as defined above
-DEFAULT_SNAKEMAKE_ARGS="--rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60 --max-jobs-per-second 1 --keep-going"
+DEFAULT_SNAKEMAKE_ARGS="--local-cores $LOCAL_CORES --restart-times 1 --rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60 --max-jobs-per-second 1 --keep-going"
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
 # --printshellcmds: also prints actual commands
 # --latency-wait: might help with FS sync problems. also used by broad: https://github.com/broadinstitute/viral-ngs/blob/master/pipes/Broad_LSF/run-pipe.sh
 
 
-if [ "$ENVIRONMENT" == "BATCH" ]; then
+if [ "$ENVIRONMENT" == "BATCH" ] || [ $LOCAL_MASTER -eq 1 ]; then
     # define qsub options for all jobs spawned by snakemake
     clustercmd="-l select=1:ncpus={{threads}}:mem={{cluster.mem}} -l walltime={{cluster.time}}"
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
@@ -89,22 +86,6 @@ else
     N_ARG="--cores 8"
 fi
 
-
-if [ "$DEBUG" -eq 1 ]; then
-    echo "DEBUG ENVIRONMENT=$ENVIRONMENT" 1>&2;
-    #echo "DEBUG *ENV* $(set | grep ENV)" 1>&2;
-    echo "DEBUG \$0=$0" 1>&2;
-    echo "DEBUG $SHELL=$SHELL" 1>&2;
-    echo "DEBUG python=$(which python)" 1>&2;
-    echo "DEBUG snakemake=$(which snakemake)" 1>&2;
-    echo "DEBUG CLUSTER_ARGS=$CLUSTER_ARGS" 1>&2
-    echo "DEBUG EXTRA_SNAKEMAKE_ARGS=$EXTRA_SNAKEMAKE_ARGS" 1>&2
-    echo "DEBUG DEFAULT_SNAKEMAKE_ARGS=$DEFAULT_SNAKEMAKE_ARGS" 1>&2
-fi
-
-
-# dotkit setup
-source rc/dk_init.rc || exit 1
 
 # snakemake setup
 source rc/snakemake_init.rc || exit 1
@@ -147,7 +128,6 @@ for arg in $sm_args_tokenized; do
         break
     fi
 done
-
 if [ $is_dryrun != 1 ]; then
     {LOGGER_CMD}
 else
@@ -159,5 +139,9 @@ cmd="snakemake $sm_args >> {MASTERLOG} 2>&1"
 if [ $DEBUG -eq 1 ]; then
     echo $cmd
 else
-    eval $cmd
+    if [ $LOCAL_MASTER -eq 1 ]; then
+	eval nohup $cmd &>> $LOGDIR/local_master.log &
+    else
+	eval $cmd
+    fi
 fi

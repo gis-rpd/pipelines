@@ -1,0 +1,27 @@
+{
+    # match short queue
+    "__default__" :
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+                          
+    "bbnorm" :
+    {
+      "time" : "02:00:00",
+      "mem" : 8G,
+    },
+                          
+    "tadpole" :
+    {
+      "time" : "02:00:00",
+      "mem" : 4G,
+    },
+    
+    "map_realn_lofreq" :
+    {
+      "time" : "02:00:00",
+      "mem" : 4G,
+    },
+ }    
+

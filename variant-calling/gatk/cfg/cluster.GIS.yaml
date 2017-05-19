@@ -16,7 +16,7 @@
     "map_sort":
     {
       "time" : "24:00:00",
-      "mem" : 14G,
+      "mem" : 18G,
     },
 
     "dedup":

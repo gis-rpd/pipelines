@@ -27,7 +27,7 @@ SUMMARY_KEYS = ["raw total sequences:",
                 'insert size standard deviation:']
 ETHNICITIES = ['CHS', 'INS', 'MAS']
 MAX_CONT = 0.01999999
-MIN_DEPTH = 7
+MIN_DEPTH = 13.95
 MIN_QC20 = 45*10**9
 
 
@@ -125,16 +125,29 @@ def main(conf_yamls):
 
         fmtheader = workbook.add_format({'bold': True, 'align': 'center'})
         fmtintcomma = workbook.add_format({'num_format': '###,###,###,###0'})
-        fmt01 = workbook.add_format({'num_format': '0.1'})
-        fmt00001 = workbook.add_format({'num_format': '0.0001'})
+        fmt00 = workbook.add_format({'num_format': '0.0'})
+        fmt00000 = workbook.add_format({'num_format': '0.0000'})
 
         worksheet.set_row(0, None, fmtheader)
         worksheet.set_column('B:B', 20, fmtintcomma)
-        worksheet.set_column('C:D', None, fmt01)
-        worksheet.set_column('F:H', None, fmt01)
-        worksheet.set_column('E:E', None, fmt00001)
-        worksheet.set_column('I:K', None, fmt00001)
+        worksheet.set_column('C:D', None, fmt00)
+        worksheet.set_column('F:H', None, fmt00)
+        worksheet.set_column('E:E', None, fmt00000)
+        worksheet.set_column('I:K', None, fmt00000)
         worksheet.set_column('L:L', 20, fmtintcomma)# qc20
+        format1 = workbook.add_format({'bold': 1, 'italic': 1, 'font_color': '#FF0000'})
+        worksheet.conditional_format('H2:H100', {'type':     'cell',
+                                    'criteria': '<',
+                                    'value':    MIN_DEPTH,
+                                    'format':   format1})
+        worksheet.conditional_format('L2:L100', {'type':     'cell',
+                                    'criteria': '<',
+                                    'value':    MIN_QC20,
+                                    'format':   format1})        
+        worksheet.conditional_format('I2:K100', {'type':     'cell',
+                                    'criteria': '>',
+                                    'value':    MAX_CONT,
+                                    'format':   format1})
 
         xls_row_no = 0
     else:

@@ -12,11 +12,15 @@ import os
 import argparse
 import glob
 from datetime import datetime
+import tempfile
+import subprocess
 
 #--- third party imports
 #
 #import yaml
 import dateutil.parser
+import yaml
+from bson.objectid import ObjectId
 
 #--- project specific imports
 #
@@ -31,8 +35,10 @@ from pipelines import generate_window
 from pipelines import get_downstream_outdir
 from pipelines import snakemake_log_status
 from pipelines import PipelineHandler
+from pipelines import is_devel_version
+from pipelines import get_site
 from starterflag import StarterFlag
-
+path_devel = LIB_PATH + "/../"
 
 
 __author__ = "Andreas Wilm"
@@ -40,6 +46,14 @@ __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2017 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
+PIPELINE_VERSION = {
+    'GIS': {
+        'production': '/mnt/projects/rpd/pipelines/',
+        'devel': path_devel},
+    'NSCC': {
+        'devel': '/home/users/astar/gis/gisshared/rpd/pipelines.git/',
+        'production': '/home/users/astar/gis/gisshared/rpd/pipelines/'}
+}
 
 # global logger
 LOGGER = logging.getLogger(__name__)
@@ -53,15 +67,82 @@ LOGGER.addHandler(HANDLER)
 THRESHOLD_H_SINCE_LAST_TIMESTAMP = 24
 THRESHOLD_H_SINCE_START = 72
 
-
+def start_cmd_execution(record, site, out_dir, testing):
+    """ Start the analysis
+    """
+    pipeline_params = " "
+    extra_conf = " --extra-conf "
+    extra_conf += "db-id:" + str(record['_id'])
+    extra_conf += " requestor:" + record['requestor']
+    # sample_cfg and references_cfg
+    references_cfg = ""
+    sample_cfg = ""
+    for outer_key, outer_value in record.items():
+        if outer_key == 'sample_cfg':
+            LOGGER.info("write temp sample_config")
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', prefix='sample_cfg_', \
+                delete=False) as fh:
+                sample_cfg = fh.name
+                yaml.dump(outer_value, fh, default_flow_style=False)
+        elif outer_key == 'references_cfg':
+            LOGGER.info("write temp reference_config")
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', prefix='references_cfg_', \
+                delete=False) as fh:
+                references_cfg = fh.name
+                yaml.dump(outer_value, fh, default_flow_style=False)
+        elif outer_key == 'cmdline':
+            LOGGER.info("pipeline_cmd")
+            for key, value in outer_value.items():
+                pipeline_params += " --" + key + " " + value
+    #pipeline path for production and testing
+    if testing:
+        pipeline_version = ""
+    else:
+        pipeline_version = record['pipeline_version']
+    pipeline_path = get_pipeline_path(site, record['pipeline_name'], \
+        pipeline_version)
+    pipeline_script = os.path.join(pipeline_path, (os.path.split(pipeline_path)[-1] + ".py"))
+    if not pipeline_script:
+            LOGGER.critical("There seems to be trouble in executing cmd_line for JobId: {}".format(str(record['_id'])))
+    pipeline_cmd = pipeline_script + " --sample-cfg " + sample_cfg  + " -o " + out_dir + " --db-logging y"
+    if not sample_cfg:
+        LOGGER.critical("Job doesn't have sample_cfg %s", str(record['_id']))
+        sys.exit(1)
+    if references_cfg:
+        ref_params = " --references-cfg " + references_cfg
+        pipeline_cmd += ref_params
+    if pipeline_params:
+        pipeline_cmd += pipeline_params
+    if extra_conf:
+        pipeline_cmd += extra_conf
+    try:
+        LOGGER.info(pipeline_cmd)
+        _ = subprocess.check_output(pipeline_cmd, stderr=subprocess.STDOUT, shell=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        LOGGER.fatal("The following command failed with return code %s: %s",
+            e.returncode, ' '.join(pipeline_cmd))
+        LOGGER.fatal("Output: %s", e.output.decode())
+        return False
+    
+def get_pipeline_path(site, pipeline_name, pipeline_version):
+    """ get the pipeline path
+    """
+    basedir_map = PIPELINE_VERSION
+    if site not in basedir_map:
+        raise ValueError(site)
+    if is_devel_version():
+        basedir = basedir_map[site]['devel']
+    else:
+        basedir = basedir_map[site]['production']
+    pipeline_path = os.path.join(basedir, pipeline_version, pipeline_name)
+    return pipeline_path
 
 def list_starterflags(path):
     """list starter flag files in path
     """
     return glob.glob(os.path.join(
         path, StarterFlag.pattern.format(timestamp="*")))
-
-
 
 def set_completion_if(dbcol, dbid, out_dir, dryrun=False):
     """Update values for already started job based on log file in out_dir
@@ -73,6 +154,7 @@ def set_completion_if(dbcol, dbid, out_dir, dryrun=False):
     assert rec.get('execution'), ("Looks like job %s was never started", dbid)
     old_status = rec['execution'].get('status')
     start_time = rec['execution'].get('start_time')
+    out_dir = rec['execution'].get('out_dir')
     assert old_status and start_time, (
         "Job start for %s was not logged properly (status or start_time not set)", dbid)
     assert rec['execution']['out_dir'] == out_dir
@@ -91,12 +173,12 @@ def set_completion_if(dbcol, dbid, out_dir, dryrun=False):
 
     if status == "SUCCESS":
         assert end_time
-        dbcol.update_one({"_id": dbid},
+        dbcol.update_one({"_id": ObjectId(dbid)},
                          {"$set": {"execution.status": "SUCCESS",
                                    "execution.end_time": end_time}})
     elif status == "ERROR":
         assert end_time
-        dbcol.update_one({"_id": dbid},
+        dbcol.update_one({"_id": ObjectId(dbid)},
                          {"$set": {"execution.status": "FAILED",
                                    "execution.end_time": end_time}})
     else:
@@ -117,13 +199,12 @@ def set_completion_if(dbcol, dbid, out_dir, dryrun=False):
 def set_started(dbcol, dbid, start_time, dryrun=False):
     """Update records for started or restarted analysis
     """
-
-    rec = dbcol.find_one({"_id": dbid})
+    rec = dbcol.find_one({"_id": ObjectId(dbid)})
     assert rec, "No objects found with db-id {}".format(dbid)
 
     # determine if this is a start or a restart (or a mistake)
     assert rec.get('execution')
-    if rec['execution']['start_time']:
+    if rec['execution'].get('start_time'):
         assert rec['execution'].get('status')
         mode = 'restart'
     else:
@@ -133,27 +214,27 @@ def set_started(dbcol, dbid, start_time, dryrun=False):
     if dryrun:
         LOGGER.info("Skipping DB update due to dryrun option")
         return
-
+    out_dir = rec['execution'].get('out_dir')
     if mode == 'start':
         res = dbcol.update_one(
-            {"_id": dbid},
-            {"$set": {"execution": {"start_time" : start_time, "status" : "STARTED"}}})
+            {"_id": ObjectId(dbid)},
+            {"$set": {"execution": {"start_time" : start_time, "status" : "STARTED", "out_dir" : out_dir}}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
     elif mode == 'restart':
-        res = dbcol.update_one({"_id": dbid},
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
                                {"$set": {"execution.status": "RESTART"}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
-        res = dbcol.update_one({"_id": dbid},
-                               {"$unset": {"run.end_time": ""}})
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
+                               {"$unset": {"execution.end_time": ""}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
-        res = dbcol.update_one({"_id": dbid},
-                               {"$inc":{"run.num_restarts": 1}})
+        res = dbcol.update_one({"_id": ObjectId(dbid)},
+                               {"$inc":{"execution.num_restarts": 1}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
 
@@ -189,46 +270,50 @@ def main():
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
-    LOGGER.info("Database connection established")
+    #LOGGER.info("Database connection established")
     dbcol = connection.gisds.pipeline_runs
-
+    site = get_site()
     epoch_now, epoch_then = generate_window(args.win)
-    cursor = dbcol.find({"ctime": {"$gt": epoch_then, "$lt": epoch_now}})
+    cursor = dbcol.find({"ctime": {"$gt": epoch_then, "$lt": epoch_now}, "site" : site})
     LOGGER.info("Looping through {} jobs".format(cursor.count()))
     for job in cursor:
-
-        #dbid = ObjectId(record['_id'])
         dbid = job['_id']
 
-
+        # only set here to avoid code duplication below
         try:
-            # only set here to avoid code duplication below
             out_dir = job['execution']['out_dir']
         except KeyError:
             out_dir = None
 
-        # a new analysis to start
+        # no execution dict means start a new analysis
         if not job.get('execution'):
             LOGGER.info('Job {} to be started'.format(dbid))
-
             # determine out_dir and set in DB
-            out_dir = get_downstream_outdir(
-                job['requestor'], job['pipeline_name'], job['pipeline_version'])
-            res = dbcol.update_one(
-                {"_id": dbid},
-                {"$set": {"execution.out_dir": out_dir}})
-            assert res.modified_count == 1, (
-                "Modified {} documents instead of 1".format(res.modified_count))
-
+            # out_dir_override will take precedence over generating out_dir with get_downstream_outdir function 
+            if job.get('out_dir_override'):
+                out_dir = job.get('out_dir_override')
+                assert not os.path.exists(out_dir), ("Direcotry already exists {}").format(out_dir)
+            else:
+                out_dir = get_downstream_outdir(
+                    job['requestor'], job['pipeline_name'], job['pipeline_version'])
             # Note, since execution (key) exists, accidental double
             # starts are prevented even before start time etc is
             # logged via flagfiles.  No active logging here so that
             # flag files logging just works.
 
-            # FIXME Start new run by calling the resp. wrapper with resp. parameters
-            raise(NotImplementedError("Start new run for {}".format(dbid)))
-
-        elif list_starterflags(out_dir):# if out_dir is None, then something's wrong
+            if args.dryrun:
+                LOGGER.info("Skipping dry run option")
+                continue
+            status = start_cmd_execution(job, site, out_dir, args.testing)
+            if status:
+                res = dbcol.update_one(
+                    {"_id": ObjectId(dbid)},
+                    {"$set": {"execution.out_dir": out_dir}})
+                assert res.modified_count == 1, (
+                    "Modified {} documents instead of 1".format(res.modified_count))
+            else:
+                LOGGER.warning("Job {} could not be started".format(dbid))
+        elif list_starterflags(out_dir):# out_dir cannot be none because it's part of execution dict 
             LOGGER.info('Job {} in {} started but not yet logged as such in DB'.format(
                 dbid, out_dir))
 
@@ -236,17 +321,13 @@ def main():
             assert len(matches) == 1, (
                 "Got several starter flags in {}".format(out_dir))
             sflag = StarterFlag(matches[0])
-            assert sflag.dbid == dbid
-
-            set_started(dbcol, sflag.dbid, sflag.timestamp, dryrun=args.dryrun)
-
+            assert sflag.dbid == str(dbid)
+            set_started(dbcol, sflag.dbid, str(sflag.timestamp), dryrun=args.dryrun)
             os.unlink(sflag.filename)
 
-        elif job['execution'].get('status') in ['STARTED', 'RESTARTED']:
+        elif job['execution'].get('status') in ['STARTED', 'RESTART']:
             LOGGER.info('Job %s in %s set as re|started so checking on completion', dbid, out_dir)
-            set_completion_if(dbcol, sflag.dbid, out_dir, dryrun=args.dryrun)
-            raise(NotImplementedError(
-                "Run downstream_logger.py in `check` mode (also use args.testing) with db-id {} in {}".format(dbid, out_dir)))
+            set_completion_if(dbcol, dbid, out_dir, dryrun=args.dryrun)
 
         else:
             # job complete

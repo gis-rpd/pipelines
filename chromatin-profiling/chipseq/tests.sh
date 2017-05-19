@@ -6,6 +6,8 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+PIPELINE=$(basename $(dirname $(readlink -f $0)))
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -57,7 +59,6 @@ pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
-test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
@@ -72,7 +73,7 @@ rep1_pe_basecmd="$WRAPPER --control-fq1 $CTRL_R1 --treatment-fq1 $REP1_R1"
 rep1_se_basecmd="$WRAPPER --control-fq1 $CTRL_R1 --treatment-fq1 $REP1_R1"
 
 
-echo 'FIXME test qualilty of results' 1>&2
+echo 'FIXME test quality of results' 1>&2
 echo 'FIXME bam injection' 1>&2
 
 
@@ -80,7 +81,7 @@ echo 'FIXME bam injection' 1>&2
 SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG: WES" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-wes.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $rep1_pe_basecmd -t TF -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
@@ -98,7 +99,7 @@ fi
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: TF PE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $rep1_pe_basecmd -t TF -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -106,7 +107,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: TF SE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $rep1_se_basecmd -t TF -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -114,7 +115,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
     
     echo "Dryrun: skip dfilter" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $rep1_pe_basecmd -t TF --skip-dfilter -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -122,7 +123,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: histone narrow" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $rep1_pe_basecmd -t histone-narrow -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -138,14 +139,14 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real Run: TF PE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $rep1_pe_basecmd -t TF -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
     jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
     echo "Started job $jid writing to $odir. You will receive an email"
 
     echo "Real Run: TF SE" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}-targeted.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $rep1_se_basecmd -t TF -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
     jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')

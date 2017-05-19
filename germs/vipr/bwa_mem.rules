@@ -1,0 +1,75 @@
+# standard library imports
+#
+import os
+
+# third party imports
+#
+#/
+
+# project specific imports
+#
+assert 'samples' in config
+assert 'platform' in config
+
+
+# FIXME to conf once downstream handling clear
+MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+                         
+rule bwa_index:
+    input:
+        fa = "{prefix}.{suffix}"
+    output:
+        pac = "{prefix}.{suffix,(fasta|fa)}.pac",# incomplete but should do
+    log:
+        pac = "{prefix}.{suffix}.index.log",
+    message:
+        "Indexing {input.fa}"
+    #params:
+    threads:
+        1
+    shell:
+        "bwa index {input.fa} >& {log};"
+
+        
+
+# Expecting SE/PE input read length >70 (BWA-MEM limitation)
+rule map_realn_lofreq:
+    """
+    - fixmate only works on name sorted files.
+    - fixmate ignores secondary  alignments, i.e. safe to use with bwa mem -M:
+      http://sourceforge.net/p/samtools/mailman/message/30556922/
+    - Screw read groups
+    - More threads mean more memory because of sorting
+    """
+    input:
+        # assuming reference (assembled elsewhere) was linked/copied into the current out folder
+        reffa = os.path.join(RESULT_OUTDIR, "{sample}/mapping/{method}/ref.fa"),
+        bwaidx = os.path.join(RESULT_OUTDIR, "{sample}/mapping/{method}/ref.fa.pac"),
+        fastqs = expand(os.path.join(RESULT_OUTDIR, "{{sample}}/reads/R{n}.fastq.gz"), n=["1", "2"])
+    output:
+        bam = os.path.join(RESULT_OUTDIR, "{sample}/mapping/{method}/{sample}.bwamem.lofreq.bam")
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}/mapping/{method}/{sample}.bwamem.lofreq.bam.log")
+    params:
+        mark_short_splits = MARK_SHORT_SPLITS,
+        bwa_mem_custom_args = config.get("bwa_mem_custom_args", ""),
+        # samtools threading has little effect on overall runtime. but on memory.
+        sort_mem = '500M',
+        rg_id = "1",# since we merged fastqs
+        sample = lambda wildcards: wildcards.sample,
+    message:
+        'Aligning PE reads, fixing mate information and converting to sorted BAM'
+    threads:
+        # lofreq alnqual is the single-thread bottleneck here
+        # too many threads are a waste of slots here
+        2
+    shell:
+        "{{ bwa mem {params.mark_short_splits} -t {threads}"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tSM:{params.sample}\\tCN:GIS'"
+        " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
+        " lofreq viterbi -f {input.reffa} - | "
+        " samtools fixmate - - | "
+        " lofreq alnqual -u - {input.reffa} | "
+        " lofreq indelqual --dindel -f {input.reffa} - | "
+        " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"

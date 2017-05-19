@@ -73,6 +73,10 @@ Scientific & Research Computing
 PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
 
+WORKFLOW_COMPLETION_FLAGFILE = "WORKFLOW_COMPLETE"
+
+DOWNSTREAM_OUTDIR_TEMPLATE = "{basedir}/{user}/{pipelinename}-version-{pipelineversion}/{timestamp}"
+
 
 def snakemake_log_status(log):
     """
@@ -93,15 +97,20 @@ def snakemake_log_status(log):
     last_etime = None
     while last_lines: # iterate from end
         line = last_lines.pop()
+        if "Refusing to overwrite existing log bundle" in line:
+            continue
         if line.startswith("["):# time stamp required
             estr = line[1:].split("]")[0]
-            etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+            try:
+                etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+            except:
+                continue
             if not last_etime:
                 last_etime = etime# first is last. useful for undefined status
             if 'steps (100%) done' in line or "Nothing to be done" in line:
                 status = "SUCCESS"
                 break
-            elif 'Exiting' in line:
+            elif 'Exiting' in line or "Error" in line:
                 status = "ERROR"
                 break
     return status, etime
@@ -119,9 +128,9 @@ def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
         pversion = pipeline_version
     else:
         pversion = get_pipeline_version(nospace=True)
-    outdir = "{basedir}/{requestor}/{pversion}/{pname}/{ts}".format(
-        basedir=basedir, requestor=requestor, pversion=pversion,
-        pname=pipeline_name, ts=generate_timestamp())
+    outdir = DOWNSTREAM_OUTDIR_TEMPLATE.format(
+        basedir=basedir, user=requestor, pipelineversion=pversion,
+        pipelinename=pipeline_name, timestamp=generate_timestamp())
     return outdir
 
 
@@ -136,8 +145,6 @@ class PipelineHandler(object):
     RC_DIR = "rc"
 
     RC_FILES = {
-        # used to load dotkit
-        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),
         # used to load snakemake
         'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),
         # used as bash prefix within snakemakejobs
@@ -210,8 +217,6 @@ class PipelineHandler(object):
             self.outdir, self.PIPELINE_CFGFILE)
 
         # RCs
-        self.dk_init_file = os.path.join(
-            self.outdir, self.RC_FILES['DK_INIT'])
         self.snakemake_init_file = os.path.join(
             self.outdir, self.RC_FILES['SNAKEMAKE_INIT'])
         self.snakemake_env_file = os.path.join(
@@ -271,27 +276,17 @@ class PipelineHandler(object):
 
 
     @staticmethod
-    def write_dk_init(rc_file, overwrite=False):
-        """write dotkit init rc
-        """
-        if not overwrite:
-            assert not os.path.exists(rc_file), rc_file
-        with open(rc_file, 'w') as fh:
-            fh.write("eval `{}`;\n".format(' '.join(get_init_call())))
-
-
-    @staticmethod
     def write_snakemake_init(rc_file, overwrite=False):
         """write snakemake init rc (loads miniconda and, activate source')
         """
         if not overwrite:
             assert not os.path.exists(rc_file), rc_file
         with open(rc_file, 'w') as fh:
-            fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
-            fh.write("reuse -q miniconda-3\n")
-            #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
-            #fh.write("source activate snakemake-3.7.1\n")
-            fh.write("source activate snakemake-3.8.2\n")
+            # init first so that modules are present
+            fh.write("{}\n".format(" ".join(get_init_call())))
+            fh.write("module load miniconda3\n")
+            fh.write("source activate {}\n".format(site_cfg['snakemake_env']))
+
 
 
     def write_snakemake_env(self, overwrite=False):
@@ -303,15 +298,14 @@ class PipelineHandler(object):
 
         with open(self.snakemake_env_file, 'w') as fh_rc:
             fh_rc.write("# used as bash prefix within snakemake\n\n")
-            fh_rc.write("# init dotkit\n")
-            fh_rc.write("source {}\n\n".format(os.path.relpath(self.dk_init_file, self.outdir)))
-
+            fh_rc.write("# make sure module command is defined (non-login shell). see http://lmod.readthedocs.io/en/latest/030_installing.html\n")
+            fh_rc.write("{}\n".format(" ".join(get_init_call())))
             fh_rc.write("# load modules\n")
             with open(self.pipeline_cfgfile_out) as fh_cfg:
                 yaml_data = yaml.safe_load(fh_cfg)
                 assert "modules" in yaml_data
                 for k, v in yaml_data["modules"].items():
-                    fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
+                    fh_rc.write("module load {}/{}\n".format(k, v))
 
             fh_rc.write("\n")
             fh_rc.write("# unofficial bash strict has to come last\n")
@@ -373,7 +367,6 @@ class PipelineHandler(object):
             else:
                 assert cfgkey not in merged_cfg
                 merged_cfg[cfgkey] = cfg
-
         # determine num_chroms needed by some pipelines
         # FIXME ugly because sometimes not needed
         if merged_cfg.get('references'):
@@ -423,7 +416,6 @@ class PipelineHandler(object):
             self.write_cluster_cfg()
         self.write_merged_cfg()
         self.write_snakemake_env()
-        self.write_dk_init(self.dk_init_file)
         self.write_snakemake_init(self.snakemake_init_file)
         self.write_run_template()
 
@@ -443,9 +435,9 @@ class PipelineHandler(object):
                 os.path.dirname(self.run_out), master_q_arg,
                 os.path.basename(self.run_out), self.submissionlog)
         else:
-            cmd = "cd {} && qsub {} {} >> {}".format(
-                os.path.dirname(self.run_out), master_q_arg,
-                os.path.basename(self.run_out), self.submissionlog)
+            cmd = "cd {} && {} {} {} >> {}".format(
+                os.path.dirname(self.run_out), site_cfg['master_submission_cmd'], 
+                master_q_arg, os.path.basename(self.run_out), self.submissionlog)
 
         if no_run:
             logger.warning("Skipping pipeline run on request. Once ready, use: %s", cmd)
@@ -453,9 +445,22 @@ class PipelineHandler(object):
         else:
             logger.info("Starting pipeline: %s", cmd)
             #os.chdir(os.path.dirname(run_out))
-            _ = subprocess.check_output(cmd, shell=True)
-            submission_log_abs = os.path.abspath(os.path.join(self.outdir, self.submissionlog))
-            master_log_abs = os.path.abspath(os.path.join(self.outdir, self.masterlog))
+            try:
+                res = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                # if cluster has not compute nodes (e.g. AWS
+                # autoscaling to 0), UGE will throw an error, but job
+                # still gets submitted
+                if 'job is not allowed to run in any queue' in e.output.decode():
+                    logger.warning("Looks like cluster cooled down (no compute nodes available)."
+                                   " Job is submitted nevertheless and should start soon.")
+                else:
+                    raise
+
+            submission_log_abs = os.path.abspath(os.path.join(
+                self.outdir, self.submissionlog))
+            master_log_abs = os.path.abspath(os.path.join(
+                self.outdir, self.masterlog))
             logger.debug("For submission details see %s", submission_log_abs)
             logger.info("The (master) logfile is %s", master_log_abs)
 
@@ -528,14 +533,14 @@ def get_pipeline_version(nospace=False):
     os.chdir(PIPELINE_ROOTDIR)
     if os.path.exists(".git"):
         commit = None
-        cmd = ['git', 'describe', '--always', '--tags']
+        cmd = ['git', 'rev-parse', '--short', 'HEAD']
         try:
             res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             commit = res.decode().strip()
         except (subprocess.CalledProcessError, OSError) as _:
             pass
         if commit:
-            version = "{} commit {}".format(version, commit)
+            version = "{} {}".format(version, commit)
     if nospace:
         version = version.replace(" ", "-")
     os.chdir(cwd)
@@ -569,10 +574,9 @@ def get_cluster_cfgfile(cfg_dir):
 def get_init_call():
     """return dotkit init call
     """
-    cmd = [site_cfg['init']]
+    cmd = ['source', site_cfg['init']]
     if is_devel_version():
-        cmd.append('-d')
-
+        cmd = ['RPD_TESTING=1'] + cmd
     return cmd
 
 
@@ -581,22 +585,21 @@ def get_rpd_vars():
     """
 
     cmd = get_init_call()
+    cmd = ' '.join(cmd) + ' && set | grep "^RPD_"'
     try:
-        res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        res = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
-        logger.fatal("Couldn't call init as '%s'", ' '.join(cmd))
+        logger.fatal("Couldn't call init %s. Result was: %s", cmd, res)
         raise
-
     rpd_vars = dict()
     for line in res.decode().splitlines():
-        if line.startswith('export '):
-            line = line.replace("export ", "")
-            line = ''.join([c for c in line if c not in '";\''])
+        if line.startswith('RPD_') and '=' in line:
+            #line = line.replace("export ", "")
+            #line = ''.join([c for c in line if c not in '";\''])
             #logger.debug("line = {}".format(line))
             k, v = line.split('=')
             rpd_vars[k.strip()] = v.strip()
     return rpd_vars
-
 
 
 def isoformat_to_epoch_time(ts):
@@ -608,6 +611,7 @@ def isoformat_to_epoch_time(ts):
                    minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
     epoch_time = calendar.timegm(dt.timetuple()) + dt.microsecond/1000000.0
     return epoch_time
+
 
 def relative_epoch_time(epoch_time1, epoch_time2):
     """
@@ -827,9 +831,9 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
             return
 
     bundle = os.path.join(log_dir, "logs.tar.gz")# relative to pipeline_outdir
-    if os.path.exists(os.path.join(pipeline_outdir, bundle)) and not overwrite:
-        logger.warning("Refusing to overwrite existing log bundle.")
-        return
+    if not overwrite and os.path.exists(os.path.join(pipeline_outdir, bundle)):
+        bundle = os.path.join(log_dir, "logs.{}.tar.gz".format(generate_timestamp()))
+        assert not os.path.exists(os.path.join(pipeline_outdir, bundle))
 
     orig_dir = os.getcwd()
     os.chdir(pipeline_outdir)
@@ -847,3 +851,11 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
             os.unlink(f)
 
     os.chdir(orig_dir)
+
+
+def mark_as_completed():
+    """Dropping a flag file marking analysis as complete"""
+    analysis_dir = os.getcwd()
+    flag_file = os.path.join(analysis_dir, WORKFLOW_COMPLETION_FLAGFILE)
+    with open(flag_file, 'a') as fh:
+        fh.write("{}\n".format(generate_timestamp()))
