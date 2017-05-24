@@ -4,12 +4,12 @@ rule dedup:
     output:
         bam='{prefix}.dedup.bam'
     log:
-        bam='{prefix}.dedup.bam.log'
+        '{prefix}.dedup.bam.log'
     message:
         "Removing duplicates with sambamba"
     threads:
         8
     shell:
-        "sambamba markdup -t {threads} --tmpdir $(dirname {output}) {input} {output}"
+        "sambamba markdup -t {threads} --tmpdir $(dirname {output}) {input} {output} >& {log}"
 
         

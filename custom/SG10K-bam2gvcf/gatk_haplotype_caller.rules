@@ -1,0 +1,79 @@
+"""
+Based on rules/variant_calling/gatk_haplotype_caller.rules from https://bitbucket.org/johanneskoester/snakemake-workflows/ (commit fa47806)
+- original author Johannes Köster (http://johanneskoester.bitbucket.org)
+- original license: MIT
+"""
+
+
+assert 'references' in config
+assert 'genome' in config["references"]
+assert 'region_clusters' in config["references"]
+
+    
+rule gatk_haplotype_caller:
+    input:
+        bam = lambda wc: config["sample_bam_map"][wc.sample],
+        bai = lambda wc: config["sample_bam_map"][wc.sample] + ".bai",
+        ref = config["references"]["genome"],
+    output:
+        gvcf = temp("{prefix}/{sample}.{ctr}.g.vcf"),
+        idx = temp("{prefix}/{sample}.{ctr}.g.vcf.idx"),
+        bed = temp("{prefix}/{sample}.{ctr}.bed")
+    log:
+        "{prefix}/{sample}.{ctr}.g.vcf.log"
+    params:
+        custom = config.get("params_gatk", ""),
+        region_cluster_num = lambda wc: int(wc.ctr)
+    threads:
+        # original comment: "haplotype caller currently does not reliably
+        # use more than 2 threads".  we found it to not work reliably with
+        # anything >1.
+        1
+    message:
+        "Running GATK HC to produce {output.gvcf} logging to {log}"
+    run:
+        # ctr is the region cluster counter
+        with open(output.bed, 'w') as fh:
+            for region in config["references"]["region_clusters"][params.region_cluster_num]:
+            # region follows following convention sq:start-end (unit offset)
+                r_sq, r_startend = region.split(":")
+                r_start, r_end = [int(x) for x in r_startend.split("-")]
+                r_start -= 1
+                assert r_start >= 0
+                fh.write("{}\t{}\t{}\n".format(r_sq, r_start, r_end))
+        shell(
+            "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+            " -T HaplotypeCaller -R {input.ref} -I {input.bam}"
+            " -L {output.bed} {params.custom}"
+            " --emitRefConfidence GVCF"
+            " --dbsnp {config[references][dbsnp]}"
+            " -o {output.gvcf} >& {log}")
+
+
+ruleorder: gatk_catvariants > bgzip
+rule gatk_catvariants:
+    input:
+        split_gvcfs = expand("{{prefix}}.{ctr}.g.vcf",
+                             ctr = range(len(config["references"]["region_clusters"])))
+    output:
+        cat_gvcf = protected("{prefix}.concat.g.vcf.gz")
+    #log:
+    #    "{prefix}.concat.g.vcf.gz.log"
+    run:
+        import pipes
+        bgzip_pipe = pipes.Template()
+        bgzip_pipe.append('bgzip', '--')
+        header_printed = False
+        with bgzip_pipe.open(output.cat_gvcf, 'w') as fhout:
+            for f in input.split_gvcfs:
+                with open(f) as fhin:
+                    had_header = False
+                    for line in fhin:
+                        if line.startswith('#'):
+                            if not header_printed:
+                                had_header = True
+                                fhout.write(line)
+                        else:
+                            fhout.write(line)
+                    if had_header:
+                        header_printed = True
