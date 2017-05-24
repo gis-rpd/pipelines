@@ -35,15 +35,19 @@ include: "../../rules/samtools.rules"
 include: "bwa_mem.rules"
 include: "lofreq.rules"
 
-   
+
+PLOTPY = srcdir("aux/plot.py")
+# don't use in run: https://groups.google.com/forum/#!topic/snakemake/oRcKyATTqpk
+
+
 rule final:
     input:
         expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/{method}/scaffolds.fasta_QC/nucmer.delta'),
                 method = ["spades", "tadpole"], sample = config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/mapping/{method}/{sample}.bwamem.lofreq.vcf.gz'),
-               method = ["spades", "tadpole"], sample = config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/mapping/{method}/{sample}.bwamem.lofreq.cov.gz'),
-               method = ["spades", "tadpole"], sample = config['samples']),
+               method = ["spades", "tadpole", "input-ref"], sample = config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/mapping/{method}/{sample}.bwamem.lofreq.plot.png'),
+               method = ["spades", "tadpole", "input-ref"], sample = config['samples']),
 
 
 rule read_qc:
@@ -98,7 +102,10 @@ rule combine_trim:
         if len(input.fq1) > 1:
             shell("{{ zcat {input.fq1} | gzip > {output.fq1}; zcat {input.fq2} | gzip > {output.fq2}; }} >& {log};")
         else:
-            shell("{{ ln -v {input.fq1} {output.fq1}; ln -v {input.fq2} {output.fq2}; }} >& {log};")
+            ifq1rel = os.path.relpath(str(input.fq1), os.path.dirname(str(output.fq1)))
+            ifq2rel = os.path.relpath(str(input.fq2), os.path.dirname(str(output.fq2)))
+            shell("{{ ln -sf {ifq1rel} {output.fq1} && touch -h {output.fq1}; ln -sf {ifq2rel} {output.fq2} && touch -h {output.fq2}; }} >& {log};")
+            # for touch, see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
 
             
 rule bbnorm:
@@ -180,7 +187,7 @@ rule tadpole:
     shell:
         '{{ '
         'tadpole.sh {params.javamem} threads={threads} in={input.fq1} in2={input.fq2} out={output.contigs};'
-        'ln -s $(basename {output.contigs}) {output.scaffolds};'# so that all assemblers seem to output 'scaffolds.fasta'
+        'ln -sf $(basename {output.contigs}) {output.scaffolds};'# so that all assemblers seem to output 'scaffolds.fasta'
         'touch -h {output.scaffolds};'# see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
         '}} >& {log}'
 
@@ -237,20 +244,21 @@ rule contig_joined:
         "simple_contig_joiner.py -c {input.contigs} -r {input.ref}"
         " -o {output} -s {params.seqid} >& {log}"
 
-        
+
+    
 localrules: map_prep
 rule map_prep:
     """Mapping should happen elsewhere. Link the referencs over there to
     keep things clean"""
     input:
         # we always map against gap-filled-assembly.fa (not scaffolds.fasta)
-        fa = '{prefix}/assembly/{method}/gap-filled-assembly.fa'
+        fa = lambda wc: config['references']['genome'] if wc.method == "input-ref" else '{prefix}/assembly/{method}/gap-filled-assembly.fa'.format(prefix=wc.prefix, method=wc.method)
     output:
         fa = '{prefix}/mapping/{method}/ref.fa'
     #log:
     #    '{prefix}/mapping/{method}/ref.log'
     message:
-        'Linking assembled reference to mapping folder'
+        'Linking appropriate fasta to mapping folder'
     run:
         relpath_to_src = os.path.relpath(input.fa, start=os.path.dirname(output.fa))
         #relpath_to_src = os.path.join(relpath_to_srcdir, os.path.basename(input.fa))
@@ -274,3 +282,19 @@ rule genomecov:
         "{{ "
         " bedtools genomecov -d -ibam {input.bam} | gzip > {output.covgz};"
         " }} >& {log}"
+
+        
+localrules: plot        
+rule plot:
+    input:
+        covgz = '{prefix}.cov.gz',
+        vcfgz = '{prefix}.vcf.gz'
+    output:
+        plot = '{prefix}.plot.png'
+    log:
+        '{prefix}.plot.log'
+    message:
+        'Plotting coverage variant position plus AF'
+    shell:
+        PLOTPY + " --vcf {input.vcfgz} --cov {input.covgz} --plot {output.plot} >& {log};"
+

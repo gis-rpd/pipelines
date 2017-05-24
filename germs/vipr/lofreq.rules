@@ -10,11 +10,11 @@ rule lofreq_call:
     output:
         vcf = '{dirname}/{prefix}.vcf.gz'
     log:
-        '{dirname}/prefix}.vcf.log'
+        '{dirname}/{prefix}.vcf.log'
     message:
         "Calling variants with LoFreq"
     threads:
-        4
+        8
     params:
         maxdepth = MAXDEPTH,
     shell:
