@@ -1,3 +1,4 @@
+# FIXME to conf
 MAXDEPTH = 100000
 
 
@@ -14,7 +15,7 @@ rule lofreq_call:
     message:
         "Calling variants with LoFreq"
     threads:
-        8
+        16
     params:
         maxdepth = MAXDEPTH,
     shell:

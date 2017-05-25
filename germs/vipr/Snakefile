@@ -17,11 +17,6 @@ if LIB_PATH not in sys.path:
 RESULT_OUTDIR = 'out'
 
 
-# FIXME to conf once downstream handling clear
-MARK_SHORT_SPLITS="-M"# "-M" or ""
-
-
-
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
@@ -62,7 +57,7 @@ rule read_qc:
     message:
         "Running QC (trimming and filtering) on input reads"
     threads:
-        4# FIXME
+        4
     #conda:
     params:
         endqual = 3,
@@ -94,7 +89,6 @@ rule combine_trim:
         "Combining pairs (if needed). See log file {log}"
     threads:
         1
-    # FIXME looks like this overwrites if pairs are given
     #conda:
     #params:
     run:
@@ -122,7 +116,7 @@ rule bbnorm:
         "Normalizing reads with bbnorm"
     threads:
         # runs in minutes for this type of data, so no need to speed up further
-        4# FIXME 1
+        1
     #conda:
     #    "envs/bbmap.yaml"
     params:
@@ -149,7 +143,7 @@ rule spades:
         "Assembling normalized reads with Spades"
     threads:
         # runs in minutes for normed data, so no need to speed up further
-        4# FIXME 1
+        1
     #conda:
     #    "envs/spades.yaml"
     params:
@@ -179,7 +173,7 @@ rule tadpole:
         "Assembling reads with BBtools' tadpole"
     threads:
         # runs in minutes for this type of data, so no need to speed up further
-        4# FIXME 1
+        1
     #conda:
     #    "envs/bbmap.yaml"
     params:
@@ -192,8 +186,9 @@ rule tadpole:
         '}} >& {log}'
 
         
+localrules: nucmer_qc
 rule nucmer_qc:
-    """FIXME simple enough to be local rule"""
+    """Simple Nucmer alignment against user reference"""
     input:
         ref = config['references']['genome'],# FIXME: config['references']['references']['genome']
         query = "{prefix}.{suffix}"
@@ -244,7 +239,6 @@ rule contig_joined:
         "simple_contig_joiner.py -c {input.contigs} -r {input.ref}"
         " -o {output} -s {params.seqid} >& {log}"
 
-
     
 localrules: map_prep
 rule map_prep:
@@ -266,6 +260,7 @@ rule map_prep:
         shell('touch -h {output.fa}')# see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
 
 
+localrules: genomecov
 rule genomecov:
     input:
         bam = '{prefix}.bam'

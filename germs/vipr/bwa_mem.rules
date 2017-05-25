@@ -27,8 +27,8 @@ rule bwa_index:
     message:
         "Indexing {input.fa}"
     #params:
-    threads:
-        1
+    #threads:
+    #    1
     shell:
         "bwa index {input.fa} >& {log};"
 
@@ -62,8 +62,8 @@ rule map_realn_lofreq:
     message:
         'Aligning PE reads, fixing mate information and converting to sorted BAM'
     threads:
-        # lofreq alnqual is the single-thread bottleneck here
-        # too many threads are a waste of slots here
+        # lofreq alnqual is the single-threaded bottleneck here, so
+        # using many threads would be a waste of slots
         2
     shell:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
