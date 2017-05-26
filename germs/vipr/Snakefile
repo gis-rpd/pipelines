@@ -34,6 +34,7 @@ include: "lofreq.rules"
 PLOTPY = srcdir("aux/plot.py")
 # don't use in run: https://groups.google.com/forum/#!topic/snakemake/oRcKyATTqpk
 
+#localrules: combine_trim, nucmer_qc, contig_joined,  map_prep,  genomecov, plot        
 
 rule final:
     input:
@@ -115,8 +116,8 @@ rule bbnorm:
     message:
         "Normalizing reads with bbnorm"
     threads:
-        # runs in minutes for this type of data, so no need to speed up further
-        1
+        # FIXME runs in minutes for this type of data when set to 4, runs for hours when so to less?
+        4
     #conda:
     #    "envs/bbmap.yaml"
     params:
@@ -175,7 +176,7 @@ rule tadpole:
         # runs in minutes for this type of data, so no need to speed up further
         1
     #conda:
-    #    "envs/bbmap.yaml"
+    #    "envs/tadpole.yaml"
     params:
         javamem='-Xmx8g'
     shell:
