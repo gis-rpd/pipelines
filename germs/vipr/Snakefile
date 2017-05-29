@@ -29,6 +29,8 @@ RESULT_OUTDIR = 'out'
 include: "../../rules/samtools.rules"
 include: "bwa_mem.rules"
 include: "lofreq.rules"
+include: "../../rules/logging.rules"
+include: "../../rules/report.rules"
 
 
 PLOTPY = srcdir("aux/plot.py")
@@ -38,6 +40,7 @@ PLOTPY = srcdir("aux/plot.py")
 
 rule final:
     input:
+        "report.html",
         expand(os.path.join(RESULT_OUTDIR, '{sample}/assembly/{method}/scaffolds.fasta_QC/nucmer.delta'),
                 method = ["spades", "tadpole"], sample = config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/mapping/{method}/{sample}.bwamem.lofreq.vcf.gz'),
