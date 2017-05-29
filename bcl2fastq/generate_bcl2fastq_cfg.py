@@ -107,6 +107,22 @@ def generate_usebases(barcode_lens, runinfo):
         ub_list.append(str(k + ':' + ub))
     return ub_list
 
+def get_rest_data(run_num, test_server=None):
+    """ Get rest info from ELM
+    """
+    if test_server:
+        rest_url = rest_services['run_details']['testing'].replace("run_num", run_num)
+        logger.info("development server")
+    else:
+        rest_url = rest_services['run_details']['production'].replace("run_num", run_num)
+        logger.info("production server")
+    response = requests.get(rest_url)
+    if response.status_code != requests.codes.ok:
+        response.raise_for_status()
+        sys.exit(1)
+    rest_data = response.json()
+    logger.debug("rest_data from {}: {}".format(rest_url, rest_data))
+    return rest_data
 
 def main():
     """
@@ -154,17 +170,9 @@ def main():
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
     logger.info("Querying ELM for %s", run_num)
 
-    if args.test_server:
-        rest_url = rest_services['run_details']['testing'].replace("run_num", run_num)
-        logger.info("development server")
-    else:
-        rest_url = rest_services['run_details']['production'].replace("run_num", run_num)
-        logger.info("production server")
-    response = requests.get(rest_url)
-    if response.status_code != requests.codes.ok:
-        response.raise_for_status()
-    rest_data = response.json()
-    logger.debug("rest_data from {}: {}".format(rest_url, rest_data))
+    rest_data = get_rest_data(run_num, args.test_server)
+    assert rest_data['runId'], ("Rest data from ELM does not have runId {}".format(run_num))
+
     run_id = rest_data['runId']
     #counter = 0
     if rest_data['runPass'] != 'Pass':
