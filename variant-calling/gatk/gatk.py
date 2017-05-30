@@ -187,6 +187,10 @@ def main():
                               "{}.bwamem.bam".format(args.sample))
         os.makedirs(os.path.dirname(target))
         os.symlink(os.path.abspath(args.raw_bam), target)
+        if os.path.exists(os.path.abspath(args.raw_bam) + ".bai"):
+            os.symlink(os.path.abspath(args.raw_bam) + ".bai", target + ".bai")
+            
+        
     elif args.proc_bam:
         target = os.path.join(args.outdir, "out", args.sample,
                               "{}.bwamem".format(args.sample))
@@ -197,6 +201,8 @@ def main():
         target += ".bam"
         os.makedirs(os.path.dirname(target))
         os.symlink(os.path.abspath(args.proc_bam), target)
+        if os.path.exists(os.path.abspath(args.proc_bam) + ".bai"):
+            os.symlink(os.path.abspath(args.proc_bam) + ".bai", target + ".bai")
 
     pipeline_handler.submit(args.no_run)
 

@@ -6,6 +6,7 @@ localrules: gatk_selectvariants
 rule gatk_selectvariants:
     input:
         vcf='{prefix}.vcf.gz',
+        vcfidx='{prefix}.vcf.gz.tbi',
         ref=config["references"]["genome"],
     output:
         vcf=temp("{prefix}.{type,(snp|indel)}.vcf.gz")
@@ -21,6 +22,7 @@ rule gatk_selectvariants:
         " -R {input.ref} -V {input.vcf} -o {output.vcf}"
         " -T SelectVariants -nt {threads} -selectType {params.type} >& {log}"
 
+        
 localrules: gatk_hard_filter_snps
 rule gatk_hard_filter_snps:
     input:

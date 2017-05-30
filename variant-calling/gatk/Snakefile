@@ -62,7 +62,7 @@ else:
         input:
             expand(out_templ + ".bamstats/stats.txt",
                    sample=config['samples']),    
-            expand(out_templ + ".gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
+            expand(out_templ + ".concat.gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
                    sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
             expand(out_templ + ".concat.g.vcf.gz.tbi",
                    sample=config['samples']),    
@@ -81,8 +81,8 @@ rule prep_bed_files:
         ref = config['references']['genome'],
         reffai = config['references']['genome'] + ".fai"
     output:
-        bed = temp(expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
-                          ctr=range(config["references"]["num_chroms"])))
+        bed = expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
+                          ctr=range(config["references"]["num_chroms"]))
     log:
         os.path.join(RESULT_OUTDIR, "chr.split.log")
     params:

@@ -1,6 +1,7 @@
-# usually completes within minutes so no need to use threading either
-# (unless maybe used for multi sample vcf files)
-localrules: snpeff
+# usually completes within minutes, so no need to use threading. seen
+# this run longer for unknown reasons, so still best to not make it a
+# localrule.
+#localrules: snpeff
 rule snpeff:
     # requires bgzip and snpeff_wrapper installed. also requires config['snpeff_genome']
     input:

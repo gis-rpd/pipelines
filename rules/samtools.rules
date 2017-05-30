@@ -48,7 +48,8 @@ rule bam_idxstats:
         "samtools idxstats {input.bam} > {output} 2> {log};"
 
 
-localrules: bam_stats
+# this can run forever and execution seems to be blocked in such cases
+#localrules: bam_stats
 rule bam_stats:
     input:
         bam="{prefix}.bam"
