@@ -39,17 +39,17 @@ rule gatk_variant_recalibration:
     # "VQSR should not be used on exome and target resequencing. best to use the hard-filtering recommendations"
     # hard filtering guide lines: http://gatkforums.broadinstitute.org/gatk/discussion/2806/howto-apply-hard-filters-to-a-call-set
     input:
-        ref=config["references"]["genome"],
-        vcf="{prefix}.vcf.gz"
+        ref = config["references"]["genome"],
+        vcf = "{prefix}.vcf.gz"
     output:
-        recal=temp("{prefix}.{type,(snp|indel)}.vqsr"),
-        tranches=temp("{prefix}.{type,(snp|indel)}.tranches"),
-        plotting=temp("{prefix}.{type,(snp|indel)}.plotting.R")
+        recal = temp("{prefix}.{type,(snp|indel)}.vqsr"),
+        tranches = temp("{prefix}.{type,(snp|indel)}.tranches"),
+        plotting = temp("{prefix}.{type,(snp|indel)}.plotting.R")
     log:
         "{prefix}.{type,(snp|indel)}.vqsr.log"
     params:
-        recal_params=_get_recal_params,
-        params_gatk=config.get("params_gatk", "")
+        recal_params = _get_recal_params,
+        params_gatk = config.get("params_gatk", "")
     threads: 8
     shell:
         # might fail due to lack of variants. captured with RECAL_FAIL_MSG
@@ -62,10 +62,10 @@ rule gatk_variant_recalibration:
 
 rule gatk_apply_variant_recalibration:
     input:
-        ref=config["references"]["genome"],
-        vcf="{prefix}.vcf.gz",
-        recal="{prefix}.{type}.vqsr",
-        tranches="{prefix}.{type}.tranches"
+        ref = config["references"]["genome"],
+        vcf = "{prefix}.vcf.gz",
+        recal = "{prefix}.{type}.vqsr",
+        tranches = "{prefix}.{type}.tranches"
     output:
         "{prefix}.{type,(snp|indel)}_vqsr.vcf.gz"
     log:
@@ -74,7 +74,8 @@ rule gatk_apply_variant_recalibration:
         mode = lambda wc: wc.type.upper(),
         custom = config.get("params_gatk", ""),
         ts = lambda wc: "99.5" if wc.type.upper()=="SNP" else "99.0"
-    threads: 8
+    threads:
+        8
     run:
         recal_failed = False
         with open(input.recal) as fh:

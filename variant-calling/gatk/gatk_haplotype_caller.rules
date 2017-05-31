@@ -10,8 +10,6 @@ import io
 
 assert 'references' in config
 assert 'genome' in config["references"]
-assert 'num_chroms' in config["references"]
-
 #def _gatk_multi_arg(flag, files):
 #    flag += " "
 #    return " ".join(flag + f for f in files)
@@ -24,9 +22,10 @@ rule gatk_haplotype_caller:
         ref = config["references"]["genome"],
         # see prep_bed_files
         # split by chrom and intersect with intervals already if needed
-        bed = os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed")
+        bed = BED_FOR_REGION_TEMPLATE
     output:
         gvcf = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz"),
+        tbi = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz.tbi"),
     log:
         "{prefix}.{ctr}.g.vcf.gz.log"
     params:
@@ -56,30 +55,29 @@ rule gatk_haplotype_caller:
                 " --dbsnp {config[references][dbsnp]}"#-nct {threads} "
                 " -o {output.gvcf} >& {log}")
         else:
-            shell("echo -n \"\" | gzip > {output.gvcf}; echo 'Creating empty output only' > {log}")
+            shell("echo -n \"\" | gzip > {output.gvcf}; touch {output.tbi}; echo 'Creating empty output' > {log}")
 
 
-#ruleorder: concat_split_vcfs > gatk_haplotype_caller
-ruleorder: concat_split_vcfs > bgzip
 localrules: concat_split_vcfs
+#ruleorder: concat_split_vcfs > bgzip
 rule concat_split_vcfs:
-    # combine g.vcfs or gt.vcfs which where split by region.  simply
+    # combine [g|gt].vcfs which where split by region. simply
     # parse in order and keep only header of first one.  FIXME replies
     # on unzipped input which is a waste of space. Note though that
     # gzip reading in Python is infamously slow.
     input:
-        split_gvcfs = expand("{{prefix}}.{ctr}.{{type}}.vcf.gz",
-                             ctr = range(config["references"]["num_chroms"]))
+        gvcfs = expand("{{prefix}}.{ctr}.{{type}}.vcf.gz",
+                       ctr = range(len(config["references"]["region_clusters"])))
     output:
-        cat_gvcf = "{prefix}.concat.{type,(g|gt)}.vcf.gz",
+        gvcf = "{prefix}.concat.{type,(g|gt)}.vcf.gz",
     log:
         "{prefix}.concat.{type}.vcf.gz.log"
     run:
         bgzip_pipe = pipes.Template()
         bgzip_pipe.append('bgzip', '--')
         header_printed = False
-        with bgzip_pipe.open(output.cat_gvcf, 'w') as fhout:
-            for f in input.split_gvcfs:
+        with bgzip_pipe.open(output.gvcf, 'w') as fhout:
+            for f in input.gvcfs:
                 #  https://www.reddit.com/r/Python/comments/2olhrf/fast_gzip_in_python/
                 with gzip.open(f) as fhingz:
                     with io.BufferedReader(fhingz) as fhin:
@@ -93,19 +91,20 @@ rule concat_split_vcfs:
                             else:
                                 fhout.write(line)
                         if had_header:
-                            header_printed = True
+                            header_printed = True                    
         
                         
 rule gatk_genotyping:
     input:
         ref = config["references"]["genome"],
         gvcf = "{prefix}.concat.g.vcf.gz",
-        gvcf_idx = "{prefix}.concat.g.vcf.gz.tbi",
+        tbi = "{prefix}.concat.g.vcf.gz.tbi",
         # see prep_bed_files
         # split by chrom and intersect with intervals already if needed
-        bed = os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed")
+        bed = BED_FOR_REGION_TEMPLATE
     output:
         vcf = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz"),
+        tbi = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz.tbi")
     log:
         "{prefix}.{ctr}.gt.vcf.gz.log"
     params:
@@ -121,9 +120,9 @@ rule gatk_genotyping:
                     num_regs += 1
         if num_regs:
             shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-                  " -T GenotypeGVCFs -V {input.gvcf} -nt {threads} {params.custom} "
-                  " -L {input.bed} -R {input.ref} "
+                  " -T GenotypeGVCFs -V {input.gvcf} -nt {threads} {params.custom}"
+                  " -L {input.bed} -R {input.ref}"
                   " --dbsnp {config[references][dbsnp]} -o {output.vcf} >& {log}")
         else:
-            shell("echo -n \"\" | gzip > {output.vcf}; echo 'Creating empty output only' > {log}")
+            shell("echo -n \"\" | gzip > {output.vcf}; touch {output.tbi}; echo 'Creating empty output' > {log}")
                   

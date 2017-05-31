@@ -24,6 +24,10 @@ RESULT_OUTDIR = 'out'
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
+
+BED_FOR_REGION_TEMPLATE = os.path.join(RESULT_OUTDIR, "region_cluster.{ctr}.bed")
+
+
 include: "../../rules/snpeff.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
@@ -51,6 +55,7 @@ else:
      var_filters = ['hfilter']
 
 
+# FIXME can be achieved with --until rule as well
 if config.get('bam_only'):
     rule final:
         input:
@@ -60,53 +65,57 @@ if config.get('bam_only'):
 else:
     rule final:
         input:
+            # bam stats per sample
             expand(out_templ + ".bamstats/stats.txt",
-                   sample=config['samples']),    
+                   sample=config['samples']),
+            # filtered variants per type per sample
             expand(out_templ + ".concat.gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
                    sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
+            # gvcfs per sample
             expand(out_templ + ".concat.g.vcf.gz.tbi",
                    sample=config['samples']),    
             report="report.html",
-
+                   
             
 rule prep_bed_files:
-    """Prepare bed files to be able to run haplotype caller per chromosome
-    to speed things up. if we also have a global bed file intersect
-    with this one.
+    """Prepare bed files to be able to run haplotype/genotype caller per
+    predefined region cluster (e.g. groups of chromosomes) to speed
+    things up. if we also have a global bed file intersect each
+    cluster with it.
 
-    NOTE: this might produce empty bed files!
-
-    """
+    NOTE: this might produce empty bed files which have to be dealt
+    with properly (GATK will fail on this)!  """
     input:
         ref = config['references']['genome'],
         reffai = config['references']['genome'] + ".fai"
     output:
-        bed = expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
-                          ctr=range(config["references"]["num_chroms"]))
+        bed = expand(BED_FOR_REGION_TEMPLATE,
+                     ctr = range(len(config["references"]["region_clusters"])))
     log:
-        os.path.join(RESULT_OUTDIR, "chr.split.log")
-    params:
-        outbedfmt = os.path.join(RESULT_OUTDIR, "chr.split.{}.bed")
+        os.path.join(RESULT_OUTDIR, "region_clusters.log")
     message:
-        "Preparing intervals for splitting jobs"
+        "Preparing region clusters"
     run:
-        for (i, (s, l)) in enumerate(chroms_and_lens_from_fasta(input.ref)):
-            outbed = params.outbedfmt.format(i)
-            tmpbed = outbed + ".tmp"
-            # write one bed per chrom
-            with open(tmpbed, 'w') as fh:
-                if s not in config['references'].get('excl_chrom', []):
-                    fh.write("{}\t0\t{}\n".format(s, l))
-                # else: empty file
-                
-            # intersect with given bed if needed
-            # NOTE: might produce empty files (which is what we want)
-            # Can also deal with empty import (create above if in excl)
+        if os.path.exists(str(log)):
+            os.unlink(str(log))
+            
+        for ctr in range(len(config["references"]["region_clusters"])):
+            outbed = BED_FOR_REGION_TEMPLATE.format(ctr=ctr)
+            outbedtmp = outbed + ".tmp.bed"
+            # create a bed for each region cluster
+            with open(outbedtmp, 'w') as fh:
+                for region in config["references"]["region_clusters"][ctr]:
+                    r_sq, r_startend = region.split(":")
+                    r_start, r_end = [int(x) for x in r_startend.split("-")]
+                    r_start -= 1
+                    assert r_start >= 0 and r_end > r_start
+                    fh.write("{}\t{}\t{}\n".format(r_sq, r_start, r_end))
+            # if the user provided a bed file intersect with it
             if config['intervals']:
-                shell("bedtools intersect -a {} -b {} > {} 2> {{log}}".format(
-                    config['intervals'], tmpbed, outbed))
-                os.unlink(tmpbed)
+                shell("bedtools intersect -a {} -b {} > {} 2>> {{log}}".format(
+                    outbedtmp, config['intervals'], outbed))
+                os.unlink(outbedtmp)
             else:
-                shutil.move(tmpbed, outbed)
+                shutil.move(outbedtmp, outbed)
         
 

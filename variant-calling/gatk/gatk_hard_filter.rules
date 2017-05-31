@@ -5,16 +5,17 @@ assert 'genome' in config['references']
 localrules: gatk_selectvariants
 rule gatk_selectvariants:
     input:
-        vcf='{prefix}.vcf.gz',
-        vcfidx='{prefix}.vcf.gz.tbi',
-        ref=config["references"]["genome"],
+        vcf = '{prefix}.vcf.gz',
+        vcfidx = '{prefix}.vcf.gz.tbi',
+        ref = config["references"]["genome"],
     output:
-        vcf=temp("{prefix}.{type,(snp|indel)}.vcf.gz")
+        vcf = temp("{prefix}.{type,(snp|indel)}.vcf.gz")
     log:
         "{prefix}.{type,(snp|indel)}.vcf.gz.log"
     params:
         type = lambda wildcards: wildcards.type.upper()
-    threads: 1
+    threads:
+        1
     message:
         "Extracting {params.type} from {input.vcf}"
     shell:
@@ -26,10 +27,10 @@ rule gatk_selectvariants:
 localrules: gatk_hard_filter_snps
 rule gatk_hard_filter_snps:
     input:
-        vcf='{prefix}.snp.vcf.gz',
-        ref=config["references"]["genome"],
+        vcf = '{prefix}.snp.vcf.gz',
+        ref = config["references"]["genome"],
     output:
-        vcf='{prefix}.snp_hfilter.vcf.gz'
+        vcf = '{prefix}.snp_hfilter.vcf.gz'
     log:
         '{prefix}.snp_hfilter.vcf.gz.log'
     params:
@@ -44,13 +45,14 @@ rule gatk_hard_filter_snps:
         " -o {output.vcf} --filterExpression '{params.filter_expr}'"
         " --filterName {params.filter_name} >& {log}"
 
+        
 localrules: gatk_hard_filter_indels
 rule gatk_hard_filter_indels:
     input:
-        vcf='{prefix}.indel.vcf.gz',
-        ref=config["references"]["genome"],
+        vcf = '{prefix}.indel.vcf.gz',
+        ref = config["references"]["genome"],
     output:
-        vcf='{prefix}.indel_hfilter.vcf.gz'
+        vcf = '{prefix}.indel_hfilter.vcf.gz'
     log:
         '{prefix}.indel_hfilter.vcf.gz.log'
     params:

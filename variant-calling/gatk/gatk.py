@@ -91,6 +91,7 @@ def main():
     parser.add_argument('--proc-bam',
                         help="Advanced: Injects processed (post-dedup, post-BQSR etc.) BAM (overwrites fq options)."
                         " WARNING: reference and pre-processing need to match pipeline requirements")
+    # FIXME can be achieved with --until rule as well
     parser.add_argument('--bam-only', action='store_true',
                         help="Don't call variants, just process BAM file")
 
