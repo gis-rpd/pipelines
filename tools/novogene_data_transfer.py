@@ -13,6 +13,7 @@ import glob
 #
 import pymongo
 import yaml
+import requests
 
 # project specific imports
 #
@@ -29,6 +30,7 @@ from pipelines import generate_window
 from pipelines import get_machine_run_flowcell_id
 from utils import generate_timestamp
 from config import novogene_conf
+from config import rest_services
 from readunits import readunits_for_sampledir
 
 __author__ = "Lavanya Veeravalli"
@@ -45,7 +47,18 @@ logger.addHandler(handler)
 
 yaml.Dumper.ignore_aliases = lambda *args: True
 
-def runs_from_db(connection, win=14):
+def get_sg10_lib_list(rest_data):
+    """Returns ONLY SG10K libraries for each Run (rest data)
+    """
+    sg10k_lib_list = dict()
+    for rows in rest_data['lanes']:
+        if "SG10K" in rows['runMode']:
+            sg10k_lib_list.setdefault(rows['libraryId'], []).append(rows['runMode'])
+    for k, v in sg10k_lib_list.items():
+        assert len(set(v)) == 1, ("runMode from {} lanes are not same for {}".format(len(v), k))
+    return sg10k_lib_list.keys()
+
+def runs_from_db(connection, testing, win=14):
     """Get the runs from pipeline_run collections"""
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(win)
@@ -57,6 +70,17 @@ def runs_from_db(connection, win=14):
         logger.debug("record: %s", record)
         if not record.get('analysis'):
             continue
+        # Check if Novogene run_mode
+        _, run_id, _ = get_machine_run_flowcell_id(run_number)
+        if testing:
+            rest_url = rest_services['run_details']['testing'].replace("run_num", run_id)
+        else:
+            rest_url = rest_services['run_details']['production'].replace("run_num", run_id)
+        response = requests.get(rest_url)
+        if response.status_code != requests.codes.ok:
+            response.raise_for_status()
+        rest_data = response.json()
+        sg10k_lib_list = get_sg10_lib_list(rest_data)
         run_records = {}
         for (analysis_count, analysis) in enumerate(record['analysis']):
             analysis_id = analysis['analysis_id']
@@ -86,7 +110,7 @@ def runs_from_db(connection, win=14):
                         logger.info("MUX %s from %s has been analyzed more than 1 time \
                             succeessfully, please check", mux_id, run_number)
                         del run_records[mux_id]
-                    else:
+                    elif mux_id in sg10k_lib_list:
                         run_records[mux_id] = mux_info
         if run_records:
             yield run_records
@@ -109,8 +133,6 @@ def check_mux_data_transfer_status(connection, mux_info):
     try:
         status = db.find({"run": mux_info[0], 'analysis.analysis_id' : mux_info[2],
             mux_info[1] : {"$regex" : "^COPYING_"}})
-                    #mux_info[1] : "COPYING"})
-
         status_count = status.count()
     except pymongo.errors.OperationFailure:
         logger.fatal("MongoDB OperationFailure")
@@ -273,7 +295,7 @@ def main():
         mail_to = 'veeravallil'# domain added in mail function
     else:
         mail_to = 'rpd@gis.a-star.edu.sg'
-    run_records = runs_from_db(connection, args.win)
+    run_records = runs_from_db(connection, args.testing, args.win)
     trigger = 0
     for run in run_records:
         for mux, mux_info in run.items():

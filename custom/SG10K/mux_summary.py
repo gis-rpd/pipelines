@@ -74,7 +74,7 @@ def parse_selfsm(selfsm_file):
 
 # print(parse_selfsm("WHH1253/out/WHH1253/WHH1253.bwamem.fixmate.mdups.srt.recal.CHS.selfSM"))
 
-def check_completion(conf_yamls, num_expected=96):
+def check_completion(conf_yamls, num_expected):
     """FIXME:add-doc"""
 
     print("Verifying completeness based on {} config yaml files...".format(len(conf_yamls)))
@@ -101,11 +101,10 @@ def check_completion(conf_yamls, num_expected=96):
     print("Okay. Proceeding...")
 
 
-def main(conf_yamls):
+def main(conf_yamls, num_expected):
     """main
     """
 
-    num_expected = 10
     check_completion(conf_yamls, num_expected)
 
     if WRITE_CSV:
@@ -243,7 +242,11 @@ def main(conf_yamls):
 
 
 if __name__ == "__main__":
-    conf_yamls = sys.argv[1:]
+    if len(sys.argv) < 3:
+        sys.stderr.write("FATAL: need 2 arguments, num_of_libraries and conf.yaml(s)\n")
+        sys.exit(1)
+    num_expected = int(sys.argv[1])
+    conf_yamls = sys.argv[2:]    
     assert conf_yamls, ("No conf.yaml file/s given as argument")
     assert all([os.path.exists(f) for f in conf_yamls])
-    main(conf_yamls)
+    main(conf_yamls, num_expected)
