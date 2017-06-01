@@ -41,9 +41,6 @@ def runs_from_db(db, mail_to, ccaddr, win=34):
     results = db.find({"analysis" : {"$exists": False},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     logger.info("Found %d runs for last %s days", results.count(), win)
-    generate_bcl2fastq = os.path.join(
-        os.path.dirname(sys.argv[0]), "generate_bcl2fastq_cfg.py")
-    assert os.path.exists(generate_bcl2fastq)
     mail = False
     subject = "Runs with missing ELM information"
     body = "Dear NGSP, " + "\n"

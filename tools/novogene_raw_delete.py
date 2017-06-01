@@ -6,13 +6,7 @@ import logging
 import sys
 import os
 import argparse
-import subprocess
-import datetime
 import shutil
-
-#--- third party imports
-#
-import pymongo
 
 # project specific imports
 #
@@ -38,25 +32,24 @@ __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
 # global logger
-logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter(
+LOGGER = logging.getLogger(__name__)
+HANDLER = logging.StreamHandler()
+HANDLER.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
-logger.addHandler(handler)
+LOGGER.addHandler(HANDLER)
 
-basedir = site_cfg['bcl2fastq_seqdir_base'].replace("userrig", "novogene")
-archiveDir = basedir + "toDelete"
+
 
 def runs_from_db(db, win=34):
     """Get the runs from pipeline_run collections"""
     epoch_present, epoch_back = generate_window(win)
     results = db.find({"run" : {"$regex" : "^NG00"}, "raw-delete": {"$exists": False},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
-    logger.info("Found %d runs for last %s days", results.count(), win)
+    LOGGER.info("Found %d runs for last %s days", results.count(), win)
     for record in results:
-        logger.debug("record: %s", record)
+        LOGGER.debug("record: %s", record)
         if not record.get('run'):
-            logger.critical("run is missing for DB-id %s", record['_id'])
+            LOGGER.critical("run is missing for DB-id %s", record['_id'])
             continue
         runid_and_flowcellid = (record['run'])
         results = db.find({"run": runid_and_flowcellid})
@@ -70,57 +63,64 @@ def runs_from_db(db, win=34):
         analysis_epoch_time = isoformat_to_epoch_time(end_time+"+08:00")
         epoch_time_now = isoformat_to_epoch_time(generate_timestamp()+"+08:00")
         rd = relative_epoch_time(epoch_time_now, analysis_epoch_time)
-        if status == 'SUCCESS' and rd.days > 21:
+        days = rd.months*30 + rd.days
+        if status == 'SUCCESS' and days > 60:
             yield runid_and_flowcellid
 
 def run_folder_for_run_id(runid_and_flowcellid):
     """
     Get the run folder
     """
+    basedir = site_cfg['bcl2fastq_seqdir_base'].replace("userrig", "novogene")
     machineid, runid, flowcellid = get_machine_run_flowcell_id(
         runid_and_flowcellid)
     rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
     return rundir
 
-def purge(db, runid_and_flowcellid):
+def purge(db, runid_and_flowcellid, mail_to):
     """
-    purging data from /mnt/seq/novogene
+    purging bcl data from /mnt/seq/novogene
     """
     rundir = run_folder_for_run_id(runid_and_flowcellid)
     if not os.path.exists(rundir):
-        logger.fatal("Run directory '%s' does not exist.\n", rundir)
+        LOGGER.critical("Run directory '%s' does not exist.\n", rundir)
         return
-    start_time = generate_timestamp()
-    res = db.update_one({"run": runid_and_flowcellid}, \
-                        {"$set": \
-                            {"raw-delete": { \
-                                "start_time" : start_time, \
-                                "Status" :  "STARTED", \
-                        }}})
-    assert res.modified_count == 1, ("Modified {} documents instead of 1". \
-        format(res.modified_count))
-    #FIXME shutil copyfile instead of MOVE to  dest directory.. for testing purpopse touch a file
-    #Change form copy file to rmtree
-    logger.info("Start archiving of %s", runid_and_flowcellid)
-    src_dir = os.path.join(rundir, 'RTAComplete.txt')
-    dest_dir = os.path.join(archiveDir, runid_and_flowcellid+"_RTAComplete.txt")
+    # Sanity checks for Sequencing run
+    assert os.path.exists(os.path.join(rundir, 'RunInfo.xml')), \
+        "No RunInfo.xml found under {}".format(rundir)
+    stat_info = os.stat(rundir)
+    #Check if uid is novogene (925)
+    assert stat_info.st_uid == 925, "The run {} does not belong to Novogene user".format(rundir)
     try:
-        shutil.copyfile(src_dir, dest_dir)
+        start_time = generate_timestamp()
+        res = db.update_one({"run": runid_and_flowcellid}, \
+                            {"$set": \
+                                {"raw-delete": { \
+                                    "start_time" : start_time, \
+                                    "Status" :  "STARTED", \
+                            }}})
+        assert res.modified_count == 1, ("Modified {} documents instead of 1". \
+            format(res.modified_count))
+        #FIXME for production release
+        #shutil.rmtree(rundir)
         end_time = generate_timestamp()
         res = db.update_one({"run": runid_and_flowcellid},
                             {"$set": {"raw-delete.Status": "SUCCESS", \
                                 "raw-delete.end_time": end_time}})
         assert res.modified_count == 1, ("Modified {} documents instead of 1". \
             format(res.modified_count))
-    except EnvironmentError:
-        logger.CRITICAL("Error happened while copying")
+        subject = "bcl deletion: {}".format(runid_and_flowcellid)
+        body = "Bcl deletion completed successfully from {}".format(rundir)
+        send_mail(subject, body, toaddr=mail_to)
+    except OSError:
+        LOGGER.critical("Error happened while deleting '%s'", rundir)
         res = db.update_one({"run": runid_and_flowcellid}, \
                             {"$unset": {"raw-delete": ""}})
         assert res.modified_count == 1, ("Modified {} documents instead of 1". \
             format(res.modified_count))
-        subject = "Moving of {} to {} failed".format(rundir, dest_dir)
-        body = subject
-        send_mail(subject, body, toaddr=mail_to, ccaddr=None)
+        subject = "Error: bcl deletion {}".format(runid_and_flowcellid)
+        body = "Error happened while deleting raw data under {}".format(rundir)
+        send_mail(subject, body, toaddr=mail_to)
 
 def main():
     """main function
@@ -151,9 +151,9 @@ def main():
     # script -q -> ERROR
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
-    logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
+    LOGGER.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
     if not is_production_user():
-        logger.warning("Not a production user. Skipping MongoDB update")
+        LOGGER.warning("Not a production user. Skipping archival steps")
         sys.exit(1)
     connection = mongodb_conn(args.testing)
     if connection is None:
@@ -164,27 +164,14 @@ def main():
     else:
         mail_to = 'rpd'
     run_records = runs_from_db(db, args.win)
-    body = ""
     for run in run_records:
         if args.dry_run:
-            logger.info("Skipping dryrun option %s", run)
-            body += "Analysis for {} has been completed 3 week ago. Please move or delete" \
-                .format(run)
-            body += "\n"
+            LOGGER.info("Skipping dryrun option %s", run)
             continue
-        try:
-            purge(db, run)
-        except pymongo.errors.OperationFailure as e:
-            logger.fatal("MongoDB failure while updating db-id %s", args.db_id)
-            sys.exit(1)
+        purge(db, run, mail_to)
         if args.break_after_first:
-            logger.info("Stopping after first sequencing run")
+            LOGGER.info("Stopping after first sequencing run")
             break
-        connection.close()
-    if body:
-        subject = "Novogene raw data deletion"
-        print(body)
-        send_mail(subject, body, toaddr=mail_to, ccaddr=None)
 
 if __name__ == "__main__":
     main()
