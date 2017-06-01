@@ -8,12 +8,6 @@ Based on rules/mapping/gatk.rules from https://bitbucket.org/johanneskoester/sna
 
 # used ../../variant-calling/gatk/bwa_mem.rules 2016-07-132-g5657aec as template
 
-assert 'references' in config
-assert 'genome' in config['references']
-assert 'dbsnp' in config['references']
-assert 'seqtype' in config
-assert config['seqtype'] in ['WGS', 'WES', 'targeted']
-
 
 # this is the global bed file, if given
 def _get_intervals_arg():
@@ -33,8 +27,8 @@ rule gatk_realign_info:
         tbai = os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.bam.bai'),
         #bam="{prefix}.bam",
         #bai="{prefix}.bam.bai",
-        ref=config['references']['genome'],
-        refdict=config['references']['genome'].replace("fasta", "dict")
+        ref = config['references']['genome'],
+        refdict = config['references']['genome'].replace("fasta", "dict")
     output:
         nival = temp(os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.realn.intervals')),
         tival = temp(os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.realn.intervals')),
@@ -58,15 +52,15 @@ rule gatk_realign_info:
 
 rule gatk_realign_bam:
     input:
-        ref=config['references']['genome'],
-        bam="{prefix}.bam",
-        intervals="{prefix}.realn.intervals"
+        ref = config['references']['genome'],
+        bam = "{prefix}.bam",
+        intervals = "{prefix}.realn.intervals"
     output:
         temp("{prefix}.realn.bam")
     log:
         "{prefix}.realn.bam.log"
     params:
-        custom=config.get("params_gatk", "")
+        custom = config.get("params_gatk", "")
     threads:
         # previously set higher to work around UGE/Java/OS vmem problem in GIS
         1

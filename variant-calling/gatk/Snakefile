@@ -25,14 +25,12 @@ shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
 
-BED_FOR_REGION_TEMPLATE = os.path.join(RESULT_OUTDIR, "region_cluster.{ctr}.bed")
-
-
 include: "../../rules/snpeff.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
 include: "../../rules/vcf.rules"
+include: "../../rules/region_clusters"
 include: "../../rules/sambamba.rules"
 include: "bwa_mem.rules"
 include: "gatk_mapping.rules"
@@ -41,7 +39,7 @@ include: "gatk_variant_recalibrator.rules"
 include: "gatk_hard_filter.rules"
 
 
-localrules: final, report, prep_bed_files
+localrules: final, report
 
 # expected output depends on options
 out_templ = os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem")
@@ -77,45 +75,3 @@ else:
             report="report.html",
                    
             
-rule prep_bed_files:
-    """Prepare bed files to be able to run haplotype/genotype caller per
-    predefined region cluster (e.g. groups of chromosomes) to speed
-    things up. if we also have a global bed file intersect each
-    cluster with it.
-
-    NOTE: this might produce empty bed files which have to be dealt
-    with properly (GATK will fail on this)!  """
-    input:
-        ref = config['references']['genome'],
-        reffai = config['references']['genome'] + ".fai"
-    output:
-        bed = expand(BED_FOR_REGION_TEMPLATE,
-                     ctr = range(len(config["references"]["region_clusters"])))
-    log:
-        os.path.join(RESULT_OUTDIR, "region_clusters.log")
-    message:
-        "Preparing region clusters"
-    run:
-        if os.path.exists(str(log)):
-            os.unlink(str(log))
-            
-        for ctr in range(len(config["references"]["region_clusters"])):
-            outbed = BED_FOR_REGION_TEMPLATE.format(ctr=ctr)
-            outbedtmp = outbed + ".tmp.bed"
-            # create a bed for each region cluster
-            with open(outbedtmp, 'w') as fh:
-                for region in config["references"]["region_clusters"][ctr]:
-                    r_sq, r_startend = region.split(":")
-                    r_start, r_end = [int(x) for x in r_startend.split("-")]
-                    r_start -= 1
-                    assert r_start >= 0 and r_end > r_start
-                    fh.write("{}\t{}\t{}\n".format(r_sq, r_start, r_end))
-            # if the user provided a bed file intersect with it
-            if config['intervals']:
-                shell("bedtools intersect -a {} -b {} > {} 2>> {{log}}".format(
-                    outbedtmp, config['intervals'], outbed))
-                os.unlink(outbedtmp)
-            else:
-                shutil.move(outbedtmp, outbed)
-        
-

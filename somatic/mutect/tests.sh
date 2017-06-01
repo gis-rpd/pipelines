@@ -86,7 +86,7 @@ if [ $SKIP_DAG -eq 0 ]; then
     pushd $odir >> $log
     type=pdf;
     dag=example-dag.$type
-    sed -i -e 's,num_chroms: .*,num_chroms: 1,' conf.yaml
+    # FIXME simplify DAG by having only one cluster    sed -i -e 's,num_chroms: .*,num_chroms: 1,' conf.yaml
     EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
     cp $dag $rootdir
     popd >> $log
