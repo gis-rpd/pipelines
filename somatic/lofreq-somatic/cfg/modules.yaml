@@ -1,5 +1,5 @@
 bcftools: 1.3
-bwa: 0.7.12
+bwa: 0.7.15
 htslib: 1.3
 lacer: 0.424
 lofreq: 2.1.2

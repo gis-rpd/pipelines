@@ -1,6 +1,6 @@
 bedtools: 2.25.0
-bwa: 0.7.12
-gatk: 3.6
+bwa: 0.7.15
+gatk: 3.7
 htslib: 1.3
 sambamba: 0.6.5
 samtools: 1.3

@@ -1,4 +1,12 @@
+# requires bedtools
+
+
 BED_FOR_REGION_TEMPLATE = os.path.join(RESULT_OUTDIR, "region_cluster.{ctr}.bed")
+
+
+assert "references" in config
+assert "region_clusters" in config["references"]
+
 
 rule prep_bed_files:
     """Prepare bed files to be able to run haplotype/genotype caller per
