@@ -37,7 +37,7 @@ include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
 include: "../../rules/vcf.rules"
 include: "../../rules/sambamba.rules"
-include: "../../rules/region_clusters"
+include: "../../rules/region_clusters.rules"
 include: "bwa_mem.rules"
 include: "gatk_mapping.rules"
 
