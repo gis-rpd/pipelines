@@ -260,6 +260,9 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 			analysis_none += 1
 			result += "<div class='hidden'>FINAL_NONE</div>"
 			result += "<span class='label label-pill label-default'>NONE</span>"
+
+		result += "<td>NONE</td>"
+
 		result += "</td>"
 		result += "</tr>"
 		result += "</tr>"
