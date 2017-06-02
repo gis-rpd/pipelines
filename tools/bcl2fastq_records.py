@@ -164,6 +164,11 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 		else:
 			result += ("<td>" + str(record["timestamp"]) + "</td>")
 
+		if "raw-delete" in record:
+			result += "<td>" + merge_cells("Status", record["raw-delete"]) + "</td>"
+		else:
+			result += "<td>" + "</td>"
+
 		result += "<td>"
 		if "analysis" in record:
 
@@ -261,25 +266,25 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 			result += "<div class='hidden'>FINAL_NONE</div>"
 			result += "<span class='label label-pill label-default'>NONE</span>"
 
-		result += "<td>"
-		if "raw-delete" in record:
-			result += """
-			<table class='table table-bordered table-hover table-fixed table-compact raw_delete_table'>
-				<thead>
-					<tr>
-						<th>START_TIME</th>
-						<th>END_TIME</th>
-						<th>STATUS</th>
-					</tr>
-				</thead>
-				<tbody class='raw_delete_tbody'>
-					<tr>
-			"""
-			result += "<td>" + record["raw-delete"]["start_time"] + "</td>"
-			result += "<td>" + record["raw-delete"]["end_time"] + "</td>"
-			result += "<td>" + merge_cells("Status", record["raw-delete"]) + "</td>"
-			result += "</tr></tbody></table>"
-		result += "</td>"
+#		result += "<td>"
+#		if "raw-delete" in record:
+#			result += """
+#			<table class='table table-bordered table-hover table-fixed table-compact raw_delete_table'>
+#				<thead>
+#					<tr>
+#						<th>START_TIME</th>
+#						<th>END_TIME</th>
+#						<th>STATUS</th>
+#					</tr>
+#				</thead>
+#				<tbody class='raw_delete_tbody'>
+#					<tr>
+#			"""
+#			result += "<td>" + record["raw-delete"]["start_time"] + "</td>"
+#			result += "<td>" + record["raw-delete"]["end_time"] + "</td>"
+#			result += "<td>" + merge_cells("Status", record["raw-delete"]) + "</td>"
+#			result += "</tr></tbody></table>"
+#		result += "</td>"
 
 		result += "</td>"
 		result += "</tr>"
