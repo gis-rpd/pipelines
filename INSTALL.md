@@ -5,9 +5,8 @@ i.e. our specialized MongoDB setup used for logging and tracking
 
 
 - Create a snakemake environment with needed components:
-  - `conda create -n snakemake-3.7.1 pymongo drmaa python-dateutil`
-  - `conda install -n snakemake-3.7.1 snakemake=3.7.1 -c bioconda`
-  - Change `lib/pipelines.py:write_snakemake_init` to point to this env
+  - `ver=3.7.1; conda create -n snakemake-$ver pymongo drmaa python-dateutil snakemake=$ver -c bioconda`
+  - Change `snakemake_env` in etc/site.yaml to point to this env
 - Install other components into conda root env: 
   - `conda install pymongo drmaa yaml pylint python-dateutil`
 - Install pymongo into conda root env

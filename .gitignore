@@ -86,3 +86,4 @@ docs/_build/
 target/
 .disabled-pipelines.txt
 etc/novogene.yaml
+tmp

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """Create downstream output folder string.
-
-Just a hacky backport
 """
 
 #--- standard library imports

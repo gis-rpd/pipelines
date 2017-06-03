@@ -20,8 +20,8 @@
 
     "lacer_table" :
     {
-      "time" : "18:00:00",
-      "mem" : 4G,
+      "time" : "24:00:00",
+      "mem" : 2G,
     },
 
     "lacer_apply" :

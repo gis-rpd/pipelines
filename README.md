@@ -112,17 +112,19 @@ In either case, you must not prefix the script with `python`.
 
 | Name | Category | Notes | @GIS | @NSCC |
 | ---  | ---      | ---   | ---  | ---   |
-| [bcl2fastq](bcl2fastq/README.md)                               | Production          | Not for end-users     | Y | Y |
-| [ChIP-seq](chromatin-profiling/chipseq/README.md)              | Chromatin Profiling |                       | Y | Y |
-| [SG10K](custom/SG10K/README.md)                                | Custom              | Evaluation only       | Y | Y |
-| [BWA-MEM](mapping/BWA-MEM/README.md)                           | Mapping             |                       | Y | Y |
-| [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |
-| [STAR-RSEM](rnaseq/star-rsem/README.md)                        | RNA-Seq             |                       | Y | Y |
-| [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)| RNA-Seq             |                       | Y | N |
-| [LoFreq-Somatic](somatic/lofreq-somatic/README.md)             | Somatic             |                       | Y | N |
-| [Mutect](somatic/mutect/README.md)                             | Somatic             |                       | Y | Y |
-| [GATK](variant-calling/gatk/README.md)                         | Variant-calling     |                       | Y | Y |
-| [Lacer-LoFreq](variant-calling/lacer-lofreq/README.md)         | Variant-calling     |                       | Y | N |
+| [bcl2fastq](bcl2fastq/README.md)                                    | Production          | Not for end-users     | Y | Y |
+| [ChIP-seq](chromatin-profiling/chipseq/README.md)                   | Chromatin Profiling |                       | Y | Y |
+| [SG10K](custom/SG10K/README.md)                                     | Custom              | Not for end-users     | Y | Y |
+| [ViPR](germs/vipr/README.md)                                        | GERMS               |                       | Y | Y |
+| [BWA-MEM](mapping/BWA-MEM/README.md)                                | Mapping             |                       | Y | Y |
+| [Shotgun Metagenomics](metagenomics/shotgun-metagenomics/README.md) | Metagenomics        |                       | Y | Y |
+| [Essential-Genes](metagenomics/essential-genes/README.md)           | Metagenomics        | Requires ref download | Y | Y |
+| [STAR-RSEM](rnaseq/star-rsem/README.md)                             | RNA-Seq             |                       | Y | Y |
+| [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)     | RNA-Seq             |                       | Y | N |
+| [LoFreq-Somatic](somatic/lofreq-somatic/README.md)                  | Somatic             |                       | Y | N |
+| [Mutect](somatic/mutect/README.md)                                  | Somatic             |                       | Y | Y |
+| [GATK](variant-calling/gatk/README.md)                              | Variant-calling     |                       | Y | Y |
+| [Lacer-LoFreq](variant-calling/lacer-lofreq/README.md)              | Variant-calling     |                       | Y | N |
 
 See `example-dag.pdf` in each pipeline's folder for a visual overview of the workflow.
 
