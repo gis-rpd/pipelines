@@ -370,7 +370,7 @@ class PipelineHandler(object):
         # determine num_chroms needed by some pipelines
         # FIXME ugly because sometimes not needed
         if merged_cfg.get('references'):
-            reffa = merged_cfg['references']['genome']
+            reffa = merged_cfg['references'].get('genome')
             if reffa:
                 assert 'num_chroms' not in merged_cfg['references']
                 merged_cfg['references']['num_chroms'] = len(list(

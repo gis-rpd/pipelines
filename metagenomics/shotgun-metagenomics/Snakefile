@@ -1,0 +1,297 @@
+# standard library imports
+#
+import os
+import glob
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+
+
+RESULT_OUTDIR = 'out'
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+include: "../../rules/logging.rules"
+include: "../../rules/report.rules"
+
+
+rule final:
+    input:
+        "report.html",
+        expand(os.path.join(RESULT_OUTDIR, "tax_profile.SUCCESS")),
+        expand(os.path.join(RESULT_OUTDIR, "pathway_profile.SUCCESS")),
+
+
+rule read_trimming:
+    # adopted from vipr
+    input:
+        fq1 = lambda wc: config['readunits'][wc.unit]['fq1'],
+        fq2 = lambda wc: config['readunits'][wc.unit]['fq2'],
+    output:
+        fq1 = "{prefix}/{sample}/reads/{unit}-trimmed_1.fastq.gz",
+        fq2 = "{prefix}/{sample}/reads/{unit}-trimmed_2.fastq.gz"
+    log:
+        "{prefix}/{sample}/reads/trimmed/{unit}-trimmed.log"
+    message:
+        "Trimming and filtering input reads for unit {wildcards.unit} of sample {wildcards.sample}"
+    threads:
+        4
+    #conda:
+    params:
+        endqual = 3,
+        minlen = 30,
+        filter_many_ns_arg = "-n",
+    shell:
+        # skewer cannot read from stream so needs to be run per pair
+        "{{ "
+        "outprefix=$(echo {output.fq1} | sed -e 's,-trimmed-pair1.fastq.gz,,');"
+        "skewer --quiet -t {threads} -m pe -n -q {params.endqual} {params.filter_many_ns_arg}"
+        " -l {params.minlen} -z -o $outprefix {input.fq1} {input.fq2};"
+        " }} >& {log}"
+
+        
+localrules: combine_trim
+rule combine_trim:
+    # adopted from vipr
+    input:
+        # this looks rather clumsy but somehow works, i.e. returns a list
+        fq1 = lambda wc: ["{prefix}/{sample}/reads/{unit}-trimmed_1.fastq.gz".format(
+            prefix=wc.prefix, sample=wc.sample, unit=ru) for ru in config['samples'][wc.sample]],
+        fq2 = lambda wc: ["{prefix}/{sample}/reads/{unit}-trimmed_2.fastq.gz".format(
+            prefix=wc.prefix, sample=wc.sample, unit=ru) for ru in config['samples'][wc.sample]],
+    output:
+        fq1 = "{prefix}/{sample}/reads/all-trimmed_1.fastq.gz",
+        fq2 = "{prefix}/{sample}/reads/all-trimmed_2.fastq.gz"
+    log:
+        "{prefix}/{sample}/reads/all-trimmed.log"
+    message:
+        "Combining units for sample {wildcards.sample}"
+    threads:
+        1
+    #conda:
+    #params:
+    run:
+        assert len(input.fq1) == len(input.fq2)
+        if len(input.fq1) > 1:
+            shell("{{ zcat {input.fq1} | gzip > {output.fq1}; zcat {input.fq2} | gzip > {output.fq2}; }} >& {log};")
+        else:
+            ifq1rel = os.path.relpath(str(input.fq1), os.path.dirname(str(output.fq1)))
+            ifq2rel = os.path.relpath(str(input.fq2), os.path.dirname(str(output.fq2)))
+            shell("{{ ln -sf {ifq1rel} {output.fq1} && touch -h {output.fq1};"
+                  " ln -sf {ifq2rel} {output.fq2} && touch -h {output.fq2}; }} >& {log};")
+            # for touch, see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
+
+
+rule decont:
+    input:
+        fq1 = "{prefix}_1.fastq.gz",
+        fq2 = "{prefix}_2.fastq.gz",
+        decont_genome = config['references']['decont_genome'],
+        decont_genome_idx = config['references']['decont_genome'] + ".pac"
+    output:
+        fq1 = "{prefix}-decont_1.fastq.gz",
+        fq2 = "{prefix}-decont_2.fastq.gz",
+        bam = "{prefix}-decont.bam",
+    log:
+        "{prefix}-decont.log"
+    message:
+        "Decontaminating reads"
+    threads:
+        4
+    params:
+        outprefix = lambda wc: "{}-decont".format(wc.prefix)
+        # resource="h_rt=48:00:00,mem_free=15G" FIXME use
+    shell:
+        "decont.py -i {input.fq1} {input.fq2} -t {threads}"
+        " -r {input.decont_genome} -o {params.outprefix} >& {log};"
+
+
+localrules: fake_gunzip_single_end
+rule fake_gunzip_single_end:
+    input:
+        fq1 = "{prefix}_1.fastq.gz",
+        fq2 = "{prefix}_2.fastq.gz",
+    output:
+        temp("{prefix}_SR.fastq",)
+    message:
+        "Creating fake, unzipped SR"
+    log:
+        temp("{prefix}_SR.fastq.log",)
+    shell:
+        "gzip -dc {input} >{output} 2>{log}"
+
+
+rule kraken:
+    input:
+        fq1 = "{prefix}/{sample}/reads/all-trimmed-decont_1.fastq.gz",
+        fq2 = "{prefix}/{sample}/reads/all-trimmed-decont_2.fastq.gz",
+    output:
+        tsv = "{prefix}/{sample}/kraken_profile/kraken.tsv",
+        mpa = "{prefix}/{sample}/kraken/kraken.mpa.gz",
+        out = "{prefix}/{sample}/kraken/kraken.out.gz"
+    log:
+        "{prefix}/{sample}/kraken/kraken.log"
+    message:
+        "Running Kraken on {wildcards.sample}"
+    threads:
+        8
+    # params: resource="h_rt=48:00:00,mem_free=20G" FIXME use
+    shell:
+        "{{"
+        " mparaw=$(echo {output.mpa} | sed -e 's,.gz,,');"
+        " outraw=$(echo {output.out} | sed -e 's,.gz,,');"
+        " kraken  --preload --db config[kraken_db'] --paired"      
+        " --threads {threads} {input.fq1} {input.fq2} > $outraw;"
+        " kraken-translate --db config[kraken_db] --mpa-format $outraw > $mparaw;"
+        " kraken-mpa-report --db config[kraken_db] $outraw > {output.tsv};"
+        " gzip $mparaw $outraw;"
+        " }} >& {log};"
+
+        
+rule metaphlan2:
+    input:
+        fq = "{prefix}/{sample}/reads/all-trimmed-decont_SR.fastq",
+    output:
+        tsv = "{prefix}/{sample}/metaphlan2_profile/metaphlan2.tsv",
+        # intermediate BowTie2 output for re-running quickly
+        bowtie = "{prefix}/{sample}/metaphlan2_profile/metaphlan2.bowtie.bz2",
+        sam = "{prefix}/{sample}/metaphlan2_profile/metaphlan2.sam.bz2"
+    message:
+        "Running Metaphlan on {wildcards.sample}"
+    threads:
+        8
+    #params: resource="h_rt=48:00:00,mem_free=10G" FIXME use
+    shell:
+        "metaphlan2.py {input.fq} --mpa_pkl config[metaphlan2_pkl]"
+        " --bowtie2db config[metaphlan2_db] --bowtie2out {output.bowtie} -s {output.sam} "
+        " --nproc {threads} >{output.tsv} 2>{log};"
+
+
+rule humann2:
+    input:
+        fq = "{prefix}/{sample}/reads/all-trimmed-decont_SR.fastq",
+    output:
+        gf = "{prefix}/{sample}/humann2/humann2_genefamilies.tsv",
+        gfn = "{prefix}/{sample}/humann2/humann2_genefamilies.relab.tsv",
+        pw = "{prefix}/{sample}/humann2/humann2_pathabundance.tsv",
+        pwn = "{prefix}/{sample}/humann2/humann2_pathabundance.relab.tsv",
+        cov = "{prefix}/{sample}/humann2/humann2_pathcoverage.tsv",
+        flag = "{prefix}/{sample}/humann2/humann2.SUCCESS"
+    message:
+        "Running HUMAnN2 on {wildcards.sample}"
+    log:
+        "{prefix}/{sample}/humann2/humann2.log"        
+    threads:
+        8
+    #params: resource="h_rt=48:00:00,mem_free=50G" FIXME use
+    shell:
+        "{{ "
+        "humann2 -i {input.fq}"
+        " -o $(dirname {output.gf}) "
+        #" --metaphlan {METAPHLAN2_PATH} "
+        #" --diamond {DIAMOND_PATH}"
+        #" --input-format fastq.multi"
+        " --output-basename $(dirname {output.gf} | sed -e 's,_genefamilies.tsv,,')"
+        " --remove-temp-output"
+        " --nucleotide-database config[humann2_nucleotide]"
+        " --protein-database config[humann2_protein]"
+        " --threads {threads};"
+        "humann2_renorm_table --input {output.gf}"
+        " --output {output.gfn}"
+        " --units relab;"
+        "humann2_renorm_table --input {output.pw}"
+        " --output {output.pwn}"
+        " --units relab;"
+        "touch {output.flag}"
+        " }} >& {log}"
+
+
+# FIXME localrule?
+rule merge_humann2:
+    input:
+        expand("{{prefix}}/{sample}/humann2/humann2.SUCCESS",
+               sample=config['samples'])
+    output:
+        gf = "{prefix}/merged_table_humann2/genefamily.tsv",
+        pw = "{prefix}/merged_table_humann2/pathabundance.tsv",
+        cov = "{prefix}/merged_table_humann2/pathcoverage.tsv",
+        flag = "{prefix}/pathway_profile.SUCCESS"
+    message:
+        "Merging HUMAnN2 results for all samples"
+    log:
+        "{prefix}/pathway_profile.log"
+    threads:
+        1
+    #params: resource="h_rt=48:00:00,mem_free=40G" FIXME use?
+    shell:
+        "{{ "
+        " humann2_join_tables --input humann2_profile "
+        " --output {output.gf}"
+        " --file_name genefamilies.relab;"
+        " humann2_join_tables --input humann2_profile "
+        " --output {output.pw}"
+        " --file_name pathabundance.relab;"
+        " humann2_join_tables --input humann2_profile "
+        " --output {output.cov}"
+        " --file_name pathcoverage;"
+        " touch {output.flag};"
+        " }} >& {log}"
+
+
+
+# FIXME localrule?
+rule split_tables:
+    input:
+        "{prefix}/{sample}/{method}_profile/{method}.tsv"
+    output:
+        "{prefix}/split_table_{method}/{sample}.SUCCESS"
+    log:
+        "{prefix}/split_table_{method}/{sample}.log"
+    message:
+        "Splitting tables for {wildcards.method} on {wildcards.sample}"
+    threads:
+        1
+    # params: resource="h_rt=2:00:00,mem_free=5G" FIXME use
+    shell:
+        "{{"
+        " split_metaphlan_table.sh {input} $(echo {input} | sed -e 's,.tsv,,');"
+        " touch {output};"
+        " }} >& {log}"
+
+        
+
+rule merge_tables:
+    input:
+        expand("{{prefix}}/split_table_{method}/{sample}.SUCCESS",
+               method=config['profilers'], sample=config['samples'])
+    output:
+        touch("{prefix}/tax_profile.SUCCESS")
+    message:
+        "Merging tables"
+    threads:
+        1
+    #params: resource="h_rt=2:00:00,mem_free=20G" FIXME use
+    run:
+        for m in config['profilers']:
+            IDS = glob.glob("split_table_"+m+"/*.table.?")
+            tax = set([x.split(".")[-1] for x in IDS ])
+            output_dir = "merged_table_" + m + "/"
+            if not os.path.exists(output_dir):
+                os.mkdir(output_dir)
+            for t in tax:
+                # FIXME this surely needs work
+                shell("merge_tables.py -p '[A-Z]+[0-9]+' split_table_%s/*table.%s -o %s/%s.%s.profile_merged.tsv" % (m, t, output_dir, t, m))
+
+

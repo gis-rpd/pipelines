@@ -1,0 +1,34 @@
+{
+    # match short queue
+    "__default__" :
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+
+    "decont":
+    {
+      "time": "24:00:00".
+      "mem": 10G
+    }
+
+    "kraken":
+    {
+      "time": "24:00:00",
+      "mem": 20G
+    }
+
+    "metaphlan2":
+    {
+      "time": "24:00:00".
+      "mem: 10G
+    }
+
+    "humann2":
+    {
+      "time": "24:00:00".
+      "mem: 40G
+    }
+
+}    
+
