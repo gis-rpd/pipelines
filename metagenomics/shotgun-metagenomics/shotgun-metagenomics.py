@@ -48,7 +48,7 @@ CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
 
 
 # same as folder name. also used for cluster job names
-PIPELINE_NAME = "shotgun_metagenomics"
+PIPELINE_NAME = "shotgun-metagenomics"
 
 # global logger
 logger = logging.getLogger(__name__)

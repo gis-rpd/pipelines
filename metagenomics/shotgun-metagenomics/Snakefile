@@ -18,6 +18,8 @@ if LIB_PATH not in sys.path:
 RESULT_OUTDIR = 'out'
 
 
+SPLIT_TABLE = srcdir("aux/split_table.sh")
+
 # non-login bash
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
@@ -40,10 +42,10 @@ rule read_trimming:
         fq1 = lambda wc: config['readunits'][wc.unit]['fq1'],
         fq2 = lambda wc: config['readunits'][wc.unit]['fq2'],
     output:
-        fq1 = "{prefix}/{sample}/reads/{unit}-trimmed_1.fastq.gz",
-        fq2 = "{prefix}/{sample}/reads/{unit}-trimmed_2.fastq.gz"
+        fq1 = "{prefix}/{sample}/reads/{unit}-trimmed-pair1.fastq.gz",
+        fq2 = "{prefix}/{sample}/reads/{unit}-trimmed-pair2.fastq.gz"
     log:
-        "{prefix}/{sample}/reads/trimmed/{unit}-trimmed.log"
+        "{prefix}/{sample}/reads/trimmed/{unit}.trimmed.log"
     message:
         "Trimming and filtering input reads for unit {wildcards.unit} of sample {wildcards.sample}"
     threads:
@@ -67,9 +69,9 @@ rule combine_trim:
     # adopted from vipr
     input:
         # this looks rather clumsy but somehow works, i.e. returns a list
-        fq1 = lambda wc: ["{prefix}/{sample}/reads/{unit}-trimmed_1.fastq.gz".format(
+        fq1 = lambda wc: ["{prefix}/{sample}/reads/{unit}-trimmed-pair1.fastq.gz".format(
             prefix=wc.prefix, sample=wc.sample, unit=ru) for ru in config['samples'][wc.sample]],
-        fq2 = lambda wc: ["{prefix}/{sample}/reads/{unit}-trimmed_2.fastq.gz".format(
+        fq2 = lambda wc: ["{prefix}/{sample}/reads/{unit}-trimmed-pair2.fastq.gz".format(
             prefix=wc.prefix, sample=wc.sample, unit=ru) for ru in config['samples'][wc.sample]],
     output:
         fq1 = "{prefix}/{sample}/reads/all-trimmed_1.fastq.gz",
@@ -137,6 +139,7 @@ rule kraken:
     input:
         fq1 = "{prefix}/{sample}/reads/all-trimmed-decont_1.fastq.gz",
         fq2 = "{prefix}/{sample}/reads/all-trimmed-decont_2.fastq.gz",
+        db = config['references']['kraken_db']
     output:
         tsv = "{prefix}/{sample}/kraken_profile/kraken.tsv",
         mpa = "{prefix}/{sample}/kraken/kraken.mpa.gz",
@@ -152,10 +155,10 @@ rule kraken:
         "{{"
         " mparaw=$(echo {output.mpa} | sed -e 's,.gz,,');"
         " outraw=$(echo {output.out} | sed -e 's,.gz,,');"
-        " kraken  --preload --db config[kraken_db'] --paired"      
+        " kraken  --preload --db {input.db} --paired"      
         " --threads {threads} {input.fq1} {input.fq2} > $outraw;"
-        " kraken-translate --db config[kraken_db] --mpa-format $outraw > $mparaw;"
-        " kraken-mpa-report --db config[kraken_db] $outraw > {output.tsv};"
+        " kraken-translate --db {input.db} --mpa-format $outraw > $mparaw;"
+        " kraken-mpa-report --db {input.db} $outraw > {output.tsv};"
         " gzip $mparaw $outraw;"
         " }} >& {log};"
 
@@ -163,25 +166,31 @@ rule kraken:
 rule metaphlan2:
     input:
         fq = "{prefix}/{sample}/reads/all-trimmed-decont_SR.fastq",
+        pkl = config['references']['metaphlan2_pkl']
     output:
         tsv = "{prefix}/{sample}/metaphlan2_profile/metaphlan2.tsv",
         # intermediate BowTie2 output for re-running quickly
         bowtie = "{prefix}/{sample}/metaphlan2_profile/metaphlan2.bowtie.bz2",
         sam = "{prefix}/{sample}/metaphlan2_profile/metaphlan2.sam.bz2"
+    log:
+         "{prefix}/{sample}/metaphlan2_profile/metaphlan2.log"
     message:
         "Running Metaphlan on {wildcards.sample}"
     threads:
         8
     #params: resource="h_rt=48:00:00,mem_free=10G" FIXME use
     shell:
-        "metaphlan2.py {input.fq} --mpa_pkl config[metaphlan2_pkl]"
-        " --bowtie2db config[metaphlan2_db] --bowtie2out {output.bowtie} -s {output.sam} "
+        "metaphlan2.py {input.fq} --input_type fastq --mpa_pkl {input.pkl}"
+        " --bowtie2db {config[references][metaphlan2_db]} --bowtie2out {output.bowtie} -s {output.sam} "
         " --nproc {threads} >{output.tsv} 2>{log};"
 
 
 rule humann2:
     input:
         fq = "{prefix}/{sample}/reads/all-trimmed-decont_SR.fastq",
+        nucl_db = config['references']['humann2_nucleotide'],
+        prot_db = config['references']['humann2_protein'],
+        pkl = config['references']['metaphlan2_pkl']
     output:
         gf = "{prefix}/{sample}/humann2/humann2_genefamilies.tsv",
         gfn = "{prefix}/{sample}/humann2/humann2_genefamilies.relab.tsv",
@@ -196,6 +205,7 @@ rule humann2:
     threads:
         8
     #params: resource="h_rt=48:00:00,mem_free=50G" FIXME use
+    # rerunning metaphlan instead of reusing. chenhao says necessary because metaphlan itself is optional
     shell:
         "{{ "
         "humann2 -i {input.fq}"
@@ -203,18 +213,22 @@ rule humann2:
         #" --metaphlan {METAPHLAN2_PATH} "
         #" --diamond {DIAMOND_PATH}"
         #" --input-format fastq.multi"
-        " --output-basename $(dirname {output.gf} | sed -e 's,_genefamilies.tsv,,')"
+        " --metaphlan-options=' --mpa_pkl {input.pkl} --bowtie2db {config[references][metaphlan2_db]}'"
+        " --output-basename $(basename {output.gf} | sed -e 's,_genefamilies.tsv,,')"
         " --remove-temp-output"
-        " --nucleotide-database config[humann2_nucleotide]"
-        " --protein-database config[humann2_protein]"
+        " --nucleotide-database {input.nucl_db}"
+        " --protein-database {input.prot_db}"
         " --threads {threads};"
+        "echo 'INFO: humann2 completed';"
         "humann2_renorm_table --input {output.gf}"
         " --output {output.gfn}"
         " --units relab;"
+        "echo 'INFO: humann2_renorm_table genefamilies completed';"
         "humann2_renorm_table --input {output.pw}"
         " --output {output.pwn}"
         " --units relab;"
-        "touch {output.flag}"
+        "echo 'INFO: humann2_renorm_table pathabundance completed';"
+        "touch {output.flag};"
         " }} >& {log}"
 
 
@@ -251,7 +265,7 @@ rule merge_humann2:
 
 
 
-# FIXME localrule?
+localrules: split_tables
 rule split_tables:
     input:
         "{prefix}/{sample}/{method}_profile/{method}.tsv"
@@ -266,7 +280,7 @@ rule split_tables:
     # params: resource="h_rt=2:00:00,mem_free=5G" FIXME use
     shell:
         "{{"
-        " split_metaphlan_table.sh {input} $(echo {input} | sed -e 's,.tsv,,');"
+        " {SPLIT_TABLE} {input} $(echo {input} | sed -e 's,.tsv,,');"
         " touch {output};"
         " }} >& {log}"
 

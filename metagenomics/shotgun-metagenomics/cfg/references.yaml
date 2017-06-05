@@ -1,5 +1,5 @@
 metaphlan2_pkl: $RPD_GENOMES/metaphlan2/db_v20/mpa_v20_m200.pkl
-metaphlan2_dn: $RPD_GENOMES/metaphlan2/db_v20/mpa_v20_m200
+metaphlan2_db: $RPD_GENOMES/metaphlan2/db_v20/mpa_v20_m200
 kraken_db: $RPD_GENOMES/kraken/minikraken_20141208/
 decont_genome: $RPD_GENOMES/human_g1k_v37/human_g1k_v37.fasta
 humann2_nucleotide: $RPD_GENOMES/humann2/chocophlan/
