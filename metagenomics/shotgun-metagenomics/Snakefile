@@ -19,6 +19,9 @@ RESULT_OUTDIR = 'out'
 
 
 SPLIT_TABLE = srcdir("aux/split_table.sh")
+# NOTE: needs pandas which is part of the metaphlan2 env!
+MERGE_TABLES = srcdir("aux/merge_tables.py")
+
 
 # non-login bash
 shell.executable("/bin/bash")
@@ -45,7 +48,7 @@ rule read_trimming:
         fq1 = "{prefix}/{sample}/reads/{unit}-trimmed-pair1.fastq.gz",
         fq2 = "{prefix}/{sample}/reads/{unit}-trimmed-pair2.fastq.gz"
     log:
-        "{prefix}/{sample}/reads/trimmed/{unit}.trimmed.log"
+        "{prefix}/{sample}/reads/{unit}-trimmed.log"
     message:
         "Trimming and filtering input reads for unit {wildcards.unit} of sample {wildcards.sample}"
     threads:
@@ -251,13 +254,14 @@ rule merge_humann2:
     #params: resource="h_rt=48:00:00,mem_free=40G" FIXME use?
     shell:
         "{{ "
-        " humann2_join_tables --input humann2_profile "
+        " input=$(dirname {input[0]});"
+        " humann2_join_tables --input $input "
         " --output {output.gf}"
         " --file_name genefamilies.relab;"
-        " humann2_join_tables --input humann2_profile "
+        " humann2_join_tables --input $input "
         " --output {output.pw}"
         " --file_name pathabundance.relab;"
-        " humann2_join_tables --input humann2_profile "
+        " humann2_join_tables --input $input "
         " --output {output.cov}"
         " --file_name pathcoverage;"
         " touch {output.flag};"
@@ -270,7 +274,7 @@ rule split_tables:
     input:
         "{prefix}/{sample}/{method}_profile/{method}.tsv"
     output:
-        "{prefix}/split_table_{method}/{sample}.SUCCESS"
+        touch("{prefix}/split_table_{method}/{sample}.SUCCESS")
     log:
         "{prefix}/split_table_{method}/{sample}.log"
     message:
@@ -280,10 +284,9 @@ rule split_tables:
     # params: resource="h_rt=2:00:00,mem_free=5G" FIXME use
     shell:
         "{{"
-        " {SPLIT_TABLE} {input} $(echo {input} | sed -e 's,.tsv,,');"
-        " touch {output};"
+        " outpref=$(echo {output} | sed -e 's,.SUCCESS,,');" 
+        " {SPLIT_TABLE} {input} $outpref;"
         " }} >& {log}"
-
         
 
 rule merge_tables:
@@ -299,13 +302,17 @@ rule merge_tables:
     #params: resource="h_rt=2:00:00,mem_free=20G" FIXME use
     run:
         for m in config['profilers']:
-            IDS = glob.glob("split_table_"+m+"/*.table.?")
-            tax = set([x.split(".")[-1] for x in IDS ])
-            output_dir = "merged_table_" + m + "/"
+            IDS = glob.glob(os.path.join(
+                RESULT_OUTDIR, "split_table_{}".format(m), "*.table.?"))
+            tax = set([x.split(".")[-1] for x in IDS])
+            output_dir = os.path.join(
+                RESULT_OUTDIR, "merged_table_{}".format(m))
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
             for t in tax:
-                # FIXME this surely needs work
-                shell("merge_tables.py -p '[A-Z]+[0-9]+' split_table_%s/*table.%s -o %s/%s.%s.profile_merged.tsv" % (m, t, output_dir, t, m))
+                cmd = "{MERGE_TABLES} -p '[A-Z]+[0-9]+'"
+                cmd += " {}/split_table_{}/*table.{}".format(RESULT_OUTDIR, m, t)
+                cmd += " -o {}/{}.{}.profile_merged.tsv".format(output_dir, t, m)
+                shell(cmd)
 
 

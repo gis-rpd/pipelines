@@ -8,26 +8,26 @@
 
     "decont":
     {
-      "time": "24:00:00",
-      "mem": 10G
+      "time": "12:00:00",
+      "mem": 8G
     },
 
     "kraken":
     {
-      "time": "24:00:00",
-      "mem": 20G
+      "time": "12:00:00",
+      "mem": 8G
     },
 
     "metaphlan2":
     {
-      "time": "24:00:00",
-      "mem": 10G
+      "time": "12:00:00",
+      "mem": 6G
     },
 
     "humann2":
     {
       "time": "24:00:00",
-      "mem": 40G
+      "mem": 18G
     },
 
 }    
