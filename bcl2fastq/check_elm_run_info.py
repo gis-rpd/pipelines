@@ -88,12 +88,9 @@ def main():
     if connection is None:
         sys.exit(1)
     db = connection.gisds.runcomplete
-    #FIXME for production environment
     if is_devel_version() or args.testing:
-        #mail_to = 'veeravallil'# domain added in mail function
-        #ccaddr = None
-        mail_to = 'GISNGSPlatform@gis.a-star.edu.sg'
-        ccaddr = "rpd"
+        mail_to = 'veeravallil'# domain added in mail function
+        ccaddr = None
     else:
         mail_to = 'GISNGSPlatform@gis.a-star.edu.sg'
         ccaddr = "rpd"

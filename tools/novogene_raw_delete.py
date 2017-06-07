@@ -38,9 +38,7 @@ HANDLER.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 LOGGER.addHandler(HANDLER)
 
-
-
-def runs_from_db(db, win=34):
+def runs_from_db(db, days=75, win=34):
     """Get the runs from pipeline_run collections"""
     epoch_present, epoch_back = generate_window(win)
     results = db.find({"run" : {"$regex" : "^NG00"}, "raw-delete": {"$exists": False},
@@ -63,8 +61,8 @@ def runs_from_db(db, win=34):
         analysis_epoch_time = isoformat_to_epoch_time(end_time+"+08:00")
         epoch_time_now = isoformat_to_epoch_time(generate_timestamp()+"+08:00")
         rd = relative_epoch_time(epoch_time_now, analysis_epoch_time)
-        days = rd.months*30 + rd.days
-        if status == 'SUCCESS' and days > 60:
+        relative_days = rd.months*30 + rd.days
+        if status == 'SUCCESS' and relative_days > days:
             yield runid_and_flowcellid
 
 def run_folder_for_run_id(runid_and_flowcellid):
@@ -133,6 +131,9 @@ def main():
     default = 34
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
+    default = 75
+    parser.add_argument('-d', '--days', type=int, default=default,
+                        help="Bcl analysis not older than days(default {})".format(default))
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -163,7 +164,7 @@ def main():
         mail_to = 'veeravallil'# domain added in mail function
     else:
         mail_to = 'rpd'
-    run_records = runs_from_db(db, args.win)
+    run_records = runs_from_db(db, args.days, args.win)
     for run in run_records:
         if args.dry_run:
             LOGGER.info("Skipping dryrun option %s", run)
