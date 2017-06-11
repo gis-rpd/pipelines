@@ -1,6 +1,5 @@
 # shotgun-metagenomics
 
-
 ## Summary
 
 This pipeline analyses paired-end shotgun metagenomics data. In a
@@ -21,10 +20,12 @@ The following list the main output files
 - `merged_table_{profiler}/{tax}.{profiler}.profile_merged.tsv` where
   `profiler` can be `kraken` or `metaphlan2` and `tax` is a one-letter
   abbreviation for taxonomic rank (e.g. `g` for genus).
-- `merged_table_humann2/pathcoverage.tsv`: FIXME Add description (HUMAnN2 pathway analysis)
-- `merged_table_humann2/genefamily.tsv`: FIXME Add description (HUMAnN2 pathway analysis)
-- `merged_table_humann2/pathabundance.tsv`: FIXME Add description (HUMAnN2 pathway analysis)
-
+- `merged_table_humann2/genefamily.tsv`: Abundance (in RPK) of each
+  gene family (each row) in each sample (each column)
+- `merged_table_humann2/pathabundance.tsv`: Abundance of each pathway
+  in each sample. The pathways are stratified into species.
+- `merged_table_humann2/pathcoverage.tsv`: Presence (1)/absence (0)
+  code for each pathway in each sample.
 
 ## References
 
