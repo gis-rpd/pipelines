@@ -19,6 +19,7 @@ if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import send_status_mail
 from pipelines import path_to_url
+from pipelines import RPD_SIGNATURE
 from utils import generate_timestamp
 from elmlogger import ElmLogging, ElmUnit
 from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE_FMT, DBUPDATE_TRIGGER_FILE_MAXNUM
@@ -171,6 +172,8 @@ rule final:
                muxdir=get_mux_dirs()),
         expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'fastqc.SUCCESS'),
                muxdir=get_mux_dirs()),
+        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'drop_index_note.SUCCESS'),
+               muxdir=get_mux_dirs()),
         report="report.html"
     message:
         """
@@ -233,7 +236,8 @@ rule bcl2fastq:
     run:
         res_dir = os.path.dirname(output.flag)
         cmd = "bcl2fastq --runfolder-dir {input.rundir} --output-dir %s" % RESULT_OUTDIR
-        cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir) 
+        cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir)
+        cmd += "  --create-fastq-for-index-reads"
         cmd += " --sample-sheet {input.samplesheet} {params.usebases}"
         cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
         cmd += " %s" % bcl2fastq_threads_setting(threads)
@@ -250,7 +254,7 @@ rule fastqc:
     input: 
         '{muxdir}/bcl2fastq.SUCCESS'
     output:
-        '{muxdir}/fastqc.SUCCESS'
+        touch('{muxdir}/fastqc.SUCCESS')
     log:
         '{muxdir}/fastqc.log'
     threads: 8
@@ -261,10 +265,34 @@ rule fastqc:
         # fastqc will fail on corrupted files but return proper error code,
         # so better check input with gzip -t first.
 	# rarely saw fastqc threads actually get more than 100% so no point in using threading option
-        "{{ find $(dirname {input}) -name \*fastq.gz | xargs --no-run-if-empty -n 1 -P {threads} gzip -t;"
+        "{{"
+        " find $(dirname {input}) -name \*fastq.gz | xargs --no-run-if-empty -n 1 -P {threads} gzip -t;"
         " find $(dirname {input}) -name \*fastq.gz | xargs --no-run-if-empty -n 1 -P {threads} fastqc;"
-        " touch {output}; }} >& {log}"
+        " }} >& {log}"
 
+localrules:
+rule drop_index_note:
+    """drop a note per index file pointing out that they are...index files.
+    """
+    input: 
+        '{muxdir}/bcl2fastq.SUCCESS'
+    output:
+        touch('{muxdir}/drop_index_note.SUCCESS')
+    log:
+        '{muxdir}/drop_index_note.log'
+    threads: 8
+    message:
+        "Running fastqc on {input}"
+    run:
+        # note: need to be able to deal with empty directories.
+        import glob
+        for ifq in glob.glob(os.path.join(os.path.dirname(str(input[0])), "*", "*_I[12]_*fastq.gz")):
+            with open(ifq + ".README", 'w') as fh:
+                fh.write("The _I1_ and _I2_ fastq files are index files\n")
+                fh.write("Use them only if you know exactly what you are doing\n")
+                fh.write("Most users will only be interested in the _I1_ and _I2_ fastq files\n")
+                fh.write("\n{}\n".format(RPD_SIGNATURE))
+    
 
 
 
