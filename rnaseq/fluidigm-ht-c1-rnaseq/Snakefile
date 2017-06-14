@@ -44,6 +44,7 @@ NUM_ROWS = 40
 
 #assert len(config['samples'])==1, ("Pipeline optimized for one sample, i.e. componenent-library")
 
+
 rule final:
     input:
         # sample here is our typical component library
@@ -69,7 +70,6 @@ rule final:
                row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                genome=GENOME_BASENAME),
         report="report.html"
-
 
 
 rule RSEM:
@@ -158,7 +158,8 @@ rule RSEM:
             cmd += " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tgene_type\\tgene_name\\n/' {}.desc;".format(genecount)
             cmd += " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\tgene_type\\tgene_name\\n/' {}.desc".format(isocount)
             shell(cmd)
-        
+
+            
 rule rnaseqQC:
     # since very fast, loop over samples
     input:
@@ -186,11 +187,11 @@ rule rnaseqQC:
     message:
         "Running RNASeqQC"
     run:
-        for bam, flag in zip(input.bam, output.flag):
-            # if the input bam is empty rnaseq will fail and the whole
-            # pipeline is stuck.  therefore, check if the file is
+        for bam, flag, bamidx in zip(input.bam, output.flag, output.bamidx):
+            # if the input bam is empty, rnaseq will fail and the whole
+            # pipeline is stuck. therefore, check if the file is
             # empty, and if yes, create fake output files
-            res = shell("samtools view -c {}".format(bam), read=True)# alternatie to read is iterable
+            res = shell("samtools view -c {}".format(bam), read=True)# alternative to read is iterable
             if res.decode().rstrip() == "0":
                 for f in [bamidx, flag]:
                     with open(f, 'w') as fh:
@@ -206,20 +207,25 @@ rule rnaseqQC:
             cmd += "find $(dirname {}) -name \*tmp.txt\* -type f | xargs -r rm".format(flag)
             shell(cmd)
 
-# input files are tiny (multiplexed single cell), hence this process
-# is very fast. doesn't make sense to submit them separately (and also
-# repeatedly caused trouble (hanging))
-# 
-#rule wig2bigwig:
-#    input:
-#        wig = '{prefix}.wig',
-#        gsizes = config['references']['genome'] + ".sizes"
-#    output:
-#        '{prefix}.bw'
-#    shell:
-#        # FIXME replace mnt software later
-#        " /mnt/software/bin/wigToBigWig {input.wig} {input.gsizes} {output};"
+            
+def wig2bigwig(wig, bigwig, gsizes):
+    # empty input shouldn't create trouble (empty could mean first
+    # line is just ^variableStep... or WARNING: empty)
+    wig_ok = 0
+    num_lines = 0
+    with open(wig) as fh:
+        for line in fh:
+            num_lines += 1
+            if num_lines > 1:
+                wig_ok = 1
+                break
+    if wig_ok:
+        shell("wigToBigWig {} {} {}".format(wig, gsizes, bigwig))
+    else:
+        with open(bigwig, 'w') as fh:
+            fh.write("WARNING: input wig is empty: {}\n".format(wig))
 
+            
 # star wig's bunched together
 rule wig2bigwig_star:
     input:
@@ -240,25 +246,11 @@ rule wig2bigwig_star:
     #shell:
     #    "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
     run:
-        # if using bash argument length can be too long
-        for wig in input.wig:
-            # empty input shouldn't create trouble (empty could mean first line is just ^variableStep...)
-            wig_ok = 0
-            num_lines = 0
-            with open(wig) as fh:
-                for line in fh:
-                    num_lines += 1
-                    if num_lines > 1:
-                        wig_ok = 1
-                        break
-                    
-            bw = os.path.splitext(wig)[0] + ".bw"
-            if wig_ok:
-                shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
-            else:
-                with open(bw, 'w') as fh:
-                    fh.write("Empty input file {}\n".format(wig))
+        # when using bash, argument length can be too long
+        for i, wig in enumerate(input.wig):
+            wig2bigwig(wig, output.bw[i], input.gsizes)
 
+            
 # rsem wig's bunched together
 rule wig2bigwig_rsem:
     input:
@@ -277,10 +269,9 @@ rule wig2bigwig_rsem:
     #shell:
     #    "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
     run:
-        # if using bash argument length can be too long
-        for wig in input.wig:
-            bw = os.path.splitext(wig)[0] + ".bw"
-            shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
+        # when using bash, argument length can be too long
+        for i, wig in enumerate(input.wig):
+            wig2bigwig(wig, output.bw[i], input.gsizes)
 
 
 # STAR is very fast, esp for single cell data. parallel jobs create
