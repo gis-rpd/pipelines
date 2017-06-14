@@ -33,7 +33,8 @@ while getopts "dr" opt; do
 done
 
 
-module load samtools
+which samtools || exit
+# module load samtools
 
 
 # readlink resolves links and makes path absolute
