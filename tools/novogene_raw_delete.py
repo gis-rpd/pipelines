@@ -23,6 +23,7 @@ from pipelines import get_machine_run_flowcell_id
 from pipelines import is_devel_version
 from pipelines import relative_epoch_time
 from pipelines import send_mail
+from pipelines import get_bcl_runfolder_for_runid
 from config import site_cfg
 from utils import generate_timestamp
 
@@ -65,21 +66,11 @@ def runs_from_db(db, days=75, win=34):
         if status == 'SUCCESS' and relative_days > days:
             yield runid_and_flowcellid
 
-def run_folder_for_run_id(runid_and_flowcellid):
-    """
-    Get the run folder
-    """
-    basedir = site_cfg['bcl2fastq_seqdir_base'].replace("userrig", "novogene")
-    machineid, runid, flowcellid = get_machine_run_flowcell_id(
-        runid_and_flowcellid)
-    rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
-    return rundir
-
 def purge(db, runid_and_flowcellid, mail_to):
     """
     purging bcl data from /mnt/seq/novogene
     """
-    rundir = run_folder_for_run_id(runid_and_flowcellid)
+    rundir = get_bcl_runfolder_for_runid(runid_and_flowcellid)
     if not os.path.exists(rundir):
         LOGGER.critical("Run directory '%s' does not exist.\n", rundir)
         return

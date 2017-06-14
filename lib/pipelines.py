@@ -622,6 +622,16 @@ def relative_epoch_time(epoch_time1, epoch_time2):
     rd = dateutil.relativedelta.relativedelta(dt1, dt2)
     return rd
 
+def relative_isoformat_time(last_analysis):
+    """
+    Relative isoformat_time
+    """
+    analysis_epoch_time = isoformat_to_epoch_time(last_analysis+"+08:00")
+    epoch_time_now = isoformat_to_epoch_time(generate_timestamp()+"+08:00")
+    rd = relative_epoch_time(epoch_time_now, analysis_epoch_time)
+    relative_days = rd.months*30 + rd.days
+    return relative_days
+
 
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
@@ -645,6 +655,19 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
     machineid = runid.split("-")[0]
     return machineid, runid, flowcellid
 
+def get_bcl_runfolder_for_runid(runid_and_flowcellid):
+    """returns the bcl Run directory
+    """
+    basedir = site_cfg['bcl2fastq_seqdir_base']
+    machineid, runid, flowcellid = get_machine_run_flowcell_id(
+        runid_and_flowcellid)
+    if machineid.startswith('MS00'):
+        rundir = "{}/{}/MiSeqOutput/{}_{}".format(basedir, machineid, runid, flowcellid)
+        return rundir
+    if machineid.startswith('NG00'):
+        basedir = site_cfg['bcl2fastq_seqdir_base'].replace("userrig", "novogene")
+    rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
+    return rundir
 
 def email_for_user():
     """get email for user (naive)
