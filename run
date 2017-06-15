@@ -26,8 +26,10 @@ if os.path.exists(disabled_pipeline_cfg):
     
 SCRIPTS = ['chromatin-profiling/chipseq/chipseq.py',
            'custom/SG10K/SG10K.py',
+           'germs/vipr/vipr.py',
            'mapping/BWA-MEM/BWA-MEM.py',
            'metagenomics/essential-genes/essential-genes.py',
+           'metagenomics/shotgun-metagenomics/shotgun-metagenomics.py',
            'rnaseq/fluidigm-ht-c1-rnaseq/fluidigm-ht-c1-rnaseq.py',
            'rnaseq/star-rsem/star-rsem.py',
            'somatic/lofreq-somatic/lofreq-somatic.py',
