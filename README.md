@@ -39,7 +39,7 @@ The following installations are available at different sites (referred to as `RP
 - NSCC: `/home/users/astar/gis/gisshared/rpd/pipelines/`
 
 Each of these contains one subfolder per pipeline version,
-e.g. `$RPD_PIPELINES/pipelines.2016-07` (referred to as
+e.g. `$RPD_PIPELINES/pipelines.2017-01` (referred to as
 `PIPELINE_ROOTDIR` below).
 
 Much of this framework assumes a certain setup and services to be
@@ -220,7 +220,7 @@ You don't. It's taken care of automatically.
 
 #### Which Python version should I use?
 
-None! Call scripts without `python`.
+None! Call scripts directly, i.e. without `python`.
 
 #### Pipeline execution failed. What now?
 
@@ -237,7 +237,7 @@ implementation priority.
 
 #### Can these pipelines be selected in / run from ELM?
 
-No. For now you will have to use the command-line. The Datahub team is
+No. For now you will have to use the commandline. The Datahub team is
 working on a separate web-interface for running pipelines.
 
 ## Comments,
