@@ -39,7 +39,7 @@ The following installations are available at different sites (referred to as `RP
 - NSCC: `/home/users/astar/gis/gisshared/rpd/pipelines/`
 
 Each of these contains one subfolder per pipeline version,
-e.g. `$RPD_PIPELINES/pipelines.2016-07` (referred to as
+e.g. `$RPD_PIPELINES/pipelines.2017-01` (referred to as
 `PIPELINE_ROOTDIR` below).
 
 Much of this framework assumes a certain setup and services to be
@@ -112,17 +112,19 @@ In either case, you must not prefix the script with `python`.
 
 | Name | Category | Notes | @GIS | @NSCC |
 | ---  | ---      | ---   | ---  | ---   |
-| [bcl2fastq](bcl2fastq/README.md)                               | Production          | Not for end-users     | Y | Y |
-| [ChIP-seq](chromatin-profiling/chipseq/README.md)              | Chromatin Profiling |                       | Y | Y |
-| [SG10K](custom/SG10K/README.md)                                | Custom              | Evaluation only       | Y | Y |
-| [BWA-MEM](mapping/BWA-MEM/README.md)                           | Mapping             |                       | Y | Y |
-| [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |
-| [STAR-RSEM](rnaseq/star-rsem/README.md)                        | RNA-Seq             |                       | Y | Y |
-| [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)| RNA-Seq             |                       | Y | N |
-| [LoFreq-Somatic](somatic/lofreq-somatic/README.md)             | Somatic             |                       | Y | N |
-| [Mutect](somatic/mutect/README.md)                             | Somatic             |                       | Y | Y |
-| [GATK](variant-calling/gatk/README.md)                         | Variant-calling     |                       | Y | Y |
-| [Lacer-LoFreq](variant-calling/lacer-lofreq/README.md)         | Variant-calling     |                       | Y | N |
+| [bcl2fastq](bcl2fastq/README.md)                                    | Production          | Not for end-users     | Y | Y |
+| [ChIP-seq](chromatin-profiling/chipseq/README.md)                   | Chromatin Profiling |                       | Y | Y |
+| [SG10K](custom/SG10K/README.md)                                     | Custom              | Not for end-users     | Y | Y |
+| [ViPR](germs/vipr/README.md)                                        | GERMS               |                       | Y | Y |
+| [BWA-MEM](mapping/BWA-MEM/README.md)                                | Mapping             |                       | Y | Y |
+| [Shotgun Metagenomics](metagenomics/shotgun-metagenomics/README.md) | Metagenomics        |                       | Y | Y |
+| [Essential-Genes](metagenomics/essential-genes/README.md)           | Metagenomics        | Requires ref download | Y | Y |
+| [STAR-RSEM](rnaseq/star-rsem/README.md)                             | RNA-Seq             |                       | Y | Y |
+| [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)     | RNA-Seq             |                       | Y | N |
+| [LoFreq-Somatic](somatic/lofreq-somatic/README.md)                  | Somatic             |                       | Y | N |
+| [Mutect](somatic/mutect/README.md)                                  | Somatic             |                       | Y | Y |
+| [GATK](variant-calling/gatk/README.md)                              | Variant-calling     |                       | Y | Y |
+| [Lacer-LoFreq](variant-calling/lacer-lofreq/README.md)              | Variant-calling     |                       | Y | N |
 
 See `example-dag.pdf` in each pipeline's folder for a visual overview of the workflow.
 
@@ -218,7 +220,7 @@ You don't. It's taken care of automatically.
 
 #### Which Python version should I use?
 
-None! Call scripts without `python`.
+None! Call scripts directly, i.e. without `python`.
 
 #### Pipeline execution failed. What now?
 
@@ -235,7 +237,7 @@ implementation priority.
 
 #### Can these pipelines be selected in / run from ELM?
 
-No. For now you will have to use the command-line. The Datahub team is
+No. For now you will have to use the commandline. The Datahub team is
 working on a separate web-interface for running pipelines.
 
 ## Comments,

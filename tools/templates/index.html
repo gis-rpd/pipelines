@@ -32,9 +32,16 @@
 						"smart": false
 					}
 				});
+//                $(".analysis_table, .mux_table").DataTable({
+//                    "order": [[0, "desc"]],
+//                    "bFilter": false,
+//                    "bInfo": false,
+//                    "bLengthChange": false,
+//                    "bPaginate": false
+//                });
 
-				$("#from").datepicker({
-			    	minDate: new Date(2016, 5 - 1, 27),
+			    $("#from").datepicker({
+                                minDate: -90,
 			    	maxDate: new Date(),
 			    	changeMonth: true,
 			    	changeYear: true,
@@ -44,7 +51,7 @@
 			    	}
 			    });
 			    $("#to").datepicker({
-			    	minDate: new Date(2016, 5 - 1, 27),
+                                minDate: -90,
 			    	maxDate: new Date(),
 			    	changeMonth: true,
 			    	changeYear: true,
@@ -55,7 +62,7 @@
 			    });
 			    $("#from").datepicker("option", "dateFormat", "yy-mm-dd");
 			    $("#to").datepicker("option", "dateFormat", "yy-mm-dd");
-			    $("#from").datepicker("setDate", "2016-05-27");
+			    $("#from").datepicker("setDate", "2017-01-01");
 			    $("#to").datepicker("setDate", new Date());
 
 			    $("#analysis_none").click(function(){
@@ -233,6 +240,7 @@
 						            <tr>
 						                <th>RUN</th>
 						                <th>TIMESTAMP</th>
+						                <th>RAW_DELETE</th>
 						                <th>ANALYSIS</th>
 						            </tr>
 				    			</thead>

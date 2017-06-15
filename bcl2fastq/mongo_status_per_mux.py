@@ -50,7 +50,7 @@ def main():
     parser.add_argument('-s', "--mux-status",
                         help="Analysis status", required=True,
                         choices=['SUCCESS', 'FAILED', 'NOARCHIVE'])
-    parser.add_argument('-t', "--test_server", action='store_true')
+    parser.add_argument('-t', "--test-server", action='store_true')
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -73,7 +73,7 @@ def main():
     user_name = getpass.getuser()
     if user_name != "userrig":
         logger.warning("Not a production user. Skipping MongoDB update")
-        sys.exit(0)
+        sys.exit(1)
 
     run_number = args.runid.rstrip()
     connection = mongodb_conn(args.test_server)

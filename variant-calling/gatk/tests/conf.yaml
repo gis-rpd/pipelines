@@ -1,0 +1,17 @@
+fq1: $RPD_ROOT/testing/data/giab-ashkenazimtrio/father/reads/SG10K-like/HG003_NA24149_father_sg10k-like_R1.fastq.gz
+fq2: $RPD_ROOT/testing/data/giab-ashkenazimtrio/father/reads/SG10K-like/HG003_NA24149_father_sg10k-like_R2.fastq.gz
+procbam: $RPD_ROOT/testing/data/giab-ashkenazimtrio/father/bam/HG003_NA24149_father.bwamem.dedup.bqsr.bam
+highconf_regions: $RPD_ROOT/testing/data/giab-ashkenazimtrio/father/truth/HG003_NA24149_father/GRCh37/HG003_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X_CHROM1-22_v.3.3.2_highconf_noinconsistent.bed
+truth_vcf:
+  # keys as used in bcftools
+  'snps': $RPD_ROOT/testing/data/giab-ashkenazimtrio/father/truth/HG003_NA24149_father/GRCh37/HG003_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X_CHROM1-22_v.3.3.2_highconf.bedovlp.snps.vcf.gz
+  'indels': $RPD_ROOT/testing/data/giab-ashkenazimtrio/father/truth/HG003_NA24149_father/GRCh37/HG003_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X_CHROM1-22_v.3.3.2_highconf.bedovlp.indels.vcf.gz
+min_expect:
+  # Numbers as per Azure MS Genomics POC (05-2017) - 0.005
+  'snps':
+    'TPR': 0.960
+    'PPV': 0.994
+  'indels':
+    'TPR': 0.858
+    'PPV': 0.956
+

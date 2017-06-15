@@ -30,8 +30,7 @@ from pipelines import get_pipeline_version
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
-from pipelines import get_default_queue
-from pipelines import email_for_user
+from pipelines import default_argparser
 
 
 __author__ = "Andreas Wilm"
@@ -64,42 +63,12 @@ def main():
     """main function
     """
 
+    default_parser = default_argparser(CFG_DIR)
     parser = argparse.ArgumentParser(description=__doc__.format(
-        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
+        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
+                                     parents=[default_parser])
 
-    # generic args
-    parser.add_argument('-o', "--outdir", required=True,
-                        help="Output directory (must not exist)")
-    parser.add_argument('--name',
-                        help="Give this analysis run a name (used in email and report)")
-    parser.add_argument('--no-mail', action='store_true',
-                        help="Don't send mail on completion")
-    default = email_for_user()
-    parser.add_argument('--mail', dest='mail_address', default=default,
-                        help="Send completion emails to this address (default: {})".format(default))
-    default = get_default_queue('slave')
-    parser.add_argument('-w', '--slave-q', default=default,
-                        help="Queue to use for slave jobs (default: {})".format(default))
-    default = get_default_queue('master')
-    parser.add_argument('-m', '--master-q', default=default,
-                        help="Queue to use for master job (default: {})".format(default))
-    parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=0,
-                        help="Increase verbosity")
-    parser.add_argument('-q', '--quiet', action='count', default=0,
-                        help="Decrease verbosity")
-    cfg_group = parser.add_argument_group('Configuration files (advanced)')
-    cfg_group.add_argument('--sample-cfg',
-                           help="Config-file (YAML) listing samples and readunits."
-                           " Collides with -1, -2 and -s")
-    for name, descr in [("references", "reference sequences"),
-                        ("params", "parameters"),
-                        ("modules", "modules")]:
-        default = os.path.abspath(os.path.join(CFG_DIR, "{}.yaml".format(name)))
-        cfg_group.add_argument('--{}-cfg'.format(name),
-                               default=default,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
-
+    parser._optionals.title = "Arguments"
     # pipeline specific args
     parser.add_argument("--control-fq1", nargs="+",
                         help="Control FastQ file/s (gzip only)."
@@ -125,7 +94,7 @@ def main():
     default = choices[0]
     parser.add_argument('--mapper', default=default, choices=choices,
                         help="Mapper to use. One of {}. Default {}".format(",".join(choices), default))
-    
+
     choices = ['TF', 'histone-narrow', 'histone-broad']#, 'open-chromatin']
     parser.add_argument('-t', '--peak-type', required=True, choices=choices,
                         help="Peak type. One of {}".format(",".join(choices)))
@@ -194,43 +163,35 @@ def main():
     assert sorted(samples) == sorted(["control", "treatment"])
 
 
-    # turn arguments into user_data that gets merged into pipeline config
+    # turn arguments into cfg_dict that gets merged into pipeline config
     #
-    # generic data first
-    user_data = dict()
-    user_data['mail_on_completion'] = not args.no_mail
-    user_data['mail_address'] = args.mail_address
-    user_data['readunits'] = readunits
-    user_data['samples'] = samples
-    if args.name:
-        user_data['analysis_name'] = args.name
+    cfg_dict = dict()
+    cfg_dict['readunits'] = readunits
+    cfg_dict['samples'] = samples
 
     # either paired end or not, but no mix allows
     if all([ru.get('fq2') for ru in readunits.values()]):
-        user_data['paired_end'] = True
+        cfg_dict['paired_end'] = True
     elif not any([ru.get('fq2') for ru in readunits.values()]):
-        user_data['paired_end'] = False
+        cfg_dict['paired_end'] = False
     else:
         logger.fatal("Mixed paired-end and single-end not allowed")
         sys.exit(1)
     logger.critical("Fixed genomesize. Should be 80%% of input")
-    user_data['peak_type'] = args.peak_type
-    user_data['mapper'] = args.mapper
-    user_data['skip_macs2'] = args.skip_macs2
-    user_data['skip_dfilter'] = args.skip_dfilter
+    cfg_dict['peak_type'] = args.peak_type
+    cfg_dict['mapper'] = args.mapper
+    cfg_dict['skip_macs2'] = args.skip_macs2
+    cfg_dict['skip_dfilter'] = args.skip_dfilter
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        params_cfgfile=args.params_cfg,
-        modules_cfgfile=args.modules_cfg,
-        refs_cfgfile=args.references_cfg,
+        args, cfg_dict,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
+
     if args.control_bam or args.treatment_bam:
         raise NotImplementedError("BAM injection not implemented yet")
+
     pipeline_handler.submit(args.no_run)
 
 

@@ -15,7 +15,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from readunits import gen_rg_lib_id, gen_rg_pu_id, fastqs_from_unit, get_sample_for_unit
-from pipelines import chroms_and_lens_from_fasta
+from utils import chroms_and_lens_from_fasta
 
 
 RESULT_OUTDIR = 'out'
@@ -37,14 +37,15 @@ include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
 include: "../../rules/vcf.rules"
 include: "../../rules/sambamba.rules"
+include: "../../rules/region_clusters.rules"
 include: "bwa_mem.rules"
 include: "gatk_mapping.rules"
 
 
 if config['seqtype'] == 'targeted':
-    localrules: final, report, mutect_pass, mutect_combine, prep_bed_files, gatk_recalibrate_bam gatk_recalibrate_info
+    localrules: final, report, gatk_recalibrate_bam gatk_recalibrate_info
 else:    
-    localrules: final, report, mutect_pass, mutect_combine, prep_bed_files
+    localrules: final, report
 
 
 assert sorted(config['samples']) == sorted(["normal", "tumor"])
@@ -55,47 +56,6 @@ rule final:
         os.path.join(VARIANTS_DIR, 'mutect.PASS.snpeff.vcf.gz.tbi'),
         "report.html"
 
-
-
-rule prep_bed_files:
-    """Prepare bed files to be able to run haplotype caller per chromosome
-    to speed things up. if we also have a global bed file intersect
-    with this one.
-
-    NOTE: this might produce empty bed files!
-
-    """
-    input:
-        ref = config['references']['genome'],
-        reffai = config['references']['genome'] + ".fai"
-    output:
-        bed = temp(expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
-                          ctr=range(config["references"]["num_chroms"])))
-    log:
-        os.path.join(RESULT_OUTDIR, "chr.split.log")
-    params:
-        outbedfmt = os.path.join(RESULT_OUTDIR, "chr.split.{}.bed")
-    message:
-        "Preparing intervals for splitting jobs"
-    run:
-        for (i, (s, l)) in enumerate(chroms_and_lens_from_fasta(input.ref)):
-            outbed = params.outbedfmt.format(i)
-            tmpbed = outbed + ".tmp"
-            # write one bed per chrom
-            with open(tmpbed, 'w') as fh:
-                if s not in config['references'].get('excl_chrom', []):
-                    fh.write("{}\t0\t{}\n".format(s, l))
-                # else: empty file
-                
-            # intersect with given bed if needed
-            # NOTE: might produce empty files (which is what we want)
-            # Can also deal with empty import (create above if in excl)
-            if config['intervals']:
-                shell("bedtools intersect -a {} -b {} > {} 2> {{log}}".format(
-                    config['intervals'], tmpbed, outbed))
-                os.unlink(tmpbed)
-            else:
-                shutil.move(tmpbed, outbed)
 
                 
 rule unit_merge:
@@ -115,7 +75,7 @@ rule unit_merge:
     message:
         "Merging units to {output}"
     threads:
-        8
+        4
     run:
         # readgroup and pg now different, so make PG and RG uniq (default)
         if len(input) > 1:
@@ -135,7 +95,7 @@ rule mutect_per_region:
         refidx = config['references']['genome'] + ".fai",
         dbsnp = config['references']['dbsnp'],
         cosmic = config['references']['cosmic'],
-        bed = os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed") # see prep_bed_files
+        bed = BED_FOR_REGION_TEMPLATE,
     output:
         vcf = temp("{prefix}/mutect.{ctr}.vcf"),
         vcfidx = temp("{prefix}/mutect.{ctr}.vcf.idx"),# just listed to get them removed
@@ -147,9 +107,9 @@ rule mutect_per_region:
         "Calling somatic variants with MuTect"
     params:
         frac_cont_arg = "--fraction_contamination {}".format(config["frac_cont"]) if config.get("frac_cont") else ""
+    # previously set higher to work around UGE/Java/OS vmem problem in GIS
     threads:
-        # purely due to our java/qsub problem which seemingly limits vm per core
-        2
+        1
     shell:
         # https://www.broadinstitute.org/cancer/cga/mutect_run
         #  --enable_extended_output
@@ -163,12 +123,12 @@ rule mutect_per_region:
         ' --out {output.out} --vcf {output.vcf}'
         ' >& {log}'
 
-        
+localrules: mutect_combine
 rule mutect_combine:
     input:
-        vcf = expand("{{prefix}}/mutect.{ctr}.vcf", ctr=range(config["references"]["num_chroms"])),
-        out = expand("{{prefix}}/mutect.{ctr}.txt", ctr=range(config["references"]["num_chroms"])),
-        cov = expand("{{prefix}}/mutect.{ctr}.wig", ctr=range(config["references"]["num_chroms"])),
+        vcf = expand("{{prefix}}/mutect.{ctr}.vcf", ctr=range(len(config["references"]["region_clusters"]))),
+        out = expand("{{prefix}}/mutect.{ctr}.txt", ctr=range(len(config["references"]["region_clusters"]))),
+        cov = expand("{{prefix}}/mutect.{ctr}.wig", ctr=range(len(config["references"]["region_clusters"]))),
     output:
         vcf = temp("{prefix}/mutect.vcf"),
         out = "{prefix}/mutect.txt.gz",
@@ -179,11 +139,6 @@ rule mutect_combine:
         "Combining results"
     threads:
         1
-    #params:
-    #    vcf_0 = lambda wildcards: "{prefix}/mutect.{ctr}.vcf".format(prefix=wildcards.prefix, ctr=0),
-    #    vcf_1plus = lambda wildcards: expand("{prefix}/mutect.{ctr}.vcf",
-    #                                         prefix=wildcards.prefix, ctr=range(1, config["references"]["num_chroms"]))
-    # " grep -m 1 '##GATKCommandLine=' {params.vcf_1plus} >> $tmpvcf; "
     shell:
         # combine and gzip files. remove most header from vcf's except first
         "{{ cat {input.out} | gzip > {output.out}; "
@@ -192,6 +147,7 @@ rule mutect_combine:
         " grep -h -v '^#' {input.vcf} >> {output.vcf}; }} >& {log}"   
 
     
+localrules: mutect_pass
 rule mutect_pass:
     input:
         "{prefix}.vcf.gz"

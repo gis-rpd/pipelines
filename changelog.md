@@ -3,6 +3,31 @@
 This change log only lists the major changes between releases. For a
 full list of changes refer to the commit log.
 
+## 2017-06
+
+New pipelines:
+- metagenomics/shotgun-metagenomics: runs several metagenomics
+  profilers and pathway analysis
+- germs/vipr3: Assembles viral NGS data and analyses low frequency
+  variants
+
+Changes to pipelines and framework
+- Reduced number of submitted jobs in all pipelines (bundling of jobs
+  e.g. in GATK and use of master slot through local rules)
+- Reduced cluster memory footprint in all pipelines
+- bcl2fastq now also creates index reads by default
+- Workflows are restarted automatically once after failure
+- S3 suport for FastQ files listed on config files
+- Support for injection of processed BAM into GATK and Lacer-LoFreq
+- Now using environment modules instead of dotkit
+
+Software Upgrades:
+- GATK 3.7
+- BWA 0.7.15
+- Lacer 0.424
+- Snakemake-3.11.2
+
+
 ## 2017-01
 
 - New pipelines:
@@ -63,7 +88,7 @@ full list of changes refer to the commit log.
 - new tools: whatapps and production warnings helper
 
 
-## 2016-06: 
+## 2016-06:
 
 bcl2fastq:
 - new `no_archive` option

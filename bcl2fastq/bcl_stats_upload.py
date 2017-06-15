@@ -44,7 +44,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--out_dir", required=True, help="out_dir")
     parser.add_argument("-m", "--mux_id", required=True, help="mux_id")
-    parser.add_argument('-t', "--test_server", action='store_true',
+    parser.add_argument('-t', "--test-server", action='store_true',
                         help="Use test-server for stats uploading")
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")

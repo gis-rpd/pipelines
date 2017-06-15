@@ -16,13 +16,13 @@
     "map_sort":
     {
       "time" : "24:00:00",
-      "mem" : 14G,
+      "mem" : 18G,
     },
 
     "dedup":
     {
        "time" : "6:00:00",
-       "mem" : 6G,
+       "mem" : 8G,
     },
 
     "gatk_recalibrate_info":

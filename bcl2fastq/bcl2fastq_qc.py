@@ -76,9 +76,19 @@ def get_machine_type_from_run_num(run_num):
         'HS005': 'macrogen',
         'HS006': 'hiseq 4000',
         'HS007': 'hiseq 4000',
+        'HS008': 'hiseq 4000',
+        'NG001': 'novogene hiseq x5',
+        'NG002': 'novogene hiseq x5',
+        'NG003': 'novogene hiseq x5',
+        'NG004': 'novogene hiseq x5',
+        'NG005': 'novogene hiseq x5',
     }
     machine_id = run_num.split('-')[0]
-    machine_type = id_to_machine[machine_id]
+    try:
+        machine_type = id_to_machine[machine_id]
+    except KeyError:
+        logger.critical("Unknown machine id %s", machine_id)
+        raise
     return machine_type
 
 
@@ -239,7 +249,6 @@ def run_qc_checks(project_dirs, machine_type):
             qcfails.append(
                 "PF clusters under limit"
                 " ({} < {}) for lane {}".format(v, l, lane))
-        logger.fatal("v=%s l=%s machine_type=%s", v, l, machine_type)
         if v == 0:
             # no passed reads? no point in continuing checks
             continue

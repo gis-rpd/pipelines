@@ -14,7 +14,6 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import chroms_and_lens_from_fasta
 
 
 RESULT_OUTDIR = 'out'
@@ -24,11 +23,13 @@ RESULT_OUTDIR = 'out'
 shell.executable("/bin/bash")
 shell.prefix("source rc/snakemake_env.rc;")
 
+
 include: "../../rules/snpeff.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
 include: "../../rules/vcf.rules"
+include: "../../rules/region_clusters.rules"
 include: "../../rules/sambamba.rules"
 include: "bwa_mem.rules"
 include: "gatk_mapping.rules"
@@ -37,8 +38,7 @@ include: "gatk_variant_recalibrator.rules"
 include: "gatk_hard_filter.rules"
 
 
-localrules: final, report, prep_bed_files, gatk_catvariants, gatk_hardfilter
-
+localrules: final, report
 
 # expected output depends on options
 out_templ = os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem")
@@ -52,6 +52,7 @@ else:
      var_filters = ['hfilter']
 
 
+# FIXME can be achieved with --until rule as well
 if config.get('bam_only'):
     rule final:
         input:
@@ -61,53 +62,15 @@ if config.get('bam_only'):
 else:
     rule final:
         input:
+            # bam stats per sample
             expand(out_templ + ".bamstats/stats.txt",
-                   sample=config['samples']),    
-            expand(out_templ + ".gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
+                   sample=config['samples']),
+            # filtered variants per type per sample
+            expand(out_templ + ".concat.gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
                    sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
+            # gvcfs per sample
             expand(out_templ + ".concat.g.vcf.gz.tbi",
                    sample=config['samples']),    
             report="report.html",
-
+                   
             
-rule prep_bed_files:
-    """Prepare bed files to be able to run haplotype caller per chromosome
-    to speed things up. if we also have a global bed file intersect
-    with this one.
-
-    NOTE: this might produce empty bed files!
-
-    """
-    input:
-        ref = config['references']['genome'],
-        reffai = config['references']['genome'] + ".fai"
-    output:
-        bed = temp(expand(os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed"),
-                          ctr=range(config["references"]["num_chroms"])))
-    log:
-        os.path.join(RESULT_OUTDIR, "chr.split.log")
-    params:
-        outbedfmt = os.path.join(RESULT_OUTDIR, "chr.split.{}.bed")
-    message:
-        "Preparing intervals for splitting jobs"
-    run:
-        for (i, (s, l)) in enumerate(chroms_and_lens_from_fasta(input.ref)):
-            outbed = params.outbedfmt.format(i)
-            tmpbed = outbed + ".tmp"
-            # write one bed per chrom
-            with open(tmpbed, 'w') as fh:
-                if s not in config['references'].get('excl_chrom', []):
-                    fh.write("{}\t0\t{}\n".format(s, l))
-                # else: empty file
-                
-            # intersect with given bed if needed
-            # NOTE: might produce empty files (which is what we want)
-            # Can also deal with empty import (create above if in excl)
-            if config['intervals']:
-                shell("bedtools intersect -a {} -b {} > {} 2> {{log}}".format(
-                    config['intervals'], tmpbed, outbed))
-                os.unlink(tmpbed)
-            else:
-                shutil.move(tmpbed, outbed)
-        
-

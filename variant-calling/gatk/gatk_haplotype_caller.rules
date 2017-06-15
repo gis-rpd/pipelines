@@ -4,12 +4,12 @@ Based on rules/variant_calling/gatk_haplotype_caller.rules from https://bitbucke
 - original license: MIT
 """
 
+import pipes
+import gzip
+import io    
 
 assert 'references' in config
 assert 'genome' in config["references"]
-assert 'num_chroms' in config["references"]
-
-    
 #def _gatk_multi_arg(flag, files):
 #    flag += " "
 #    return " ".join(flag + f for f in files)
@@ -19,15 +19,15 @@ rule gatk_haplotype_caller:
     input:
         bam = "{prefix}.bam",
         bai =  "{prefix}.bam.bai",
-        ref=config["references"]["genome"],
+        ref = config["references"]["genome"],
         # see prep_bed_files
         # split by chrom and intersect with intervals already if needed
-        bed=os.path.join(RESULT_OUTDIR, "chr.split.{ctr}.bed")
+        bed = BED_FOR_REGION_TEMPLATE
     output:
-        gvcf = temp("{prefix}.{ctr}.g.vcf"),
-        idx = temp("{prefix}.{ctr}.g.vcf.idx")
+        gvcf = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz"),
+        tbi = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz.tbi"),
     log:
-        "{prefix}.{ctr}.g.vcf.log"
+        "{prefix}.{ctr}.g.vcf.gz.log"
     params:
         custom = config.get("params_gatk", ""),
         padding_arg = _get_padding_arg(),
@@ -36,10 +36,9 @@ rule gatk_haplotype_caller:
     threads:
         # original comment: "haplotype caller currently does not reliably
         # use more than 2 threads".  we found it to not work reliably with
-        # anything >1 need to request for more anyway to make our
-        # UGE/OS/Java heapspace problem go away.  won't use in in nct
-        # though
-        4
+        # anything >1.
+        # previously set higher to work around UGE/Java/OS vmem problem in GIS
+        1
     run:
         # no need to call if bed is empty
         num_regs = 0
@@ -56,68 +55,74 @@ rule gatk_haplotype_caller:
                 " --dbsnp {config[references][dbsnp]}"#-nct {threads} "
                 " -o {output.gvcf} >& {log}")
         else:
-            # if empty just touch. idx no needed and gvcf later simply concatenated
-            shell("touch {output.gvcf} {output.idx} >& {log}; echo 'Touching only' >> {log}")
+            shell("echo -n \"\" | gzip > {output.gvcf}; touch {output.tbi}; echo 'Creating empty output' > {log}")
 
 
-ruleorder: gatk_catvariants > gatk_haplotype_caller
-rule gatk_catvariants:
+localrules: concat_split_vcfs
+#ruleorder: concat_split_vcfs > bgzip
+rule concat_split_vcfs:
+    # combine [g|gt].vcfs which where split by region. simply
+    # parse in order and keep only header of first one.  FIXME replies
+    # on unzipped input which is a waste of space. Note though that
+    # gzip reading in Python is infamously slow.
     input:
-        # With the following things would normally fail with
-        #   "gatk_haplotype_caller and gatk_catvariants are ambiguous for the file ./out/NA12878-targeted.concat.gvcf"
-        split_gvcfs = expand("{{sample}}.{ctr}.g.vcf",
-                             ctr=range(config["references"]["num_chroms"]))
-        # hence use rule dep (alternative rule order): ruleorder: gatk_haplotype_caller > gatk_catvariants
-        # With the following rule dep as replacement, things still fail with
-        #   "Wildcards in input, params, log or benchmark file of rule gatk_catvariants cannot be determined from output files: 'prefix'"
-        # split_gvcfs = rules.gatk_haplotype_caller.output.gvcf
-        # Hence we use the first with a ruleorder (see above)
+        gvcfs = expand("{{prefix}}.{ctr}.{{type}}.vcf.gz",
+                       ctr = range(len(config["references"]["region_clusters"])))
     output:
-        # later gzipped so temp() here
-        cat_gvcf = temp("{sample}.concat.g.vcf"),
+        gvcf = "{prefix}.concat.{type,(g|gt)}.vcf.gz",
     log:
-        "{sample}.concat.g.vcf.log"
+        "{prefix}.concat.{type}.vcf.gz.log"
     run:
-        #vcf_in_args = " -V ".join(input.split_gvcfs)
-        #shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper -T CombineVariants -R {input.ref} -V {vcf_in_args} -o {output.cat_gvcf} --assumeIdenticalSamples")
-        # CombineVariants takes forever https://www.broadinstitute.org/gatk/guide/tooldocs/org_broadinstitute_gatk_tools_walkers_variantutils_CombineVariants.php
-        #shell("cat {} > {}; grep -v '^#' {} >> {}".format(input.split_gvcfs[0],
-        #   output.cat_gvcf, ' '.join(input.split_gvcfs[1:])), output.cat_gvcf)
-        # simple cat which keeps hashes seems to work as well
-        #shutil.copy(input.split_gvcfs[0], output.cat_gvcf)
-        #for f in input.split_gvcfs[1:]:
-        #    shell("sed -e  '/^#/d' {} >> {} 2>{{log}}".format(f, output.cat_gvcf))
+        bgzip_pipe = pipes.Template()
+        bgzip_pipe.append('bgzip', '--')
         header_printed = False
-        with open(output.cat_gvcf, 'w') as fhout:
-            for f in input.split_gvcfs:
-                with open(f) as fhin:
-                    had_header = False
-                    for line in fhin:
-                        if line.startswith('#'):
-                            if not header_printed:
-                                had_header = True
+        with bgzip_pipe.open(output.gvcf, 'w') as fhout:
+            for f in input.gvcfs:
+                #  https://www.reddit.com/r/Python/comments/2olhrf/fast_gzip_in_python/
+                with gzip.open(f) as fhingz:
+                    with io.BufferedReader(fhingz) as fhin:
+                        had_header = False
+                        for line in fhin:
+                            line = line.decode()
+                            if line.startswith('#'):
+                                if not header_printed:
+                                    had_header = True
+                                    fhout.write(line)
+                            else:
                                 fhout.write(line)
-                        else:
-                            fhout.write(line)
-                    if had_header:
-                        header_printed = True
-
-
+                        if had_header:
+                            header_printed = True                    
+        
+                        
 rule gatk_genotyping:
     input:
         ref = config["references"]["genome"],
-        gvcf = "{prefix}.concat.g.vcf",
-        # needed? gvcf_idx = "{prefix}.concat.g.vcf.idx"
+        gvcf = "{prefix}.concat.g.vcf.gz",
+        tbi = "{prefix}.concat.g.vcf.gz.tbi",
+        # see prep_bed_files
+        # split by chrom and intersect with intervals already if needed
+        bed = BED_FOR_REGION_TEMPLATE
     output:
-        vcf = temp("{prefix}.gt.vcf.gz"),
+        vcf = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz"),
+        tbi = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz.tbi")
     log:
-        "{prefix}.gt.vcf.log"
+        "{prefix}.{ctr}.gt.vcf.gz.log"
     params:
-        custom=config.get("params_gatk", "")
+        custom = config.get("params_gatk", "")
     threads:
-        8
-    shell:
-        "GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-        " -T GenotypeGVCFs -V {input.gvcf} -nt {threads} {params.custom} "
-        " -R {input.ref} "
-        " --dbsnp {config[references][dbsnp]} -o {output.vcf} >& {log}"
+        2
+    run:
+        # no need to call if bed is empty
+        num_regs = 0
+        with open(input.bed) as fh:
+            for line in fh:
+                if len(line.strip()):
+                    num_regs += 1
+        if num_regs:
+            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+                  " -T GenotypeGVCFs -V {input.gvcf} -nt {threads} {params.custom}"
+                  " -L {input.bed} -R {input.ref}"
+                  " --dbsnp {config[references][dbsnp]} -o {output.vcf} >& {log}")
+        else:
+            shell("echo -n \"\" | gzip > {output.vcf}; touch {output.tbi}; echo 'Creating empty output' > {log}")
+                  

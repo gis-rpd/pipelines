@@ -8,6 +8,7 @@ Unless specified by -w or --win, only the 7 most recent days of records are retr
 #
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
+from operator import itemgetter
 import os
 from pprint import PrettyPrinter
 import subprocess
@@ -106,12 +107,12 @@ def merge_cells(child_key, key):
 		elif str(key[child_key]) == "TODO":
 			result += ("<span class='label label-pill label-default'>" \
 				+ str(key[child_key]) + "</span>")
-		elif str(key[child_key]) == "NOARCHIVE":
+		elif str(key[child_key]) == "DELEGATED" \
+			or str(key[child_key]) == "NOARCHIVE" \
+			or str(key[child_key]).upper() == "NOT-RECORDED" \
+                        or str(key[child_key]).upper() == "ABORTED":
 			result += ("<span class='label label-pill label-primary'>" \
-				+ "NO ARCHIVE" + "</span>")
-		elif str(key[child_key]).upper() == "NOT-RECORDED":
-			result += ("<span class='label label-pill label-primary'>" \
-				+ "NOT RECORDED" + "</span>")
+				+ str(key[child_key]).upper() + "</span>")
 		else:
 			result += str(key[child_key])
 	return result
@@ -162,6 +163,11 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 				record["timestamp"] / 1000).isoformat()).replace(":", "-") + "</td>")
 		else:
 			result += ("<td>" + str(record["timestamp"]) + "</td>")
+
+		if "raw-delete" in record:
+			result += "<td>" + merge_cells("Status", record["raw-delete"]) + "</td>"
+		else:
+			result += "<td>" + "</td>"
 
 		result += "<td>"
 		if "analysis" in record:
@@ -225,7 +231,7 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 						</thead>
 						<tbody class='mux_tbody'>
 					"""
-					for mux in analysis["per_mux_status"]:
+					for mux in sorted(analysis["per_mux_status"], key=itemgetter("mux_id")):
 						result += "<tr>"
 						result += ("<td>" + merge_cells("mux_id", mux) + "</td>")
 						result += ("<td>" + merge_cells("ArchiveSubmission", mux) + "</td>")
@@ -259,6 +265,27 @@ def form_none(mongo_results=instantiate_mongo(False).find({"": ""}), nav_caption
 			analysis_none += 1
 			result += "<div class='hidden'>FINAL_NONE</div>"
 			result += "<span class='label label-pill label-default'>NONE</span>"
+
+#		result += "<td>"
+#		if "raw-delete" in record:
+#			result += """
+#			<table class='table table-bordered table-hover table-fixed table-compact raw_delete_table'>
+#				<thead>
+#					<tr>
+#						<th>START_TIME</th>
+#						<th>END_TIME</th>
+#						<th>STATUS</th>
+#					</tr>
+#				</thead>
+#				<tbody class='raw_delete_tbody'>
+#					<tr>
+#			"""
+#			result += "<td>" + record["raw-delete"]["start_time"] + "</td>"
+#			result += "<td>" + record["raw-delete"]["end_time"] + "</td>"
+#			result += "<td>" + merge_cells("Status", record["raw-delete"]) + "</td>"
+#			result += "</tr></tbody></table>"
+#		result += "</td>"
+
 		result += "</td>"
 		result += "</tr>"
 		result += "</tr>"

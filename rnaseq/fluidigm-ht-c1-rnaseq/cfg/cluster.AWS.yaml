@@ -1,0 +1,28 @@
+{
+    # match short queue
+    "__default__":
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+
+    "star_mapping":
+    {
+      "time" : "06:00:00",
+      "mem" : 34G,
+    },
+
+    "rnaseqQC":
+    {
+      "time" : "02:00:00",
+      "mem" : 2G,
+    },
+    
+    "RSEM":
+    {
+      "time" : "02:00:00",
+      "mem" : 4G,
+    },    
+}    
+
+

@@ -50,7 +50,8 @@ rule lacer_table:
         8
     params:
         intervals_arg=_get_intervals_arg(),
-        stopbases = 3000000
+        stopbases = 3000000,
+        mincov = ""
     run:
         # delete left over output from killed jobs
         if os.path.exists(output.table):
@@ -58,7 +59,7 @@ rule lacer_table:
         if config['seqtype'] == 'targeted':
             shell("echo 'Skipped because targeted resequencing' | tee {output.table} > {log}")
         else:
-            shell('lacer.pl -randomize -threads {threads} -stopbases {params.stopbases}'
+            shell('lacer.pl -randomize {params.mincov} -threads {threads} -stopbases {params.stopbases}'
                   ' {params.intervals_arg} -bam {input.bam} -reference {input.reffa}'
                   ' -outfile {output.table} >& {log}')
 

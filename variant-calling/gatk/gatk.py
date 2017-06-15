@@ -30,8 +30,7 @@ from pipelines import get_pipeline_version
 from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
-from pipelines import get_default_queue
-from pipelines import email_for_user
+from pipelines import default_argparser
 
 
 __author__ = "Andreas Wilm"
@@ -64,42 +63,12 @@ def main():
     """main function
     """
 
+    default_parser = default_argparser(CFG_DIR)
     parser = argparse.ArgumentParser(description=__doc__.format(
-        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
+        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
+                                     parents=[default_parser])
 
-    # generic args
-    parser.add_argument('-o', "--outdir", required=True,
-                        help="Output directory (must not exist)")
-    parser.add_argument('--name',
-                        help="Give this analysis run a name (used in email and report)")
-    parser.add_argument('--no-mail', action='store_true',
-                        help="Don't send mail on completion")
-    default = email_for_user()
-    parser.add_argument('--mail', dest='mail_address', default=default,
-                        help="Send completion emails to this address (default: {})".format(default))
-    default = get_default_queue('slave')
-    parser.add_argument('-w', '--slave-q', default=default,
-                        help="Queue to use for slave jobs (default: {})".format(default))
-    default = get_default_queue('master')
-    parser.add_argument('-m', '--master-q', default=default,
-                        help="Queue to use for master job (default: {})".format(default))
-    parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=0,
-                        help="Increase verbosity")
-    parser.add_argument('-q', '--quiet', action='count', default=0,
-                        help="Decrease verbosity")
-    cfg_group = parser.add_argument_group('Configuration files (advanced)')
-    cfg_group.add_argument('--sample-cfg',
-                           help="Config-file (YAML) listing samples and readunits."
-                           " Collides with -1, -2 and -s")
-    for name, descr in [("references", "reference sequences"),
-                        ("params", "parameters"),
-                        ("modules", "modules")]:
-        default = os.path.abspath(os.path.join(CFG_DIR, "{}.yaml".format(name)))
-        cfg_group.add_argument('--{}-cfg'.format(name),
-                               default=default,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
-
+    parser._optionals.title = "Arguments"
     # pipeline specific args
     parser.add_argument('-1', "--fq1", nargs="+",
                         help="FastQ file/s (gzip only)."
@@ -117,8 +86,12 @@ def main():
                         help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
     parser.add_argument('--raw-bam',
-                        help="Advanced: Injects raw (pre dedup, BQSR etc.) BAM (overwrites fq options)."
+                        help="Advanced: Injects raw (pre-dedup, pre-BQSR etc.) BAM (overwrites fq options)."
+                        " WARNING: reference needs to match pipeline requirements")
+    parser.add_argument('--proc-bam',
+                        help="Advanced: Injects processed (post-dedup, post-BQSR etc.) BAM (overwrites fq options)."
                         " WARNING: reference and pre-processing need to match pipeline requirements")
+    # FIXME can be achieved with --until rule as well
     parser.add_argument('--bam-only', action='store_true',
                         help="Don't call variants, just process BAM file")
 
@@ -140,13 +113,12 @@ def main():
         logger.fatal("Output directory %s already exists", args.outdir)
         sys.exit(1)
 
-
     # samples is a dictionary with sample names as key (mostly just
     # one) and readunit keys as value. readunits is a dict with
     # readunits (think: fastq pairs with attributes) as value
     if args.sample_cfg:
-        if any([args.fq1, args.fq2, args.sample, args.raw_bam]):
-            logger.fatal("Config file overrides fastq and sample input arguments."
+        if any([args.fq1, args.fq2, args.sample, args.raw_bam, args.proc_bam]):
+            logger.fatal("Config file overrides fastq, sample and BAM arguments."
                          " Use one or the other")
             sys.exit(1)
         if not os.path.exists(args.sample_cfg):
@@ -154,26 +126,35 @@ def main():
             sys.exit(1)
         samples, readunits = get_samples_and_readunits_from_cfgfile(args.sample_cfg)
 
-    else:
+    else:# no sample config, so input is either fastq or existing bam
         samples = dict()
-        readunits = dict()
 
-        if args.raw_bam:
-            if not args.sample:
-                logger.fatal("Need sample name if not using config file")
-                sys.exit(1)
+        if not args.sample:
+            logger.fatal("Need sample name if not using config file")
+            sys.exit(1)
+
+        if args.raw_bam or args.proc_bam:
+            assert not args.fq1, ("BAM injection overwrites fastq arguments")
+
+            if args.raw_bam:
+                assert os.path.exists(args.raw_bam)
+                assert not args.proc_bam, ("Cannot inject raw and processed BAM")
+            if args.proc_bam:
+                assert os.path.exists(args.proc_bam)
+                assert not args.raw_bam, ("Cannot inject raw and processed BAM")
+
+            readunits = dict()
             samples[args.sample] = []
-            assert os.path.exists(args.raw_bam)
 
-        else:
-            if not all([args.fq1, args.sample]):
-                logger.fatal("Need at least fq1 and sample if not using config file")
-                sys.exit(1)
+        elif args.fq1:
 
             readunits = get_readunits_from_args(args.fq1, args.fq2)
             # all readunits go into this one sample specified on the command-line
-            samples = dict()
             samples[args.sample] = list(readunits.keys())
+
+        else:
+            logger.fatal("Need at least one fastq files as argument if not using config file")
+            sys.exit(1)
 
     if args.seqtype in ['WES', 'targeted']:
         if not args.bed:
@@ -184,39 +165,45 @@ def main():
                 logger.fatal("Bed file %s does not exist", args.sample_cfg)
                 sys.exit(1)
 
-    # turn arguments into user_data that gets merged into pipeline config
+    # turn arguments into cfg_dict (gets merged with other configs late)
     #
-    # generic data first
-    user_data = dict()
-    user_data['mail_on_completion'] = not args.no_mail
-    user_data['mail_address'] = args.mail_address
-    user_data['readunits'] = readunits
-    user_data['samples'] = samples
-    if args.name:
-        user_data['analysis_name'] = args.name
-    user_data['seqtype'] = args.seqtype
-    user_data['intervals'] =  os.path.abspath(args.bed) if args.bed else None# always safe, might be used for WGS as well
-    user_data['mark_dups'] = MARK_DUPS
-    user_data['bam_only'] = args.bam_only
+    cfg_dict = dict()
+    cfg_dict['readunits'] = readunits
+    cfg_dict['samples'] = samples
+    cfg_dict['seqtype'] = args.seqtype
+    cfg_dict['intervals'] = os.path.abspath(args.bed) if args.bed else None# always safe, might be used for WGS as well
+    cfg_dict['mark_dups'] = MARK_DUPS
+    cfg_dict['bam_only'] = args.bam_only
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        params_cfgfile=args.params_cfg,
-        modules_cfgfile=args.modules_cfg,
-        refs_cfgfile=args.references_cfg,
+        args, cfg_dict,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
 
-    # inject existing BAM by symlinking (everything upstream is temporary anyway)
+    # Inject existing BAM by symlinking (everything upstream is temporary anyway)
+    # WARNING: filename has to match definition in Snakefile!
     if args.raw_bam:
-        # target as defined in Snakefile!
         target = os.path.join(args.outdir, "out", args.sample,
                               "{}.bwamem.bam".format(args.sample))
         os.makedirs(os.path.dirname(target))
         os.symlink(os.path.abspath(args.raw_bam), target)
+        if os.path.exists(os.path.abspath(args.raw_bam) + ".bai"):
+            os.symlink(os.path.abspath(args.raw_bam) + ".bai", target + ".bai")
+            
+        
+    elif args.proc_bam:
+        target = os.path.join(args.outdir, "out", args.sample,
+                              "{}.bwamem".format(args.sample))
+        if cfg_dict['mark_dups']:
+            target += ".dedup"
+        if cfg_dict['seqtype'] != 'targeted':
+            target += ".bqsr"
+        target += ".bam"
+        os.makedirs(os.path.dirname(target))
+        os.symlink(os.path.abspath(args.proc_bam), target)
+        if os.path.exists(os.path.abspath(args.proc_bam) + ".bai"):
+            os.symlink(os.path.abspath(args.proc_bam) + ".bai", target + ".bai")
 
     pipeline_handler.submit(args.no_run)
 

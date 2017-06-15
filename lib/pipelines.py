@@ -13,21 +13,29 @@ from email.mime.text import MIMEText
 from getpass import getuser
 #import socket
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 import calendar
 import json
 import tarfile
 import glob
+import argparse
+import copy
+from collections import deque
 
 #--- third-party imports
 #
 import yaml
 import requests
+import dateutil.relativedelta
 
 #--- project specific imports
 #
 from config import site_cfg
 from config import rest_services
+from utils import generate_timestamp
+from utils import chroms_and_lens_from_fasta
+from utils import bed_and_fa_are_compat
 
 
 __author__ = "Andreas Wilm"
@@ -51,6 +59,7 @@ logger.addHandler(handler)
 
 # from address, i.e. users should reply to to this
 # instead of rpd@gis to which we send email
+# FIXME both to config or external file
 RPD_MAIL = "rpd@gis.a-star.edu.sg"
 RPD_SIGNATURE = """
 --
@@ -63,6 +72,48 @@ Scientific & Research Computing
 # ugly
 PIPELINE_ROOTDIR = os.path.join(os.path.dirname(__file__), "..")
 assert os.path.exists(os.path.join(PIPELINE_ROOTDIR, "VERSION"))
+
+WORKFLOW_COMPLETION_FLAGFILE = "WORKFLOW_COMPLETE"
+
+DOWNSTREAM_OUTDIR_TEMPLATE = "{basedir}/{user}/{pipelinename}-version-{pipelineversion}/{timestamp}"
+
+
+def snakemake_log_status(log):
+    """
+    Return exit status and timestamp (isoformat string) as tuple.
+    Exit status is either "SUCCESS" or "ERROR" or None
+    If exit status is None timestamp will be last seen timestamp or empty and the status unknown
+
+    Parses last lines of log, which could look like
+    [Fri Jun 17 11:13:16 2016] Exiting because a job execution failed. Look above for error message
+    [Fri Jul 15 01:29:12 2016] 17 of 17 steps (100%) done
+    [Thu Nov 10 22:45:27 2016] Nothing to be done.
+    """
+
+    # this is by design a bit fuzzy
+    with open(log) as fh:
+        last_lines = deque(fh, maxlen=60)
+    status = None
+    last_etime = None
+    while last_lines: # iterate from end
+        line = last_lines.pop()
+        if "Refusing to overwrite existing log bundle" in line:
+            continue
+        if line.startswith("["):# time stamp required
+            estr = line[1:].split("]")[0]
+            try:
+                etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+            except:
+                continue
+            if not last_etime:
+                last_etime = etime# first is last. useful for undefined status
+            if 'steps (100%) done' in line or "Nothing to be done" in line:
+                status = "SUCCESS"
+                break
+            elif 'Exiting' in line or "Error" in line:
+                status = "ERROR"
+                break
+    return status, etime
 
 
 def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
@@ -77,17 +128,15 @@ def get_downstream_outdir(requestor, pipeline_name, pipeline_version=None):
         pversion = pipeline_version
     else:
         pversion = get_pipeline_version(nospace=True)
-    outdir = "{basedir}/{requestor}/{pversion}/{pname}/{ts}".format(
-        basedir=basedir, requestor=requestor, pversion=pversion,
-        pname=pipeline_name, ts=generate_timestamp())
+    outdir = DOWNSTREAM_OUTDIR_TEMPLATE.format(
+        basedir=basedir, user=requestor, pipelineversion=pversion,
+        pipelinename=pipeline_name, timestamp=generate_timestamp())
     return outdir
 
 
-class PipelineHandler(object):
-    """FIXME:add-doc
 
-    - FIXME needs cleaning up!
-    - FIXME check access of global vars
+class PipelineHandler(object):
+    """Class that handles setting up and calling pipelines
     """
 
     # output
@@ -96,8 +145,6 @@ class PipelineHandler(object):
     RC_DIR = "rc"
 
     RC_FILES = {
-        # used to load dotkit
-        'DK_INIT' : os.path.join(RC_DIR, 'dk_init.rc'),
         # used to load snakemake
         'SNAKEMAKE_INIT' : os.path.join(RC_DIR, 'snakemake_init.rc'),
         # used as bash prefix within snakemakejobs
@@ -110,49 +157,57 @@ class PipelineHandler(object):
 
     # master max walltime in hours
     # note, this includes waiting for jobs in q
-    MASTER_WALLTIME_H = 120
+    MASTER_WALLTIME_H = 96
 
-    def __init__(self,
-                 pipeline_name,
-                 pipeline_subdir,
-                 outdir,
-                 user_data,
-                 pipeline_rootdir=PIPELINE_ROOTDIR,
-                 logger_cmd="true", # bash: not doing anything by default
+    def __init__(self, pipeline_name, pipeline_subdir,
+                 def_args,
+                 cfg_dict,
+                 cluster_cfgfile=None,
+                 logger_cmd=None,
                  site=None,
-                 master_q=None,
-                 slave_q=None,
-                 master_walltime_h=MASTER_WALLTIME_H,
-                 params_cfgfile=None,
-                 modules_cfgfile=None,
-                 refs_cfgfile=None,
-                 cluster_cfgfile=None):
+                 master_walltime_h=MASTER_WALLTIME_H):
         """init function
 
-        pipeline_subdir: where default configs can be found, i.e pipeline subdir
+        - pipeline_subdir: where default configs can be found, i.e pipeline subdir
+        - def_args: argparser args. only default_argparser handled, i.e. must be subset of that
+        - logger_cmd: the logger command used in run.sh. bash's 'true' doesn't do anything. Uses downstream default with conf db-id if set to None and logging is on.
         """
 
-        self.outdir = outdir
         self.pipeline_name = pipeline_name
         self.pipeline_version = get_pipeline_version()# external function
         self.pipeline_subdir = pipeline_subdir
-        self.user_data = user_data
 
         self.log_dir_rel = self.LOG_DIR_REL
         self.masterlog = self.MASTERLOG
         self.submissionlog = self.SUBMISSIONLOG
 
-        if params_cfgfile:
-            assert os.path.exists(params_cfgfile)
-        self.params_cfgfile = params_cfgfile
+        self.master_q = def_args.master_q
+        self.slave_q = def_args.slave_q
+        self.outdir = def_args.outdir
 
-        if modules_cfgfile:
-            assert os.path.exists(modules_cfgfile)
-        self.modules_cfgfile = modules_cfgfile
+        self.cfg_dict = copy.deepcopy(cfg_dict)
+        self.cfg_dict['mail_on_completion'] = not def_args.no_mail
+        self.cfg_dict['mail_address'] = def_args.mail_address
+        if def_args.name:
+            self.cfg_dict['analysis_name'] = def_args.name
 
-        if refs_cfgfile:
-            assert os.path.exists(refs_cfgfile)
-        self.refs_cfgfile = refs_cfgfile
+        if def_args.extra_conf:
+            for keyvalue in def_args.extra_conf:
+                assert keyvalue.count(":") == 1, ("Invalid argument for extra-conf")
+                k, v = keyvalue.split(":")
+                self.cfg_dict[k] = v
+
+        if def_args.params_cfg:
+            assert os.path.exists(def_args.params_cfg)
+        self.params_cfgfile = def_args.params_cfg
+
+        if def_args.modules_cfg:
+            assert os.path.exists(def_args.modules_cfg)
+        self.modules_cfgfile = def_args.modules_cfg
+
+        if def_args.references_cfg:
+            assert os.path.exists(def_args.references_cfg)
+        self.refs_cfgfile = def_args.references_cfg
 
         if cluster_cfgfile:
             assert os.path.exists(cluster_cfgfile)
@@ -162,8 +217,6 @@ class PipelineHandler(object):
             self.outdir, self.PIPELINE_CFGFILE)
 
         # RCs
-        self.dk_init_file = os.path.join(
-            self.outdir, self.RC_FILES['DK_INIT'])
         self.snakemake_init_file = os.path.join(
             self.outdir, self.RC_FILES['SNAKEMAKE_INIT'])
         self.snakemake_env_file = os.path.join(
@@ -175,10 +228,23 @@ class PipelineHandler(object):
             except ValueError:
                 logger.warning("Unknown site")
                 site = "local"
-        self.logger_cmd = logger_cmd
+
+        # DB logging of execution
+        if def_args.db_logging in ['n', 'no', 'off']:
+            # use bash's true, which doesn't do anything
+            self.logger_cmd = 'true'
+        elif def_args.db_logging in ['y', 'yes', 'on']:
+            # trust caller if given, otherwise use the default logger which depends on db-id
+            if not logger_cmd:
+                assert self.cfg_dict['db-id'], ("Need db-id config value for logging")
+                # run.sh has a path to snakemake so should contain a path to python3
+                scr = os.path.join(PIPELINE_ROOTDIR, 'downstream-handlers', 'downstream_started.py')
+                logger_cmd = "{} -d {} -o {}".format(scr, self.cfg_dict['db-id'], self.outdir)
+                self.logger_cmd = logger_cmd
+        else:
+            raise ValueError(def_args.db_logging)
+
         self.site = site
-        self.master_q = master_q
-        self.slave_q = slave_q
         self.master_walltime_h = master_walltime_h
         self.snakefile_abs = os.path.abspath(
             os.path.join(pipeline_subdir, "Snakefile"))
@@ -186,13 +252,13 @@ class PipelineHandler(object):
 
         # cluster configs
         if self.cluster_cfgfile:
-            self.cluster_cfgfile_out = os.path.join(outdir, "cluster.yaml")
+            self.cluster_cfgfile_out = os.path.join(self.outdir, "cluster.yaml")
         # else: local
 
         # run template
         self.run_template = os.path.join(
-            pipeline_rootdir, "lib", "run.template.{}.sh".format(self.site))
-        self.run_out = os.path.join(outdir, "run.sh")
+            PIPELINE_ROOTDIR, "lib", "run.template.{}.sh".format(self.site))
+        self.run_out = os.path.join(self.outdir, "run.sh")
         assert os.path.exists(self.run_template)
 
         # we don't know for sure who's going to actually exectute
@@ -210,27 +276,17 @@ class PipelineHandler(object):
 
 
     @staticmethod
-    def write_dk_init(rc_file, overwrite=False):
-        """write dotkit init rc
-        """
-        if not overwrite:
-            assert not os.path.exists(rc_file), rc_file
-        with open(rc_file, 'w') as fh:
-            fh.write("eval `{}`;\n".format(' '.join(get_init_call())))
-
-
-    @staticmethod
     def write_snakemake_init(rc_file, overwrite=False):
         """write snakemake init rc (loads miniconda and, activate source')
         """
         if not overwrite:
             assert not os.path.exists(rc_file), rc_file
         with open(rc_file, 'w') as fh:
-            fh.write("# initialize snakemake. requires pre-initialized dotkit\n")
-            fh.write("reuse -q miniconda-3\n")
-            #fh.write("source activate snakemake-3.5.5-g9752cd7-catch-logger-cleanup\n")
-            #fh.write("source activate snakemake-3.7.1\n")
-            fh.write("source activate snakemake-3.8.2\n")
+            # init first so that modules are present
+            fh.write("{}\n".format(" ".join(get_init_call())))
+            fh.write("module load miniconda3\n")
+            fh.write("source activate {}\n".format(site_cfg['snakemake_env']))
+
 
 
     def write_snakemake_env(self, overwrite=False):
@@ -242,22 +298,21 @@ class PipelineHandler(object):
 
         with open(self.snakemake_env_file, 'w') as fh_rc:
             fh_rc.write("# used as bash prefix within snakemake\n\n")
-            fh_rc.write("# init dotkit\n")
-            fh_rc.write("source {}\n\n".format(os.path.relpath(self.dk_init_file, self.outdir)))
-
+            fh_rc.write("# make sure module command is defined (non-login shell). see http://lmod.readthedocs.io/en/latest/030_installing.html\n")
+            fh_rc.write("{}\n".format(" ".join(get_init_call())))
             fh_rc.write("# load modules\n")
             with open(self.pipeline_cfgfile_out) as fh_cfg:
                 yaml_data = yaml.safe_load(fh_cfg)
                 assert "modules" in yaml_data
                 for k, v in yaml_data["modules"].items():
-                    fh_rc.write("reuse -q {}\n".format("{}-{}".format(k, v)))
+                    fh_rc.write("module load {}/{}\n".format(k, v))
 
             fh_rc.write("\n")
             fh_rc.write("# unofficial bash strict has to come last\n")
             fh_rc.write("set -euo pipefail;\n")
 
 
-    def write_cluster_config(self):
+    def write_cluster_cfg(self):
         """writes site dependend cluster config
         """
         shutil.copyfile(self.cluster_cfgfile, self.cluster_cfgfile_out)
@@ -266,7 +321,6 @@ class PipelineHandler(object):
     def write_run_template(self):
         """writes run template replacing placeholder with variables defined in
         instance
-
         """
 
         d = {'SNAKEFILE': self.snakefile_abs,
@@ -313,11 +367,10 @@ class PipelineHandler(object):
             else:
                 assert cfgkey not in merged_cfg
                 merged_cfg[cfgkey] = cfg
-
         # determine num_chroms needed by some pipelines
         # FIXME ugly because sometimes not needed
         if merged_cfg.get('references'):
-            reffa = merged_cfg['references']['genome']
+            reffa = merged_cfg['references'].get('genome')
             if reffa:
                 assert 'num_chroms' not in merged_cfg['references']
                 merged_cfg['references']['num_chroms'] = len(list(
@@ -330,24 +383,24 @@ class PipelineHandler(object):
         """writes config file for use in snakemake becaused on default config
         """
 
-        config = self.read_cfgfiles()
-        config.update(self.user_data)
+        master_cfg = self.read_cfgfiles()
+        master_cfg.update(self.cfg_dict)
 
-        b = config.get('intervals')
+        b = master_cfg.get('intervals')
+        # sanity check: bed only makes sense if we have a reference
         if b:
-            # bed only makes if we have a reference
-            f = config['references'].get('genome')
-            assert bed_and_indexed_fa_are_compatible(b, f), (
+            f = master_cfg['references'].get('genome')
+            assert bed_and_fa_are_compat(b, f), (
                 "{} not compatible with {}".format(b, f))
 
-        assert 'ELM' not in config
-        config['ELM'] = self.elm_data
+        assert 'ELM' not in master_cfg
+        master_cfg['ELM'] = self.elm_data
 
         if not force_overwrite:
             assert not os.path.exists(self.pipeline_cfgfile_out)
         with open(self.pipeline_cfgfile_out, 'w') as fh:
             # default_flow_style=None(default)|True(least readable)|False(most readable)
-            yaml.dump(config, fh, default_flow_style=False)
+            yaml.dump(master_cfg, fh, default_flow_style=False)
 
 
     def setup_env(self):
@@ -360,16 +413,15 @@ class PipelineHandler(object):
         os.makedirs(os.path.join(self.outdir, self.RC_DIR))
 
         if self.site != "local":
-            self.write_cluster_config()
+            self.write_cluster_cfg()
         self.write_merged_cfg()
         self.write_snakemake_env()
-        self.write_dk_init(self.dk_init_file)
         self.write_snakemake_init(self.snakemake_init_file)
         self.write_run_template()
 
 
     def submit(self, no_run=False):
-        """FIXME:add-doc
+        """submit pipeline run
         """
 
         if self.master_q:
@@ -383,9 +435,9 @@ class PipelineHandler(object):
                 os.path.dirname(self.run_out), master_q_arg,
                 os.path.basename(self.run_out), self.submissionlog)
         else:
-            cmd = "cd {} && qsub {} {} >> {}".format(
-                os.path.dirname(self.run_out), master_q_arg,
-                os.path.basename(self.run_out), self.submissionlog)
+            cmd = "cd {} && {} {} {} >> {}".format(
+                os.path.dirname(self.run_out), site_cfg['master_submission_cmd'], 
+                master_q_arg, os.path.basename(self.run_out), self.submissionlog)
 
         if no_run:
             logger.warning("Skipping pipeline run on request. Once ready, use: %s", cmd)
@@ -393,11 +445,86 @@ class PipelineHandler(object):
         else:
             logger.info("Starting pipeline: %s", cmd)
             #os.chdir(os.path.dirname(run_out))
-            _ = subprocess.check_output(cmd, shell=True)
-            submission_log_abs = os.path.abspath(os.path.join(self.outdir, self.submissionlog))
-            master_log_abs = os.path.abspath(os.path.join(self.outdir, self.masterlog))
+            try:
+                res = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                # if cluster has not compute nodes (e.g. AWS
+                # autoscaling to 0), UGE will throw an error, but job
+                # still gets submitted
+                if 'job is not allowed to run in any queue' in e.output.decode():
+                    logger.warning("Looks like cluster cooled down (no compute nodes available)."
+                                   " Job is submitted nevertheless and should start soon.")
+                else:
+                    raise
+
+            submission_log_abs = os.path.abspath(os.path.join(
+                self.outdir, self.submissionlog))
+            master_log_abs = os.path.abspath(os.path.join(
+                self.outdir, self.masterlog))
             logger.debug("For submission details see %s", submission_log_abs)
             logger.info("The (master) logfile is %s", master_log_abs)
+
+
+def default_argparser(cfg_dir, allow_missing_cfgfile=False):
+    """Create default argparser (use as parent) for pipeline calls. Needs
+    point to pipelines config dir
+    """
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser._optionals.title = "Output"
+    parser.add_argument('-o', "--outdir", required=True,
+                        help="Output directory (must not exist)")
+
+    rep_group = parser.add_argument_group('Reporting')
+    rep_group.add_argument('--name',
+                           help="Give this analysis run a name (used in email and report)")
+    rep_group.add_argument('--no-mail', action='store_true',
+                           help="Don't send mail on completion")
+    default = email_for_user()
+    rep_group.add_argument('--mail', dest='mail_address', default=default,
+                           help="Send completion emails to this address (default: {})".format(default))
+    #default = "y" if is_production_user() else 'n'
+    default = 'n'
+    if is_production_user():
+        help = "Log execution in DB (required db-id): n=no; y=yes (only allowed as production user))" 
+    else:
+        help = argparse.SUPPRESS
+    rep_group.add_argument('--db-logging', choices=('y', 'n'), default=default,
+                           help=help)
+    rep_group.add_argument('-v', '--verbose', action='count', default=0,
+                           help="Increase verbosity")
+    rep_group.add_argument('-q', '--quiet', action='count', default=0,
+                           help="Decrease verbosity")
+
+    q_group = parser.add_argument_group('Run behaviour')
+    default = get_default_queue('slave')
+    q_group.add_argument('-w', '--slave-q', default=default,
+                         help="Queue to use for slave jobs (default: {})".format(default))
+    default = get_default_queue('master')
+    q_group.add_argument('-m', '--master-q', default=default,
+                         help="Queue to use for master job (default: {})".format(default))
+    q_group.add_argument('-n', '--no-run', action='store_true')
+
+    cfg_group = parser.add_argument_group('Configuration')
+    cfg_group.add_argument('--extra-conf', nargs='*', metavar="key:value",
+                           help="Advanced: Extra values written added config (overwriting values).")
+    cfg_group.add_argument('--sample-cfg',
+                           help="Config-file (YAML) listing samples and readunits."
+                           " Collides with -1, -2 and -s")
+    for name, descr in [("references", "reference sequences"),
+                        ("params", "parameters"),
+                        ("modules", "modules")]:
+        cfg_file = os.path.abspath(os.path.join(cfg_dir, "{}.yaml".format(name)))
+        if not os.path.exists(cfg_file):
+            if allow_missing_cfgfile:
+                cfg_file = None
+            else:
+                raise ValueError((cfg_file, allow_missing_cfgfile))
+        cfg_group.add_argument('--{}-cfg'.format(name),
+                               default=cfg_file,
+                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
+
+    return parser
 
 
 def get_pipeline_version(nospace=False):
@@ -410,14 +537,14 @@ def get_pipeline_version(nospace=False):
     os.chdir(PIPELINE_ROOTDIR)
     if os.path.exists(".git"):
         commit = None
-        cmd = ['git', 'describe', '--always', '--tags']
+        cmd = ['git', 'rev-parse', '--short', 'HEAD']
         try:
             res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             commit = res.decode().strip()
         except (subprocess.CalledProcessError, OSError) as _:
             pass
         if commit:
-            version = "{} commit {}".format(version, commit)
+            version = "{} {}".format(version, commit)
     if nospace:
         version = version.replace(" ", "-")
     os.chdir(cwd)
@@ -451,10 +578,9 @@ def get_cluster_cfgfile(cfg_dir):
 def get_init_call():
     """return dotkit init call
     """
-    cmd = [site_cfg['init']]
+    cmd = ['source', site_cfg['init']]
     if is_devel_version():
-        cmd.append('-d')
-
+        cmd = ['RPD_TESTING=1'] + cmd
     return cmd
 
 
@@ -463,36 +589,21 @@ def get_rpd_vars():
     """
 
     cmd = get_init_call()
+    cmd = ' '.join(cmd) + ' && set | grep "^RPD_"'
     try:
-        res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        res = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
-        logger.fatal("Couldn't call init as '%s'", ' '.join(cmd))
+        logger.fatal("Couldn't call init %s. Result was: %s", cmd, res)
         raise
-
     rpd_vars = dict()
     for line in res.decode().splitlines():
-        if line.startswith('export '):
-            line = line.replace("export ", "")
-            line = ''.join([c for c in line if c not in '";\''])
+        if line.startswith('RPD_') and '=' in line:
+            #line = line.replace("export ", "")
+            #line = ''.join([c for c in line if c not in '";\''])
             #logger.debug("line = {}".format(line))
             k, v = line.split('=')
             rpd_vars[k.strip()] = v.strip()
     return rpd_vars
-
-
-def generate_timestamp():
-    """generate ISO8601 timestamp incl microsends, but with colons
-    replaced to avoid problems if used as file name
-    """
-    return datetime.isoformat(datetime.now()).replace(":", "-")
-
-
-def timestamp_from_string(analysis_id):
-    """
-    converts output of generate_timestamp(), e.g. 2016-05-09T16-43-32.080740 back to timestamp
-    """
-    dt = datetime.strptime(analysis_id, '%Y-%m-%dT%H-%M-%S.%f')
-    return dt
 
 
 def isoformat_to_epoch_time(ts):
@@ -506,20 +617,62 @@ def isoformat_to_epoch_time(ts):
     return epoch_time
 
 
+def relative_epoch_time(epoch_time1, epoch_time2):
+    """
+    Relative time difference between two epoch time
+    """
+    dt1 = datetime.fromtimestamp(epoch_time1)
+    dt2 = datetime.fromtimestamp(epoch_time2)
+    rd = dateutil.relativedelta.relativedelta(dt1, dt2)
+    return rd
+
+def relative_isoformat_time(last_analysis):
+    """
+    Relative isoformat_time
+    """
+    analysis_epoch_time = isoformat_to_epoch_time(last_analysis+"+08:00")
+    epoch_time_now = isoformat_to_epoch_time(generate_timestamp()+"+08:00")
+    rd = relative_epoch_time(epoch_time_now, analysis_epoch_time)
+    relative_days = rd.months*30 + rd.days
+    return relative_days
+
+
 def get_machine_run_flowcell_id(runid_and_flowcellid):
     """return machine-id, run-id and flowcell-id from full string.
     Expected string format is machine-runid_flowcellid
-    """
-    # be lenient and allow full path
-    runid_and_flowcellid = runid_and_flowcellid.rstrip("/").split('/')[-1]
 
+    >>> get_machine_run_flowcell_id("HS002-SR-R00224_BC9A6MACXX")
+    ('HS002', 'HS002-SR-R00224', 'BC9A6MACXX')
+    >>> get_machine_run_flowcell_id("/path/to/seq/HS002-SR-R00224_BC9A6MACXX")
+    ('HS002', 'HS002-SR-R00224', 'BC9A6MACXX')
+    >>> get_machine_run_flowcell_id("HS002_SR_R00224_BC9A6MACXX")
+    Traceback (most recent call last):
+      ...
+    AssertionError: Wrong format: HS002_SR_R00224_BC9A6MACXX
+    """
+    
+    # strip away path
+    runid_and_flowcellid = runid_and_flowcellid.rstrip("/").split('/')[-1]
+    assert runid_and_flowcellid.count("_") == 1, (
+        "Wrong format: {}".format(runid_and_flowcellid))
     runid, flowcellid = runid_and_flowcellid.split("_")
     machineid = runid.split("-")[0]
     return machineid, runid, flowcellid
 
+def get_bcl_runfolder_for_runid(runid_and_flowcellid):
+    """returns the bcl Run directory
+    """
+    basedir = site_cfg['bcl2fastq_seqdir_base']
+    machineid, runid, flowcellid = get_machine_run_flowcell_id(
+        runid_and_flowcellid)
+    if machineid.startswith('MS00'):
+        rundir = "{}/{}/MiSeqOutput/{}_{}".format(basedir, machineid, runid, flowcellid)
+        return rundir
+    if machineid.startswith('NG00'):
+        basedir = site_cfg['bcl2fastq_seqdir_base'].replace("userrig", "novogene")
+    rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
+    return rundir
 
-# FIXME real_name() works at NSCC and GIS:
-# getent passwd wilma | cut -f 5 -d :  | rev | cut -f 2- -d ' ' | rev
 def email_for_user():
     """get email for user (naive)
     """
@@ -657,45 +810,6 @@ def generate_window(days=7):
     return (epoch_present, epoch_back)
 
 
-def parse_regions_from_bed(bed):
-    """yields regions from bed as three tuple
-    """
-
-    with open(bed) as fh:
-        for line in fh:
-            if line.startswith('#') or not len(line.strip()) or line.startswith('track '):
-                continue
-            chrom, start, end = line.split()[:3]
-            start, end = int(start), int(end)
-            yield (chrom, start, end)
-
-
-def chroms_and_lens_from_fasta(fasta):
-    """return sequence and their length as two tuple. derived from fai
-    """
-
-    fai = fasta + ".fai"
-    assert os.path.exists(fai), ("{} not indexed".format(fasta))
-    with open(fai) as fh:
-        for line in fh:
-            (s, l) = line.split()[:2]
-            l = int(l)
-            yield (s, l)
-
-
-def bed_and_indexed_fa_are_compatible(bed, fasta):
-    """checks whether samtools faidx'ed fasta is compatible with bed file
-    """
-
-    assert os.path.exists(bed), ("Missing file {}".format(bed))
-    assert os.path.exists(fasta), ("Missing fasta index {}".format(fasta))
-
-    bed_sqs = set([c for c, s, e in parse_regions_from_bed(bed)])
-    fa_sqs = [c for c, l in chroms_and_lens_from_fasta(fasta)]
-
-    return all([s in fa_sqs for s in bed_sqs])
-
-
 def path_to_url(out_path):
     """convert path to qlap33 server url"""
 
@@ -706,6 +820,7 @@ def path_to_url(out_path):
     else:
         #raise ValueError(out_path)
         return out_path
+
 
 def mux_to_lib(mux_id, testing=False):
     """returns the component libraries for MUX
@@ -743,9 +858,9 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
             return
 
     bundle = os.path.join(log_dir, "logs.tar.gz")# relative to pipeline_outdir
-    if os.path.exists(os.path.join(pipeline_outdir, bundle)) and not overwrite:
-        logger.warning("Refusing to overwrite existing log bundle.")
-        return
+    if not overwrite and os.path.exists(os.path.join(pipeline_outdir, bundle)):
+        bundle = os.path.join(log_dir, "logs.{}.tar.gz".format(generate_timestamp()))
+        assert not os.path.exists(os.path.join(pipeline_outdir, bundle))
 
     orig_dir = os.getcwd()
     os.chdir(pipeline_outdir)
@@ -763,3 +878,11 @@ def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
             os.unlink(f)
 
     os.chdir(orig_dir)
+
+
+def mark_as_completed():
+    """Dropping a flag file marking analysis as complete"""
+    analysis_dir = os.getcwd()
+    flag_file = os.path.join(analysis_dir, WORKFLOW_COMPLETION_FLAGFILE)
+    with open(flag_file, 'a') as fh:
+        fh.write("{}\n".format(generate_timestamp()))

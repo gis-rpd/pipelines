@@ -26,8 +26,8 @@
 
     "dedup":
     {
-       "time" : "4:00:00",
-       "mem" : 2G,
+       "time" : "6:00:00",
+       "mem" : 8G,
     },
 
     "map_split" :

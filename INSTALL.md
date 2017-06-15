@@ -5,9 +5,8 @@ i.e. our specialized MongoDB setup used for logging and tracking
 
 
 - Create a snakemake environment with needed components:
-  - `conda create -n snakemake-3.7.1 pymongo drmaa python-dateutil`
-  - `conda install -n snakemake-3.7.1 snakemake=3.7.1 -c bioconda`
-  - Change `lib/pipelines.py:write_snakemake_init` to point to this env
+  - `ver=3.7.1; conda create -n snakemake-$ver pymongo drmaa python-dateutil snakemake=$ver -c bioconda`
+  - Change `snakemake_env` in etc/site.yaml to point to this env
 - Install other components into conda root env: 
   - `conda install pymongo drmaa yaml pylint python-dateutil`
 - Install pymongo into conda root env
@@ -15,4 +14,14 @@ i.e. our specialized MongoDB setup used for logging and tracking
 - Software/modules management is based on dotkit. See also `lib/pipelines.py:INIT`
 - Test scripts expect `RPD_ROOT` to be set
 - ELM logging goes to `RPD_ELMLOGDIR`
+
+# Install Preview
+
+- `src=pipelines.git/`
+- `pushd $src; vstr=$(git rev-parse --short HEAD); popd`
+- `dest=pipelines-preview/pipelines-$vstr`
+- `rsync -av --exclude '.git/' --exclude '*~' --exclude '/tmp/' --exclude 'etc/' --exclude '*/_*' --exclude '*.check.*'  $src/ $dest`
+- set interpreter in shebang of $dest/run
+- `mkdir $dest/etc`
+- copy yaml of choice to $dest/etc/ and link site.yaml
 

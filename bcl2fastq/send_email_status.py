@@ -26,6 +26,7 @@ from mongodb import mongodb_conn
 from pipelines import generate_window, send_mail
 from pipelines import is_devel_version
 from pipelines import path_to_url
+from pipelines import is_production_user
 
 
 __author__ = "Lavanya Veeravalli"
@@ -96,10 +97,9 @@ def main():
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
-    user_name = getpass.getuser()
-    if user_name != "userrig":
+    if not is_production_user():
         logger.warning("Not a production user. Skipping sending of emails")
-        sys.exit(0)
+        sys.exit(1)
 
     connection = mongodb_conn(args.testing)
     if connection is None:

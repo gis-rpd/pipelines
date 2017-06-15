@@ -20,7 +20,8 @@ ls -d $outd/out/Project_* || exit 1
 testf=$outd/out/fq_test_vs_exp.txt
 # reference to Project and sample is a bit paranoid. Would work on parent directory a well
 # see README in the $expf folder for more info on how to run this
-for fqc in $(find $outd/out/Project_*/Sample_*/ -name \*fastqc.zip); do
+# ignore index reads
+for fqc in $(find $outd/out/Project_*/Sample_*/ -name \*fastqc.zip | grep -v '[0-9]_I[12]_[0-9]'); do
     tmp=$(mktemp)
     unzip -p $fqc \*fastqc_data.txt > $tmp
     fq=$(dirname $fqc)/$(awk '/Filename/ {print $NF}' $tmp)

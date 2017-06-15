@@ -18,6 +18,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from pipelines import generate_window
+from pipelines import is_production_user
 from mongodb import mongodb_conn
 
 __author__ = "Lavanya Veeravalli"
@@ -63,10 +64,11 @@ def main():
     # script -qq -> CRITICAL
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
-    user_name = getpass.getuser()
-    if user_name != "userrig":
-        logger.warning("Not a production user. Skipping sending of emails")
-        sys.exit(0)
+    
+    if not is_production_user():
+        logger.warning("Not a production user. Skipping DB update")
+        sys.exit(1)
+        
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
@@ -94,6 +96,7 @@ def main():
                 bcl2fastq_qc_out = os.path.join(out_dir, "bcl2fastq_qc.test.txt")
             else:
                 bcl2fastq_qc_out = os.path.join(out_dir, "bcl2fastq_qc.txt")
+
             if os.path.exists(bcl2fastq_qc_out):
                 logger.critical("Refusing to overwrite existing file %s. Skipping QC check", bcl2fastq_qc_out)
                 continue

@@ -19,7 +19,9 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from mongodb import mongodb_conn
-from pipelines import send_status_mail, generate_timestamp, generate_window
+from pipelines import send_status_mail
+from pipelines import generate_window
+from utils import generate_timestamp
 
 
 __author__ = "Lavanya Veeravalli"
@@ -97,6 +99,9 @@ def main():
     for record in results:
         run_number = record['run']
         analysis = record['analysis']
+        # Downstream analysis will not be intiated for Novogene (NG00*) runs
+        if "NG00" in run_number:
+            continue
         for analysis in record['analysis']:
             out_dir = analysis.get("out_dir")
 

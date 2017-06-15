@@ -28,11 +28,10 @@ from readunits import get_samples_and_readunits_from_cfgfile
 from readunits import get_readunits_from_args
 from pipelines import get_pipeline_version
 from pipelines import PipelineHandler
-from pipelines import get_default_queue
 from pipelines import logger as aux_logger
 from pipelines import ref_is_indexed
 from pipelines import get_cluster_cfgfile
-from pipelines import email_for_user
+from pipelines import default_argparser
 
 
 __author__ = "Andreas Wilm"
@@ -67,43 +66,12 @@ def main():
     """main function
     """
 
+    default_parser = default_argparser(CFG_DIR)
     parser = argparse.ArgumentParser(description=__doc__.format(
-        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
-
-    # generic args
-    parser.add_argument('-o', "--outdir", required=True,
-                        help="Output directory (must not exist)")
-    parser.add_argument('--name',
-                        help="Give this analysis run a name (used in email and report)")
-    parser.add_argument('--no-mail', action='store_true',
-                        help="Don't send mail on completion")
-    default = email_for_user()
-    parser.add_argument('--mail', dest='mail_address', default=default,
-                        help="Send completion emails to this address (default: {})".format(default))
-    #site = get_site()
-    default = get_default_queue('slave')
-    parser.add_argument('-w', '--slave-q', default=default,
-                        help="Queue to use for slave jobs (default: {})".format(default))
-    default = get_default_queue('master')
-    parser.add_argument('-m', '--master-q', default=default,
-                        help="Queue to use for master job (default: {})".format(default))
-    parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=0,
-                        help="Increase verbosity")
-    parser.add_argument('-q', '--quiet', action='count', default=0,
-                        help="Decrease verbosity")
-    cfg_group = parser.add_argument_group('Configuration files (advanced)')
-    cfg_group.add_argument('--sample-cfg',
-                           help="Config-file (YAML) listing samples and readunits."
-                           " Collides with -1, -2 and -s")
-    for name, descr in [("params", "parameters"),
-                        ("modules", "modules")]:
-        default = os.path.abspath(os.path.join(CFG_DIR, "{}.yaml".format(name)))
-        cfg_group.add_argument('--{}-cfg'.format(name),
-                               default=default,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
-        
-        
+        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
+                                     parents=[default_parser])
+    
+    parser._optionals.title = "Arguments"
     # pipeline specific args
     parser.add_argument('-1', "--fq1", nargs="+",
                         help="FastQ file/s (gzip only)."
@@ -114,10 +82,6 @@ def main():
                         help="FastQ file/s (if paired) (gzip only). See also --fq1")
     parser.add_argument('-s', "--sample",
                         help="Sample name. Collides with --sample-cfg.")
-    parser.add_argument('-r', "--reffa", required=True,
-                        help="Reference fasta file to use (needs to be indexed with BWA and samtools already)")
-    parser.add_argument('-g', "--snpeff-genome", required=True,
-                        help="SNPeff genome name for given reference file")
 
     args = parser.parse_args()
 
@@ -159,39 +123,29 @@ def main():
         samples = dict()
         samples[args.sample] = list(readunits.keys())
 
-    if not os.path.exists(args.reffa):
-        logger.fatal("Reference '%s' doesn't exist", args.reffa)
-        sys.exit(1)
-
-    for p in ['bwa', 'samtools']:
-        if not ref_is_indexed(args.reffa, p):
-            logger.fatal("Reference '%s' doesn't appear to be indexed"
-                         " with %s", args.reffa, p)
-            sys.exit(1)
-
-    # turn arguments into user_data that gets merged into pipeline config
-    #
-    # generic data first
-    user_data = dict()
-    user_data['mail_on_completion'] = not args.no_mail
-    user_data['mail_address'] = args.mail_address
-    user_data['readunits'] = readunits
-    user_data['samples'] = samples
-    if args.name:
-        user_data['analysis_name'] = args.name
         
+    # FIXME now exported to ref.cfg. how to auto check there?
+    #if not os.path.exists(args.reffa):
+    #    logger.fatal("Reference '%s' doesn't exist", args.reffa)
+    #    sys.exit(1)
+    # 
+    #for p in ['bwa', 'samtools']:
+    #    if not ref_is_indexed(args.reffa, p):
+    #        logger.fatal("Reference '%s' doesn't appear to be indexed"
+    #                     " with %s", args.reffa, p)
+    #        sys.exit(1)
 
-    user_data['references'] = {'genome' : os.path.abspath(args.reffa),
-                               'snpeff_genome' : args.snpeff_genome}
-    user_data['mark_dups'] = MARK_DUPS
+    
+    # turn arguments into cfg_dict that gets merged into pipeline config
+    #
+    cfg_dict = dict()
+    cfg_dict['readunits'] = readunits
+    cfg_dict['samples'] = samples
+    cfg_dict['mark_dups'] = MARK_DUPS
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        args.outdir, user_data,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        params_cfgfile=args.params_cfg,
-        modules_cfgfile=args.modules_cfg,
+        args, cfg_dict,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)

@@ -3,7 +3,7 @@
 ## Summary
 
 This pipeline analyses RNA sequencing data produced with the
-[fluidigm single cell sequencing C1 mRNA Seq HT](https://www.fluidigm.com/c1openapp/scripthub/script/2015-08/mrna-seq-ht-1440105180550-2).
+[Fluidigm Single cell sequencing C1 mRNA Seq HT](https://www.fluidigm.com/c1openapp/scripthub/script/2015-08/mrna-seq-ht-1440105180550-2)
 protocol.
 
 Following conventional bcl2fastq demultiplexing, it uses fluidigm API

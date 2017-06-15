@@ -6,6 +6,8 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+PIPELINE=$(basename $(dirname $(readlink -f $0)))
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -60,7 +62,6 @@ test -e Snakefile || exit 1
 
 
 
-test_outdir_base=$RPD_ROOT/testing/output/${pipeline}/${pipeline}-commit-${commit}
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
@@ -86,7 +87,7 @@ SKIP_REAL_FULL=0
 SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG: Full" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $CMD_FULL -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
@@ -102,7 +103,7 @@ fi
 #
 if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: 2 500K SE fastqs" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $CMD_2_SE_500K -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -110,7 +111,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: 2 500K PE fastq pairs" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $CMD_2_PE_500K -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -118,7 +119,7 @@ if [ $skip_dry_runs -ne 1 ]; then
     rm -rf $odir
 
     echo "Dryrun: Full" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $CMD_FULL -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
@@ -134,7 +135,7 @@ fi
 #
 if [ $skip_real_runs -ne 1 ]; then
     echo "Real run: 1 1M SE fastq" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $CMD_1_SE_1M -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
     jid1=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
@@ -142,7 +143,7 @@ if [ $skip_real_runs -ne 1 ]; then
     bam1=$odir/out/$SAMPLE/star/${SAMPLE}_hg19_Aligned.sortedByCoord.out.bam
     
     echo "Real run: 2 500K SE fastqs" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $CMD_2_SE_500K -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
     jid2=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
@@ -165,7 +166,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     
     echo "Real run: 1 1M PE fastq pair" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $CMD_1_PE_1M -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
     jid1=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
@@ -173,7 +174,7 @@ if [ $skip_real_runs -ne 1 ]; then
     bam1=$odir/out/$SAMPLE/star/${SAMPLE}_hg19_Aligned.sortedByCoord.out.bam
 
     echo "Real run: 2 500K PE fastq pairs" | tee -a $log
-    odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     eval $CMD_2_PE_500K -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
     jid2=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
@@ -196,7 +197,7 @@ if [ $skip_real_runs -ne 1 ]; then
 
     if [ $SKIP_REAL_FULL -eq 0 ]; then
         echo "Real run: Full" | tee -a $log
-        odir=$(mktemp -d ${test_outdir_base}.XXXXXXXXXX) && rmdir $odir
+	odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
         eval $CMD_FULL -o $odir -v >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')

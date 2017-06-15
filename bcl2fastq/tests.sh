@@ -6,6 +6,8 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+PIPELINE=$(basename $(dirname $(readlink -f $0)))
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../tools/downstream_outdir.py)
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -84,7 +86,6 @@ commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
 
-test_outdir_base=$RPD_ROOT/testing/output/$pipeline/
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Starting tests"
@@ -100,7 +101,7 @@ SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     d=$(echo $TEST_SEQ_RUN_DIRS | cut -f1 -d ' ')
     echo "DAG: bcl2fastq.py for $d" | tee -a $log
-    odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
@@ -112,20 +113,36 @@ if [ $SKIP_DAG -eq 0 ]; then
 fi
 
 
+if [ $(whoami) == 'userrig' ]; then
+    is_production_user=1
+else
+    is_production_user=0
+fi
+    
+
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
-    echo "Dryrun: mongo_status.py fake run" 1>&2
-    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
-    iso8601ms=${iso8601ns:0:26}
-    ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -s SUCCESS -t -v
 
-    
-    echo "Dryrun: mongo_status_per_mux.py fake run" 1>&2
-    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
-    iso8601ms=${iso8601ns:0:26}
-    ./mongo_status_per_mux.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -i FAKE -d /tmp/FAKE -s FAILED -t -v
-    
+    # mongo_status.py relies on existing db entries, but we purge testing often
+    #echo "Dryrun: mongo_status.py fake run" 1>&2
+    #if [ $is_production_user -eq 1 ]; then
+    #    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+    #    iso8601ms=${iso8601ns:0:26}
+    #    ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -s SUCCESS -t -v
+    #else
+    #    echo "Not a production user. Skipping" 1>&2
+    #fi
+    #
+    #echo "Dryrun: mongo_status_per_mux.py fake run" 1>&2
+    #if [ $is_production_user -eq 1 ]; then
+    #    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+    #    iso8601ms=${iso8601ns:0:26}
+    #    ./mongo_status_per_mux.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -i FAKE -d /tmp/FAKE -s FAILED -t -v
+    #else
+    #    echo "Not a production user. Skipping" 1>&2
+    #fi
+        
 
     echo "Dryrun: bcl2fastq_starter.py" | tee -a $log
     ./bcl2fastq_starter.py -n -1 -v >> $log 2>&1 
@@ -134,22 +151,23 @@ if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: bcl2fastq_dbupdate.py" | tee -a $log
     ./bcl2fastq_dbupdate.py -n -t -v >> $log 2>&1
 
-
-    r="MS001-PE-R00315_000000000-ANBGU"
-    echo "Dryrun: Testing failed seq run $r"  | tee -a $log
     if [ $(get_site) == 'NSCC' ]; then
 	    echo "Test not available at NSCC" | tee -a $log;
-    else
-        odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $r | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
-        ./bcl2fastq.py -r $r -o $odir --no-run -t >> $log 2>&1
-        if [ ! -e "$odir"/SEQRUNFAILED ]; then
-            echo "ERROR: $r should have failed but flag file missing in $odir" | tee -a $log
-            exit 1
-        fi
+    elif [ $is_production_user -eq 1 ]; then
+	# seqrunfailed will prompt immediate db update which won't
+	# work (because entry missing in test db), therefore disabled
+	#odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
+	#r="MS001-PE-R00315_000000000-ANBGU"
+	#echo "Dryrun: Testing failed seq run $r"  | tee -a $log
+        #./bcl2fastq.py -r $r -o $odir --no-run -t >> $log 2>&1
+        #if [ ! -e "$odir"/SEQRUNFAILED ]; then
+        #    echo "ERROR: $r should have failed but flag file missing in $odir" | tee -a $log
+        #    exit 1
+        #fi
     
         for d in $TEST_SEQ_RUN_DIRS; do
             echo "Dryrun: bcl2fastq.py dryrun for $d" | tee -a $log
-            odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+	    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     
             ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
             pushd $odir >> $log
@@ -157,6 +175,9 @@ if [ $skip_dry_runs -ne 1 ]; then
             popd >> $log
             rm -rf $odir
         done
+    else
+        # because this will try to update the db for seqrunfailed
+        echo "Not a production user. Skipping" 1>&2        
     fi
     
     echo "Dryrun tests successfully completed"
@@ -169,7 +190,7 @@ fi
 if [ $skip_real_runs -ne 1 ]; then   
     for d in $TEST_SEQ_RUN_DIRS; do
         echo "Real run: bcl2fastq.py for $d" | tee -a $log
-        odir=$(mktemp -d $test_outdir_base/${pipeline}-commit-${commit}-$(echo $d | sed -e 's,.*/,,').XXXXXXXXXX) && rmdir $odir
+	odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
         ./bcl2fastq.py -d $d -o $odir --name "test:$(basename $d)" -t >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')

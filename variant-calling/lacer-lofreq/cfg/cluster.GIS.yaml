@@ -5,7 +5,13 @@
       "time" : "02:00:00",
       "mem" : 1G,
     },
-  
+    
+    "bam_stats":
+      {
+      "time" : "04:00:00",
+      "mem" : 1G,
+    },
+    
     "lofreq_call" :
     {
       "time" : "24:00:00",
@@ -14,8 +20,8 @@
 
     "lacer_table" :
     {
-      "time" : "18:00:00",
-      "mem" : 4G,
+      "time" : "24:00:00",
+      "mem" : 2G,
     },
 
     "lacer_apply" :
@@ -38,8 +44,8 @@
 
     "dedup":
     {
-       "time" : "4:00:00",
-       "mem" : 6G,
+       "time" : "6:00:00",
+       "mem" : 8G,
     },
     "snpeff":
     {

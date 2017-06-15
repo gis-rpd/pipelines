@@ -19,7 +19,9 @@ LIB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
-from pipelines import generate_timestamp, get_site
+from utils import generate_timestamp
+from pipelines import get_site
+from pipelines import is_production_user
 from mongodb import mongodb_conn
 
 __author__ = "Lavanya Veeravalli"
@@ -47,7 +49,7 @@ def main():
                         help="Analysis id", required=True)
     parser.add_argument('-o', "--out",
                         help="Analysis output directory")
-    parser.add_argument('-t', "--test_server", action='store_true')
+    parser.add_argument('-t', "--test-server", action='store_true')
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Dry run")
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -67,11 +69,11 @@ def main():
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
-    user_name = getpass.getuser()
-    if user_name != "userrig":
+    if not is_production_user():
         logger.warning("Not a production user. Skipping MongoDB update")
-        sys.exit(0)
-
+        sys.exit(1)
+    user_name = "userrig"
+            
     run_number = args.runid
     connection = mongodb_conn(args.test_server)
     if connection is None:
@@ -83,36 +85,41 @@ def main():
     if args.status in ["STARTED", "SEQRUNFAILED"]:
         try:
             if not args.dry_run:
-                db.update({"run": run_number},
-                          {"$push":
-                           {"analysis": {
-                               "analysis_id" : args.analysis_id,
-                               "user_name" : user_name,
-                               "out_dir" : args.out,
-                               "Status" :  args.status,
-                           }}})
-
-        except pymongo.errors.OperationFailure:
-            logger.fatal("mongoDB OperationFailure")
-            sys.exit(0)
+                res = db.update_one({"run": run_number},
+                                    {"$push":
+                                     {"analysis": {
+                                         "analysis_id" : args.analysis_id,
+                                         "user_name" : user_name,
+                                         "out_dir" : args.out,
+                                         "Status" :  args.status,
+                                     }}})
+                assert res.modified_count == 1, (
+                    "Modified {} documents instead of 1".format(res.modified_count))
+        except (pymongo.errors.OperationFailure, AssertionError) as e:
+            logger.fatal("MongoDB update failure while setting run %s analysis_id %s to %s",
+                         run_number, args.analysis_id, args.status)
+            sys.exit(1)
 
     elif args.status in ["SUCCESS", "FAILED"]:
         end_time = generate_timestamp()
         logger.info("Setting timestamp to %s", end_time)
         try:
             if not args.dry_run:
-                db.update({"run": run_number, 'analysis.analysis_id' : args.analysis_id},
-                          {"$set":
-                           {"analysis.$": {
-                               "analysis_id" : args.analysis_id,
-                               "end_time" : end_time,
-                               "user_name" : user_name,
-                               "out_dir" : args.out,
-                               "Status" :  args.status,
-                           }}})
-        except pymongo.errors.OperationFailure:
-            logger.fatal("mongoDB OperationFailure")
-            sys.exit(0)
+                res = db.update_one({"run": run_number, 'analysis.analysis_id' : args.analysis_id},
+                                    {"$set":
+                                     {"analysis.$": {
+                                         "analysis_id" : args.analysis_id,
+                                         "end_time" : end_time,
+                                         "user_name" : user_name,
+                                         "out_dir" : args.out,
+                                         "Status" :  args.status,
+                                     }}})
+                assert res.modified_count == 1, (
+                    "Modified {} documents instead of 1".format(res.modified_count))
+        except (pymongo.errors.OperationFailure, AssertionError) as e:
+            logger.fatal("MongoDB update failure while setting run %s analysis_id %s to %s",
+                         run_number, args.analysis_id, args.status)
+            sys.exit(1)
 
     else:
         raise ValueError(args.status)

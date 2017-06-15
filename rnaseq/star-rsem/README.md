@@ -3,8 +3,12 @@
 ## Summary
 
 This pipeline is for RNASeq analysis and runs STAR, followed by
-RNASeQC, RSEM and optionally cuffdiff. It should be suitable for all
+RNASeQC, RSEM and optionally Cuffdiff. It should be suitable for most
 types of RNASeq, except small RNASeq.
+
+Note that this pipeline is not suitable for bacterial data as its
+parameters are tuned towards large, spliced genomes and it requires
+good quality genome annotation.
 
 Reads are aligned to given reference genome using the
 [STAR mapper](https://github.com/alexdobin/STAR).  See
@@ -27,16 +31,14 @@ Cuffdiff can be run optionally (slow!): it will run in cufflinks mode,
 with no differential analysis carried out, to get raw fragment count
 of genes and isoforms in addition to cufflinks fpkm. If the `stranded`
 option was used cuffdiff is run with `fr-firststrand`, otherwise
-`fr-unstranded` by default
+`fr-unstranded` by default.
 
 Expression values of genes and isoforms are provided with annotation 
 in all run methods.
 
-
 Note, STAR is very memory hungry. Because its shared memory option can
 cause trouble when jobs fail (memory needs to be cleared manually), we
 do not make use of it, even in a multi-sample setting.
-
 
   
 ## Output

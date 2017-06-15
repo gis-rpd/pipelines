@@ -27,8 +27,8 @@ SUMMARY_KEYS = ["raw total sequences:",
                 'insert size standard deviation:']
 ETHNICITIES = ['CHS', 'INS', 'MAS']
 MAX_CONT = 0.01999999
-MIN_DEPTH = 7
-
+MIN_DEPTH = 13.95
+MIN_QC20 = 45*10**9
 
 
 def parse_summary_from_stats(statsfile):#, genome_size=GENOME_SIZE['hs37d5']):
@@ -74,7 +74,7 @@ def parse_selfsm(selfsm_file):
 
 # print(parse_selfsm("WHH1253/out/WHH1253/WHH1253.bwamem.fixmate.mdups.srt.recal.CHS.selfSM"))
 
-def check_completion(conf_yamls):
+def check_completion(conf_yamls, num_expected):
     """FIXME:add-doc"""
 
     print("Verifying completeness based on {} config yaml files...".format(len(conf_yamls)))
@@ -97,15 +97,15 @@ def check_completion(conf_yamls):
     print("{} completed".format(num_complete))
     print("{} incomplete".format(num_incomplete))
     print("(Note, numbers can be misleading for multisample runs (a single failure anywhere fails all samples)")
-    assert num_complete == 96
+    assert num_complete == num_expected
     print("Okay. Proceeding...")
 
 
-def main(conf_yamls):
+def main(conf_yamls, num_expected):
     """main
     """
 
-    check_completion(conf_yamls)
+    check_completion(conf_yamls, num_expected)
 
     if WRITE_CSV:
         assert not os.path.exists('summary.csv')
@@ -124,15 +124,29 @@ def main(conf_yamls):
 
         fmtheader = workbook.add_format({'bold': True, 'align': 'center'})
         fmtintcomma = workbook.add_format({'num_format': '###,###,###,###0'})
-        fmt01 = workbook.add_format({'num_format': '0.1'})
-        fmt00001 = workbook.add_format({'num_format': '0.0001'})
+        fmt00 = workbook.add_format({'num_format': '0.0'})
+        fmt00000 = workbook.add_format({'num_format': '0.0000'})
 
         worksheet.set_row(0, None, fmtheader)
         worksheet.set_column('B:B', 20, fmtintcomma)
-        worksheet.set_column('C:D', None, fmt01)
-        worksheet.set_column('F:H', None, fmt01)
-        worksheet.set_column('E:E', None, fmt00001)
-        worksheet.set_column('I:K', None, fmt00001)
+        worksheet.set_column('C:D', None, fmt00)
+        worksheet.set_column('F:H', None, fmt00)
+        worksheet.set_column('E:E', None, fmt00000)
+        worksheet.set_column('I:K', None, fmt00000)
+        worksheet.set_column('L:L', 20, fmtintcomma)# qc20
+        format1 = workbook.add_format({'bold': 1, 'italic': 1, 'font_color': '#FF0000'})
+        worksheet.conditional_format('H2:H100', {'type':     'cell',
+                                    'criteria': '<',
+                                    'value':    MIN_DEPTH,
+                                    'format':   format1})
+        worksheet.conditional_format('L2:L100', {'type':     'cell',
+                                    'criteria': '<',
+                                    'value':    MIN_QC20,
+                                    'format':   format1})        
+        worksheet.conditional_format('I2:K100', {'type':     'cell',
+                                    'criteria': '>',
+                                    'value':    MAX_CONT,
+                                    'format':   format1})
 
         xls_row_no = 0
     else:
@@ -150,7 +164,8 @@ def main(conf_yamls):
     header.append("Avg. Depth")
     for key in ETHNICITIES:
         header.append("Cont. " + key)
-
+    header.append("QC20")
+    
     if WRITE_CONSOLE:
         print("\t".join(header))
     if WRITE_CSV:
@@ -195,6 +210,19 @@ def main(conf_yamls):
                     sys.stderr.write("CONT threshold reached for {}: {} > {}\n".format(sample, cont, MAX_CONT))
                 row.append(cont)
 
+            qc20_file = glob.glob(os.path.join(outdir, sample, "*.bwamem.fixmate.mdups.srt.recal.qc.txt"))
+            if qc20_file:
+                qc20_file = qc20_file[0]
+                with open(qc20_file) as fh:
+                    l = fh.readline()
+                qc20 = int(l.split()[-1])
+                if qc20 < MIN_QC20:
+                    sys.stderr.write("qc20 smaller threshold for {}: {} < {}\n".format(sample, qc20, MIN_QC20))
+            else:
+                sys.stderr.write("qc20 missing for {}\n".format(sample))
+                qc20 = ""
+            row.append(qc20)
+                    
             if WRITE_CONSOLE:
                 print("\t".join(["{}".format(v) for v in row]))
             if WRITE_CSV:
@@ -214,7 +242,11 @@ def main(conf_yamls):
 
 
 if __name__ == "__main__":
-    conf_yamls = sys.argv[1:]
+    if len(sys.argv) < 3:
+        sys.stderr.write("FATAL: need 2 arguments, num_of_libraries and conf.yaml(s)\n")
+        sys.exit(1)
+    num_expected = int(sys.argv[1])
+    conf_yamls = sys.argv[2:]    
     assert conf_yamls, ("No conf.yaml file/s given as argument")
     assert all([os.path.exists(f) for f in conf_yamls])
-    main(conf_yamls)
+    main(conf_yamls, num_expected)

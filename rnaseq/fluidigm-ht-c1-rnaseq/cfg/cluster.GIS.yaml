@@ -1,3 +1,4 @@
+
 {
     # match short queue
     "__default__":
@@ -14,13 +15,13 @@
 
     "rnaseqQC":
     {
-      "time" : "02:00:00",
+      "time" : "08:00:00",
       "mem" : 2G,
     },
     
     "RSEM":
     {
-      "time" : "02:00:00",
+      "time" : "08:00:00",
       "mem" : 4G,
     },    
 }    

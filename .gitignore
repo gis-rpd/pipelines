@@ -85,3 +85,5 @@ docs/_build/
 # PyBuilder
 target/
 .disabled-pipelines.txt
+etc/novogene.yaml
+tmp

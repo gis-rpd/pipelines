@@ -4,6 +4,7 @@
 set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
+MYDIR=$(dirname $(readlink -f $0))
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -51,9 +52,9 @@ commit=$(git describe --always --dirty)
 for sh in $(find * -maxdepth 3 -mindepth 1 -name tests.sh); do
     disabled_pipelines=""
     if [ -s .disabled-pipelines.txt ]; then
-	disabled_pipelines=$(cat .disabled-pipelines.txt | xargs -n 1 dirname)
+	    disabled_pipelines=$(cat .disabled-pipelines.txt | xargs -n 1 dirname)
     fi
-    echo "DEBUG: disabled_pipelines=$disabled_pipelines" 1>&2
+    #echo "DEBUG: disabled_pipelines=$disabled_pipelines" 1>&2
     skip=0
     for p in $disabled_pipelines; do
 	if echo $sh | grep -q $p; then
@@ -62,29 +63,31 @@ for sh in $(find * -maxdepth 3 -mindepth 1 -name tests.sh); do
 	fi
     done
     if [ $skip -eq 1 ]; then
-	echo "WARNING: skipping $sh as requested" 1>&2
-	continue
+	    echo "WARNING: skipping $sh as requested" 1>&2
+	    continue
     fi
-    
+
     echo "------------------------------------------------------------"
     echo "Running $sh"
     echo "------------------------------------------------------------"
-    bash $sh $args
+    pushd $(dirname $sh) >/dev/null
+    bash $(basename $sh) $args
     if [ $? -ne 0 ]; then
         echo "ERROR: Tests failed"
     else
         echo "OK: Tests passed"
     fi
     echo "------------------------------------------------------------"
-    echo "Running static code checks in $(dirname $sh)"
+    echo "Running static code checks in $(pwd)"
     echo "------------------------------------------------------------"
     # only warn
     set +e
     # ignore essential_genes_from_tables.py (python2)
-    for f in $(find $(dirname $sh) -maxdepth 1 -name \*py -type f | grep -v flymake | grep -v essential_genes_from_tables.py); do
+    for f in $(find . -maxdepth 1 -name \*py -type f | grep -v flymake | grep -v essential_genes_from_tables.py); do
         echo "Checking $f"
-        PYTHONPATH=$(dirname $MYNAME)/lib pylint -j 2 -E --rcfile pylintrc $f
+        PYTHONPATH=$MYDIR/lib pylint -j 2 -E --rcfile pylintrc $f
     done
+    popd >/dev/null
     set -e
     echo "Done"
     echo

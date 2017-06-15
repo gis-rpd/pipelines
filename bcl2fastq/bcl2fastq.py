@@ -33,9 +33,10 @@ from pipelines import PipelineHandler
 from pipelines import get_machine_run_flowcell_id
 from pipelines import is_devel_version
 from pipelines import logger as aux_logger
-from pipelines import generate_timestamp
 from pipelines import get_cluster_cfgfile
+from pipelines import default_argparser
 from config import site_cfg
+from utils import generate_timestamp
 from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
 
 
@@ -167,46 +168,26 @@ def main():
     mongo_status_script = os.path.abspath(os.path.join(
         os.path.dirname(sys.argv[0]), "mongo_status.py"))
     assert os.path.exists(mongo_status_script)
-
+    
+    default_parser = default_argparser(CFG_DIR, allow_missing_cfgfile=True)
     parser = argparse.ArgumentParser(description=__doc__.format(
-        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()))
+        PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
+                                     parents=[default_parser])
+    parser._optionals.title = "Arguments"
+    # pipeline specific args
     parser.add_argument('-r', "--runid",
                         help="Run ID plus flowcell ID (clashes with -d)")
     parser.add_argument('-d', "--rundir",
                         help="BCL input directory (clashes with -r)")
-    parser.add_argument('-o', "--outdir",
-                        help="Output directory (must not exist; required if called by user)")
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test server")
     parser.add_argument('--no-archive', action='store_true',
                         help="Don't archieve this analysis")
-    parser.add_argument('--name',
-                        help="Give this analysis run a name (used in email and report)")
-    parser.add_argument('--no-mail', action='store_true',
-                        help="Don't send mail on completion")
-    default = get_default_queue('slave')
-    parser.add_argument('-w', '--slave-q', default=default,
-                        help="Queue to use for slave jobs (default: {})".format(default))
-    default = get_default_queue('master')
-    parser.add_argument('-m', '--master-q', default=default,
-                        help="Queue to use for master job (default: {})".format(default))
     parser.add_argument('-l', '--lanes', type=int, nargs="*",
                         help="Limit run to given lane/s (multiples separated by space")
     parser.add_argument('-i', '--mismatches', type=int,
                         help="Max. number of allowed barcode mismatches (0>=x<=2)"
                         " setting a value here overrides the default settings read from ELM)")
-    parser.add_argument('-n', '--no-run', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count', default=0,
-                        help="Increase verbosity")
-    parser.add_argument('-q', '--quiet', action='count', default=0,
-                        help="Decrease verbosity")
-    cfg_group = parser.add_argument_group('Configuration files (advanced)')
-    for name, descr in [("modules", "modules")]:
-        default = os.path.abspath(os.path.join(CFG_DIR, "{}.yaml".format(name)))
-        cfg_group.add_argument('--{}-cfg'.format(name),
-                               default=default,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
-
 
     args = parser.parse_args()
 
@@ -313,15 +294,12 @@ def main():
         sys.exit(0)
 
 
-    # turn arguments into user_data that gets merged into pipeline config
-    user_data = {'rundir': rundir,
-                 'lanes_arg': lane_info,
-                 'samplesheet_csv': samplesheet_csv,
-                 'no_archive': args.no_archive,
-                 'mail_on_completion': not args.no_mail,
-                 'run_num': run_num}
-    if args.name:
-        user_data['analysis_name'] = args.name
+    # turn arguments into cfg_dict that gets merged into pipeline config
+    cfg_dict = {'rundir': rundir,
+                'lanes_arg': lane_info,
+                'samplesheet_csv': samplesheet_csv,
+                'no_archive': args.no_archive,
+                'run_num': run_num}
 
 
     usebases_arg = ''
@@ -333,11 +311,11 @@ def main():
             for ub in d['usebases']:
                 #print (ub)
                 usebases_arg += '--use-bases-mask {} '.format(ub)
-            #user_data = {'usebases_arg' : usebases_arg}
+            #cfg_dict = {'usebases_arg' : usebases_arg}
         except yaml.YAMLError as exc:
             logger.fatal(exc)
             raise
-    user_data['usebases_arg'] = usebases_arg
+    cfg_dict['usebases_arg'] = usebases_arg
     os.unlink(usebases_cfg)
 
 
@@ -348,34 +326,28 @@ def main():
     os.unlink(muxinfo_cfg)
 
 
-    user_data['units'] = dict()
+    cfg_dict['units'] = dict()
     for mu in mux_units:
         # special case: mux split across multiple lanes. make lanes a list
         # and add in extra lanes if needed.
         k = mu.mux_dir
         mu_dict = dict(mu._asdict())
-        user_data['units'][k] = mu_dict
+        cfg_dict['units'][k] = mu_dict
 
     # create mongodb update command, used later, after submission
-    mongo_update_cmd = "{} -r {} -s STARTED".format(mongo_status_script, user_data['run_num'])
+    mongo_update_cmd = "{} -r {} -s STARTED".format(mongo_status_script, cfg_dict['run_num'])
     mongo_update_cmd += " -a $ANALYSIS_ID -o {}".format(outdir)# set in run.sh
     if args.testing:
         mongo_update_cmd += " -t"
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
-        outdir, user_data,
+        args, cfg_dict,
         logger_cmd=mongo_update_cmd,
-        master_q=args.master_q,
-        slave_q=args.slave_q,
-        modules_cfgfile=args.modules_cfg,
         cluster_cfgfile=get_cluster_cfgfile(CFG_DIR))
 
     pipeline_handler.setup_env()
     pipeline_handler.submit(args.no_run)
-
-
-
 
 
 if __name__ == "__main__":
