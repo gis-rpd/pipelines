@@ -5,10 +5,10 @@ test -z "$pipelines" && exit 1
 
 # elm logging dirs
 #
-for m in rpd/testing rpd/production; do
-  module load $m
+for suf in "" ".testing"; do
   for p in $pipelines; do
-    d=$RPD_ELMLOGDIR/$p
+    d=$(echo $RPD_ELMLOGDIR | sed -e 's,/$,,')${suf}/${p}
+    echo "Creating $d (if needed) and setting perms as required"
 #cat<<EOF
     test -d $d || mkdir -p $d 2>/dev/null
     chmod 777 $d
