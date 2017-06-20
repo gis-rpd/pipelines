@@ -483,10 +483,14 @@ def default_argparser(cfg_dir, allow_missing_cfgfile=False):
     default = email_for_user()
     rep_group.add_argument('--mail', dest='mail_address', default=default,
                            help="Send completion emails to this address (default: {})".format(default))
-    default = "y" if is_production_user() else 'n'
+    #default = "y" if is_production_user() else 'n'
+    default = 'n'
+    if is_production_user():
+        help = "Log execution in DB (required db-id): n=no; y=yes (only allowed as production user))" 
+    else:
+        help = argparse.SUPPRESS
     rep_group.add_argument('--db-logging', choices=('y', 'n'), default=default,
-                           #help=argparse.SUPPRESS)# hidden
-                           help="Log execution in DB: n=no; y=yes (only allowed as production user))")
+                           help=help)
     rep_group.add_argument('-v', '--verbose', action='count', default=0,
                            help="Increase verbosity")
     rep_group.add_argument('-q', '--quiet', action='count', default=0,

@@ -124,23 +124,24 @@ fi
 #
 if [ $skip_dry_runs -ne 1 ]; then
 
-    echo "Dryrun: mongo_status.py fake run" 1>&2
-    if [ $is_production_user -eq 1 ]; then
-        iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
-        iso8601ms=${iso8601ns:0:26}
-        ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -s SUCCESS -t -v
-    else
-        echo "Not a production user. Skipping" 1>&2
-    fi
-    
-    echo "Dryrun: mongo_status_per_mux.py fake run" 1>&2
-    if [ $is_production_user -eq 1 ]; then
-        iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
-        iso8601ms=${iso8601ns:0:26}
-        ./mongo_status_per_mux.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -i FAKE -d /tmp/FAKE -s FAILED -t -v
-    else
-        echo "Not a production user. Skipping" 1>&2
-    fi
+    # mongo_status.py relies on existing db entries, but we purge testing often
+    #echo "Dryrun: mongo_status.py fake run" 1>&2
+    #if [ $is_production_user -eq 1 ]; then
+    #    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+    #    iso8601ms=${iso8601ns:0:26}
+    #    ./mongo_status.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -s SUCCESS -t -v
+    #else
+    #    echo "Not a production user. Skipping" 1>&2
+    #fi
+    #
+    #echo "Dryrun: mongo_status_per_mux.py fake run" 1>&2
+    #if [ $is_production_user -eq 1 ]; then
+    #    iso8601ns=$(date --iso-8601=ns | tr ':,' '-.');
+    #    iso8601ms=${iso8601ns:0:26}
+    #    ./mongo_status_per_mux.py -r FAKERUN_FAKEFLOWCELL -a $iso8601ms -i FAKE -d /tmp/FAKE -s FAILED -t -v
+    #else
+    #    echo "Not a production user. Skipping" 1>&2
+    #fi
         
 
     echo "Dryrun: bcl2fastq_starter.py" | tee -a $log
@@ -150,17 +151,19 @@ if [ $skip_dry_runs -ne 1 ]; then
     echo "Dryrun: bcl2fastq_dbupdate.py" | tee -a $log
     ./bcl2fastq_dbupdate.py -n -t -v >> $log 2>&1
 
-    r="MS001-PE-R00315_000000000-ANBGU"
-    echo "Dryrun: Testing failed seq run $r"  | tee -a $log
     if [ $(get_site) == 'NSCC' ]; then
 	    echo "Test not available at NSCC" | tee -a $log;
     elif [ $is_production_user -eq 1 ]; then
-	    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-        ./bcl2fastq.py -r $r -o $odir --no-run -t >> $log 2>&1
-        if [ ! -e "$odir"/SEQRUNFAILED ]; then
-            echo "ERROR: $r should have failed but flag file missing in $odir" | tee -a $log
-            exit 1
-        fi
+	# seqrunfailed will prompt immediate db update which won't
+	# work (because entry missing in test db), therefore disabled
+	#odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
+	#r="MS001-PE-R00315_000000000-ANBGU"
+	#echo "Dryrun: Testing failed seq run $r"  | tee -a $log
+        #./bcl2fastq.py -r $r -o $odir --no-run -t >> $log 2>&1
+        #if [ ! -e "$odir"/SEQRUNFAILED ]; then
+        #    echo "ERROR: $r should have failed but flag file missing in $odir" | tee -a $log
+        #    exit 1
+        #fi
     
         for d in $TEST_SEQ_RUN_DIRS; do
             echo "Dryrun: bcl2fastq.py dryrun for $d" | tee -a $log

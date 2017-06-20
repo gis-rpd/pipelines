@@ -17,17 +17,21 @@ from collections import namedtuple
 
 Pipeline = namedtuple('Pipeline', ['cat', 'script'])
 
-disabled_pipeline_cfg = ".disabled-pipelines.txt"
+disabled_pipeline_cfg = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
+                                     ".disabled-pipelines.txt")
 disabled_pipelines = []
 if os.path.exists(disabled_pipeline_cfg):
     with open(disabled_pipeline_cfg) as fh:
         for line in fh:
             disabled_pipelines.append(line.strip())
-    
+#sys.stderr.write("DEBUG disabled = {}\n".format(disabled_pipelines))
+
 SCRIPTS = ['chromatin-profiling/chipseq/chipseq.py',
            'custom/SG10K/SG10K.py',
+           'germs/vipr/vipr.py',
            'mapping/BWA-MEM/BWA-MEM.py',
            'metagenomics/essential-genes/essential-genes.py',
+           'metagenomics/shotgun-metagenomics/shotgun-metagenomics.py',
            'rnaseq/fluidigm-ht-c1-rnaseq/fluidigm-ht-c1-rnaseq.py',
            'rnaseq/star-rsem/star-rsem.py',
            'somatic/lofreq-somatic/lofreq-somatic.py',
@@ -44,10 +48,10 @@ def usage(fh, pipeline_map):
     fh.write("Usage: {} name options\n".format(myname))
     fh.write(" e.g.: {} gatk --help\n\n".format(myname))
     fh.write("Please chose a pipeline from the following list:\n")
-    for cat in set([pipeline.cat for pipeline in pipeline_map.values()]):
+    for cat in sorted(set([pipeline.cat for pipeline in pipeline_map.values()])):
         fh.write("# category: {}\n".format(cat))
         # this is stupid
-        for k, p in pipeline_map.items():
+        for k, p in sorted(pipeline_map.items()):
             if p.cat == cat:
                 fh.write("{}\n".format(k))
 

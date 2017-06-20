@@ -177,7 +177,6 @@ def main():
     else:
         logger.fatal("Mixed paired-end and single-end not allowed")
         sys.exit(1)
-    logger.critical("Fixed genomesize. Should be 80%% of input")
     cfg_dict['peak_type'] = args.peak_type
     cfg_dict['mapper'] = args.mapper
     cfg_dict['skip_macs2'] = args.skip_macs2

@@ -76,32 +76,26 @@ rule RSEM:
     # FIXME some code duplication with rnaseq pipeline. sync the two every now and then.
     # since very fast, loop over samples
     input:
-        bams = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam"),
-                     sample = config['samples'],
+        bams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME),
-        #bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
+        #bam = "{dir}/star/{{sample}}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
         rsemidx = config['references']['rsemidx'] + ".seq",
         gtfdesc = config['references']['gtfsourcefile']
     output:
-        genecounts = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results"),
-                     sample = config['samples'],
+        genecounts = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/rsem/{{sample}}_ROW{row}_{genome}_RSEM.genes.results"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME),
-        isocounts = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results"),
-                     sample = config['samples'],
+        isocounts = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/rsem/{{sample}}_ROW{row}_{genome}_RSEM.isoforms.results"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME),
-        gbams = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam"),
-                     sample = config['samples'],
+        gbams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/rsem/{{sample}}_ROW{row}_{genome}_RSEM.genome.sorted.bam"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME),
-        wigs = temp(expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig"),
-                     sample = config['samples'],
+        wigs = temp(expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/rsem/{{sample}}_ROW{row}_{genome}_RSEM.sorted.wig"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME)),
-        plots = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.pdf"),
-                     sample = config['samples'],
+        plots = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/rsem/{{sample}}_ROW{row}_{genome}_RSEM.pdf"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME),
         #genecount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results",
@@ -163,19 +157,16 @@ rule RSEM:
 rule rnaseqQC:
     # since very fast, loop over samples
     input:
-        bam = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
-                     sample = config['samples'],
+        bam = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME),
         rnaseqc_annotation = config['references']['rnaseqc_annotation'],
         ref = config['references']['genome']
     output:
-        bamidx = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai"),
-                        sample = config['samples'],
+        bamidx = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai"),
                         row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                         genome=GENOME_BASENAME),
-        flag = touch(expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK"),
-                     sample = config['samples'],
+        flag = touch(expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/rnaseqQC/{{sample}}_ROW{row}_{genome}_RNASeqQC_complete.OK"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME)),
     log:
@@ -215,10 +206,12 @@ def wig2bigwig(wig, bigwig, gsizes):
     num_lines = 0
     with open(wig) as fh:
         for line in fh:
-            num_lines += 1
-            if num_lines > 1:
-                wig_ok = 1
-                break
+            if line.startswith("variableStep"):
+                continue
+            if line.startswith("WARNING"):
+                continue
+            wig_ok=True
+            break
     if wig_ok:
         shell("wigToBigWig {} {} {}".format(wig, gsizes, bigwig))
     else:
@@ -229,22 +222,18 @@ def wig2bigwig(wig, bigwig, gsizes):
 # star wig's bunched together
 rule wig2bigwig_star:
     input:
-        wig = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.wig"),
-                    sample=config['samples'],
+        wig = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Signal.Unique.{strand}.out.wig"),
                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                     strand=["str1", "str2"],
                     genome=GENOME_BASENAME),
         gsizes = config['references']['genome'] + ".sizes"
     output:
-        bw = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.bw"),
-                    sample=config['samples'],
+        bw = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Signal.Unique.{strand}.out.bw"),
                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                     strand=["str1", "str2"],
                     genome=GENOME_BASENAME)
     log:
         os.path.join(RESULT_OUTDIR, "wig2bigwig_star.log")
-    #shell:
-    #    "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
     run:
         # when using bash, argument length can be too long
         for i, wig in enumerate(input.wig):
@@ -254,20 +243,16 @@ rule wig2bigwig_star:
 # rsem wig's bunched together
 rule wig2bigwig_rsem:
     input:
-        wig = expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig'),
-                     sample=config['samples'], 
+        wig = expand(os.path.join(RESULT_OUTDIR, '{{sample}}_ROW{row}/rsem/{{sample}}_ROW{row}_{genome}_RSEM.sorted.wig'),
                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME),
         gsizes = config['references']['genome'] + ".sizes"
     output:
-        bw = expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.bw'),
-                    sample=config['samples'], 
+        bw = expand(os.path.join(RESULT_OUTDIR, '{{sample}}_ROW{row}/rsem/{{sample}}_ROW{row}_{genome}_RSEM.sorted.bw'),
                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                     genome=GENOME_BASENAME)
     log:
         os.path.join(RESULT_OUTDIR, "wig2bigwig_rsem.log")
-    #shell:
-    #    "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
     run:
         # when using bash, argument length can be too long
         for i, wig in enumerate(input.wig):
