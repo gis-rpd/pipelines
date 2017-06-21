@@ -297,7 +297,7 @@ def main():
     # turn arguments into cfg_dict that gets merged into pipeline config
     cfg_dict = {'rundir': rundir,
                 'lanes_arg': lane_info,
-                'samplesheet_csv': samplesheet_csv,
+                'samplesheet_csv': os.path.relpath(samplesheet_csv, outdir),
                 'no_archive': args.no_archive,
                 'run_num': run_num}
 
