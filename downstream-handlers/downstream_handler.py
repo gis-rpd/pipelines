@@ -46,7 +46,7 @@ __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2017 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
-PIPELINE_VERSION = {
+PIPELINE_PATH_BASE = {
     'GIS': {
         'production': '/mnt/projects/rpd/pipelines/',
         'devel': path_devel},
@@ -95,10 +95,10 @@ def start_cmd_execution(record, site, out_dir, testing):
             for key, value in outer_value.items():
                 pipeline_params += " --" + key + " " + value
     #pipeline path for production and testing
-    if testing:
+    if is_devel_version():
         pipeline_version = ""
     else:
-        pipeline_version = record['pipeline_version']
+        pipeline_version = record['pipeline_version'].split(".")[0]
     pipeline_path = get_pipeline_path(site, record['pipeline_name'], \
         pipeline_version)
     pipeline_script = os.path.join(pipeline_path, (os.path.split(pipeline_path)[-1] + ".py"))
@@ -128,15 +128,17 @@ def start_cmd_execution(record, site, out_dir, testing):
 def get_pipeline_path(site, pipeline_name, pipeline_version):
     """ get the pipeline path
     """
-    basedir_map = PIPELINE_VERSION
+    basedir_map = PIPELINE_PATH_BASE
     if site not in basedir_map:
         raise ValueError(site)
     if is_devel_version():
         basedir = basedir_map[site]['devel']
+        pipeline_path = os.path.join(basedir, pipeline_name)
+        return pipeline_path
     else:
         basedir = basedir_map[site]['production']
-    pipeline_path = os.path.join(basedir, pipeline_version, pipeline_name)
-    return pipeline_path
+        pipeline_path = glob.glob(os.path.join(basedir, "*"+pipeline_version, pipeline_name))
+        return pipeline_path[0]
 
 def list_starterflags(path):
     """list starter flag files in path
