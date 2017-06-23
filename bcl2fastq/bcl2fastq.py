@@ -169,7 +169,7 @@ def main():
         os.path.dirname(sys.argv[0]), "mongo_status.py"))
     assert os.path.exists(mongo_status_script)
     
-    default_parser = default_argparser(CFG_DIR, allow_missing_cfgfile=True)
+    default_parser = default_argparser(CFG_DIR, allow_missing_cfgfile=True, allow_missing_outdir=True)
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
@@ -239,6 +239,7 @@ def main():
 
     if not args.outdir:
         outdir = get_bcl2fastq_outdir(args.runid)
+        args.outdir = outdir
     else:
         outdir = args.outdir
     if os.path.exists(outdir):

@@ -465,14 +465,14 @@ class PipelineHandler(object):
             logger.info("The (master) logfile is %s", master_log_abs)
 
 
-def default_argparser(cfg_dir, allow_missing_cfgfile=False):
+def default_argparser(cfg_dir, allow_missing_cfgfile=False, allow_missing_outdir=False):
     """Create default argparser (use as parent) for pipeline calls. Needs
     point to pipelines config dir
     """
 
     parser = argparse.ArgumentParser(add_help=False)
     parser._optionals.title = "Output"
-    parser.add_argument('-o', "--outdir", required=True,
+    parser.add_argument('-o', "--outdir", required=not allow_missing_outdir,
                         help="Output directory (must not exist)")
 
     rep_group = parser.add_argument_group('Reporting')
