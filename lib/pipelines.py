@@ -232,15 +232,18 @@ class PipelineHandler(object):
         # DB logging of execution
         if def_args.db_logging in ['n', 'no', 'off']:
             # use bash's true, which doesn't do anything
+            if self.logger_cmd:
+                sys.stderr.write("WARN: Got logger command but logging is off\n")
             self.logger_cmd = 'true'
         elif def_args.db_logging in ['y', 'yes', 'on']:
-            # trust caller if given, otherwise use the default logger which depends on db-id
+            # if logger_cmd is given use that, otherwise use the default logger which depends on db-id
             if not logger_cmd:
                 assert self.cfg_dict['db-id'], ("Need db-id config value for logging")
                 # run.sh has a path to snakemake so should contain a path to python3
                 scr = os.path.join(PIPELINE_ROOTDIR, 'downstream-handlers', 'downstream_started.py')
                 logger_cmd = "{} -d {} -o {}".format(scr, self.cfg_dict['db-id'], self.outdir)
-                self.logger_cmd = logger_cmd
+            self.logger_cmd = logger_cmd
+        
         else:
             raise ValueError(def_args.db_logging)
 
@@ -436,7 +439,7 @@ class PipelineHandler(object):
                 os.path.basename(self.run_out), self.submissionlog)
         else:
             cmd = "cd {} && {} {} {} >> {}".format(
-                os.path.dirname(self.run_out), site_cfg['master_submission_cmd'], 
+                os.path.dirname(self.run_out), site_cfg['master_submission_cmd'],
                 master_q_arg, os.path.basename(self.run_out), self.submissionlog)
 
         if no_run:
@@ -465,14 +468,17 @@ class PipelineHandler(object):
             logger.info("The (master) logfile is %s", master_log_abs)
 
 
-def default_argparser(cfg_dir, allow_missing_cfgfile=False):
+def default_argparser(cfg_dir,
+                      allow_missing_cfgfile=False,
+                      allow_missing_outdir=False,
+                      default_db_logging=False):
     """Create default argparser (use as parent) for pipeline calls. Needs
     point to pipelines config dir
     """
 
     parser = argparse.ArgumentParser(add_help=False)
     parser._optionals.title = "Output"
-    parser.add_argument('-o', "--outdir", required=True,
+    parser.add_argument('-o', "--outdir", required=not allow_missing_outdir,
                         help="Output directory (must not exist)")
 
     rep_group = parser.add_argument_group('Reporting')
@@ -483,12 +489,13 @@ def default_argparser(cfg_dir, allow_missing_cfgfile=False):
     default = email_for_user()
     rep_group.add_argument('--mail', dest='mail_address', default=default,
                            help="Send completion emails to this address (default: {})".format(default))
-    #default = "y" if is_production_user() else 'n'
-    default = 'n'
+
+    default = 'y' if default_db_logging else 'n'
     if is_production_user():
-        help = "Log execution in DB (required db-id): n=no; y=yes (only allowed as production user))" 
+        help = "Log execution in DB (requires db-id): n=no; y=yes (only allowed as production user; default={})".format(default)
     else:
         help = argparse.SUPPRESS
+    #default = "y" if is_production_user() else 'n'
     rep_group.add_argument('--db-logging', choices=('y', 'n'), default=default,
                            help=help)
     rep_group.add_argument('-v', '--verbose', action='count', default=0,
@@ -650,7 +657,7 @@ def get_machine_run_flowcell_id(runid_and_flowcellid):
       ...
     AssertionError: Wrong format: HS002_SR_R00224_BC9A6MACXX
     """
-    
+
     # strip away path
     runid_and_flowcellid = runid_and_flowcellid.rstrip("/").split('/')[-1]
     assert runid_and_flowcellid.count("_") == 1, (
