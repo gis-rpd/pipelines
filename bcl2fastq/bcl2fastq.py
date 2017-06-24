@@ -274,6 +274,7 @@ def main():
                      e.returncode, ' '.join(cmd))
         logger.fatal("Output: %s", e.output.decode())
         logger.fatal("Exiting")
+        os.rmdir(outdir)
         sys.exit(1)
     # generate_bcl2fastq is normally quiet. if there's output, make caller aware of it
     # use sys instead of logger to avoid double logging

@@ -229,7 +229,7 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
             job['sample_cfg'].update({outer_key:outer_value})
             job['site'] = site
             job['pipeline_name'] = 'custom/SG10K'
-            job['pipeline_version'] = 'current'
+            job['pipeline_version'] = novogene_conf['PIPELINE_VERSION']
             job['ctime'] = ctime
             job['requestor'] = 'userrig'
             if is_devel_version():
