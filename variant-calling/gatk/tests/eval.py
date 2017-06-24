@@ -21,7 +21,9 @@ for f in CONF['truth_vcf'].values():
     
 
 def num_vars_from_vcf(f):
-    cmd = "zgrep -vc '^#' {}".format(f)
+    #cmd = "zgrep -vc '^#' {}".format(f) fails on empty files
+    # ignore homo to ref which can come from samples extracted from joint calls
+    cmd = "awk '$10 !~ /^0.0:/' {} | zgrep -v '^#' | wc -l".format(f)
     res = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
     return int(res.decode().strip())
 
@@ -82,6 +84,7 @@ def main(vartype, predvcf, truthvcf):
     else:
         print("OK: PPV={:4f}".format(ppv))
 
+    #sys.stderr.write("DEBUG Keeping {}\n".format(outdir))
     shutil.rmtree(outdir)
 
     if failed_exp:

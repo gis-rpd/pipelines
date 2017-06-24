@@ -85,6 +85,8 @@ def main():
     parser.add_argument('-l', "--bed",
                         help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
+    parser.add_argument('-j', "--joint-calls", action='store_true',
+                        help="Perform joint/cohort calling (requires multisample input)")
     parser.add_argument('--raw-bam',
                         help="Advanced: Injects raw (pre-dedup, pre-BQSR etc.) BAM (overwrites fq options)."
                         " WARNING: reference needs to match pipeline requirements")
@@ -165,6 +167,11 @@ def main():
                 logger.fatal("Bed file %s does not exist", args.sample_cfg)
                 sys.exit(1)
 
+    if args.joint_calls:
+        if len(samples)<2:
+            logger.fatal("Need at least two samples for joint calling")
+            sys.exit(1)
+                    
     # turn arguments into cfg_dict (gets merged with other configs late)
     #
     cfg_dict = dict()
@@ -174,6 +181,7 @@ def main():
     cfg_dict['intervals'] = os.path.abspath(args.bed) if args.bed else None# always safe, might be used for WGS as well
     cfg_dict['mark_dups'] = MARK_DUPS
     cfg_dict['bam_only'] = args.bam_only
+    cfg_dict['joint_calls'] = args.joint_calls
 
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,

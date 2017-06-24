@@ -18,10 +18,8 @@ assert 'genome' in config["references"]
 rule gatk_haplotype_caller:
     input:
         bam = "{prefix}.bam",
-        bai =  "{prefix}.bam.bai",
+        bai = "{prefix}.bam.bai",
         ref = config["references"]["genome"],
-        # see prep_bed_files
-        # split by chrom and intersect with intervals already if needed
         bed = BED_FOR_REGION_TEMPLATE
     output:
         gvcf = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz"),
@@ -92,15 +90,24 @@ rule concat_split_vcfs:
                                 fhout.write(line)
                         if had_header:
                             header_printed = True                    
-        
-                        
+
+                            
+def gvcf_genotyper_input(wc):
+    if config.get("joint_calls"):
+        gvcfs = []
+        for sample in config['samples']:
+            # reused out_templ
+            gvcfs.append(out_templ.format(sample=sample) + ".concat.g.vcf.gz")
+    else:
+        gvcfs = ["{}.concat.g.vcf.gz".format(wc.prefix)]
+    return gvcfs
+
+                
 rule gatk_genotyping:
     input:
         ref = config["references"]["genome"],
-        gvcf = "{prefix}.concat.g.vcf.gz",
-        tbi = "{prefix}.concat.g.vcf.gz.tbi",
-        # see prep_bed_files
-        # split by chrom and intersect with intervals already if needed
+        gvcfs = gvcf_genotyper_input,
+        #tbi = lambda wc: [x + ".tbi" for x in gvcf_genotyper_input],
         bed = BED_FOR_REGION_TEMPLATE
     output:
         vcf = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz"),
@@ -108,7 +115,7 @@ rule gatk_genotyping:
     log:
         "{prefix}.{ctr}.gt.vcf.gz.log"
     params:
-        custom = config.get("params_gatk", "")
+        custom = config.get("params_gatk", ""),
     threads:
         2
     run:
@@ -119,8 +126,9 @@ rule gatk_genotyping:
                 if len(line.strip()):
                     num_regs += 1
         if num_regs:
+            gvcfs_arg = '-V ' + ' -V '.join(input.gvcfs)
             shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
-                  " -T GenotypeGVCFs -V {input.gvcf} -nt {threads} {params.custom}"
+                  " -T GenotypeGVCFs {gvcfs_arg} -nt {threads} {params.custom}"
                   " -L {input.bed} -R {input.ref}"
                   " --dbsnp {config[references][dbsnp]} -o {output.vcf} >& {log}")
         else:

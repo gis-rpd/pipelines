@@ -40,6 +40,7 @@ include: "gatk_hard_filter.rules"
 
 localrules: final, report
 
+
 # expected output depends on options
 out_templ = os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem")
 if config['mark_dups']:
@@ -50,7 +51,6 @@ if config['seqtype'] == 'WGS':
      var_filters = ['hfilter', 'vqsr']
 else:
      var_filters = ['hfilter']
-
 
 # FIXME can be achieved with --until rule as well
 if config.get('bam_only'):
@@ -67,7 +67,8 @@ else:
                    sample=config['samples']),
             # filtered variants per type per sample
             expand(out_templ + ".concat.gt.{vartype}_{filters}.snpeff.vcf.gz.tbi",
-                   sample=config['samples'], vartype=['snp', 'indel'], filters=var_filters),
+                   sample="joint" if config.get("joint_calls") else config['samples'],
+                   vartype=['snp', 'indel'], filters=var_filters),
             # gvcfs per sample
             expand(out_templ + ".concat.g.vcf.gz.tbi",
                    sample=config['samples']),    
