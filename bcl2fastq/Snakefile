@@ -287,9 +287,9 @@ rule drop_index_note:
         import glob
         for ifq in glob.glob(os.path.join(os.path.dirname(str(input[0])), "*", "*_I[12]_*fastq.gz")):
             with open(ifq + ".README", 'w') as fh:
-                fh.write("The _I1_ and _I2_ fastq files are index files\n")
-                fh.write("Use them only if you know exactly what you are doing\n")
-                fh.write("Most users will only be interested in the _I1_ and _I2_ fastq files\n")
+                fh.write("The _I1_ and _I2_ fastq files are index files.\n")
+                fh.write("Use them only if you know exactly what you are doing.\n")
+                fh.write("Most users will only be interested in the _R1_ and _R2_ fastq files\n")
                 fh.write("\n{}\n".format(RPD_SIGNATURE))
     
 
