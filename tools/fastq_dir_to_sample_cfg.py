@@ -12,7 +12,7 @@ import logging
 
 #--- third-party imports
 #
-import yaml
+#/
 
 # --- project specific imports
 #
@@ -48,10 +48,14 @@ def main():
                         help="Output YAML files. FastQ file names will be relative to this file")
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
+    parser.add_argument('-f', '--flowcell-id',
+                        help="Flowcell ID")
+    parser.add_argument('-r', '--run-id',
+                        help="Run ID")
     parser.add_argument('-q', '--quiet', action='count', default=0,
                         help="Decrease verbosity")
     args = parser.parse_args()
-    
+
     # Repeateable -v and -q for setting logging level.
     # See https://www.reddit.com/r/Python/comments/3nctlm/what_python_tools_should_i_be_using_on_every/
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
@@ -63,7 +67,9 @@ def main():
         logger.fatal("Cowardly refusing to overwrite existing %s", args.samplecfg)
         sys.exit(1)
 
-    sampledir_to_cfg(args.sampledir, args.samplecfg)
+
+    sampledir_to_cfg(args.sampledir, args.samplecfg,
+                     run_id=args.run_id, flowcell_id=args.flowcell_id)
 
 
 if __name__ == "__main__":
