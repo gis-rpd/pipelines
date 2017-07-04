@@ -111,7 +111,7 @@ def run_folder_for_run_id(runid_and_flowcellid):
         rundir = "{}/{}/MiSeqOutput/{}_{}".format(basedir, machineid, runid, flowcellid)
     else:
         if machineid.startswith('NG0'):# FIXME needs proper cfg handling
-            basedir = basedir.replace("userrig", "novogene")    
+            basedir = basedir.replace("userrig", "novogene")
         rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
 
     return rundir
@@ -168,8 +168,9 @@ def main():
     mongo_status_script = os.path.abspath(os.path.join(
         os.path.dirname(sys.argv[0]), "mongo_status.py"))
     assert os.path.exists(mongo_status_script)
-    
-    default_parser = default_argparser(CFG_DIR, allow_missing_cfgfile=True)
+
+    default_parser = default_argparser(
+        CFG_DIR, allow_missing_cfgfile=True, allow_missing_outdir=True, default_db_logging=True)
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
@@ -178,7 +179,7 @@ def main():
     parser.add_argument('-r', "--runid",
                         help="Run ID plus flowcell ID (clashes with -d)")
     parser.add_argument('-d', "--rundir",
-                        help="BCL input directory (clashes with -r)")
+                        help="BCL input directory (clashes with -r; you also probably want to disable logging)")
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test server")
     parser.add_argument('--no-archive', action='store_true',
@@ -239,6 +240,7 @@ def main():
 
     if not args.outdir:
         outdir = get_bcl2fastq_outdir(args.runid)
+        args.outdir = outdir
     else:
         outdir = args.outdir
     if os.path.exists(outdir):

@@ -46,8 +46,8 @@ __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2017 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
-
 # FIXME should go to yaml in etc/
+
 PIPELINE_PATH_BASE = {
     'GIS': {
         'production': '/mnt/projects/rpd/pipelines/',
