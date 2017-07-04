@@ -273,7 +273,7 @@ rule fastqc:
         " find $(dirname {input}) -name \*fastq.gz | xargs --no-run-if-empty -n 1 -P {threads} fastqc;"
         " }} >& {log}"
 
-localrules: 
+localrules: drop_index_note
 rule drop_index_note:
     """drop a note per index file pointing out that they are...index files.
     """
