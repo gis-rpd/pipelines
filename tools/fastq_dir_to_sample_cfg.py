@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Write a sample config for a given directory containing fastq files
-following SRA naming conventions
+"""Write a sample config file (e.g. sample.yaml; useful for pipeline input) for a given directory containing fastq files
 """
 
 #--- standard library imports
@@ -49,9 +48,9 @@ def main():
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help="Increase verbosity")
     parser.add_argument('-f', '--flowcell-id',
-                        help="Flowcell ID")
+                        help="Flowcell ID (can't be guessed usually)")
     parser.add_argument('-r', '--run-id',
-                        help="Run ID")
+                        help="Run ID (can't be guessed usually")
     parser.add_argument('-q', '--quiet', action='count', default=0,
                         help="Decrease verbosity")
     args = parser.parse_args()
