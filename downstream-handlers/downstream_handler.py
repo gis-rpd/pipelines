@@ -46,6 +46,8 @@ __email__ = "wilma@gis.a-star.edu.sg"
 __copyright__ = "2017 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
 
+# FIXME should go to yaml in etc/
+
 PIPELINE_PATH_BASE = {
     'GIS': {
         'production': '/mnt/projects/rpd/pipelines/',
@@ -334,7 +336,7 @@ def main():
         else:
             # job complete
             LOGGER.debug('Job %s in %s should be completed', dbid, out_dir)
-
+    LOGGER.info("Successful program exit")
 
 if __name__ == "__main__":
     main()

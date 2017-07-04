@@ -232,7 +232,7 @@ class PipelineHandler(object):
         # DB logging of execution
         if def_args.db_logging in ['n', 'no', 'off']:
             # use bash's true, which doesn't do anything
-            if self.logger_cmd:
+            if logger_cmd:
                 sys.stderr.write("WARN: Got logger command but logging is off\n")
             self.logger_cmd = 'true'
         elif def_args.db_logging in ['y', 'yes', 'on']:

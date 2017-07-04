@@ -28,7 +28,8 @@ SUMMARY_KEYS = ["raw total sequences:",
 ETHNICITIES = ['CHS', 'INS', 'MAS']
 MAX_CONT = 0.01999999
 MIN_DEPTH = 13.95
-MIN_QC20 = 45*10**9
+MIN_COV_SOP = 15
+
 
 
 def parse_summary_from_stats(statsfile):#, genome_size=GENOME_SIZE['hs37d5']):
@@ -133,20 +134,23 @@ def main(conf_yamls, num_expected):
         worksheet.set_column('F:H', None, fmt00)
         worksheet.set_column('E:E', None, fmt00000)
         worksheet.set_column('I:K', None, fmt00000)
-        worksheet.set_column('L:L', 20, fmtintcomma)# qc20
+        worksheet.set_column('L:L', 20, fmtintcomma)# qc
         format1 = workbook.add_format({'bold': 1, 'italic': 1, 'font_color': '#FF0000'})
-        worksheet.conditional_format('H2:H100', {'type':     'cell',
-                                    'criteria': '<',
-                                    'value':    MIN_DEPTH,
-                                    'format':   format1})
-        worksheet.conditional_format('L2:L100', {'type':     'cell',
-                                    'criteria': '<',
-                                    'value':    MIN_QC20,
-                                    'format':   format1})        
-        worksheet.conditional_format('I2:K100', {'type':     'cell',
-                                    'criteria': '>',
-                                    'value':    MAX_CONT,
-                                    'format':   format1})
+        worksheet.conditional_format('H2:H100',
+                                     {'type':     'cell',
+                                      'criteria': '<',
+                                      'value':    MIN_DEPTH,
+                                      'format':   format1})
+        worksheet.conditional_format('L2:L100',
+                                     {'type':     'cell',
+                                      'criteria': '<',
+                                      'value':    MIN_COV_SOP,
+                                      'format':   format1})
+        worksheet.conditional_format('I2:K100',
+                                     {'type':     'cell',
+                                      'criteria': '>',
+                                      'value':    MAX_CONT,
+                                      'format':   format1})
 
         xls_row_no = 0
     else:
@@ -164,8 +168,8 @@ def main(conf_yamls, num_expected):
     header.append("Avg. Depth")
     for key in ETHNICITIES:
         header.append("Cont. " + key)
-    header.append("QC20")
-    
+    header.append("Cov. (SOP 06-2017)")
+
     if WRITE_CONSOLE:
         print("\t".join(header))
     if WRITE_CSV:
@@ -210,19 +214,19 @@ def main(conf_yamls, num_expected):
                     sys.stderr.write("CONT threshold reached for {}: {} > {}\n".format(sample, cont, MAX_CONT))
                 row.append(cont)
 
-            qc20_file = glob.glob(os.path.join(outdir, sample, "*.bwamem.fixmate.mdups.srt.recal.qc.txt"))
-            if qc20_file:
-                qc20_file = qc20_file[0]
-                with open(qc20_file) as fh:
+            covsop_file = glob.glob(os.path.join(outdir, sample, "*.bwamem.fixmate.mdups.srt.recal.qc-062017.txt"))
+            if covsop_file:
+                covsop_file = covsop_file[0]
+                with open(covsop_file) as fh:
                     l = fh.readline()
-                qc20 = int(l.split()[-1])
-                if qc20 < MIN_QC20:
-                    sys.stderr.write("qc20 smaller threshold for {}: {} < {}\n".format(sample, qc20, MIN_QC20))
+                covsop = int(l.split()[-1]) / float(3.1*10**9)
+                if covsop < MIN_COV_SOP:
+                    sys.stderr.write("covsop smaller threshold for {}: {} < {}\n".format(sample, covsop, MIN_COV_SOP))
             else:
-                sys.stderr.write("qc20 missing for {}\n".format(sample))
-                qc20 = ""
-            row.append(qc20)
-                    
+                sys.stderr.write("covsop missing for {}\n".format(sample))
+                covsop = ""
+            row.append(covsop)
+
             if WRITE_CONSOLE:
                 print("\t".join(["{}".format(v) for v in row]))
             if WRITE_CSV:
@@ -245,8 +249,8 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.stderr.write("FATAL: need 2 arguments, num_of_libraries and conf.yaml(s)\n")
         sys.exit(1)
-    num_expected = int(sys.argv[1])
-    conf_yamls = sys.argv[2:]    
-    assert conf_yamls, ("No conf.yaml file/s given as argument")
-    assert all([os.path.exists(f) for f in conf_yamls])
-    main(conf_yamls, num_expected)
+    NUM_EXPECTED = int(sys.argv[1])
+    CONF_YAMLS = sys.argv[2:]
+    assert CONF_YAMLS, ("No conf.yaml file/s given as argument")
+    assert all([os.path.exists(f) for f in CONF_YAMLS])
+    main(CONF_YAMLS, NUM_EXPECTED)
