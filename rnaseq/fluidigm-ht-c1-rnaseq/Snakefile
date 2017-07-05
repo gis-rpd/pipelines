@@ -299,6 +299,8 @@ rule star_mapping:
     params:
         sample = lambda wc: wc.sample,
         lib_id = lambda wc: wc.sample,
+        center = config.get("center", "GIS"),
+        platform = config.get("platform", "Illumina"),
         outSAMmapqUnique = 50,
         outFilterMultimapNmax = 1,
         outFilterMismatchNmax = 999,
@@ -327,8 +329,8 @@ rule star_mapping:
             
             outpref = bam.replace("Aligned.sortedByCoord.out.bam", "")
             cmd = "STAR --genomeDir {}".format(input.staridx)
-            cmd += " --outSAMattrRGline ID:{}\tPL:{}\tLB:{}\tSM:{}\tCN:GIS".format(
-                rg_id, config['platform'], params.lib_id, params.sample)
+            cmd += " --outSAMattrRGline ID:{}\tPL:{}\tLB:{}\tSM:{}\tCN:{params.center}".format(
+                rg_id, params.platform, params.lib_id, params.sample)
             cmd += " --outSAMheaderCommentFile {}".format(commentsheader)
             cmd += " --runThreadN {threads}"
             cmd += " --readFilesCommand zcat"

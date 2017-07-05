@@ -355,7 +355,11 @@ class PipelineHandler(object):
                 continue
             with open(cfgfile) as fh:
                 try:
-                    cfg = dict(yaml.safe_load(fh))
+                    d = yaml.safe_load(fh)
+                    if not d:
+                        # allow empty files
+                        continue
+                    cfg = dict(d)
                 except:
                     logger.fatal("Loading %s failed", cfgfile)
                     raise

@@ -270,6 +270,8 @@ rule star_mapping:
         rg_id = rg_id_for_star,
         lib_id = lambda wc: wc.sample,# SAME
         sample = lambda wc: wc.sample,# SAME
+        center = config.get("center", "GIS"),
+        platform = config.get("platform", "Illumina"),
         outSAMmapqUnique = 50,
         outFilterMultimapNmax = 1,
         outFilterMismatchNmax = 999,
@@ -282,15 +284,16 @@ rule star_mapping:
         limitBAMsortRAM = 20016346648,
         stranded = '' if config['stranded'] else '--outSAMstrandField intronMotif',
         gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
-    threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
+    threads:
+        16# SY says 24 optimal on aquila. 16 more conservative RE mem
     shell:
         "{{ commentsheader=$(mktemp);"
         " echo -e '@CO\tANNOTATIONFILE:{params.gtfsourcefile}' > $commentsheader;"
         " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
         " STAR --genomeDir {input.staridx}"
         # yes, RG unescaped:
-        #" --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tPU:{params.pu_id}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
-        " --outSAMattrRGline ID:{params.rg_id}\tPL:{config[platform]}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:GIS"
+        #" --outSAMattrRGline ID:{params.rg_id}\tPL:{params.platform}\tPU:{params.pu_id}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:{params.center}"
+        " --outSAMattrRGline ID:{params.rg_id}\tPL:{params.platform}\tLB:{params.lib_id}\tSM:{params.sample}\tCN:{params.center}"
         " --outSAMheaderCommentFile $commentsheader"
         " --runThreadN {threads}"
         " --genomeLoad NoSharedMemory"
