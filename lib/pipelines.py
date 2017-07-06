@@ -19,7 +19,7 @@ import calendar
 import json
 import tarfile
 import glob
-import argparse
+#import argparse
 import copy
 from collections import deque
 
@@ -36,6 +36,7 @@ from config import rest_services
 from utils import generate_timestamp
 from utils import chroms_and_lens_from_fasta
 from utils import bed_and_fa_are_compat
+import configargparse
 
 
 __author__ = "Andreas Wilm"
@@ -480,7 +481,7 @@ def default_argparser(cfg_dir,
     point to pipelines config dir
     """
 
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = configargparse.ArgumentParser(add_help=False)
     parser._optionals.title = "Output"
     parser.add_argument('-o', "--outdir", required=not allow_missing_outdir,
                         help="Output directory (must not exist)")
@@ -498,7 +499,7 @@ def default_argparser(cfg_dir,
     if is_production_user():
         help = "Log execution in DB (requires db-id): n=no; y=yes (only allowed as production user; default={})".format(default)
     else:
-        help = argparse.SUPPRESS
+        help = configargparse.SUPPRESS
     #default = "y" if is_production_user() else 'n'
     rep_group.add_argument('--db-logging', choices=('y', 'n'), default=default,
                            help=help)

@@ -10,7 +10,6 @@ pipeline (unless otherwise requested).
 #
 import sys
 import os
-import argparse
 import logging
 
 #--- third-party imports
@@ -31,6 +30,7 @@ from pipelines import PipelineHandler
 from pipelines import default_argparser
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
+import configargparse
 
 
 __author__ = "Andreas Wilm"
@@ -64,7 +64,7 @@ def main():
     """
 
     default_parser = default_argparser(CFG_DIR)
-    parser = argparse.ArgumentParser(description=__doc__.format(
+    parser = configargparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
 
