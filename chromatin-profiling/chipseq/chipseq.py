@@ -76,14 +76,14 @@ def main():
                         " Note: each file (or pair) gets a unique read-group id."
                         " Collides with --sample-cfg.")
     parser.add_argument('--control-fq2', nargs="+",
-                        help="Control FastQ file/s (if paired) (gzip only). See also --fq1")
+                        help="Control FastQ file/s (if paired) (gzip only). See also --control-fq1")
     parser.add_argument("--treatment-fq1", nargs="+",
                         help="Treatment FastQ file/s (gzip only)."
                         " Multiple input files supported (auto-sorted)."
                         " Note: each file (or pair) gets a unique read-group id."
                         " Collides with --sample-cfg.")
     parser.add_argument('--treatment-fq2', nargs="+",
-                        help="Treatment FastQ file/s (if paired) (gzip only). See also --fq1")
+                        help="Treatment FastQ file/s (if paired) (gzip only). See also --treatment-fq1")
     parser.add_argument('--control-bam',
                         help="Advanced: Injects control BAM (overwrites control-fq options)."
                         " WARNING: reference and postprocessing need to match pipeline requirements")

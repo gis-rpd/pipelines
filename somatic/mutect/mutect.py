@@ -76,14 +76,14 @@ def main():
                         " Note: each file (or pair) gets a unique read-group id."
                         " Collides with --sample-cfg.")
     parser.add_argument('--normal-fq2', nargs="+",
-                        help="Normal FastQ file/s (if paired) (gzip only). See also --fq1")
+                        help="Normal FastQ file/s (if paired) (gzip only). See also --normal-fq1")
     parser.add_argument("--tumor-fq1", nargs="+",
                         help="Tumor FastQ file/s (gzip only)."
                         " Multiple input files supported (auto-sorted)."
                         " Note: each file (or pair) gets a unique read-group id."
                         " Collides with --sample-cfg.")
     parser.add_argument('--tumor-fq2', nargs="+",
-                        help="Tumor FastQ file/s (if paired) (gzip only). See also --fq1")
+                        help="Tumor FastQ file/s (if paired) (gzip only). See also --tumor-fq1")
     parser.add_argument('-t', "--seqtype", required=True,
                         choices=['WGS', 'WES', 'targeted'],
                         help="Sequencing type")
@@ -98,7 +98,9 @@ def main():
     parser.add_argument('--tumor-bam',
                         help="Advanced: Injects tumor BAM (overwrites tumor-fq options)."
                         " WARNING: reference and postprocessing need to match pipeline requirements")
-
+    default=0.02
+    parser.add_argument('--frac-cont', default=default, type=float,
+                        help="Estimated level of contamination from a different individual (default = {})".format(default))
 
     args = parser.parse_args()
 
@@ -184,6 +186,7 @@ def main():
     cfg_dict['samples'] = samples
 
     cfg_dict['seqtype'] = args.seqtype
+    cfg_dict['frac_cont'] = args.frac_cont
     cfg_dict['intervals'] = os.path.abspath(args.bed) if args.bed else None
     # WARNING: this currently only works because these two are the only members in reference dict
     # Should normally only write to root level
