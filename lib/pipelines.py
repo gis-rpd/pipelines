@@ -102,7 +102,8 @@ def snakemake_log_status(log):
         if line.startswith("["):# time stamp required
             estr = line[1:].split("]")[0]
             try:
-                etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+                etime = str(datetime.strptime(estr, '%a %b %d %H:%M:%S %Y'))
+                
             except:
                 continue
             if not last_etime:
