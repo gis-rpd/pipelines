@@ -3,6 +3,7 @@
 import os
 from math import ceil
 from getpass import getuser
+import glob
 
 # third party imports
 #
@@ -23,6 +24,7 @@ from pipelines import RPD_SIGNATURE
 from utils import generate_timestamp
 from elmlogger import ElmLogging, ElmUnit
 from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE_FMT, DBUPDATE_TRIGGER_FILE_MAXNUM
+from readunits import sampledir_to_cfg
 
 
 RESULT_OUTDIR = 'out'
@@ -174,6 +176,8 @@ rule final:
                muxdir=get_mux_dirs()),
         expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'drop_index_note.SUCCESS'),
                muxdir=get_mux_dirs()),
+        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'create_sample_configs.SUCCESS'),
+               muxdir=get_mux_dirs()),
         report="report.html"
     message:
         """
@@ -229,6 +233,7 @@ rule bcl2fastq:
         "Running bcl2fastq/Demultiplexing"
     threads: 16
     params:
+        bcl2fastq_custom_args = config.get("bcl2fastq_custom_args", ""),# warning: shoudn't clash with default
         usebases = config['usebases_arg'],
         barcode_mismatches = barcode_mismatch_arg_for_mux,
         tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
@@ -237,6 +242,7 @@ rule bcl2fastq:
         cmd = "bcl2fastq --runfolder-dir {config[rundir]} --output-dir %s" % RESULT_OUTDIR
         cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir)
         cmd += " --create-fastq-for-index-reads"
+        cmd += " {}".format(params.bcl2fastq_custom_args)
         cmd += " --sample-sheet {input.samplesheet} {params.usebases}"
         cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
         cmd += " %s" % bcl2fastq_threads_setting(threads)
@@ -269,7 +275,7 @@ rule fastqc:
         " find $(dirname {input}) -name \*fastq.gz | xargs --no-run-if-empty -n 1 -P {threads} fastqc;"
         " }} >& {log}"
 
-localrules:
+localrules: drop_index_note
 rule drop_index_note:
     """drop a note per index file pointing out that they are...index files.
     """
@@ -277,22 +283,42 @@ rule drop_index_note:
         '{muxdir}/bcl2fastq.SUCCESS'
     output:
         touch('{muxdir}/drop_index_note.SUCCESS')
-    log:
-        '{muxdir}/drop_index_note.log'
     threads: 8
     message:
         "Running fastqc on {input}"
     run:
         # note: need to be able to deal with empty directories.
-        import glob
         for ifq in glob.glob(os.path.join(os.path.dirname(str(input[0])), "*", "*_I[12]_*fastq.gz")):
             with open(ifq + ".README", 'w') as fh:
-                fh.write("The _I1_ and _I2_ fastq files are index files\n")
-                fh.write("Use them only if you know exactly what you are doing\n")
-                fh.write("Most users will only be interested in the _I1_ and _I2_ fastq files\n")
+                fh.write("The _I1_ and _I2_ fastq files are index files.\n")
+                fh.write("Use them only if you know exactly what you are doing.\n")
+                fh.write("Most users will only be interested in the _R1_ and _R2_ fastq files\n")
                 fh.write("\n{}\n".format(RPD_SIGNATURE))
     
 
+localrules: create_sample_configs
+rule create_sample_configs:
+    """Create sample configs (sample.yaml) per sample dir
+    """
+    input: 
+        '{muxdir}/bcl2fastq.SUCCESS'
+    output:
+        touch('{muxdir}/create_sample_configs.SUCCESS')
+    threads:
+        1
+    message:
+        "Creating sample configs"
+    run:
+        for mux_key, mux_unit in config['units'].items():
+            mux_dir = os.path.join(RESULT_OUTDIR, mux_unit['mux_dir'])
+            run_id = mux_unit['run_id']
+            flowcell_id = mux_unit['flowcell_id']
+            for sample_dir in glob.glob(os.path.join(mux_dir, "Sample_*")):
+                sample_cfgfile = os.path.join(sample_dir, "sample.yaml")
+                assert not os.path.exists(sample_cfgfile)
+                sampledir_to_cfg(sample_dir, sample_cfgfile,
+                                 run_id=run_id, flowcell_id=flowcell_id)
+        
 
 
 

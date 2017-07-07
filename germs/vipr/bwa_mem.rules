@@ -9,7 +9,6 @@ import os
 # project specific imports
 #
 assert 'samples' in config
-assert 'platform' in config
 
 
 # FIXME to conf once downstream handling clear
@@ -55,6 +54,8 @@ rule map_realn_lofreq:
     params:
         mark_short_splits = MARK_SHORT_SPLITS,
         bwa_mem_custom_args = config.get("bwa_mem_custom_args", ""),
+        center = config.get("center", "GIS"),
+        platform = config.get("platform", "Illumina"),
         # samtools threading has little effect on overall runtime. but on memory.
         sort_mem = '500M',
         rg_id = "1",# since we merged fastqs
@@ -67,7 +68,7 @@ rule map_realn_lofreq:
         2
     shell:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
-        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tSM:{params.sample}\\tCN:GIS'"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{params.platform}\\tSM:{params.sample}\\tCN:{params.center}'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " lofreq viterbi -f {input.reffa} - | "
         " samtools fixmate - - | "

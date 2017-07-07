@@ -17,6 +17,7 @@ import hashlib
 import os
 import glob
 import re
+import sys
 
 #--- third-party imports
 #
@@ -247,13 +248,23 @@ def key_for_readunit(ru):
 
 def create_rg_id_from_ru(ru):
     """Same RG for files coming from same source. If no source info is
-    given use fastq files names
+    given use fastq files names. ru can be namedtuple or ordereddict (from namedtuple asdict)
     """
-    if all([ru.run_id, ru.library_id, ru.lane_id]):
-        return "{}.{}".format(ru.run_id, ru.lane_id)
-    elif ru.fq1:
+
+    # python has no way to tell if something is a namedtupple...
+    # https://stackoverflow.com/questions/2166818/python-how-to-check-if-an-object-is-an-instance-of-a-namedtuple
+    try:
+        _ = ru.run_id
+    except AttributeError:
+        _ru = ru
+    else:
+        _ru = ru._asdict()
+
+    if all([_ru['run_id'], _ru['library_id'], _ru['lane_id']]):
+        return "{}.{}".format(_ru['run_id'], _ru['lane_id'])
+    elif _ru['fq1']:
         # no source info? then use fastq file names
-        return hash_for_fastq(ru.fq1, ru.fq2)
+        return hash_for_fastq(_ru['fq1'], _ru['fq2'])
 
 
 def scheme_for_fastq(fastq):
@@ -275,14 +286,21 @@ def scheme_for_fastq(fastq):
     # sra naming schemes (use basename as input)
     schemes = dict()
     schemes['h5old'] = re.compile(
-        r'(?P<run_id>[A-Za-z0-9-]+)_(?P<flowcell>[A-Za-z0-9-]+)\.(?P<library_id>[A-Za-z0-9-]+)_(?P<barcode>[A-Za-z0-9-]+)_L0*(?P<lane_id>[A-Za-z0-9-]+)_R(?P<read_no>[12]).fastq.gz')
-    # schemes['h5new'] = re.compile(# FIXME MISSING
-    schemes['cram'] = re.compile(# FIXME untested
+        r'(?P<run_id>[A-Za-z0-9-]+)_(?P<flowcell_id>[A-Za-z0-9-]+)\.(?P<library_id>[A-Za-z0-9-]+)_(?P<barcode>[A-Za-z0-9-]+)_L0*(?P<lane_id>[A-Za-z0-9-]+)_R(?P<read_no>[12]).fastq.gz')
+
+    # schemes['h5new'] = re.compile(
+
+    schemes['cram'] = re.compile(
         r'(?P<library_id>[A-Za-z0-9-]+)_(?P<run_id>[A-Za-z0-9-]+)_L0*(?P<lane_id>[A-Za-z0-9-]+)_R(?P<read_no>[12]).fastq.gz')
-    schemes['bcl2fastq-2.17'] = re.compile(# FIXME untested. only for temp sg10k upload
-        r'(?P<library_id>[A-Za-z0-9-]+)-(?P<barcode>[A-Za-z0-9-]+)_(?P<stuff>[A-Za-z0-9-]+)_L0*(?P<lane_id>[0-9-]+)_R(?P<read_no>[12])_(?P<part>[A-Za-z0-9-]+).fastq.gz')
-    # WHH3550-CGCAACTA_S3_L002_R2_001.fastq.gz
-    
+
+    schemes['bcl2fastq-2.17'] = re.compile(
+        r'(?P<library_id>[A-Za-z0-9-]+)-(?P<barcode>[A-Za-z0-9-]+)_S(?P<sample_no>[0-9]+)_L0*(?P<lane_id>[0-9-]+)_R(?P<read_no>[12])_001.fastq.gz')
+    # <sample>-<index>_S[0-9]+_L[0-9]+_R[0-9]+_001.fastq.gz
+    # last segment is always 001 per convention
+    # examples:
+    # WHH4705-CGGCTATG-GTCAGTAC_S72_L008_R2_001.fastq.gz
+    # CHC1148-NoIndex_S111_L005_R1_001.fastq.gz
+
     scheme_re = None#pylint
     for scheme_name, scheme_re in schemes.items():
         match = scheme_re.match(os.path.basename(fastq))
@@ -309,23 +327,26 @@ def readunits_for_sampledir(sampledir):
         mgroups = match.groupdict()
         assert fq1.count("_R1") == 1, ("More than one occurence of _R1 in {}".format(fq1))
         fq2 = fq1.replace("_R1", "_R2")
-        
+
         if not os.path.exists(fq2):
             fq2 = None
         rg = None
-        
-        ru = ReadUnit(mgroups.get('run_id'),
-                      mgroups.get('flowcell'),
-                      mgroups['library_id'],
-                      mgroups['lane_id'],
+
+        run_id = mgroups.get('run_id')
+        flowcell_id = mgroups.get('flowcell_id')
+        library_id = mgroups.get('library_id')
+        lane_id = mgroups.get('lane_id')
+        ru = ReadUnit(run_id, flowcell_id, library_id, lane_id,
                       rg, fq1, fq2)
         ru = ru._replace(rg_id=create_rg_id_from_ru(ru))
         readunits[key_for_readunit(ru)] = dict(ru._asdict())
     return readunits
 
 
-def sampledir_to_cfg(sampledir, samplecfg):
-    """FIXME:add-doc
+def sampledir_to_cfg(sampledir, samplecfg, run_id=None, flowcell_id=None):
+    """run_id and flowcell_id can mostly not be inferred from
+    sampledir. values passed down will be used, but alos checked
+    against values that could be inferred
     """
 
     readunits = readunits_for_sampledir(sampledir)
@@ -346,8 +367,34 @@ def sampledir_to_cfg(sampledir, samplecfg):
         if fq2:
             fq2 = os.path.relpath(fq2, start=os.path.dirname(samplecfg))
             ru['fq2'] = fq2
+
+        renew_rg = False
+
+        # set run_id if given
+        if run_id:
+            if ru.get('run_id'):
+                assert ru.get('run_id') == run_id
+            else:
+                ru['run_id'] = run_id
+                renew_rg = True
+
+        # set flowcell_id if given
+        if flowcell_id:
+            if ru.get('flowcell_id'):
+                assert ru.get('flowcell_id') == flowcell_id
+            else:
+                ru['flowcell_id'] = flowcell_id
+                renew_rg = True
+
+        if renew_rg:
+            ru['rg_id'] = create_rg_id_from_ru(ru)
+
         # no need: readunits[ru_key] = ru
 
-    with open(samplecfg, 'w') as fh:
-        yaml.dump(dict(samples=samples), fh, default_flow_style=False)
-        yaml.dump(dict(readunits=readunits), fh, default_flow_style=False)
+    if samplecfg == "-":
+        fh = sys.stdout
+    else:
+        fh = open(samplecfg, 'w')
+    yaml.dump(dict(samples=samples), fh, default_flow_style=False)
+    yaml.dump(dict(readunits=readunits), fh, default_flow_style=False)
+    fh.close()

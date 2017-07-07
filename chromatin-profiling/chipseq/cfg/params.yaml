@@ -1,5 +1,0 @@
-bwa_mem_custom_args: ''
-platform: Illumina
-macs2_custom_args: ''
-# read_type: set on the fly
-# ext_bp: none

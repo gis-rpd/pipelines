@@ -62,7 +62,7 @@ def main():
     """main function
     """
 
-    default_parser = default_argparser(CFG_DIR, allow_missing_cfgfile=True)
+    default_parser = default_argparser(CFG_DIR)
     parser = argparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])

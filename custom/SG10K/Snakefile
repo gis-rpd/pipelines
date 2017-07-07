@@ -51,7 +51,7 @@ rule final:
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
                sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qc.txt'),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qc-062017.txt'),
                sample=config['samples']),
         "report.html"
     message:
@@ -62,6 +62,20 @@ rule final:
 
 
 rule sample_qc:
+    input:
+        bam = '{prefix}.bam'
+    output:
+        qc = '{prefix}.qc-062017.txt'
+    log:
+        '{prefix}.qc-062017.log'
+    message:
+        'Running sample QC'
+    shell:
+        # FIXME name should not contain version
+        "{{ sg10k-cov-062017.sh {input.bam} > {output.qc}; }} >& {log}"
+
+
+rule sample_qc_pre_060217:
     input:
         bam = '{prefix}.bam'
     output:
@@ -77,6 +91,30 @@ rule sample_qc:
         "echo \"Number of bases (in properly aligned reads with minbq {params.minbq}): $n\" > {output.qc};"
         " }} >& {log}"
 
+
+rule bam_to_cram:
+    input:
+        bam = '{prefix}.bam',
+	reffa =	config['references']['genome']
+    output:
+        cram = '{prefix}.qbinned.cram'
+    message:
+        "Converting {input.bam}"
+    log:
+        "{prefix}.cram.log"
+    params:
+        bin_arg="--binCustom --binQualS 0:2,3:3,4:4,5:5,6:6,7:10,13:20,23:30"
+       # see chaolong's email from 2016-11-22
+    threads:
+        2
+    #conda:
+    #    "env.yaml"
+    shell:
+        # FIXME might break others
+        # BAMUTILS = '/home/users/astar/gis/gisshared/rpd/apps.testing/bamUtil-1.0.14-33-gba44ffc-NonPrimaryDedup/bin/bam'
+        "{BAMUTILS_CUSTOM_BINNING} squeeze --in {input.bam} --out -.ubam {params.bin_arg} |"
+        "samtools view -C -T {input.reffa} -@ {threads} -o {output.cram} - >& {log}"
+        
         
 rule contamination_check:
     input:
@@ -194,6 +232,8 @@ rule map_mdups_sort:
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
+        center = config.get("center", "GIS"),
+        platform = config.get("platform", "Illumina"),
         sort_mem='500M',
         rg_id=lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
         lib_id=lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
@@ -203,7 +243,7 @@ rule map_mdups_sort:
         8
     shell:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
-        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{params.platform}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:{params.center}'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate -O sam - - |"
         " samblaster {params.mark_short_splits} |"

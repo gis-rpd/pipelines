@@ -15,7 +15,6 @@ from readunits import fastqs_from_unit, get_sample_for_unit
 
 
 assert 'samples' in config
-assert 'platform' in config
 
 
 # FIXME to conf once downstream handling clear
@@ -45,6 +44,8 @@ rule map_sort:
     params:
         mark_short_splits = MARK_SHORT_SPLITS,
         bwa_mem_custom_args = config.get("bwa_mem_custom_args", ""),
+        center = config.get("center", "GIS"),
+        platform = config.get("platform", "Illumina"),
         # samtools threading has little effect on overall runtime. but on memory.
         # use ~half the threads provided
         sort_mem = '250M',
@@ -60,7 +61,7 @@ rule map_sort:
         16
     shell:
         "{{ bwa mem {params.mark_short_splits} -t {threads}"
-        " -R '@RG\\tID:{params.rg_id}\\tPL:{config[platform]}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:GIS'"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{params.platform}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:{params.center}'"
         " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
         " samtools fixmate - - |"
         " samtools sort -@ $(echo \"({threads}+1)/2\" | bc) -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
