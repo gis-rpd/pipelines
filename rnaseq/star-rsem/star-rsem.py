@@ -69,10 +69,10 @@ def main():
     
     parser._optionals.title = "Arguments"
     # pipeline specific args
-    parser.add_argument('-C', "--cuffdiff", action='store_true',
+    parser.add_argument("--cuffdiff", action='store_true',
                         dest="run_cuffdiff",
                         help="Also run cuffdiff")
-    parser.add_argument('-S', '--stranded', action='store_true',
+    parser.add_argument('--stranded', action='store_true',
                         help="Stranded library prep (default is unstranded)")
 
     args = parser.parse_args()

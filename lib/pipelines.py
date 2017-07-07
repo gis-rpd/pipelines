@@ -479,8 +479,8 @@ def default_argparser(cfg_dir,
 
     parser = configargparse.ArgumentParser(add_help=False)
 
+    sample_group = parser.add_argument_group('Sample/Readunit Input')
     if with_readunits:
-        sample_group = parser.add_argument_group('Sample/Readunit Input')
         sample_group.add_argument('-1', "--fq1", nargs="+",
                                   help="FastQ file/s (gzip only)."
                                   " Multiple input files supported (auto-sorted)."
@@ -490,9 +490,9 @@ def default_argparser(cfg_dir,
                                   help="FastQ file/s (if paired) (gzip only). See also --fq1")
         sample_group.add_argument('-s', "--sample",
                                   help="Sample name. Collides with --sample-cfg.")
-        sample_group.add_argument('-S', '--sample-cfg',
-                                  help="Config-file (YAML) listing samples and readunits."
-                                  " Collides with -1, -2 and -s")
+    sample_group.add_argument('-S', '--sample-cfg',
+                              help="Config-file (YAML) listing samples and readunits."
+                              " Collides with -1, -2 and -s")
     
     parser._optionals.title = "Output"
     parser.add_argument('-o', "--outdir", required=not allow_missing_outdir,
