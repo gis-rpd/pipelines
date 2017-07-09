@@ -256,7 +256,8 @@ rule fastqc:
         touch('{muxdir}/fastqc.SUCCESS')
     log:
         '{muxdir}/fastqc.log'
-    threads: 8
+    threads:
+        8
     message:
         "Running fastqc on {input}"
     shell:
@@ -269,7 +270,8 @@ rule fastqc:
         " find $(dirname {input}) -name \*fastq.gz | xargs --no-run-if-empty -n 1 -P {threads} fastqc;"
         " }} >& {log}"
 
-localrules:
+
+localrules: drop_index_note
 rule drop_index_note:
     """drop a note per index file pointing out that they are...index files.
     """
@@ -279,7 +281,8 @@ rule drop_index_note:
         touch('{muxdir}/drop_index_note.SUCCESS')
     log:
         '{muxdir}/drop_index_note.log'
-    threads: 8
+    threads:
+        1
     message:
         "Running fastqc on {input}"
     run:
