@@ -22,7 +22,7 @@
     "dedup":
     {
        "time" : "6:00:00",
-       "mem" : 8G,
+       "mem" : 10G,
     },
 
     "gatk_recalibrate_info":
