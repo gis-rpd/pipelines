@@ -10,7 +10,6 @@ pipeline (unless otherwise requested).
 #
 import sys
 import os
-import argparse
 import logging
 
 #--- third-party imports
@@ -31,7 +30,7 @@ from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
 from pipelines import default_argparser
-
+import configargparse
 
 __author__ = "Andreas Wilm"
 __email__ = "wilma@gis.a-star.edu.sg"
@@ -64,7 +63,7 @@ def main():
     """
 
     default_parser = default_argparser(CFG_DIR)
-    parser = argparse.ArgumentParser(description=__doc__.format(
+    parser = configargparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
 
@@ -76,14 +75,14 @@ def main():
                         " Note: each file (or pair) gets a unique read-group id."
                         " Collides with --sample-cfg.")
     parser.add_argument('--normal-fq2', nargs="+",
-                        help="Normal FastQ file/s (if paired) (gzip only). See also --fq1")
+                        help="Normal FastQ file/s (if paired) (gzip only). See also --normal-fq1")
     parser.add_argument("--tumor-fq1", nargs="+",
                         help="Tumor FastQ file/s (gzip only)."
                         " Multiple input files supported (auto-sorted)."
                         " Note: each file (or pair) gets a unique read-group id."
                         " Collides with --sample-cfg.")
     parser.add_argument('--tumor-fq2', nargs="+",
-                        help="Tumor FastQ file/s (if paired) (gzip only). See also --fq1")
+                        help="Tumor FastQ file/s (if paired) (gzip only). See also --tumor-fq1")
     parser.add_argument('-t', "--seqtype", required=True,
                         choices=['WGS', 'WES', 'targeted'],
                         help="Sequencing type")

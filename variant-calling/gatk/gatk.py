@@ -10,7 +10,6 @@ pipeline (unless otherwise requested).
 #
 import sys
 import os
-import argparse
 import logging
 
 #--- third-party imports
@@ -31,6 +30,7 @@ from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
 from pipelines import default_argparser
+import configargparse
 
 
 __author__ = "Andreas Wilm"
@@ -63,28 +63,22 @@ def main():
     """main function
     """
 
-    default_parser = default_argparser(CFG_DIR)
-    parser = argparse.ArgumentParser(description=__doc__.format(
+    default_parser = default_argparser(CFG_DIR, with_readunits=True)
+    parser = configargparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
 
     parser._optionals.title = "Arguments"
     # pipeline specific args
-    parser.add_argument('-1', "--fq1", nargs="+",
-                        help="FastQ file/s (gzip only)."
-                        " Multiple input files supported (auto-sorted)."
-                        " Note: each file (or pair) gets a unique read-group id."
-                        " Collides with --sample-cfg.")
-    parser.add_argument('-2', "--fq2", nargs="+",
-                        help="FastQ file/s (if paired) (gzip only). See also --fq1")
-    parser.add_argument('-s', "--sample",
-                        help="Sample name. Collides with --sample-cfg.")
     parser.add_argument('-t', "--seqtype", required=True,
                         choices=['WGS', 'WES', 'targeted'],
                         help="Sequencing type")
     parser.add_argument('-l', "--bed",
                         help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
+    default = 100
+    parser.add_argument('-i', "--interval-padding", default=default,
+                        help="Interval padding (for non-WGS only; default = {})".format(default))
     parser.add_argument('-j', "--joint-calls", action='store_true',
                         help="Perform joint/cohort calling (requires multisample input)")
     parser.add_argument('--raw-bam',
@@ -182,7 +176,7 @@ def main():
     cfg_dict['mark_dups'] = MARK_DUPS
     cfg_dict['bam_only'] = args.bam_only
     cfg_dict['joint_calls'] = args.joint_calls
-
+    cfg_dict['interval_padding'] = args.interval_padding
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
         args, cfg_dict,

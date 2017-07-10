@@ -10,7 +10,6 @@ pipeline (unless otherwise requested).
 #
 import sys
 import os
-import argparse
 import logging
 
 #--- third-party imports
@@ -32,6 +31,7 @@ from pipelines import logger as aux_logger
 from pipelines import ref_is_indexed
 from pipelines import get_cluster_cfgfile
 from pipelines import default_argparser
+import configargparse
 
 
 __author__ = "Andreas Wilm"
@@ -46,7 +46,6 @@ yaml.Dumper.ignore_aliases = lambda *args: True
 
 PIPELINE_BASEDIR = os.path.dirname(sys.argv[0])
 CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
-
 
 
 # same as folder name. also used for cluster job names
@@ -64,22 +63,13 @@ def main():
     """main function
     """
 
-    default_parser = default_argparser(CFG_DIR)
-    parser = argparse.ArgumentParser(description=__doc__.format(
+    default_parser = default_argparser(CFG_DIR, with_readunits=True)
+    parser = configargparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
 
     parser._optionals.title = "Arguments"
     # pipeline specific args
-    parser.add_argument('-1', "--fq1", nargs="+",
-                        help="FastQ file/s (gzip only)."
-                        " Multiple input files supported (auto-sorted)."
-                        " Note: each file (or pair) gets a unique read-group id."
-                        " Collides with --sample-cfg.")
-    parser.add_argument('-2', "--fq2", nargs="+",
-                        help="FastQ file/s (if paired) (gzip only). See also --fq1")
-    parser.add_argument('-s', "--sample",
-                        help="Sample name. Collides with --sample-cfg.")
     parser.add_argument('-D', '--dont-mark-dups', action='store_true',
                         help="Don't mark duplicate reads")
 

@@ -19,7 +19,7 @@ import calendar
 import json
 import tarfile
 import glob
-import argparse
+#import argparse
 import copy
 from collections import deque
 
@@ -36,6 +36,7 @@ from config import rest_services
 from utils import generate_timestamp
 from utils import chroms_and_lens_from_fasta
 from utils import bed_and_fa_are_compat
+import configargparse
 
 
 __author__ = "Andreas Wilm"
@@ -197,10 +198,6 @@ class PipelineHandler(object):
                 k, v = keyvalue.split(":")
                 self.cfg_dict[k] = v
 
-        if def_args.params_cfg:
-            assert os.path.exists(def_args.params_cfg)
-        self.params_cfgfile = def_args.params_cfg
-
         if def_args.modules_cfg:
             assert os.path.exists(def_args.modules_cfg)
         self.modules_cfgfile = def_args.modules_cfg
@@ -348,8 +345,7 @@ class PipelineHandler(object):
         merged_cfg = dict()
         rpd_vars = get_rpd_vars()
 
-        for cfgkey, cfgfile in [('global', self.params_cfgfile),
-                                ('references', self.refs_cfgfile),
+        for cfgkey, cfgfile in [('references', self.refs_cfgfile),
                                 ('modules', self.modules_cfgfile)]:
             if not cfgfile:
                 continue
@@ -475,33 +471,47 @@ class PipelineHandler(object):
 def default_argparser(cfg_dir,
                       allow_missing_cfgfile=False,
                       allow_missing_outdir=False,
-                      default_db_logging=False):
+                      default_db_logging=False,
+                      with_readunits=False):
     """Create default argparser (use as parent) for pipeline calls. Needs
     point to pipelines config dir
     """
 
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = configargparse.ArgumentParser(add_help=False)
+
+    sample_group = parser.add_argument_group('Sample/Readunit Input')
+    if with_readunits:
+        sample_group.add_argument('-1', "--fq1", nargs="+",
+                                  help="FastQ file/s (gzip only)."
+                                  " Multiple input files supported (auto-sorted)."
+                                  " Note: each file (or pair) gets a unique read-group id."
+                                  " Collides with --sample-cfg.")
+        sample_group.add_argument('-2', "--fq2", nargs="+",
+                                  help="FastQ file/s (if paired) (gzip only). See also --fq1")
+        sample_group.add_argument('-s', "--sample",
+                                  help="Sample name. Collides with --sample-cfg.")
+    sample_group.add_argument('-S', '--sample-cfg',
+                              help="Config-file (YAML) listing samples and readunits."
+                              " Collides with -1, -2 and -s")
+    
     parser._optionals.title = "Output"
     parser.add_argument('-o', "--outdir", required=not allow_missing_outdir,
                         help="Output directory (must not exist)")
 
     rep_group = parser.add_argument_group('Reporting')
+    default = email_for_user()
+    rep_group.add_argument('--mail', dest='mail_address', default=default,
+                           help="Send completion emails to this address (default: {})".format(default))
     rep_group.add_argument('--name',
                            help="Give this analysis run a name (used in email and report)")
     rep_group.add_argument('--no-mail', action='store_true',
                            help="Don't send mail on completion")
-    default = email_for_user()
-    rep_group.add_argument('--mail', dest='mail_address', default=default,
-                           help="Send completion emails to this address (default: {})".format(default))
 
     default = 'y' if default_db_logging else 'n'
-    if is_production_user():
-        help = "Log execution in DB (requires db-id): n=no; y=yes (only allowed as production user; default={})".format(default)
-    else:
-        help = argparse.SUPPRESS
-    #default = "y" if is_production_user() else 'n'
+    helpstr = "Log execution in DB (requires db-id): n=no; y=yes"
+    helpstr += "(only allowed as production user; default={})".format(default)
     rep_group.add_argument('--db-logging', choices=('y', 'n'), default=default,
-                           help=help)
+                           help = helpstr if is_production_user() else configargparse.SUPPRESS)
     rep_group.add_argument('-v', '--verbose', action='count', default=0,
                            help="Increase verbosity")
     rep_group.add_argument('-q', '--quiet', action='count', default=0,
@@ -518,13 +528,11 @@ def default_argparser(cfg_dir,
 
     cfg_group = parser.add_argument_group('Configuration')
     cfg_group.add_argument('--extra-conf', nargs='*', metavar="key:value",
-                           help="Advanced: Extra values written added config (overwriting values).")
-    cfg_group.add_argument('--sample-cfg',
-                           help="Config-file (YAML) listing samples and readunits."
-                           " Collides with -1, -2 and -s")
-    for name, descr in [("references", "reference sequences"),
-                        ("params", "parameters"),
-                        ("modules", "modules")]:
+                           help="Advanced: Extra values added to config (takes precedence over existing values).")
+    cfg_group.add_argument('--global-cfg', is_config_file=True,
+                              help="Global config file setting commandline options")
+    for name, descr in [("modules", "modules"),
+                        ("references", "reference sequences")]:
         cfg_file = os.path.abspath(os.path.join(cfg_dir, "{}.yaml".format(name)))
         if not os.path.exists(cfg_file):
             if allow_missing_cfgfile:
