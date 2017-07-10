@@ -21,7 +21,7 @@
 
 
 DEBUG=${{DEBUG:-0}}
-RESTARTS=${{RESTARTS:-1}}
+RESTARTS=${{RESTARTS:-{DEFAULT_RESTARTS}}}
 SNAKEFILE={SNAKEFILE}
 LOGDIR="{LOGDIR}";# should be same as defined above
 DEFAULT_SNAKEMAKE_ARGS="--restart-times $RESTARTS --rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60"

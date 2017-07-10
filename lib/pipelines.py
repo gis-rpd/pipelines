@@ -185,6 +185,7 @@ class PipelineHandler(object):
         self.master_q = def_args.master_q
         self.slave_q = def_args.slave_q
         self.outdir = def_args.outdir
+        self.restarts = def_args.restarts
 
         self.cfg_dict = copy.deepcopy(cfg_dict)
         self.cfg_dict['mail_on_completion'] = not def_args.no_mail
@@ -328,6 +329,7 @@ class PipelineHandler(object):
              'MASTERLOG': self.masterlog,
              'PIPELINE_NAME': self.pipeline_name,
              'MAILTO': self.toaddr,
+             'DEFAULT_RESTARTS': self.restarts,
              'MASTER_WALLTIME_H': self.master_walltime_h,
              'DEFAULT_SLAVE_Q': self.slave_q if self.slave_q else "",
              'LOGGER_CMD': self.logger_cmd}
@@ -519,11 +521,14 @@ def default_argparser(cfg_dir,
 
     q_group = parser.add_argument_group('Run behaviour')
     default = get_default_queue('slave')
-    q_group.add_argument('-w', '--slave-q', default=default,
+    q_group.add_argument('--slave-q', default=default,
                          help="Queue to use for slave jobs (default: {})".format(default))
     default = get_default_queue('master')
-    q_group.add_argument('-m', '--master-q', default=default,
+    q_group.add_argument('--master-q', default=default,
                          help="Queue to use for master job (default: {})".format(default))
+    default = 1
+    q_group.add_argument('--restarts', type=int, default=default,
+                         help="Number of auto restarts per rule (default={})".format(default))
     q_group.add_argument('-n', '--no-run', action='store_true')
 
     cfg_group = parser.add_argument_group('Configuration')
@@ -541,7 +546,7 @@ def default_argparser(cfg_dir,
                 raise ValueError((cfg_file, allow_missing_cfgfile))
         cfg_group.add_argument('--{}-cfg'.format(name),
                                default=cfg_file,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
+                               help="Config-file (yaml) for {}. (default: {})".format(descr, cfg_file))
 
     return parser
 
