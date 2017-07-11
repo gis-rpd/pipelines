@@ -208,7 +208,11 @@ def main():
                                   "{}.bwamem.dedup.realn.recal.bam".format(sample))
             os.makedirs(os.path.dirname(target))
             os.symlink(os.path.abspath(bam), target)
-
+            
+            src_bai = os.path.abspath(bam) + ".bai"
+            if os.path.exists(src_bai):
+                os.symlink(src_bai, target + ".bai")
+            
     pipeline_handler.submit(args.no_run)
 
 
