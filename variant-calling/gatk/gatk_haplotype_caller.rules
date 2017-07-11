@@ -15,6 +15,7 @@ assert 'genome' in config["references"]
 #    return " ".join(flag + f for f in files)
 
 
+
 rule gatk_haplotype_caller:
     input:
         bam = "{prefix}.bam",
@@ -29,14 +30,11 @@ rule gatk_haplotype_caller:
     params:
         custom = config.get("params_gatk", ""),
         padding_arg = _get_padding_arg(),
-        het_arg = "--heterozygosity {config[heterozygosity]}" if config.get('heterozygosity') else "",
-        het_indel_arg = "--indel_heterozygosity {config[indel_heterozygosity]}" if config.get('indel_heterozygosity') else ""
+        het_arg = "--heterozygosity {:f}".format(config['heterozygosity']) if config.get('heterozygosity') else "",
+        het_indel_arg = "--indel_heterozygosity {:f}".format(config['indel_heterozygosity']) if config.get('indel_heterozygosity') else "",
+        nct_arg = "-nct {:d}".format(config['hc_nct']) if int(config['hc_nct'])>1 else ""
     threads:
-        # original comment: "haplotype caller currently does not reliably
-        # use more than 2 threads".  we found it to not work reliably with
-        # anything >1.
-        # previously set higher to work around UGE/Java/OS vmem problem in GIS
-        1
+        config['hc_nct']
     run:
         # no need to call if bed is empty
         num_regs = 0
@@ -50,7 +48,7 @@ rule gatk_haplotype_caller:
                 " -T HaplotypeCaller -R {input.ref} -I {input.bam}"
                 " -L {input.bed} {params.padding_arg} {params.custom} {params.het_arg} {params.het_indel_arg}"
                 " --emitRefConfidence GVCF"
-                " --dbsnp {config[references][dbsnp]}"#-nct {threads} "
+                " --dbsnp {config[references][dbsnp]} {params.nct_arg}"
                 " -o {output.gvcf} >& {log}")
         else:
             shell("echo -n \"\" | gzip > {output.gvcf}; touch {output.tbi}; echo 'Creating empty output' > {log}")
