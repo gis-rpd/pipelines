@@ -45,6 +45,7 @@
 
 
 DEBUG=${{DEBUG:-0}}
+RESTARTS=${{RESTARTS:-{DEFAULT_RESTARTS}}}
 #export DRMAA_LIBRARY_PATH=
 #DRMAA_OFF=${{DRMAA_OFF:-0}}
 DRMAA_OFF=1
@@ -53,7 +54,7 @@ DEFAULT_SLAVE_Q={DEFAULT_SLAVE_Q}
 LOCAL_MASTER=${{LOCAL_MASTER:-0}}
 SNAKEFILE={SNAKEFILE}
 LOGDIR="{LOGDIR}";# should be same as defined above
-DEFAULT_SNAKEMAKE_ARGS="--local-cores $LOCAL_CORES --restart-times 1 --rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60 --max-jobs-per-second 1 --keep-going"
+DEFAULT_SNAKEMAKE_ARGS="--local-cores $LOCAL_CORES --restart-times $RESTARTS --rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60 --max-jobs-per-second 1 --keep-going"
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
 # --printshellcmds: also prints actual commands

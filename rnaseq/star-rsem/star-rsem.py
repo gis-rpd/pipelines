@@ -10,7 +10,6 @@ pipeline (unless otherwise requested).
 #
 import sys
 import os
-import argparse
 import logging
 
 #--- third-party imports
@@ -31,6 +30,7 @@ from pipelines import PipelineHandler
 from pipelines import logger as aux_logger
 from pipelines import get_cluster_cfgfile
 from pipelines import default_argparser
+import configargparse
 
 
 __author__ = "Andreas Wilm"
@@ -62,26 +62,17 @@ def main():
     """main function
     """
 
-    default_parser = default_argparser(CFG_DIR)
-    parser = argparse.ArgumentParser(description=__doc__.format(
+    default_parser = default_argparser(CFG_DIR,  with_readunits=True)
+    parser = configargparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
                                      parents=[default_parser])
     
     parser._optionals.title = "Arguments"
     # pipeline specific args
-    parser.add_argument('-1', "--fq1", nargs="+",
-                        help="FastQ file/s (gzip only)."
-                        " Multiple input files supported (auto-sorted)."
-                        " Note: each file (or pair) gets a unique read-group id."
-                        " Collides with --sample-cfg.")
-    parser.add_argument('-2', "--fq2", nargs="+",
-                        help="FastQ file/s (if paired) (gzip only). See also --fq1")
-    parser.add_argument('-s', "--sample",
-                        help="Sample name. Collides with --sample-cfg.")
-    parser.add_argument('-C', "--cuffdiff", action='store_true',
+    parser.add_argument("--cuffdiff", action='store_true',
                         dest="run_cuffdiff",
                         help="Also run cuffdiff")
-    parser.add_argument('-S', '--stranded', action='store_true',
+    parser.add_argument('--stranded', action='store_true',
                         help="Stranded library prep (default is unstranded)")
 
     args = parser.parse_args()
