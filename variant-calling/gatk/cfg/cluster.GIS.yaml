@@ -9,7 +9,7 @@
 
     "bam_stats":
     {
-      "time" : "04:00:00",
+      "time" : "08:00:00",
       "mem" : 1G,
     },
 
@@ -45,7 +45,7 @@
 
     "gatk_genotyping":
     {
-      "time" : "04:00:00",
+      "time" : "06:00:00",
       "mem" : 16G,
     },
 
@@ -57,7 +57,7 @@
 
     "gatk_hard_filter_snps":
     {
-      "time" : "02:00:00",
+      "time" : "04:00:00",
       "mem" : 2G,
     },
 
@@ -75,7 +75,7 @@
 
     "gatk_apply_variant_recalibration":
     {
-      "time" : "02:00:00",
+      "time" : "04:00:00",
       "mem" : 1G,
     },
 

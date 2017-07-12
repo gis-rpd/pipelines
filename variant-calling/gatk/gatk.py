@@ -76,6 +76,10 @@ def main():
     parser.add_argument('-l', "--bed",
                         help="Bed file listing regions of interest."
                         " Required for WES and targeted sequencing.")
+    default = 4
+    parser.add_argument("-c", "--hc-nct", default=default, type=int,
+                        help="Number of Haplotype Caller threads (per region cluster)."
+                        " Values>1 reported to make Haplotype Caller unstable (default={})".format(default))
     default = 100
     parser.add_argument('-i', "--interval-padding", default=default,
                         help="Interval padding (for non-WGS only; default = {})".format(default))
@@ -175,6 +179,7 @@ def main():
     cfg_dict['intervals'] = os.path.abspath(args.bed) if args.bed else None# always safe, might be used for WGS as well
     cfg_dict['mark_dups'] = MARK_DUPS
     cfg_dict['bam_only'] = args.bam_only
+    cfg_dict['hc_nct'] = args.hc_nct
     cfg_dict['joint_calls'] = args.joint_calls
     cfg_dict['interval_padding'] = args.interval_padding
     pipeline_handler = PipelineHandler(
@@ -190,8 +195,10 @@ def main():
                               "{}.bwamem.bam".format(args.sample))
         os.makedirs(os.path.dirname(target))
         os.symlink(os.path.abspath(args.raw_bam), target)
-        if os.path.exists(os.path.abspath(args.raw_bam) + ".bai"):
-            os.symlink(os.path.abspath(args.raw_bam) + ".bai", target + ".bai")
+
+        src_bai = os.path.abspath(args.raw_bam) + ".bai"
+        if os.path.exists(src_bai):
+            os.symlink(src_bai, target + ".bai")
             
         
     elif args.proc_bam:
