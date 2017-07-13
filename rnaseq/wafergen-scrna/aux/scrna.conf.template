@@ -1,0 +1,34 @@
+[General_Info]
+threads = {threads}
+
+[Quality_Control]
+no_QualityControl = False
+
+[Preprocessing]
+no_PreProcessing = False
+transformation_file = {scrnapipe_transform}
+cell_barcodes = {cell_barcodes}
+cell_barcode_mm = 0
+sample_barcodes = {sample_barcodes}
+sample_barcode_mm = 0
+
+[RefGenome_Aligning]
+no_Alignment = False
+reference_genome_idx = {star_idx}
+
+[MainAnalysis]
+no_CounTing = False
+no_dedup = False
+skip_unassigned = True
+implementation = gene 
+annotation_file = {rnaseqc_annotation}
+
+[Expression_Matrix]
+no_ExMat = False
+skip_genes = False
+gene_list = {gene_map_id}
+
+[IO_Info]
+input_dir = -
+input_files = {fq1} {fq2}
+output_dir = {outdir}

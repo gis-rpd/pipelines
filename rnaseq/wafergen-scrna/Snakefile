@@ -1,0 +1,236 @@
+# standard library imports
+#
+import os
+from itertools import chain
+import hashlib
+import tempfile
+import glob
+import sys
+from subprocess import CalledProcessError
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from readunits import fastqs_from_unit
+
+
+RESULT_OUTDIR = 'out'
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+include: "../../rules/logging.rules"
+include: "../../rules/samtools.rules"
+include: "../../rules/report.rules"
+
+
+rule final:
+    input:
+        #expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/trimmed/{unit}-trimmed-pair1.fastq.gz"),
+        #       sample=['RHH5647'], unit=['501a2ac9', 'ff9437af']),
+        #expand(os.path.join(RESULT_OUTDIR, "{sample}/scrnapipe/Reports/FinalReport.html"),
+        #       sample=['RHH5647'])
+        #expand(os.path.join(RESULT_OUTDIR, '{sample}/bamtag/{sample}_R2_dedup.tagsplit.COMPLETE'),
+        #       sample=['RHH5647'])    
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/bamtag/{sample}_R2_dedup.tagsplit.rnaseqqc.COMPLETE'),
+               sample=['RHH5647']),
+        report="report.html",
+
+
+rule read_qc:
+    input:
+        fq1 = lambda wc: config['readunits'][wc.unit]['fq1'],
+        fq2 = lambda wc: config['readunits'][wc.unit]['fq2'],
+    output:
+        fq1 = "{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair1.fastq.gz",
+        fq2 = "{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair2.fastq.gz"
+    log:
+        "{prefix}/{sample}/reads/trimmed/{unit}-skewer.log"
+    #message:
+    #    "Running QC (trimming and filtering) on input reads"
+    threads:
+        4
+    #conda:
+    params:
+        endqual = 25,
+        minlen = 20,
+        filter_many_ns_arg = "-n",
+    shell:
+        # skewer cannot read from stream so needs to be run per pair
+        # FIXME where does -x adapters as provided by Justin come from?
+        "{{ "
+        "outprefix=$(echo {output.fq1} | sed -e 's,-trimmed-pair1.fastq.gz,,');"
+        "skewer --quiet -t {threads} -m pe -q {params.endqual} {params.filter_many_ns_arg}"
+        " -l {params.minlen} -z -o $outprefix {input.fq1} {input.fq2};"
+        " }} >& {log}"
+
+        
+localrules: combine_trim
+rule combine_trim:
+    input:
+        # this looks rather clumsy but somehow works, i.e. returns a list
+        fq1 = lambda wc: ["{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair1.fastq.gz".format(
+            prefix=wc.prefix, sample=wc.sample, unit=ru) for ru in config['samples'][wc.sample]],
+        fq2 = lambda wc: ["{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair2.fastq.gz".format(
+            prefix=wc.prefix, sample=wc.sample, unit=ru) for ru in config['samples'][wc.sample]],
+    output:
+        fq1 = "{prefix}/{sample}/reads/R1.fastq.gz",
+        fq2 = "{prefix}/{sample}/reads/R2.fastq.gz"
+    log:
+        "{prefix}/{sample}/reads/combine.log"
+    message:
+        "Combining pairs (if needed). See log file {log}"
+    threads:
+        1
+    #conda:
+    #params:
+    run:
+        assert len(input.fq1) == len(input.fq2)
+        if len(input.fq1) > 1:
+            # FIXME if this works we can use it for vipr as well
+            shell("{{ cat {input.fq1} > {output.fq1}; cat {input.fq2} > {output.fq2}; }} >& {log};")
+        else:
+            ifq1rel = os.path.relpath(str(input.fq1), os.path.dirname(str(output.fq1)))
+            ifq2rel = os.path.relpath(str(input.fq2), os.path.dirname(str(output.fq2)))
+            shell("{{ ln -sf {ifq1rel} {output.fq1} && touch -h {output.fq1}; ln -sf {ifq2rel} {output.fq2} && touch -h {output.fq2}; }} >& {log};")
+            # for touch, see https://bitbucket.org/snakemake/snakemake/issues/397/unable-to-set-utime-on-symlink-your-python
+
+        
+rule scrnapipe:
+    input:
+        fq1 = "{prefix}/reads/R1.fastq.gz",
+        fq2 = "{prefix}/reads/R2.fastq.gz",
+        transform = config['scrnapipe_transform'],
+        star_idx = config['references']['star_idx'],
+        anno_gtf = config['references']['rnaseqc_annotation'],
+        gene_list = config['references']['gene_map_id'],
+        config_template = config['scrna_conf_template']
+    output:
+        cfg = '{prefix}/scrnapipe/scrnapipe.config',
+        sample_barcodes = '{prefix}/scrnapipe/sample_barcodes.txt',
+        subread_summary = '{prefix}/scrnapipe/Reports/Log_reports/fCfiles.summary',
+        multiqc_report = '{prefix}/scrnapipe/Reports/FinalReport.html',
+        expr_matrix = '{prefix}/scrnapipe/Results/gene_ExpressionMatrix.csv',
+        fastqc = '{prefix}/scrnapipe/Reports/QCreports/R2_fastqc.html',
+        stats = '{prefix}/scrnapipe/Reports/SummarisedStats.csv',
+        dedup_bam = '{prefix}/scrnapipe/Aligned_files/R2_dedup.bam',# NOTE depends on dedup config value!
+        proc_fastq = '{prefix}/scrnapipe/Processed_data/R2.fastq.gz'
+    params:
+        outdir = '{prefix}/scrnapipe'
+    threads:
+        2# FIXME seems IO dominated
+    log:        
+        '{prefix}/scrnapipe/log.txt',
+    run:
+        d = {'threads': threads,
+             'scrnapipe_transform': config['scrnapipe_transform'],
+             'cell_barcodes': config['cell_barcodes'],
+             'sample_barcodes': output.sample_barcodes,
+             'star_idx': config['references']['star_idx'],
+             'rnaseqc_annotation': config['references']['rnaseqc_annotation'],
+             'gene_map_id': config['references']['gene_map_id'],
+             'fq1': input.fq1,
+             'fq2': input.fq2,
+             'outdir': os.path.dirname(output.cfg)}
+        with open(input.config_template) as fh:
+            templ = fh.read()
+        with open(output.cfg, 'w') as fh:
+            fh.write(templ.format(**d))
+        with open(output.sample_barcodes, 'w') as fh:
+            fh.write("1\n")# 1 == NoIndex
+        shell('scRNApipe {output.cfg} >& {log}')
+        
+
+# FIXME make local since fast and IO bound?
+rule bamtag_split:
+    """adds cellular barcode tag in the scRNApipe output bam file. splits the
+    bam into individual barcode based bam file"""
+    input:
+        # FIXME why needed? matrix = '{prefix}/gene_Expressionmatrix.csv',
+        bam = '{prefix}/{sample}/scrnapipe/Aligned_files/R2_dedup.bam'
+    output:
+        taggedbam = '{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagged.bam',
+        splitflag = touch('{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagsplit.COMPLETE')
+    params:
+        center = config.get("center", "GIS"),
+        platform = config.get("platform", "Illumina"),
+        sample = lambda wc: wc.sample
+    threads:
+        1
+    shell:
+        'umis bamtag {input.bam} | samtools addreplacerg'
+        ' -r ID:{params.sample} -r LB:{params.sample} -r SM:{params.sample} -r PL:{params.platform} -r PU:1 -r CN:{params.center}'
+        ' -o - - | samtools sort -o {output.taggedbam} -T {output.taggedbam}.tmp -;'
+        ' bamtools split -tag XC -in {output.taggedbam}'
+        # not guaranteed to create one file per barcode
+
+
+rule rnaseqqc:
+    input:
+        taggedbam = '{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagged.bam',# just trigger, not actually input
+        reffa = config['references']['genome'],
+        gtf = config['references']['rnaseqc_annotation']
+    output:
+        flag = '{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagsplit.rnaseqqc.COMPLETE'
+    threads:
+        4
+    params:
+        min_num_reads = 10,
+        num_top_transcripts = 1000
+    run:
+        # we get variable number of input files, but can simply loop
+        # over them because they are small anyway
+        for bam in glob.glob(input.taggedbam.replace(".bam", ".TAG_XC_*.bam")):
+            metrics = os.path.join(bam.replace(".bam", ".rnaseqc"), "metrics.tsv")
+            metrics_dir = os.path.dirname(metrics)
+            log = os.path.join(metrics_dir, "log.txt")
+            # don't run rnaseqc for less than params.min_num_reads reads
+            #
+            res = shell("bamtools count -in {}".format(bam),
+                        read=True)# alternative to 'read' is 'iterable'
+            num_reads = int(res.decode().rstrip())
+            if num_reads < params.min_num_reads:
+                if not os.path.exists(metrics_dir):
+                    os.mkdir(metrics_dir)
+                with open(metrics, 'w') as fh:
+                    fh.write("Input BAM has < {} reads\n".format(params.min_num_reads))
+            else:
+                cb = bam.split("_")[-1].split(".")[0]
+                cmd = "samtools index {};".format(bam)
+                cmd += " which java; "# FIXME temp
+                cmd += " RNASEQC_THREADS={} RNASEQC_MEM=16g".format(threads)
+                cmd += " rnaseqc_wrapper -n {}".format(params.num_top_transcripts)
+                cmd += " -s '{}|{}|RNASeQC'".format(cb, os.path.basename(bam))
+                cmd += " -t {}".format(input.gtf)
+                cmd += " -r {} -noDoC -o {} >& {}".format(input.reffa, metrics_dir, log)
+                shell(cmd)
+
+
+rule kallisto:
+    """Kallisto to get count matrix of the transcript by dedupped umi-gene-barcode. 
+    Kallisto generate pseudo sam file and generate count matrix"""
+    input:
+        kallisto_idx = config['references']['kallisto_idx'],
+	proc_fastq = '{prefix}/scrnapipe/Processed_data/R2.fastq.gz'
+    output:
+        kallistosam = '{prefix}/kallisto/kallisto.sam',
+        kallistotagcount= '{prefix}/kallisto/kallisto.tagcount.txt',
+        abundance = '{prefix}/kallisto/abundance.tsv'
+    log:
+        '{prefix}/kallisto/log.txt'
+    threads:
+        1
+    shell:
+        "{{ kallisto quant --pseudobam --single -l 200 -s 20 -i {input.kallisto_idx}"
+        " -o $(dirname {output.kallistosam}  {input.proc_fastq} > {output.kallistosam};"
+        " umis tagcount {output.kallistosam} {output.kallistotagcount}; }} >& {log}"
+

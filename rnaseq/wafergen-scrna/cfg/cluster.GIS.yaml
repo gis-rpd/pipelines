@@ -1,0 +1,15 @@
+{
+    # match short queue
+    "__default__":
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+    "scrnapipe":
+    {
+      "time" : "02:00:00",
+      "mem" : 32G,
+    },
+}
+
+
