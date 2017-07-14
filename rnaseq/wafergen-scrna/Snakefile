@@ -43,6 +43,8 @@ rule final:
         #       sample=['RHH5647'])    
         expand(os.path.join(RESULT_OUTDIR, '{sample}/bamtag/{sample}_R2_dedup.tagsplit.rnaseqqc.COMPLETE'),
                sample=['RHH5647']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/kallisto/abundance.tsv'),
+               sample=['RHH5647']),
         report="report.html",
 
 
@@ -127,7 +129,7 @@ rule scrnapipe:
     params:
         outdir = '{prefix}/scrnapipe'
     threads:
-        2# FIXME seems IO dominated
+        2# IO dominated
     log:        
         '{prefix}/scrnapipe/log.txt',
     run:
@@ -150,7 +152,7 @@ rule scrnapipe:
         shell('scRNApipe {output.cfg} >& {log}')
         
 
-# FIXME make local since fast and IO bound?
+localrule: bamtag_split
 rule bamtag_split:
     """adds cellular barcode tag in the scRNApipe output bam file. splits the
     bam into individual barcode based bam file"""
@@ -180,10 +182,11 @@ rule rnaseqqc:
         reffa = config['references']['genome'],
         gtf = config['references']['rnaseqc_annotation']
     output:
-        flag = '{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagsplit.rnaseqqc.COMPLETE'
+        flag = touch('{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagsplit.rnaseqqc.COMPLETE')
     threads:
-        4
+        2
     params:
+        # FIXME what's the rationale for these numbers?
         min_num_reads = 10,
         num_top_transcripts = 1000
     run:
@@ -192,7 +195,7 @@ rule rnaseqqc:
         for bam in glob.glob(input.taggedbam.replace(".bam", ".TAG_XC_*.bam")):
             metrics = os.path.join(bam.replace(".bam", ".rnaseqc"), "metrics.tsv")
             metrics_dir = os.path.dirname(metrics)
-            log = os.path.join(metrics_dir, "log.txt")
+            log = metrics_dir + ".log.txt"
             # don't run rnaseqc for less than params.min_num_reads reads
             #
             res = shell("bamtools count -in {}".format(bam),
@@ -206,10 +209,10 @@ rule rnaseqqc:
             else:
                 cb = bam.split("_")[-1].split(".")[0]
                 cmd = "samtools index {};".format(bam)
-                cmd += " which java; "# FIXME temp
+                cmd += " module load java/1.7; "# FIXME hack: clashes with java 1.8 in scrnapipe env.
                 cmd += " RNASEQC_THREADS={} RNASEQC_MEM=16g".format(threads)
                 cmd += " rnaseqc_wrapper -n {}".format(params.num_top_transcripts)
-                cmd += " -s '{}|{}|RNASeQC'".format(cb, os.path.basename(bam))
+                cmd += " -s '{}|{}|RNASeQC'".format(cb, bam)
                 cmd += " -t {}".format(input.gtf)
                 cmd += " -r {} -noDoC -o {} >& {}".format(input.reffa, metrics_dir, log)
                 shell(cmd)
@@ -222,15 +225,19 @@ rule kallisto:
         kallisto_idx = config['references']['kallisto_idx'],
 	proc_fastq = '{prefix}/scrnapipe/Processed_data/R2.fastq.gz'
     output:
-        kallistosam = '{prefix}/kallisto/kallisto.sam',
+        kallistosam = temp('{prefix}/kallisto/kallisto.sam'),
+        kallistobam = '{prefix}/kallisto/kallisto.bam',
         kallistotagcount= '{prefix}/kallisto/kallisto.tagcount.txt',
         abundance = '{prefix}/kallisto/abundance.tsv'
+    params:
+        est_frag_len = 200,# FIXME can we guess this from existing bam?
+        frag_len_sd = 20# FIXME can we guess this from existing bam?
     log:
-        '{prefix}/kallisto/log.txt'
+        '{prefix}/kallisto.log'
     threads:
         1
     shell:
-        "{{ kallisto quant --pseudobam --single -l 200 -s 20 -i {input.kallisto_idx}"
-        " -o $(dirname {output.kallistosam}  {input.proc_fastq} > {output.kallistosam};"
-        " umis tagcount {output.kallistosam} {output.kallistotagcount}; }} >& {log}"
-
+        "{{ kallisto quant --pseudobam --single -l {params.est_frag_len} -s {params.frag_len_sd} -i {input.kallisto_idx}"
+        " -o $(dirname {output.kallistosam})  {input.proc_fastq} > {output.kallistosam};"
+        " samtools sort {output.kallistosam} -o {output.kallistobam};"
+        " umis tagcount {output.kallistobam} {output.kallistotagcount}; }} >& {log}"
