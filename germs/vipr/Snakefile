@@ -71,7 +71,7 @@ rule read_qc:
         # skewer cannot read from stream so needs to be run per pair
         "{{ "
         "outprefix=$(echo {output.fq1} | sed -e 's,-trimmed-pair1.fastq.gz,,');"
-        "skewer --quiet -t {threads} -m pe -n -q {params.endqual} {params.filter_many_ns_arg}"
+        "skewer --quiet -t {threads} -m pe -q {params.endqual} {params.filter_many_ns_arg}"
         " -l {params.minlen} -z -o $outprefix {input.fq1} {input.fq2};"
         " }} >& {log}"
 

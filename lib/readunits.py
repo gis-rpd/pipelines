@@ -12,6 +12,7 @@ http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
 #
 import logging
 from collections import namedtuple
+from collections import OrderedDict
 from itertools import zip_longest
 import hashlib
 import os
@@ -284,7 +285,7 @@ def scheme_for_fastq(fastq):
     """
 
     # sra naming schemes (use basename as input)
-    schemes = dict()
+    schemes = OrderedDict()
     schemes['h5old'] = re.compile(
         r'(?P<run_id>[A-Za-z0-9-]+)_(?P<flowcell_id>[A-Za-z0-9-]+)\.(?P<library_id>[A-Za-z0-9-]+)_(?P<barcode>[A-Za-z0-9-]+)_L0*(?P<lane_id>[A-Za-z0-9-]+)_R(?P<read_no>[12]).fastq.gz')
 
@@ -301,11 +302,18 @@ def scheme_for_fastq(fastq):
     # WHH4705-CGGCTATG-GTCAGTAC_S72_L008_R2_001.fastq.gz
     # CHC1148-NoIndex_S111_L005_R1_001.fastq.gz
 
+    # fallback option last
+    schemes['fallback'] = re.compile(
+        r'(?P<library_id>[A-Za-z0-9-]+)_R(?P<read_no>[12])(?P<part>[0-9_]+).fastq.gz')
+
     scheme_re = None#pylint
     for scheme_name, scheme_re in schemes.items():
         match = scheme_re.match(os.path.basename(fastq))
         if match:
-            logger.info("Matching scheme %s", scheme_name)
+            if scheme_name == 'fallback':
+                logger.warning("Using fallback, i.e. least well defined naming scheme")
+            else:
+                logger.info("Matching scheme %s", scheme_name)
             break
     assert match, ("No matching scheme found for {}".format(fastq))
     return scheme_re

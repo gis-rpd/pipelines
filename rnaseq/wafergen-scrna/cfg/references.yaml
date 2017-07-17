@@ -1,0 +1,7 @@
+genome: $RPD_GENOMES/hg19/hg19.fa
+rnaseqc_annotation: $RPD_GENOMES/hg19/gtf/hg19_RNASeqQCannotation.gtf
+gene_map_id: $RPD_GENOMES//hg19/gtf/hg19_gene_map_id.csv
+star_idx: $RPD_GENOMES/hg19/star
+kallisto_idx: $RPD_GENOMES/hg19/kallisto/hg19_kallisto.idx
+
+
