@@ -529,7 +529,7 @@ def default_argparser(cfg_dir,
                 raise ValueError((cfg_file, allow_missing_cfgfile))
         cfg_group.add_argument('--{}-cfg'.format(name),
                                default=cfg_file,
-                               help="Config-file (yaml) for {}. (default: {})".format(descr, default))
+                               help="Config-file (yaml) for {}. (default: {})".format(descr, cfg_file))
 
     return parser
 
