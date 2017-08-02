@@ -36,7 +36,7 @@ def parse_genomecov(genomecov_gzfile):
         for line in fh:
             sq, pos, cov = line.decode().rstrip().split("\t")
             pos = int(pos)-1
-            cov = int(cov)
+            cov = int(float(cov))# float for support of scientific notation
             if sq not in genomecov:
                 genomecov[sq] = OrderedDict()
             genomecov[sq][pos] = cov
