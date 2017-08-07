@@ -698,15 +698,31 @@ def get_bcl_runfolder_for_runid(runid_and_flowcellid):
     rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
     return rundir
 
+def user_mail_mapper(user_name):
+    """Rest service to get user email id from AD mapper
+    """
+    if is_devel_version():
+        user_email = rest_services['user_mail_mapper']['testing'] + user_name
+    else:
+        user_email = rest_services['user_mail_mapper']['production'] + user_name
+    response = requests.get(user_email)
+    if response.status_code != requests.codes.ok:
+        response.raise_for_status()
+        logger.warning("User email mapper failed")
+        return None
+    rest_data = response.json()
+    return rest_data.get('userEmail')
+
 def email_for_user():
     """get email for user (naive)
     """
-
     user_name = getuser()
     if user_name == "userrig":
         toaddr = "rpd@gis.a-star.edu.sg"
     else:
-        toaddr = "{}@gis.a-star.edu.sg".format(user_name)
+        toaddr = user_mail_mapper(user_name)
+        if toaddr is None:
+            toaddr = "{}@gis.a-star.edu.sg".format(user_name)
     return toaddr
 
 
