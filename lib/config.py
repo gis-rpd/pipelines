@@ -20,6 +20,7 @@ SITE_CFG_FILE = os.path.join(ETC_PATH, 'site.yaml')
 REST_CFG_FILE = os.path.join(ETC_PATH, 'rest.yaml')
 MONGO_CFG_FILE = os.path.join(ETC_PATH, 'mongo.yaml')
 BCL2FASTQQC_CFG_FILE = os.path.join(ETC_PATH, 'bcl2fastq_qc.yaml')
+BCL2FASTQ_CFG_FILE = os.path.join(ETC_PATH, 'bcl2fastq.yaml')
 LEGACY_MAPPER_CFG_FILE = os.path.join(ETC_PATH, 'legacy_wrapper.yaml')
 NOVOGENE_CFG_FILE = os.path.join(ETC_PATH, 'novogene.yaml')
 
@@ -50,6 +51,14 @@ with open(BCL2FASTQQC_CFG_FILE, 'r') as stream:
     except yaml.YAMLError as exc:
         logger.fatal("Error in loading %s", BCL2FASTQQC_CFG_FILE)
         raise
+
+with open(BCL2FASTQ_CFG_FILE, 'r') as stream:
+    try:
+        bcl2fastq_conf = yaml.load(stream)
+    except yaml.YAMLError as exc:
+        logger.fatal("Error in loading %s", BCL2FASTQ_CFG_FILE)
+        raise
+        
 with open(MONGO_CFG_FILE, 'r') as stream:
     try:
         mongo_conns = yaml.load(stream)

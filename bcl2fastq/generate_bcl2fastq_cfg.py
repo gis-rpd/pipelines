@@ -23,18 +23,22 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from config import rest_services
+from config import bcl2fastq_conf
 from pipelines import get_machine_run_flowcell_id
+from pipelines import email_for_user
+from pipelines import send_mail
+from pipelines import is_devel_version
+from pipelines import user_mail_mapper
 
 # WARNING changes here, must be reflected in bcl2fastq.py as well
 MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids',
-                                 'mux_dir', 'barcode_mismatches', 'requestor'])
-
+                                 'mux_dir', 'barcode_mismatches', 'requestor_email',
+                                 'samplesheet', 'bcl2fastq_custom_args'])
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
-
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -43,15 +47,13 @@ handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
 
-
-SAMPLESHEET_CSV = "samplesheet.csv"
-USEBASES_CFG = "usebases.yaml"
+SAMPLESHEET_CSV = "*samplesheet.csv"
 MUXINFO_CFG = "muxinfo.yaml"
+STATUS_CFG = "status.txt"
 DEFAULT_BARCODE_MISMATCHES = None
 
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,' \
     'Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
-
 
 def getdirs(args):
     """gets directories from args and checks existance
@@ -60,52 +62,76 @@ def getdirs(args):
     if not os.path.exists(rundir):
         logger.fatal("rundir '%s' does not exist under Run directory.\n", rundir)
         sys.exit(1)
-
     runinfo = os.path.join(rundir + '/RunInfo.xml')
     if not os.path.exists(runinfo):
         logger.fatal("RunInfo '%s' does not exist under Run directory.\n", runinfo)
         sys.exit(1)
-
     outdir = args.outdir
     if not os.path.exists(outdir):
         logger.fatal("output directory '%s' does not exist.\n", outdir)
         sys.exit(1)
-
     return(rundir, outdir, runinfo)
 
+def email_non_bcl(libraryId, runId):
+    """send email for non-bcl libraries
+    """
+    if is_devel_version():
+        toaddr = email_for_user()
+    else:
+        toaddr = "rpd@gis.a-star.edu.sg"
+    subject = "bcl2fastq conversion not required for {} from run {}.".format(
+        libraryId, runId)
+    body = subject + "\n" + "Kindly start custom analysis manually. Thanks."
+    send_mail(subject, body, toaddr=toaddr, pass_exception=False)
 
-def generate_usebases(barcode_lens, runinfo):
-    """FIXME:add-doc
+def generate_usebases(barcode_lens, runinfo, create_index):
+    """generate use_bases param
     """
     tree = ET.parse(runinfo)
     root = tree.getroot()
-    ub_list = []
-
+    ub_list = dict()
+    readLength_list = []
     # for each lane and its barcode lengths
     for k, v in sorted(barcode_lens.items()):
         # v is list of barcode_len tuples
         assert len(set(v)) == 1, ("Different barcode length in lane {}".format(k))
         bc1, bc2 = v[0]# since all v's are the same
         ub = ""
-        #if test:
         for read in root.iter('Read'):
-            numcyc = int(read.attrib['NumCycles'])-1
+            numcyc = int(read.attrib['NumCycles'])
             if read.attrib['IsIndexedRead'] == 'N':
-                ub += 'Y' + str(numcyc) + 'n*,'
+                ub += 'Y*,'
+                readLength_list.append(numcyc)
             elif read.attrib['IsIndexedRead'] == 'Y':
-                if read.attrib['Number'] == '2':    ### BC1
-                    if bc1 > 0:
-                        ub += 'I'+str(bc1)+'n*,'
+                #create Index with 0 barcode len
+                if create_index and bc1 < 0 and bc2 < 0:
+                    ub = 'Y*,I*,I*,Y*,'
+                    break
+                if read.attrib['Number'] == '2':   ### BC1
+                    if create_index:
+                        if bc1 > 0:
+                            ub += 'I*' + ','
+                        else:
+                            ub += 'n*' + ','
                     else:
-                        ub += 'n*'+','
+                        if bc1 > 0:
+                            ub += 'I'+str(bc1)+'n*,'
+                        else:
+                            ub += 'n*'+','
                 if read.attrib['Number'] == '3':    ### BC2
-                    if bc2 > 0:
-                        ub += 'I'+str(bc2)+'n*,'
+                    if create_index:
+                        if bc2 > 0:
+                            ub += 'I*' + ','
+                        else:
+                            ub += 'n*' + ','
                     else:
-                        ub += 'n*'+','
+                        if bc2 > 0:
+                            ub += 'I'+str(bc1)+'n*,'
+                        else:
+                            ub += 'n*'+','
         ub = ub[:-1]
-        ub_list.append(str(k + ':' + ub))
-    return ub_list
+        ub_list[k] = ub
+    return ub_list, readLength_list
 
 def get_rest_data(run_num, test_server=None):
     """ Get rest info from ELM
@@ -121,8 +147,138 @@ def get_rest_data(run_num, test_server=None):
         response.raise_for_status()
         sys.exit(1)
     rest_data = response.json()
-    logger.debug("rest_data from {}: {}".format(rest_url, rest_data))
+    logger.debug("rest_data from %s: %s", rest_url, rest_data)
     return rest_data
+
+def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
+    """Generates sample sheet, mux_info and bcl2fastq custom params
+    """
+    barcode_lens = {}
+    mux_units = dict()
+    lib_list = dict()
+    run_id = rest_data['runId']
+    muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
+    for rows in rest_data['lanes']:
+        BCL_Mismatch = []
+        if 'requestor' in rows:
+            requestor = rows['requestor']
+            requestor_email = user_mail_mapper(requestor)
+        else:
+            requestor_email = None
+        pass_bcl2_fastq = False
+        #MUX library
+        if "MUX" in rows['libraryId']:
+            for child in rows['Children']:
+                if 'BCL_Mismatch' in child:
+                    BCL_Mismatch.append(child['BCL_Mismatch'])
+                if child['libtech'] in bcl2fastq_conf['non_bcl_tech']:
+                    logger.info("send_mail: bcl not required for %s", rows['libraryId'])
+                    email_non_bcl(rows['libraryId'], rest_data['runId'])
+                    pass_bcl2_fastq = True
+                    break
+                if child['libtech'] in bcl2fastq_conf['non_mux_libtech_list']:
+                    sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+ \
+                        '-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+child['libtech']
+                    lib_list.setdefault(rows['libraryId'], []).append(sample)
+                    index_lens = (-1, -1)
+                    barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
+                    break
+                if "-" in child['barcode']:
+                    # dual index
+                    index = child['barcode'].split('-')
+                    sample = rows['laneId']+',Sample_'+child['libraryId']+','+ \
+                        child['libraryId']+'-'+child['barcode']+',,,,'+ index[0] +',,'+ \
+                        index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
+                    index_lens = (len((index[0])), len((index[1])))
+                else:
+                    sample = rows['laneId']+',Sample_'+child['libraryId']+','+ \
+                        child['libraryId']+'-'+child['barcode']+',,,,'+child['barcode']+',,,'\
+                        +'Project_'+rows['libraryId']+','+child['libtech']
+                    index_lens = (len(child['barcode']), -1)
+                barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
+                lib_list.setdefault(rows['libraryId'], []).append(sample)
+        else:
+            #Non-mux library
+            if rows['libtech'] in bcl2fastq_conf['non_bcl_tech']:
+                logger.info("send_mail: bcl not required for %s", rows['libraryId'])
+                email_non_bcl(rows['libraryId'], rest_data['runId'])
+                pass_bcl2_fastq = True
+                continue
+            sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+ \
+                    '-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
+            lib_list.setdefault(rows['libraryId'], []).append(sample)
+            index_lens = (-1, -1)
+            barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
+        if pass_bcl2_fastq:
+            continue
+        #Barcode mismatch has to be the same for all the libraries in one MUX.
+        #Otherwise default mismatch value to be used
+        if len(set(BCL_Mismatch)) == 1:
+            barcode_mismatches = BCL_Mismatch[0]
+        else:
+            barcode_mismatches = DEFAULT_BARCODE_MISMATCHES
+        #Check adpter trimming
+        #if 'trimadapt' in rows and rows['trimadapt']:
+        if rows['trimadapt']:
+            lib_list.setdefault(rows['libraryId'], []).append('[Settings]')
+            adapt_seq = rows.get('adapterseq').split(',')
+            for seq in adapt_seq:
+                reads = seq.split(':')
+                if reads[0].strip() == "Read 1":
+                    adapter = "Adapter," + reads[1].lstrip()
+                    lib_list.setdefault(rows['libraryId'], []).append(adapter)
+                elif reads[0].strip() == "Read 2":
+                    adapter = "AdapterRead2," + reads[1].lstrip()
+                    lib_list.setdefault(rows['libraryId'], []).append(adapter)
+        samplesheet = os.path.abspath(os.path.join(outdir, rows['libraryId'] + "_samplesheet.csv"))
+        create_index = False
+        if rows['indexreads']:
+            create_index = True
+        usebases, readLength_list = generate_usebases(barcode_lens, runinfo, create_index)
+        use_bases_mask = " --use-bases-mask " + rows['laneId'] + ":" + usebases[rows['laneId']]
+        bcl2fastq_custom_args = use_bases_mask
+        if 'indexreads' in rows and rows['indexreads']:
+            bcl2fastq_custom_args = " ".join([bcl2fastq_custom_args, \
+                                        bcl2fastq_conf['bcl2fastq_custom_args']['indexreads']])
+        readLength_list.sort()
+        #if barcode_lens:
+        del barcode_lens[rows['laneId']]
+        #bcl2fastq_custom_args to be added if any of the R1 or R2 less than minReadLength
+        if readLength_list[0] < bcl2fastq_conf['minReadLength']:
+            minReadLength_params = bcl2fastq_conf['bcl2fastq_custom_args']['minReadLength']
+            param_a = " " + minReadLength_params[0] + " " + str(readLength_list[0])
+            param_b = " " + minReadLength_params[1] + " 0"
+            bcl2fastq_custom_args += param_a
+            bcl2fastq_custom_args += param_b
+        mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], \
+            'Project_'+ rows['libraryId'], barcode_mismatches, requestor_email, samplesheet, \
+            [bcl2fastq_custom_args]])
+        # merge lane into existing mux if needed
+        if mu.mux_id in mux_units:
+            mu_orig = mux_units[mu.mux_id]
+            assert mu.barcode_mismatches == mu_orig.barcode_mismatches
+            assert len(mu.lane_ids) == 1# is a list by design but just one element.
+            #otherwise below fails
+            lane_ids = mu_orig.lane_ids.extend(mu.lane_ids)
+            bcl2fastq_custom_args = mu_orig.bcl2fastq_custom_args.append(use_bases_mask)
+            mu_orig = mu_orig._replace(lane_ids=lane_ids, bcl2fastq_custom_args= \
+                                    bcl2fastq_custom_args)
+        else:
+            mux_units[mu.mux_id] = mu
+    #Write muxinfo_cfg and Samplesheet
+    if mux_units:
+        with open(muxinfo_cfg, 'w') as fh:
+            fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], \
+            default_flow_style=True))
+        for lib, value in lib_list.items():
+            csv = mux_units[lib].samplesheet
+            with open(csv, 'w') as fh_out:
+                fh_out.write(SAMPLESHEET_HEADER + '\n')
+                for each in value:
+                    fh_out.write(each+ '\n')
+        return True
+    else:
+        return False
 
 def main():
     """
@@ -160,103 +316,25 @@ def main():
 
     (rundir, outdir, runinfo) = getdirs(args)
     samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
-    usebases_cfg = os.path.join(outdir, USEBASES_CFG)
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
-    for f in [samplesheet_csv, usebases_cfg, muxinfo_cfg]:
+    for f in [samplesheet_csv, muxinfo_cfg]:
         if not args.force_overwrite and os.path.exists(f):
             logger.fatal("Refusing to overwrite existing file %s", f)
             sys.exit(1)
-
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
     logger.info("Querying ELM for %s", run_num)
-
     rest_data = get_rest_data(run_num, args.test_server)
+    status_cfg = os.path.join(outdir, STATUS_CFG)
     assert rest_data['runId'], ("Rest data from ELM does not have runId {}".format(run_num))
-
-    run_id = rest_data['runId']
-    #counter = 0
     if rest_data['runPass'] != 'Pass':
         logger.warning("Skipping non-passed run")
-        # NOTE: exit 0 and missing output files is the upstream signal for a failed run
+        with open(status_cfg, 'w') as fh_out:
+            fh_out.write("SEQRUNFAILED")
         sys.exit(0)
-
-    # this is the master samplesheet
-    logger.info("Writing to %s", samplesheet_csv)
-    # keys: lanes, values are barcode lens in lane (always two tuples, -1 if not present)
-    barcode_lens = {}
-    mux_units = dict()
-
-    with open(samplesheet_csv, 'w') as fh_out:
-        fh_out.write(SAMPLESHEET_HEADER + '\n')
-        for rows in rest_data['lanes']:
-            if rows['lanePass'] != 'Pass':
-                continue
-            BCL_Mismatch = []
-            if 'requestor' in rows:
-                requestor = rows['requestor']
-            else:
-                requestor = None
-            if "MUX" in rows['libraryId']:
-                # multiplexed
-                #counter = 0
-                for child in rows['Children']:
-                    #counter += 1
-                    #id = 'S' + str(counter)
-                    if 'BCL_Mismatch' in child:
-                        BCL_Mismatch.append(child['BCL_Mismatch'])
-                        # older samples have no values and that's okay
-
-                    if "-" in child['barcode']:
-                        # dual index
-                        index = child['barcode'].split('-')
-                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+ \
-                            child['libraryId']+'-'+child['barcode']+',,,,'+ index[0] +',,'+ \
-                            index[1] + ',' +'Project_'+rows['libraryId']+','+child['libtech']
-                        index_lens = (len((index[0])), len((index[1])))
-                    else:
-                        sample = rows['laneId']+',Sample_'+child['libraryId']+','+ \
-                            child['libraryId']+'-'+child['barcode']+',,,,'+child['barcode']+',,,'\
-                            +'Project_'+rows['libraryId']+','+child['libtech']
-                        index_lens = (len(child['barcode']), -1)
-
-                    barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
-                    fh_out.write(sample+ '\n')
-
-            else:# non-multiplexed
-                sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+ \
-                    '-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+rows['libtech']
-                index_lens = (-1, -1)
-                barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
-                fh_out.write(sample + '\n')
-
-            #Barcode mismatch has to be the same for all the libraries in one MUX.
-            #Otherwise default mismatch value to be used
-            if len(set(BCL_Mismatch)) == 1:
-                barcode_mismatches = BCL_Mismatch[0]
-            else:
-                barcode_mismatches = DEFAULT_BARCODE_MISMATCHES
-            mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], \
-                'Project_'+ rows['libraryId'], barcode_mismatches, requestor])
-            # merge lane into existing mux if needed
-            if mu.mux_id in mux_units:
-                mu_orig = mux_units[mu.mux_id]
-                assert mu.barcode_mismatches == mu_orig.barcode_mismatches
-                assert len(mu.lane_ids) == 1# is a list by design but just one element.
-                #otherwise below fails
-                lane_ids = mu_orig.lane_ids.extend(mu.lane_ids)
-                mu_orig = mu_orig._replace(lane_ids=lane_ids)
-            else:
-                mux_units[mu.mux_id] = mu
-
-    logger.info("Writing to %s", usebases_cfg)
-    usebases = generate_usebases(barcode_lens, runinfo)
-    with open(usebases_cfg, 'w') as fh:
-        fh.write(yaml.dump(dict(usebases=usebases), default_flow_style=True))
-
-    logger.info("Writing to %s", muxinfo_cfg)
-    with open(muxinfo_cfg, 'w') as fh:
-        fh.write(yaml.dump([dict(mu._asdict()) for mu in mux_units.values()], \
-            default_flow_style=True))
+    status = generate_samplesheet(rest_data, flowcellid, outdir, runinfo)
+    if not status:
+        with open(status_cfg, 'w') as fh_out:
+            fh_out.write("NON-BCL")
 
 if __name__ == "__main__":
     main()
