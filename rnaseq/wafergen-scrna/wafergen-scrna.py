@@ -72,6 +72,12 @@ def main():
     #/
     parser.add_argument('-c', "--cell-barcodes", required=True,
                         help="File listing cell barcodes")
+    d = 200
+    parser.add_argument("--frag-len", default=d, type=int,
+                        help="Estimated fragment length (default={})".format(d))
+    d = 20.0
+    parser.add_argument('--frag-len-sd', default=d, type=float,
+                        help="Estimated fragment length standard deviation (default={})".format(d))
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -125,10 +131,14 @@ def main():
     cfg_dict['samples'] = samples
     
     cfg_dict['cell_barcodes'] = args.cell_barcodes
+    cfg_dict['frag_len'] = args.frag_len
+    cfg_dict['frag_len_sd'] = args.frag_len_sd
     cfg_dict['scrnapipe_transform'] = os.path.abspath(os.path.join(
         PIPELINE_BASEDIR, 'aux/transform.json'))
     cfg_dict['scrna_conf_template'] = os.path.abspath(os.path.join(
         PIPELINE_BASEDIR, 'aux/scrna.conf.template'))
+    cfg_dict['adapters'] = os.path.abspath(os.path.join(
+        PIPELINE_BASEDIR, 'aux/adapters.fa'))
 
 
 
