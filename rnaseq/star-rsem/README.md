@@ -27,11 +27,16 @@ value) of genes and isoforms.
 The pipeline also provides generic stats, coverage, mappability, QC
 e.g. by running [RNA-SeQC](https://www.broadinstitute.org/cancer/cga/rna-seqc).
 
-Cuffdiff can be run optionally (slow!): it will run in cufflinks mode,
+Cuffdiff can be run optionally (slow!): it will run in Cufflinks mode,
 with no differential analysis carried out, to get raw fragment count
-of genes and isoforms in addition to cufflinks fpkm. If the `stranded`
-option was used cuffdiff is run with `fr-firststrand`, otherwise
-`fr-unstranded` by default.
+of genes and isoforms in addition to Cufflinks' FPKM. The different
+options for the `stranded` argument are translated as follows (see
+also http://chipster.csc.fi/manual/library-type-summary.html):
+
+- none (default): fr-unstranded
+- reverse: fr-firststrand
+- forward: fr-secondstrand
+
 
 Expression values of genes and isoforms are provided with annotation 
 in all run methods.
