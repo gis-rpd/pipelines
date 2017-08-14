@@ -58,9 +58,8 @@ def bcl2fastq_threads_setting(num_threads):
 
     r = min([4, num_threads])
     w = min([4, num_threads])
-    d = ceil(0.2 * num_threads)
     p = ceil(1.0 * num_threads)
-    return "-r {} -w {} -d {} -p {}".format(r, w, d, p)
+    return "-r {} -w {} -p {}".format(r, w, p)
 
 
 def get_mux_dirs():
@@ -224,26 +223,25 @@ rule bcl2fastq:
     https://support.illumina.com/content/dam/illumina-support/documents/documentation/software_documentation/bcl2fastq/bcl2fastq2-v2-17-software-guide-15051736-g.pdf
     """
     input: 
-        samplesheet = config['samplesheet_csv'],
+        samplesheet = lambda wildcards: config['units'][wildcards.muxdir]['samplesheet']
     output:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
     log:
         os.path.join(RESULT_OUTDIR, "{muxdir}.log")
     message:
         "Running bcl2fastq/Demultiplexing"
-    threads: 16
+    threads: 12
     params:
-        bcl2fastq_custom_args = config.get("bcl2fastq_custom_args", ""),# warning: shoudn't clash with default
-        usebases = config['usebases_arg'],
+        #bcl2fastq_custom_args = lambda wildcards: config['units'][wildcards.muxdir]['bcl2fastq_custom_args'],
+        bcl2fastq_custom_args = lambda wildcards: ''.join(["{}".format(bcl2fastq_custom_args) for bcl2fastq_custom_args in config['units'][wildcards.muxdir]['bcl2fastq_custom_args']]),
         barcode_mismatches = barcode_mismatch_arg_for_mux,
         tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
     run:
         res_dir = os.path.dirname(output.flag)
         cmd = "bcl2fastq --runfolder-dir {config[rundir]} --output-dir %s" % RESULT_OUTDIR
         cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir)
-        cmd += " --create-fastq-for-index-reads"
         cmd += " {}".format(params.bcl2fastq_custom_args)
-        cmd += " --sample-sheet {input.samplesheet} {params.usebases}"
+        cmd += " --sample-sheet {input.samplesheet}"
         cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
         cmd += " %s" % bcl2fastq_threads_setting(threads)
         cmd += " >& {log}"
@@ -319,11 +317,7 @@ rule create_sample_configs:
             run_id = mux_unit['run_id']
             flowcell_id = mux_unit['flowcell_id']
             for sample_dir in glob.glob(os.path.join(mux_dir, "Sample_*")):
-                sample_cfgfile = os.path.join(sample_dir, "sample.yaml")
-                assert not os.path.exists(sample_cfgfile)
-                sampledir_to_cfg(sample_dir, sample_cfgfile,
+                sample_cfgfile = os.path.abspath(os.path.join(sample_dir, "sample.yaml"))
+                if not os.path.exists(sample_cfgfile):
+                    sampledir_to_cfg(sample_dir, sample_cfgfile,
                                  run_id=run_id, flowcell_id=flowcell_id)
-        
-
-
-
