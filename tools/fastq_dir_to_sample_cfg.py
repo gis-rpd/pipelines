@@ -53,6 +53,8 @@ def main():
                         help="Run ID (can't be guessed usually")
     parser.add_argument('-q', '--quiet', action='count', default=0,
                         help="Decrease verbosity")
+    parser.add_argument('--novogene', action='store_true',
+                        help="Use NovogeneAIT naming scheme")
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -68,7 +70,8 @@ def main():
 
 
     sampledir_to_cfg(args.sampledir, args.samplecfg,
-                     run_id=args.run_id, flowcell_id=args.flowcell_id)
+                     run_id=args.run_id, flowcell_id=args.flowcell_id,
+                     novogene=args.novogene)
 
 
 if __name__ == "__main__":
