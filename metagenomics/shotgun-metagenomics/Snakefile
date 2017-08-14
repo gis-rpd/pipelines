@@ -2,6 +2,7 @@
 #
 import os
 import glob
+import shutil
 
 # third party imports
 #
@@ -66,7 +67,7 @@ rule read_trimming:
         " -l {params.minlen} -z -o $outprefix {input.fq1} {input.fq2};"
         " }} >& {log}"
 
-        
+
 localrules: combine_trim
 rule combine_trim:
     # adopted from vipr
@@ -158,14 +159,14 @@ rule kraken:
         "{{"
         " mparaw=$(echo {output.mpa} | sed -e 's,.gz,,');"
         " outraw=$(echo {output.out} | sed -e 's,.gz,,');"
-        " kraken  --preload --db {input.db} --paired"      
+        " kraken  --preload --db {input.db} --paired"
         " --threads {threads} {input.fq1} {input.fq2} > $outraw;"
         " kraken-translate --db {input.db} --mpa-format $outraw > $mparaw;"
         " kraken-mpa-report --db {input.db} $outraw > {output.tsv};"
         " gzip $mparaw $outraw;"
         " }} >& {log};"
 
-        
+
 rule metaphlan2:
     input:
         fq = "{prefix}/{sample}/reads/all-trimmed-decont_SR.fastq",
@@ -195,16 +196,16 @@ rule humann2:
         prot_db = config['references']['humann2_protein'],
         pkl = config['references']['metaphlan2_pkl']
     output:
-        gf = "{prefix}/{sample}/humann2/humann2_genefamilies.tsv",
-        gfn = "{prefix}/{sample}/humann2/humann2_genefamilies.relab.tsv",
-        pw = "{prefix}/{sample}/humann2/humann2_pathabundance.tsv",
-        pwn = "{prefix}/{sample}/humann2/humann2_pathabundance.relab.tsv",
-        cov = "{prefix}/{sample}/humann2/humann2_pathcoverage.tsv",
+        gf = "{prefix}/{sample}/humann2/{sample}_genefamilies.tsv",
+        gfn = "{prefix}/{sample}/humann2/{sample}_genefamilies.relab.tsv",
+        pw = "{prefix}/{sample}/humann2/{sample}_pathabundance.tsv",
+        pwn = "{prefix}/{sample}/humann2/{sample}_pathabundance.relab.tsv",
+        cov = "{prefix}/{sample}/humann2/{sample}_pathcoverage.tsv",
         flag = "{prefix}/{sample}/humann2/humann2.SUCCESS"
     message:
         "Running HUMAnN2 on {wildcards.sample}"
     log:
-        "{prefix}/{sample}/humann2/humann2.log"        
+        "{prefix}/{sample}/humann2/humann2.log"
     threads:
         8
     #params: resource="h_rt=48:00:00,mem_free=50G" FIXME use
@@ -235,11 +236,15 @@ rule humann2:
         " }} >& {log}"
 
 
-# FIXME localrule?
+localrules: merge_humann2
 rule merge_humann2:
     input:
-        expand("{{prefix}}/{sample}/humann2/humann2.SUCCESS",
-               sample=config['samples'])
+        gfns = expand("{{prefix}}/{sample}/humann2/{sample}_genefamilies.relab.tsv",
+                      sample=config['samples']),
+        pwns = expand("{{prefix}}/{sample}/humann2/{sample}_pathabundance.relab.tsv",
+                      sample=config['samples']),
+        covs = expand("{{prefix}}/{sample}/humann2/{sample}_pathcoverage.tsv",
+                      sample=config['samples']),
     output:
         gf = "{prefix}/merged_table_humann2/genefamily.tsv",
         pw = "{prefix}/merged_table_humann2/pathabundance.tsv",
@@ -247,26 +252,28 @@ rule merge_humann2:
         flag = "{prefix}/pathway_profile.SUCCESS"
     message:
         "Merging HUMAnN2 results for all samples"
-    log:
-        "{prefix}/pathway_profile.log"
     threads:
         1
-    #params: resource="h_rt=48:00:00,mem_free=40G" FIXME use?
-    shell:
-        "{{ "
-        " input=$(dirname {input[0]});"
-        " humann2_join_tables --input $input "
-        " --output {output.gf}"
-        " --file_name genefamilies.relab;"
-        " humann2_join_tables --input $input "
-        " --output {output.pw}"
-        " --file_name pathabundance.relab;"
-        " humann2_join_tables --input $input "
-        " --output {output.cov}"
-        " --file_name pathcoverage;"
-        " touch {output.flag};"
-        " }} >& {log}"
+    run:
+        # need all input files to be in one folder, so symlink
+        for in_files, out_file, pattern in zip([input.gfns, input.pwns, input.covs],
+                                               [output.gf, output.pw, output.cov],
+                                               ["genefamilies.relab", "pathabundance.relab" , "pathcoverage"]):
+            tmp_indir = out_file + ".tmp"
+            if os.path.exists(tmp_indir):
+                shutil.rmtree(tmp_indir)
+            os.mkdir(tmp_indir)
+            for f in in_files:
+                os.symlink(os.path.abspath(f),
+                           os.path.join(tmp_indir, os.path.basename(f)))
 
+            cmd = "humann2_join_tables --input {} --output {} --file_name {};".format(
+                tmp_indir, out_file, pattern)
+            shell(cmd)
+
+            shutil.rmtree(tmp_indir)
+
+        shell("touch {output.flag};")
 
 
 localrules: split_tables
@@ -284,10 +291,10 @@ rule split_tables:
     # params: resource="h_rt=2:00:00,mem_free=5G" FIXME use
     shell:
         "{{"
-        " outpref=$(echo {output} | sed -e 's,.SUCCESS,,');" 
+        " outpref=$(echo {output} | sed -e 's,.SUCCESS,,');"
         " {SPLIT_TABLE} {input} $outpref;"
         " }} >& {log}"
-        
+
 
 rule merge_tables:
     input:
@@ -314,5 +321,3 @@ rule merge_tables:
                 cmd += " {}/split_table_{}/*table.{}".format(RESULT_OUTDIR, m, t)
                 cmd += " -o {}/{}.{}.profile_merged.tsv".format(output_dir, t, m)
                 shell(cmd)
-
-

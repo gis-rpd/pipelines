@@ -17,6 +17,8 @@ This pipeline was originally developed by
 
 The following list the main output files
 
+- `{sample}/reads/all-trimmed-decont_[12].fastq.gz` is the (if
+  needed concatenated,) quality trimmed and decontaminated read pair
 - `merged_table_{profiler}/{tax}.{profiler}.profile_merged.tsv` where
   `profiler` can be `kraken` or `metaphlan2` and `tax` is a one-letter
   abbreviation for taxonomic rank (e.g. `g` for genus).
