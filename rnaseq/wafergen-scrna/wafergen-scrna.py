@@ -105,7 +105,7 @@ def main():
                          " Use one or the other")
             sys.exit(1)
         if not os.path.exists(args.sample_cfg):
-            logger.fatal("Config file %s does not exist", args.sample_cfg)
+            logger.fatal("Config file '%s' does not exist", args.sample_cfg)
             sys.exit(1)
         samples, readunits = get_samples_and_readunits_from_cfgfile(args.sample_cfg)
     else:
@@ -129,8 +129,12 @@ def main():
     cfg_dict = dict()
     cfg_dict['readunits'] = readunits
     cfg_dict['samples'] = samples
-    
-    cfg_dict['cell_barcodes'] = args.cell_barcodes
+
+    if not os.path.exists(args.cell_barcodes):
+        logger.fatal("Cellular barcodes file '%s' does not exist", args.cell_barcodes)
+        sys.exit(1)
+        
+    cfg_dict['cell_barcodes'] = os.path.abspath(args.cell_barcodes)
     cfg_dict['frag_len'] = args.frag_len
     cfg_dict['frag_len_sd'] = args.frag_len_sd
     cfg_dict['scrnapipe_transform'] = os.path.abspath(os.path.join(

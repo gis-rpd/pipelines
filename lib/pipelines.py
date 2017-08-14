@@ -290,7 +290,6 @@ class PipelineHandler(object):
             fh.write("source activate {}\n".format(site_cfg['snakemake_env']))
 
 
-
     def write_snakemake_env(self, overwrite=False):
         """creates rc file for use as 'bash prefix', which also loads modules defined in cfgfile
         """
@@ -651,6 +650,7 @@ def relative_epoch_time(epoch_time1, epoch_time2):
     rd = dateutil.relativedelta.relativedelta(dt1, dt2)
     return rd
 
+
 def relative_isoformat_time(last_analysis):
     """
     Relative isoformat_time
@@ -698,6 +698,7 @@ def get_bcl_runfolder_for_runid(runid_and_flowcellid):
     rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
     return rundir
 
+
 def user_mail_mapper(user_name):
     """Rest service to get user email id from AD mapper
     """
@@ -712,6 +713,7 @@ def user_mail_mapper(user_name):
         return None
     rest_data = response.json()
     return rest_data.get('userEmail')
+
 
 def email_for_user():
     """get email for user (naive)
