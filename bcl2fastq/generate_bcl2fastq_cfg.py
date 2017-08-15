@@ -84,7 +84,7 @@ def email_non_bcl(libraryId, runId):
     body = subject + "\n" + "Kindly start custom analysis manually. Thanks."
     send_mail(subject, body, toaddr=toaddr, pass_exception=False)
 
-def generate_usebases(barcode_lens, runinfo, create_index):
+def generate_usebases(barcode_lens, runinfo, create_index, non_mux_tech, libraryId):
     """generate use_bases param
     """
     tree = ET.parse(runinfo)
@@ -103,16 +103,15 @@ def generate_usebases(barcode_lens, runinfo, create_index):
                 ub += 'Y*,'
                 readLength_list.append(numcyc)
             elif read.attrib['IsIndexedRead'] == 'Y':
-                #create Index with 0 barcode len
-                if create_index and bc1 < 0 and bc2 < 0:
-                    ub = 'Y*,I*,I*,Y*,'
-                    break
                 if read.attrib['Number'] == '2':   ### BC1
                     if create_index:
                         if bc1 > 0:
-                            ub += 'I*' + ','
-                        else:
-                            ub += 'n*' + ','
+                            ub += 'I'+str(bc1)+'n*,'
+                        elif bc1 < 0:
+                            if non_mux_tech or "MUX" not in libraryId:
+                                ub += 'I*' + ','
+                            else:
+                                ub += 'n*' + ','
                     else:
                         if bc1 > 0:
                             ub += 'I'+str(bc1)+'n*,'
@@ -121,12 +120,15 @@ def generate_usebases(barcode_lens, runinfo, create_index):
                 if read.attrib['Number'] == '3':    ### BC2
                     if create_index:
                         if bc2 > 0:
-                            ub += 'I*' + ','
-                        else:
-                            ub += 'n*' + ','
+                            ub += 'I'+str(bc2)+'n*,'
+                        elif bc2 < 0:
+                            if non_mux_tech or "MUX" not in libraryId:
+                                ub += 'I*' + ','
+                            else:
+                                ub += 'n*' + ','
                     else:
                         if bc2 > 0:
-                            ub += 'I'+str(bc1)+'n*,'
+                            ub += 'I'+str(bc2)+'n*,'
                         else:
                             ub += 'n*'+','
         ub = ub[:-1]
@@ -158,6 +160,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
     lib_list = dict()
     run_id = rest_data['runId']
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
+    non_mux_tech = False
     for rows in rest_data['lanes']:
         BCL_Mismatch = []
         if 'requestor' in rows:
@@ -171,16 +174,17 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
             for child in rows['Children']:
                 if 'BCL_Mismatch' in child:
                     BCL_Mismatch.append(child['BCL_Mismatch'])
-                if child['libtech'] in bcl2fastq_conf['non_bcl_tech']:
+                if any(libtech in child['libtech'] for libtech in bcl2fastq_conf['non_bcl_tech']):
                     logger.info("send_mail: bcl not required for %s", rows['libraryId'])
                     email_non_bcl(rows['libraryId'], rest_data['runId'])
                     pass_bcl2_fastq = True
                     break
-                if child['libtech'] in bcl2fastq_conf['non_mux_libtech_list']:
+                if any(libtech in child['libtech'] for libtech in bcl2fastq_conf['non_mux_tech']):
                     sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+ \
                         '-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+child['libtech']
                     lib_list.setdefault(rows['libraryId'], []).append(sample)
                     index_lens = (-1, -1)
+                    non_mux_tech = True
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     break
                 if "-" in child['barcode']:
@@ -218,8 +222,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
         else:
             barcode_mismatches = DEFAULT_BARCODE_MISMATCHES
         #Check adpter trimming
-        #if 'trimadapt' in rows and rows['trimadapt']:
-        if rows['trimadapt']:
+        if 'trimadapt' in rows and rows['trimadapt']:
             lib_list.setdefault(rows['libraryId'], []).append('[Settings]')
             adapt_seq = rows.get('adapterseq').split(',')
             for seq in adapt_seq:
@@ -232,9 +235,9 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
                     lib_list.setdefault(rows['libraryId'], []).append(adapter)
         samplesheet = os.path.abspath(os.path.join(outdir, rows['libraryId'] + "_samplesheet.csv"))
         create_index = False
-        if rows['indexreads']:
+        if 'indexreads' in rows and rows['indexreads']:
             create_index = True
-        usebases, readLength_list = generate_usebases(barcode_lens, runinfo, create_index)
+        usebases, readLength_list = generate_usebases(barcode_lens, runinfo, create_index, non_mux_tech, rows['libraryId'])
         use_bases_mask = " --use-bases-mask " + rows['laneId'] + ":" + usebases[rows['laneId']]
         bcl2fastq_custom_args = use_bases_mask
         if 'indexreads' in rows and rows['indexreads']:
