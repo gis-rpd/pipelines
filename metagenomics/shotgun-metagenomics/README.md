@@ -15,19 +15,22 @@ This pipeline was originally developed by
 
 ## Output
 
-The following list the main output files
+The following lists the main output files
 
 - `{sample}/reads/all-trimmed-decont_[12].fastq.gz` is the (if
   needed concatenated,) quality trimmed and decontaminated read pair
 - `merged_table_{profiler}/{tax}.{profiler}.profile_merged.tsv` where
   `profiler` can be `kraken` or `metaphlan2` and `tax` is a one-letter
-  abbreviation for taxonomic rank (e.g. `g` for genus).
+  abbreviation for taxonomic rank (e.g. `g` for genus). Please note
+  that Metaphlan2 lists abundances in percentage whereas Kraken
+  produces read counts
 - `merged_table_humann2/genefamily.tsv`: Abundance (in RPK) of each
   gene family (each row) in each sample (each column)
 - `merged_table_humann2/pathabundance.tsv`: Abundance of each pathway
   in each sample. The pathways are stratified into species.
 - `merged_table_humann2/pathcoverage.tsv`: Presence (1)/absence (0)
   code for each pathway in each sample.
+
 
 ## References
 

@@ -38,6 +38,10 @@ rule final:
         "report.html",
         expand(os.path.join(RESULT_OUTDIR, "tax_profile.SUCCESS")),
         expand(os.path.join(RESULT_OUTDIR, "pathway_profile.SUCCESS")),
+        expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/all-trimmed_1_fastqc.html"),
+            sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/all-trimmed-decont_1_fastqc.html"),
+            sample=config['samples']),
 
 
 rule read_trimming:
@@ -117,13 +121,29 @@ rule decont:
     threads:
         4
     params:
-        outprefix = lambda wc: "{}-decont".format(wc.prefix)
-        # resource="h_rt=48:00:00,mem_free=15G" FIXME use
+        outprefix = lambda wc: "{}-decont".format(wc.prefix),
+        mincov = 0.50
     shell:
-        "decont.py -i {input.fq1} {input.fq2} -t {threads}"
+        "decont.py -i {input.fq1} {input.fq2} -t {threads} -c {params.mincov}"
         " -r {input.decont_genome} -o {params.outprefix} >& {log};"
 
 
+rule fastqc:
+    input:
+        '{prefix}.fastq.gz'
+    output:
+        '{prefix}_fastqc.zip',
+        '{prefix}_fastqc.html'
+    log:
+        '{prefix}_fastqc.log'
+    threads:
+        2
+    message:
+        "Running fastqc on {input}"
+    shell:
+        "fastqc -t {threads} {input}"
+
+        
 localrules: fake_gunzip_single_end
 rule fake_gunzip_single_end:
     input:
@@ -154,7 +174,6 @@ rule kraken:
         "Running Kraken on {wildcards.sample}"
     threads:
         8
-    # params: resource="h_rt=48:00:00,mem_free=20G" FIXME use
     shell:
         "{{"
         " mparaw=$(echo {output.mpa} | sed -e 's,.gz,,');"
@@ -182,7 +201,6 @@ rule metaphlan2:
         "Running Metaphlan on {wildcards.sample}"
     threads:
         8
-    #params: resource="h_rt=48:00:00,mem_free=10G" FIXME use
     shell:
         "metaphlan2.py {input.fq} --input_type fastq --mpa_pkl {input.pkl}"
         " --bowtie2db {config[references][metaphlan2_db]} --bowtie2out {output.bowtie} -s {output.sam} "
@@ -208,7 +226,6 @@ rule humann2:
         "{prefix}/{sample}/humann2/humann2.log"
     threads:
         8
-    #params: resource="h_rt=48:00:00,mem_free=50G" FIXME use
     # rerunning metaphlan instead of reusing. chenhao says necessary because metaphlan itself is optional
     shell:
         "{{ "
@@ -288,7 +305,6 @@ rule split_tables:
         "Splitting tables for {wildcards.method} on {wildcards.sample}"
     threads:
         1
-    # params: resource="h_rt=2:00:00,mem_free=5G" FIXME use
     shell:
         "{{"
         " outpref=$(echo {output} | sed -e 's,.SUCCESS,,');"
@@ -306,7 +322,6 @@ rule merge_tables:
         "Merging tables"
     threads:
         1
-    #params: resource="h_rt=2:00:00,mem_free=20G" FIXME use
     run:
         for m in config['profilers']:
             IDS = glob.glob(os.path.join(
