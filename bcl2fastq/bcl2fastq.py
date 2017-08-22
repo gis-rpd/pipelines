@@ -72,7 +72,6 @@ def get_mux_units_from_cfgfile(cfgfile, restrict_to_lanes=None):
     across multiple lanes the info will be preserved, but might get
     swallowed late if the mux dir should be used as key
     """
-    print(cfgfile)
     mux_units = []
     with open(cfgfile) as fh_cfg:
         for entry in yaml.safe_load(fh_cfg):
