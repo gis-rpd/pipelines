@@ -87,3 +87,4 @@ target/
 .disabled-pipelines.txt
 etc/novogene.yaml
 tmp
+etc/bcl2fastq.yaml

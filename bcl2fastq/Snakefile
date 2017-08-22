@@ -319,5 +319,6 @@ rule create_sample_configs:
             for sample_dir in glob.glob(os.path.join(mux_dir, "Sample_*")):
                 sample_cfgfile = os.path.abspath(os.path.join(sample_dir, "sample.yaml"))
                 if not os.path.exists(sample_cfgfile):
+                    # make sure to skip dirs with no fastq files
                     sampledir_to_cfg(sample_dir, sample_cfgfile,
-                                 run_id=run_id, flowcell_id=flowcell_id)
+                                     run_id=run_id, flowcell_id=flowcell_id, fail_if_no_matches=False)

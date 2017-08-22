@@ -563,7 +563,7 @@ def get_pipeline_version(nospace=False):
         commit = None
         cmd = ['git', 'rev-parse', '--short', 'HEAD']
         try:
-            res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            res = subprocess.check_output(cmd)
             commit = res.decode().strip()
         except (subprocess.CalledProcessError, OSError) as _:
             pass
