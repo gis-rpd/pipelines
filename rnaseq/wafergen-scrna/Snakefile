@@ -45,6 +45,8 @@ rule final:
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/kallisto/abundance.tsv'),
                sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/cb-histogram.txt'),
+               sample=config['samples']),
         report="report.html",
 
 
@@ -129,7 +131,8 @@ rule scrnapipe:
     params:
         outdir = '{prefix}/scrnapipe'
     threads:
-        2# IO dominated
+        16
+        # IO dominated for smaller samples, but with 2 too slow for large samples
     log:        
         '{prefix}/scrnapipe/log.txt',
     run:
@@ -140,6 +143,7 @@ rule scrnapipe:
              'star_idx': config['references']['star_idx'],
              'rnaseqc_annotation': config['references']['rnaseqc_annotation'],
              'gene_map_id': config['references']['gene_map_id'],
+             'no_dedup': config['no_dedup'],
              'fq1': input.fq1,
              'fq2': input.fq2,
              'outdir': os.path.dirname(output.cfg)}
@@ -150,6 +154,18 @@ rule scrnapipe:
         with open(output.sample_barcodes, 'w') as fh:
             fh.write("1\n")# 1 == NoIndex
         shell('scRNApipe {output.cfg} >& {log}')
+
+        
+rule histogram_and_counts:
+    input:
+        fq2 = '{prefix}/{sample}/scrnapipe/Processed_data/R2.fastq.gz'
+    output:
+        cbhist = '{prefix}/{sample}/cb-histogram.txt',
+        mbhist = '{prefix}/{sample}/mb-histogram.txt'
+    log:
+        '{prefix}/{sample}/histogram.log'
+    shell:
+        "umis cb_histogram --umi_histogram {output.mbhist} {input.fq2} >{output.cbhist} 2>{log}"
         
 
 localrules: bamtag_split
