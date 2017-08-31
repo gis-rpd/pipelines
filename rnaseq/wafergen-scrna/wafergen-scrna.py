@@ -79,7 +79,7 @@ def main():
     parser.add_argument('--frag-len-sd', default=d, type=float,
                         help="Estimated fragment length standard deviation (default={})".format(d))
     parser.add_argument('--no-dedup', action="store_true",
-                        help="Skip UMI baseddeduplication, which can be slow")
+                        help="Skip UMI-based deduplication (can be slow)")
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
