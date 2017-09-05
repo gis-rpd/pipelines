@@ -337,7 +337,6 @@ def main():
     _, run_num, flowcellid = get_machine_run_flowcell_id(rundir)
     logger.info("Querying ELM for %s", run_num)
     rest_data = get_rest_data(run_num, args.test_server)
-    #rest_data = get_rest_data("NG005-PE-R99999", args.test_server)
     status_cfg = os.path.join(outdir, STATUS_CFG)
     assert rest_data['runId'], ("Rest data from ELM does not have runId {}".format(run_num))
     if rest_data['runPass'] != 'Pass':
