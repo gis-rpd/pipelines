@@ -105,7 +105,7 @@ rule gatk_genotyping:
     input:
         ref = config["references"]["genome"],
         gvcfs = gvcf_genotyper_input,
-        #tbi = lambda wc: [x + ".tbi" for x in gvcf_genotyper_input],
+        #tbi = lambda wc: [x + ".tbi" for x in gvcf_genotyper_input], FIXME missing input vcf for bgzip errors if enabled!?
         bed = BED_FOR_REGION_TEMPLATE
     output:
         vcf = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz"),
@@ -115,7 +115,7 @@ rule gatk_genotyping:
     params:
         custom = config.get("params_gatk", ""),
     threads:
-        2
+        4
     run:
         # no need to call if bed is empty
         num_regs = 0
@@ -125,7 +125,7 @@ rule gatk_genotyping:
                     num_regs += 1
         if num_regs:
             gvcfs_arg = '-V ' + ' -V '.join(input.gvcfs)
-            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
+            shell("GATK_THREADS={threads} GATK_MEM=24g gatk_wrapper"
                   " -T GenotypeGVCFs {gvcfs_arg} -nt {threads} {params.custom}"
                   " -L {input.bed} -R {input.ref}"
                   " --dbsnp {config[references][dbsnp]} -o {output.vcf} >& {log}")

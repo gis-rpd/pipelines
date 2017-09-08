@@ -93,7 +93,9 @@ def main():
                         " WARNING: reference and pre-processing need to match pipeline requirements")
     # FIXME can be achieved with --until rule as well
     parser.add_argument('--bam-only', action='store_true',
-                        help="Don't call variants, just process BAM file")
+                        help="Only process up until BAM file")
+    parser.add_argument('--gvcf-only', action='store_true',
+                        help="Only process up until GVCF file")
 
     args = parser.parse_args()
 
@@ -179,6 +181,7 @@ def main():
     cfg_dict['intervals'] = os.path.abspath(args.bed) if args.bed else None# always safe, might be used for WGS as well
     cfg_dict['mark_dups'] = MARK_DUPS
     cfg_dict['bam_only'] = args.bam_only
+    cfg_dict['gvcf_only'] = args.gvcf_only
     cfg_dict['hc_nct'] = args.hc_nct
     cfg_dict['joint_calls'] = args.joint_calls
     cfg_dict['interval_padding'] = args.interval_padding
