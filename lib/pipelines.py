@@ -706,11 +706,18 @@ def user_mail_mapper(user_name):
         user_email = rest_services['user_mail_mapper']['testing'] + user_name
     else:
         user_email = rest_services['user_mail_mapper']['production'] + user_name
-    response = requests.get(user_email)
+        
+    try:
+        response = requests.get(user_email)
+    except requests.exceptions.ConnectionError:
+        logger.warning("Couldn't connect to user_mail_mapper")
+        return None
+    
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
         logger.warning("User email mapper failed")
         return None
+    
     rest_data = response.json()
     return rest_data.get('userEmail')
 
