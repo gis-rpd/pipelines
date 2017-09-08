@@ -103,7 +103,8 @@ def snakemake_log_status(log):
         if line.startswith("["):# time stamp required
             estr = line[1:].split("]")[0]
             try:
-                etime = datetime.strptime(estr, '%a %b %d %H:%M:%S %Y').isoformat()
+                etime = str(datetime.strptime(estr, '%a %b %d %H:%M:%S %Y'))
+                
             except:
                 continue
             if not last_etime:
@@ -287,7 +288,6 @@ class PipelineHandler(object):
             fh.write("{}\n".format(" ".join(get_init_call())))
             fh.write("module load miniconda3\n")
             fh.write("source activate {}\n".format(site_cfg['snakemake_env']))
-
 
 
     def write_snakemake_env(self, overwrite=False):
@@ -563,7 +563,7 @@ def get_pipeline_version(nospace=False):
         commit = None
         cmd = ['git', 'rev-parse', '--short', 'HEAD']
         try:
-            res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            res = subprocess.check_output(cmd)
             commit = res.decode().strip()
         except (subprocess.CalledProcessError, OSError) as _:
             pass
@@ -650,6 +650,7 @@ def relative_epoch_time(epoch_time1, epoch_time2):
     rd = dateutil.relativedelta.relativedelta(dt1, dt2)
     return rd
 
+
 def relative_isoformat_time(last_analysis):
     """
     Relative isoformat_time
@@ -697,15 +698,33 @@ def get_bcl_runfolder_for_runid(runid_and_flowcellid):
     rundir = "{}/{}/{}_{}".format(basedir, machineid, runid, flowcellid)
     return rundir
 
+
+def user_mail_mapper(user_name):
+    """Rest service to get user email id from AD mapper
+    """
+    if is_devel_version():
+        user_email = rest_services['user_mail_mapper']['testing'] + user_name
+    else:
+        user_email = rest_services['user_mail_mapper']['production'] + user_name
+    response = requests.get(user_email)
+    if response.status_code != requests.codes.ok:
+        response.raise_for_status()
+        logger.warning("User email mapper failed")
+        return None
+    rest_data = response.json()
+    return rest_data.get('userEmail')
+
+
 def email_for_user():
     """get email for user (naive)
     """
-
     user_name = getuser()
     if user_name == "userrig":
         toaddr = "rpd@gis.a-star.edu.sg"
     else:
-        toaddr = "{}@gis.a-star.edu.sg".format(user_name)
+        toaddr = user_mail_mapper(user_name)
+        if toaddr is None:
+            toaddr = "{}@gis.a-star.edu.sg".format(user_name)
     return toaddr
 
 

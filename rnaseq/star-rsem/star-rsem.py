@@ -62,19 +62,23 @@ def main():
     """main function
     """
 
-    default_parser = default_argparser(CFG_DIR,  with_readunits=True)
+    default_parser = default_argparser(CFG_DIR, with_readunits=True)
     parser = configargparse.ArgumentParser(description=__doc__.format(
         PIPELINE_NAME=PIPELINE_NAME, PIPELINE_VERSION=get_pipeline_version()),
-                                     parents=[default_parser])
-    
+                                           parents=[default_parser])
+
     parser._optionals.title = "Arguments"
     # pipeline specific args
     parser.add_argument("--cuffdiff", action='store_true',
                         dest="run_cuffdiff",
                         help="Also run cuffdiff")
-    parser.add_argument('--stranded', action='store_true',
-                        help="Stranded library prep (default is unstranded)")
-
+    choices = ["none", "forward", "reverse"]
+    default = "none"
+    parser.add_argument('--stranded', choices=choices, default=default,
+                        help="Stranded library prep (default is {}; Following RSEM definition but see also"
+                        " http://chipster.csc.fi/manual/library-type-summary.html)".format(default))
+    parser.add_argument('--rsem-estimate-rspd', action='store_true',
+                        help="Estimate read start position distribution in RSEM")
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -115,15 +119,18 @@ def main():
         samples = dict()
         samples[args.sample] = list(readunits.keys())
 
-    # FIXME checks on reffa index (currently not exposed via args)
-
+    # FIXME add checks on reffa index (currently not exposed via args)
 
     # turn arguments into cfg_dict that gets merged into pipeline config
     #
     cfg_dict = dict()
     cfg_dict['readunits'] = readunits
     cfg_dict['samples'] = samples
-    
+    if args.rsem_estimate_rspd:
+        if 'rsem_extra_args' in cfg_dict:
+            cfg_dict['rsem_extra_args'] += ' --estimate-rspd'
+        else:
+            cfg_dict['rsem_extra_args'] = '--estimate-rspd'
     cfg_dict['stranded'] = args.stranded
     cfg_dict['run_cuffdiff'] = args.run_cuffdiff
     cfg_dict['paired_end'] = any(ru.get('fq2') for ru in readunits.values())

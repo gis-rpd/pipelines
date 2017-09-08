@@ -44,7 +44,7 @@ def main():
                         help="Run ID plus flowcell ID", required=True,)
     parser.add_argument('-s', "--status",
                         help="Analysis status", required=True,
-                        choices=['STARTED', 'SUCCESS', 'FAILED', 'SEQRUNFAILED'])
+                        choices=['STARTED', 'SUCCESS', 'FAILED', 'SEQRUNFAILED', 'NON-BCL'])
     parser.add_argument('-a', "--analysis-id",
                         help="Analysis id", required=True)
     parser.add_argument('-o', "--out",

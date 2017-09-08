@@ -1,5 +1,6 @@
 {
     # name : version
     fastqc: 0.11.4,
-    bcl2fastq: 2.17.1.14,
+    bcl2fastq: 2.19.1.403,
+    cellranger: 2.0.0,
 }

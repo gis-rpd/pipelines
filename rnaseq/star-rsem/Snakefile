@@ -89,6 +89,10 @@ rule final:
 
 
 
+# http://chipster.csc.fi/manual/library-type-summary.html
+CUFFDIFF_LIBTYPE = {'none': 'fr-unstranded',
+                    'reverse': 'fr-firststrand',
+                    'forward': 'fr-secondstrand'}
 rule cuffdiff:
     input:
         bam = "{rootdir}/star/{sample}_{GENOME_BASENAME}_Aligned.sortedByCoord.out.bam",
@@ -100,7 +104,7 @@ rule cuffdiff:
         matrixisoforms = "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}_isoforms_FPKM_Rawreadcount_GIS.txt"
     message: "Running cuffdiff"
     params:
-        libtype = 'fr-firststrand' if config['stranded'] else 'fr-unstranded'
+        libtype = CUFFDIFF_LIBTYPE[config['stranded']]
     log:
         "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}_cuffdiff.log"
     threads: 4# never saw actual use going much higher even when set to 16
@@ -137,7 +141,6 @@ rule RSEM:
     params:
         rsemidx = config['references']['rsemidx'],
         paired_end = '--paired-end' if config['paired_end'] else '',
-        fw_prob = 1 if config['stranded'] else 0.5    
     log:
         "{dir}/rsem/{sample}_{genome}_RSEM.log"
     threads:
@@ -145,8 +148,8 @@ rule RSEM:
     shell:
         " outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
         " rsem-calculate-expression --bam --output-genome-bam"
-        " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
-        " --seed 12345 -p {threads} --forward-prob {params.fw_prob} {params.paired_end}"
+        " --sort-bam-by-coordinate {config[rsem_extra_args]}"
+        " --seed 12345 -p {threads} --strandedness {config[stranded]} {params.paired_end}"
         " {input.bam} {params.rsemidx} $outpref >& {log};"
         " ls ${{outpref}}*bam | grep -v genome.sorted.bam | xargs -r rm;"
 
@@ -282,7 +285,7 @@ rule star_mapping:
         alignIntronMax = 1000000,
         alignMatesGapMax = 1000000,
         limitBAMsortRAM = 20016346648,
-        stranded = '' if config['stranded'] else '--outSAMstrandField intronMotif',
+        stranded = '--outSAMstrandField intronMotif' if config['stranded']=='none' else '',
         gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
     threads:
         16# SY says 24 optimal on aquila. 16 more conservative RE mem

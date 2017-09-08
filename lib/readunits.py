@@ -302,6 +302,12 @@ def scheme_for_fastq(fastq):
     # WHH4705-CGGCTATG-GTCAGTAC_S72_L008_R2_001.fastq.gz
     # CHC1148-NoIndex_S111_L005_R1_001.fastq.gz
 
+    schemes['novogene-post-rename'] = re.compile(
+        #r'(P<library_id>[A-Za-z0-9-]+)_P<library_id2>[A-Za-z0-9-]+_(?P<flowcell_id>[A-Za-z0-9-]+)_L(?P<lane_id>[0-9-]+)_(?P<read_no>[12]).clean.fq.gz')
+        r'(?P<library_id>[A-Za-z0-9-]+)_(?P<flowcell_id>[A-Za-z0-9-]+)?_?L0*(?P<lane_id>[0-9])_R(?P<read_no>[12])_001.fastq.gz')
+        #r'(?P<library_id>[A-Za-z0-9-]+)_.*.clean.fq.gz')
+        #r'.*')
+
     # fallback option last
     schemes['fallback'] = re.compile(
         r'(?P<library_id>[A-Za-z0-9-]+)_R(?P<read_no>[12])(?P<part>[0-9_]+).fastq.gz')
@@ -319,22 +325,25 @@ def scheme_for_fastq(fastq):
     return scheme_re
 
 
-def readunits_for_sampledir(sampledir):
+def readunits_for_sampledir(sampledir, fq1_pattern="*_R1*.fastq.gz",
+                            fq1_to_fq2=("_R1", "_R2")):
     """Turns fastq files in sampledir to readunits assuming they follow a
-    valid SRA naming scheme
+    valid SRA naming scheme. Returns none if no matches were found
 
     """
 
     # determine naming scheme and loop through fastqs assuming fixed scheme
-    fq1s = glob.glob(os.path.join(sampledir, "*_R1*.fastq.gz"))
-    assert len(fq1s), ("No files with matching names found")
+    fq1s = glob.glob(os.path.join(sampledir, fq1_pattern))
+    if not len(fq1s):
+        return None
     scheme = scheme_for_fastq(fq1s[0])
     readunits = dict()
     for fq1 in fq1s:
         match = scheme.search(os.path.basename(fq1))
         mgroups = match.groupdict()
-        assert fq1.count("_R1") == 1, ("More than one occurence of _R1 in {}".format(fq1))
-        fq2 = fq1.replace("_R1", "_R2")
+        assert fq1.count(fq1_to_fq2[0]) == 1, (
+            "More than one occurence of fq1 to fq2 replacement pattern in {}".format(fq1))
+        fq2 = fq1.replace(fq1_to_fq2[0], fq1_to_fq2[1])
 
         if not os.path.exists(fq2):
             fq2 = None
@@ -351,14 +360,20 @@ def readunits_for_sampledir(sampledir):
     return readunits
 
 
-def sampledir_to_cfg(sampledir, samplecfg, run_id=None, flowcell_id=None):
+def sampledir_to_cfg(sampledir, samplecfg,
+                     run_id=None, flowcell_id=None, fail_if_no_matches=True):
     """run_id and flowcell_id can mostly not be inferred from
     sampledir. values passed down will be used, but alos checked
     against values that could be inferred
     """
 
     readunits = readunits_for_sampledir(sampledir)
-
+    if readunits is None:
+        if fail_if_no_matches:
+            raise ValueError("No matches in {}".format(sampledir))
+        else:
+            return
+                            
     # in theory we could support multi sample in one dir. here we're being strict
     lib_ids = [ru['library_id'] for ru in readunits.values()]
     assert len(set(lib_ids)) == 1
