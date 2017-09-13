@@ -59,6 +59,13 @@ if config.get('bam_only'):
             expand(out_templ + ".bamstats/stats.txt",
                    sample=config['samples']),
             report="report.html",
+elif config.get('gvcf_only'):
+    rule final:
+        input:
+            # gvcfs per sample
+            expand(out_templ + ".concat.g.vcf.gz.tbi",
+                   sample=config['samples']),    
+            report="report.html",
 else:
     rule final:
         input:

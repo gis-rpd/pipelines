@@ -284,7 +284,6 @@ def main():
 
     # just created files
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
-    samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
     status_cfg = os.path.join(outdir, STATUS_CFG)
 
     # NOTE: signal for failed runs is exit 0 from generate_bcl2fastq and missing output files

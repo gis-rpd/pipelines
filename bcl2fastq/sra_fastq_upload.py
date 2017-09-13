@@ -19,6 +19,7 @@ LIB_PATH = os.path.abspath(
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 from config import rest_services
+from pipelines import email_for_user
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -32,6 +33,43 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
+
+def sra_upload_req(libraryId, mux_id, run_num, sample_path, email, rest_url):
+    """SRA requests
+    """
+    data = {}
+    req = {}
+    req_code = {}
+    data['libraryId'] = libraryId
+    data['muxId'] = mux_id
+    data['runId'] = run_num
+    data['path'] = [sample_path]
+    data['email'] = [email]
+    req_code['reqCode'] = "SA-A002-009"
+    req_code['SA-A002-009'] = data
+    req['Request'] = req_code
+    test_json = json.dumps(req)
+    data_json = test_json.replace("\\", "")
+    headers = {'content-type': 'application/json'}
+    response = requests.post(rest_url, data=data_json, headers=headers)
+    if response.status_code == requests.codes.ok:
+        logger.info("Uploading %s completed successfully", \
+            sample_path)
+        logger.info("JSON request was %s", data_json)
+        logger.info("Response was %s", response.status_code)
+        return True
+    else:
+        logger.error("Uploading %s completed failed", sample_path)
+        sys.exit(1)
+
+def get_lib_list(fastq_data):
+    """Get the 10xGenomix library list
+    """
+    lib_list = set()
+    for lib in fastq_data:
+        name = os.path.basename(lib).split('-')[0]
+        lib_list.add(name)
+    return lib_list
 
 def main():
     """main function"""
@@ -71,9 +109,9 @@ def main():
     else:
         rest_url = rest_services['sra_upload']['production']
         logger.info("send status to production server")
-    email = "rpd@gis.a-star.edu.sg"
+    email = email_for_user()
     if args.lib_id:
-        lib_upload_status = False
+        status = False
     with open(confinfo) as fh_cfg:
         yaml_data = yaml.safe_load(fh_cfg)
         assert "run_num" in yaml_data
@@ -85,50 +123,39 @@ def main():
             sys.exit(1)
         for k, v in yaml_data["units"].items():
             if k == "Project_{}".format(args.mux_id):
-                data = {}
-                req = {}
-                req_code = {}
                 mux_dir = v.get('mux_dir')
                 mux_id = v.get('mux_id')
                 bcl_success = os.path.join(args.out_dir, "out", mux_dir, "bcl2fastq.SUCCESS")
                 if os.path.exists(bcl_success):
-                    logger.info("Bcl2fastq completed for %s hence Upload the STATs", mux_dir)
+                    logger.info("Bcl2fastq completed for %s hence submit SRA jobs", mux_dir)
                     for child in os.listdir(os.path.join(args.out_dir, "out", mux_dir)):
-                        if child.startswith('Sample'):
+                        if child.startswith('Sample_'):
                             sample_path = os.path.join(args.out_dir, "out", mux_dir, child)
                             fastq_data = glob.glob(os.path.join(sample_path, "*fastq.gz"))
                             # if FASTQ data exists
                             if len(fastq_data) > 0:
                                 libraryId = child.split('_')[-1]
                                 if args.lib_id and args.lib_id != libraryId:
-                                    continue
-                                data['libraryId'] = libraryId
-                                data['muxId'] = mux_id
-                                data['runId'] = run_num
-                                data['path'] = [sample_path]
-                                data['email'] = [email]
-                                req_code['reqCode'] = "SA-A002-009"
-                                req_code['SA-A002-009'] = data
-                                req['Request'] = req_code
-                                test_json = json.dumps(req)
-                                data_json = test_json.replace("\\", "")
-                                headers = {'content-type': 'application/json'}
-                                response = requests.post(rest_url, data=data_json, headers=headers)
-                                print(response.status_code)
-                                if response.status_code == requests.codes.ok:
-                                    logger.info("Uploading %s completed successfully", \
-                                        sample_path)
-                                    logger.info("JSON request was %s", data_json)
-                                    logger.info("Response was %s", response.status_code)
-                                    if args.lib_id:
-                                        lib_upload_status = True
-                                else:
-                                    logger.error("Uploading %s completed failed", sample_path)
-                                    sys.exit(1)
+                                    break
+                                status = sra_upload_req(libraryId, mux_id, run_num, sample_path, \
+                                    email, rest_url)
                             else:
                                 logger.error("There are no fastq file genereated for %s", \
                                     child)
-                    if args.lib_id and not lib_upload_status:
+                        else:
+                            continue
+                    #Check for 10xGenomix libraries
+                    fastq_data = glob.glob(os.path.join(args.out_dir, "out", mux_dir, "*fastq.gz"))
+                    if len(fastq_data) > 0:
+                        lib_list = get_lib_list(fastq_data)
+                        sample_path = os.path.join(args.out_dir, "out", mux_dir)
+                        for libraryId in lib_list:
+                            if args.lib_id and args.lib_id != libraryId:
+                                continue
+                            logger.info("Submit jobs for 10xGenomix samples " + libraryId)
+                            status = sra_upload_req(libraryId, mux_id, run_num, sample_path, \
+                                email, rest_url)
+                    if args.lib_id and not status:
                         logger.error("Libray %s data is not available. Please check the" \
                             " library name", args.lib_id)
                 else:
@@ -136,6 +163,6 @@ def main():
                     sys.exit(1)
 
 if __name__ == "__main__":
-    logger.info("STATS update starting")
+    logger.info("SRA update starting")
     main()
     logger.info("Successful program exit")

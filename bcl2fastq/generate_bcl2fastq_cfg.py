@@ -33,7 +33,7 @@ from pipelines import user_mail_mapper
 # WARNING changes here, must be reflected in bcl2fastq.py as well
 MuxUnit = namedtuple('MuxUnit', ['run_id', 'flowcell_id', 'mux_id', 'lane_ids',
                                  'mux_dir', 'barcode_mismatches', 'requestor_email',
-                                 'samplesheet', 'bcl2fastq_custom_args'])
+                                 'samplesheet', 'bcl2fastq_custom_args', 'tool'])
 
 __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
@@ -51,6 +51,7 @@ SAMPLESHEET_CSV = "*samplesheet.csv"
 MUXINFO_CFG = "muxinfo.yaml"
 STATUS_CFG = "status.txt"
 DEFAULT_BARCODE_MISMATCHES = None
+TOOL = "bcl2fastq"
 
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,' \
     'Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description'
@@ -157,6 +158,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
     non_mux_tech = False
     for rows in rest_data['lanes']:
         BCL_Mismatch = []
+        tool = []
         if 'requestor' in rows:
             requestor = rows['requestor']
             requestor_email = user_mail_mapper(requestor)
@@ -168,11 +170,13 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
             for child in rows['Children']:
                 if 'BCL_Mismatch' in child:
                     BCL_Mismatch.append(child['BCL_Mismatch'])
+                #No analysis required
                 if any(libtech in child['libtech'] for libtech in bcl2fastq_conf['non_bcl_tech']):
                     logger.info("send_mail: bcl not required for %s", rows['libraryId'])
                     email_non_bcl(rows['libraryId'], rest_data['runId'])
                     pass_bcl2_fastq = True
                     break
+                #Non-mux libraries like Sarah's
                 if any(libtech in child['libtech'] for libtech in bcl2fastq_conf['non_mux_tech']):
                     sample = rows['laneId']+',Sample_'+rows['libraryId']+','+rows['libraryId']+ \
                         '-NoIndex'+',,,,,,,'+'Project_'+rows['libraryId']+','+child['libtech']
@@ -181,6 +185,8 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
                     non_mux_tech = True
                     barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                     break
+                #tool info
+                tool = [v for k, v in bcl2fastq_conf['tool'].items() if k in child['libtech']]
                 if "-" in child['barcode']:
                     # dual index
                     index = child['barcode'].split('-')
@@ -196,7 +202,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
                 barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                 lib_list.setdefault(rows['libraryId'], []).append(sample)
         else:
-            #Non-mux library
+            #No analysis required
             if rows['libtech'] in bcl2fastq_conf['non_bcl_tech']:
                 logger.info("send_mail: bcl not required for %s", rows['libraryId'])
                 email_non_bcl(rows['libraryId'], rest_data['runId'])
@@ -207,6 +213,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
             lib_list.setdefault(rows['libraryId'], []).append(sample)
             index_lens = (-1, -1)
             barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
+            tool = [v for k, v in bcl2fastq_conf['tool'].items() if k in rows['libtech']]
         if pass_bcl2_fastq:
             continue
         #Barcode mismatch has to be the same for all the libraries in one MUX.
@@ -215,10 +222,14 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
             barcode_mismatches = BCL_Mismatch[0]
         else:
             barcode_mismatches = DEFAULT_BARCODE_MISMATCHES
+        if len(set(tool)) == 1:
+            tool_name = tool[0]
+        else:
+            tool_name = TOOL
         #Check adpter trimming
         if 'trimadapt' in rows and rows['trimadapt']:
-            lib_list.setdefault(rows['libraryId'], []).append('[Settings]')
             adapt_seq = rows.get('adapterseq').split(',')
+            lib_list.setdefault(rows['libraryId'], []).append('[Settings]')
             for seq in adapt_seq:
                 reads = seq.split(':')
                 if reads[0].strip() == "Read 1":
@@ -231,7 +242,8 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
         create_index = False
         if 'indexreads' in rows and rows['indexreads']:
             create_index = True
-        usebases, readLength_list = generate_usebases(barcode_lens, runinfo, create_index, non_mux_tech, rows['libraryId'])
+        usebases, readLength_list = generate_usebases(barcode_lens, runinfo, create_index, \
+            non_mux_tech, rows['libraryId'])
         use_bases_mask = " --use-bases-mask " + rows['laneId'] + ":" + usebases[rows['laneId']]
         bcl2fastq_custom_args = use_bases_mask
         if 'indexreads' in rows and rows['indexreads']:
@@ -249,7 +261,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
             bcl2fastq_custom_args += param_b
         mu = MuxUnit._make([run_id, flowcellid, rows['libraryId'], [rows['laneId']], \
             'Project_'+ rows['libraryId'], barcode_mismatches, requestor_email, samplesheet, \
-            [bcl2fastq_custom_args]])
+            [bcl2fastq_custom_args], tool_name])
         # merge lane into existing mux if needed
         if mu.mux_id in mux_units:
             mu_orig = mux_units[mu.mux_id]
@@ -272,7 +284,11 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
             with open(csv, 'w') as fh_out:
                 fh_out.write(SAMPLESHEET_HEADER + '\n')
                 for each in value:
-                    fh_out.write(each+ '\n')
+                    fh_out.write(str(each)+ '\n')
+                fh_out.write('[Reads]' + '\n')
+                for reads in readLength_list:
+                    fh_out.write(str(reads) + '\n')
+
         return True
     else:
         return False
