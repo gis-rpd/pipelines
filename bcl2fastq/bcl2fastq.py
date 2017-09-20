@@ -37,7 +37,7 @@ from pipelines import get_cluster_cfgfile
 from pipelines import default_argparser
 from config import site_cfg
 from utils import generate_timestamp
-from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, USEBASES_CFG, MuxUnit
+from generate_bcl2fastq_cfg import MUXINFO_CFG, SAMPLESHEET_CSV, MuxUnit, STATUS_CFG
 
 
 __author__ = "Andreas Wilm"
@@ -72,7 +72,6 @@ def get_mux_units_from_cfgfile(cfgfile, restrict_to_lanes=None):
     across multiple lanes the info will be preserved, but might get
     swallowed late if the mux dir should be used as key
     """
-
     mux_units = []
     with open(cfgfile) as fh_cfg:
         for entry in yaml.safe_load(fh_cfg):
@@ -136,12 +135,12 @@ def get_bcl2fastq_outdir(runid_and_flowcellid):
 
 
 
-def seqrunfailed(mongo_status_script, run_num, outdir, testing):
-    """FIXME:add-doc
+def update_run_status(mongo_status_script, run_num, outdir, status, testing):
+    """Update run status in the mongoDB
     """
-    logger.info("Setting analysis for %s to %s", run_num, "SEQRUNFAILED")
+    logger.info("Setting analysis for %s to %s", run_num, status)
     analysis_id = generate_timestamp()
-    mongo_update_cmd = [mongo_status_script, "-r", run_num, "-s", "SEQRUNFAILED"]
+    mongo_update_cmd = [mongo_status_script, "-r", run_num, "-s", status]
     mongo_update_cmd.extend(["-a", analysis_id, "-o", outdir])
     if testing:
         mongo_update_cmd.append("-t")
@@ -285,42 +284,25 @@ def main():
 
     # just created files
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
-    samplesheet_csv = os.path.join(outdir, SAMPLESHEET_CSV)
-    usebases_cfg = os.path.join(outdir, USEBASES_CFG)
+    status_cfg = os.path.join(outdir, STATUS_CFG)
 
     # NOTE: signal for failed runs is exit 0 from generate_bcl2fastq and missing output files
     #
-    if any([not os.path.exists(x) for x in [muxinfo_cfg, samplesheet_csv, usebases_cfg]]):
+    if any([not os.path.exists(x) for x in [muxinfo_cfg]]):
         # one missing means all should be missing
-        assert all([not os.path.exists(x) for x in [muxinfo_cfg, samplesheet_csv, usebases_cfg]])
-        seqrunfailed(mongo_status_script, run_num, outdir, args.testing)
+        assert all([not os.path.exists(x) for x in [muxinfo_cfg]])
+        #Check status as seqrunfailed or non-bcl run
+        with open(status_cfg, 'r') as fh:
+            status = fh.read().strip()            
+        update_run_status(mongo_status_script, run_num, outdir, status, args.testing)
         sys.exit(0)
 
 
     # turn arguments into cfg_dict that gets merged into pipeline config
     cfg_dict = {'rundir': rundir,
                 'lanes_arg': lane_info,
-                'samplesheet_csv': os.path.relpath(samplesheet_csv, outdir),
                 'no_archive': args.no_archive,
                 'run_num': run_num}
-
-
-    usebases_arg = ''
-    with open(usebases_cfg, 'r') as stream:
-        try:
-            d = yaml.load(stream)
-            assert 'usebases' in d
-            assert len(d) == 1# make sure usebases is only key
-            for ub in d['usebases']:
-                #print (ub)
-                usebases_arg += '--use-bases-mask {} '.format(ub)
-            #cfg_dict = {'usebases_arg' : usebases_arg}
-        except yaml.YAMLError as exc:
-            logger.fatal(exc)
-            raise
-    cfg_dict['usebases_arg'] = usebases_arg
-    os.unlink(usebases_cfg)
-
 
     mux_units = get_mux_units_from_cfgfile(muxinfo_cfg, lane_nos)
     if args.mismatches is not None:
@@ -336,7 +318,7 @@ def main():
         k = mu.mux_dir
         mu_dict = dict(mu._asdict())
         cfg_dict['units'][k] = mu_dict
-
+ 
     # create mongodb update command, used later, after submission
     mongo_update_cmd = "{} -r {} -s STARTED".format(mongo_status_script, cfg_dict['run_num'])
     mongo_update_cmd += " -a $ANALYSIS_ID -o {}".format(outdir)# set in run.sh

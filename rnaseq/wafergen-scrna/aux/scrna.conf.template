@@ -18,7 +18,7 @@ reference_genome_idx = {star_idx}
 
 [MainAnalysis]
 no_CounTing = False
-no_dedup = False
+no_dedup = {no_dedup}
 skip_unassigned = True
 implementation = gene 
 annotation_file = {rnaseqc_annotation}

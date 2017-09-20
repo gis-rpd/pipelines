@@ -72,6 +72,14 @@ def main():
     #/
     parser.add_argument('-c', "--cell-barcodes", required=True,
                         help="File listing cell barcodes")
+    d = 200
+    parser.add_argument("--frag-len", default=d, type=int,
+                        help="Estimated fragment length (default={})".format(d))
+    d = 20.0
+    parser.add_argument('--frag-len-sd', default=d, type=float,
+                        help="Estimated fragment length standard deviation (default={})".format(d))
+    parser.add_argument('--no-dedup', action="store_true",
+                        help="Skip UMI-based deduplication (can be slow)")
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -99,7 +107,7 @@ def main():
                          " Use one or the other")
             sys.exit(1)
         if not os.path.exists(args.sample_cfg):
-            logger.fatal("Config file %s does not exist", args.sample_cfg)
+            logger.fatal("Config file '%s' does not exist", args.sample_cfg)
             sys.exit(1)
         samples, readunits = get_samples_and_readunits_from_cfgfile(args.sample_cfg)
     else:
@@ -123,13 +131,21 @@ def main():
     cfg_dict = dict()
     cfg_dict['readunits'] = readunits
     cfg_dict['samples'] = samples
-    
-    cfg_dict['cell_barcodes'] = args.cell_barcodes
+
+    if not os.path.exists(args.cell_barcodes):
+        logger.fatal("Cellular barcodes file '%s' does not exist", args.cell_barcodes)
+        sys.exit(1)
+        
+    cfg_dict['cell_barcodes'] = os.path.abspath(args.cell_barcodes)
+    cfg_dict['frag_len'] = args.frag_len
+    cfg_dict['frag_len_sd'] = args.frag_len_sd
+    cfg_dict['no_dedup'] = args.no_dedup
     cfg_dict['scrnapipe_transform'] = os.path.abspath(os.path.join(
         PIPELINE_BASEDIR, 'aux/transform.json'))
     cfg_dict['scrna_conf_template'] = os.path.abspath(os.path.join(
         PIPELINE_BASEDIR, 'aux/scrna.conf.template'))
-
+    cfg_dict['adapters'] = os.path.abspath(os.path.join(
+        PIPELINE_BASEDIR, 'aux/adapters.fa'))
 
 
     pipeline_handler = PipelineHandler(

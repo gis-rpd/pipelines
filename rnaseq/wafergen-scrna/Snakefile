@@ -39,12 +39,14 @@ rule final:
         #       sample=['RHH5647'], unit=['501a2ac9', 'ff9437af']),
         #expand(os.path.join(RESULT_OUTDIR, "{sample}/scrnapipe/Reports/FinalReport.html"),
         #       sample=['RHH5647'])
-        #expand(os.path.join(RESULT_OUTDIR, '{sample}/bamtag/{sample}_R2_dedup.tagsplit.COMPLETE'),
+        #expand(os.path.join(RESULT_OUTDIR, '{sample}/bamtag/{sample}_R2.tagsplit.COMPLETE'),
         #       sample=['RHH5647'])    
-        expand(os.path.join(RESULT_OUTDIR, '{sample}/bamtag/{sample}_R2_dedup.tagsplit.rnaseqqc.COMPLETE'),
-               sample=['RHH5647']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/bamtag/{sample}_R2.tagsplit.rnaseqqc.COMPLETE'),
+               sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/kallisto/abundance.tsv'),
-               sample=['RHH5647']),
+               sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/cb-histogram.txt'),
+               sample=config['samples']),
         report="report.html",
 
 
@@ -52,15 +54,18 @@ rule read_qc:
     input:
         fq1 = lambda wc: config['readunits'][wc.unit]['fq1'],
         fq2 = lambda wc: config['readunits'][wc.unit]['fq2'],
+        adapters = config['adapters']
     output:
         fq1 = "{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair1.fastq.gz",
         fq2 = "{prefix}/{sample}/reads/trimmed/{unit}-trimmed-pair2.fastq.gz"
+    benchmark:
+        "{prefix}/{sample}/reads/trimmed/{unit}-trimmed.read_qc.benchmark.log"        
     log:
         "{prefix}/{sample}/reads/trimmed/{unit}-skewer.log"
     #message:
     #    "Running QC (trimming and filtering) on input reads"
     threads:
-        4
+        8
     #conda:
     params:
         endqual = 25,
@@ -68,10 +73,9 @@ rule read_qc:
         filter_many_ns_arg = "-n",
     shell:
         # skewer cannot read from stream so needs to be run per pair
-        # FIXME where does -x adapters as provided by Justin come from?
         "{{ "
         "outprefix=$(echo {output.fq1} | sed -e 's,-trimmed-pair1.fastq.gz,,');"
-        "skewer --quiet -t {threads} -m pe -q {params.endqual} {params.filter_many_ns_arg}"
+        "skewer --quiet -t {threads} -m pe -x {input.adapters} -q {params.endqual} {params.filter_many_ns_arg}"
         " -l {params.minlen} -z -o $outprefix {input.fq1} {input.fq2};"
         " }} >& {log}"
 
@@ -87,6 +91,8 @@ rule combine_trim:
     output:
         fq1 = "{prefix}/{sample}/reads/R1.fastq.gz",
         fq2 = "{prefix}/{sample}/reads/R2.fastq.gz"
+    benchmark:
+        "{prefix}/{sample}/reads/R.combine_trim.benchmark.log"
     log:
         "{prefix}/{sample}/reads/combine.log"
     message:
@@ -117,19 +123,22 @@ rule scrnapipe:
         gene_list = config['references']['gene_map_id'],
         config_template = config['scrna_conf_template']
     output:
-        cfg = '{prefix}/scrnapipe/scrnapipe.config',
         sample_barcodes = '{prefix}/scrnapipe/sample_barcodes.txt',
         subread_summary = '{prefix}/scrnapipe/Reports/Log_reports/fCfiles.summary',
         multiqc_report = '{prefix}/scrnapipe/Reports/FinalReport.html',
         expr_matrix = '{prefix}/scrnapipe/Results/gene_ExpressionMatrix.csv',
         fastqc = '{prefix}/scrnapipe/Reports/QCreports/R2_fastqc.html',
         stats = '{prefix}/scrnapipe/Reports/SummarisedStats.csv',
-        dedup_bam = '{prefix}/scrnapipe/Aligned_files/R2_dedup.bam',# NOTE depends on dedup config value!
+        bam = '{prefix}/scrnapipe/Aligned_files/R2.bam',# just a symlink. real name depends on dedup config value
         proc_fastq = '{prefix}/scrnapipe/Processed_data/R2.fastq.gz'
+    benchmark:
+        '{prefix}/scrnapipe.benchmark.log'
     params:
-        outdir = '{prefix}/scrnapipe'
+        outdir = '{prefix}/scrnapipe',
+        cfg = '{prefix}/scrnapipe/scrnapipe.config'
     threads:
-        2# IO dominated
+        16
+        # IO dominates for smaller samples, but too slow for large samples with 2
     log:        
         '{prefix}/scrnapipe/log.txt',
     run:
@@ -140,28 +149,50 @@ rule scrnapipe:
              'star_idx': config['references']['star_idx'],
              'rnaseqc_annotation': config['references']['rnaseqc_annotation'],
              'gene_map_id': config['references']['gene_map_id'],
+             'no_dedup': config['no_dedup'],
              'fq1': input.fq1,
              'fq2': input.fq2,
-             'outdir': os.path.dirname(output.cfg)}
+             'outdir': os.path.dirname(params.cfg)}
         with open(input.config_template) as fh:
             templ = fh.read()
-        with open(output.cfg, 'w') as fh:
+        with open(params.cfg, 'w') as fh:
             fh.write(templ.format(**d))
         with open(output.sample_barcodes, 'w') as fh:
             fh.write("1\n")# 1 == NoIndex
-        shell('scRNApipe {output.cfg} >& {log}')
+        shell('scRNApipe {params.cfg} >& {log}')
+
+        if config['no_dedup']:
+            src = os.path.basename(output.bam).replace(".bam", "Aligned.sortedByCoord.out.bam")
+        else:
+            src = os.path.basename(output.bam).replace(".bam", "_dedup.bam")
+        os.symlink(src, output.bam)
+
+        
+rule histogram_and_counts:
+    input:
+        fq2 = '{prefix}/{sample}/scrnapipe/Processed_data/R2.fastq.gz'
+    output:
+        cbhist = '{prefix}/{sample}/cb-histogram.txt',
+        mbhist = '{prefix}/{sample}/mb-histogram.txt'
+    benchmark:
+        '{prefix}/{sample}/histogram_and_counts.benchmark.log'
+    log:
+        '{prefix}/{sample}/histogram.log'
+    shell:
+        "umis cb_histogram --umi_histogram {output.mbhist} {input.fq2} >{output.cbhist} 2>{log}"
         
 
-localrule: bamtag_split
+localrules: bamtag_split
 rule bamtag_split:
     """adds cellular barcode tag in the scRNApipe output bam file. splits the
     bam into individual barcode based bam file"""
     input:
-        # FIXME why needed? matrix = '{prefix}/gene_Expressionmatrix.csv',
-        bam = '{prefix}/{sample}/scrnapipe/Aligned_files/R2_dedup.bam'
+        bam = '{prefix}/{sample}/scrnapipe/Aligned_files/R2.bam'
     output:
-        taggedbam = '{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagged.bam',
-        splitflag = touch('{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagsplit.COMPLETE')
+        taggedbam = '{prefix}/{sample}/bamtag/{sample}_R2.tagged.bam',
+        splitflag = touch('{prefix}/{sample}/bamtag/{sample}_R2.tagsplit.COMPLETE')
+    benchmark:
+         '{prefix}/{sample}/bamtag/{sample}_R2.tag.bamtag_split.benchmark.log'
     params:
         center = config.get("center", "GIS"),
         platform = config.get("platform", "Illumina"),
@@ -178,13 +209,15 @@ rule bamtag_split:
 
 rule rnaseqqc:
     input:
-        taggedbam = '{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagged.bam',# just trigger, not actually input
+        taggedbam = '{prefix}/{sample}/bamtag/{sample}_R2.tagged.bam',# just trigger, not actually input
         reffa = config['references']['genome'],
         gtf = config['references']['rnaseqc_annotation']
     output:
-        flag = touch('{prefix}/{sample}/bamtag/{sample}_R2_dedup.tagsplit.rnaseqqc.COMPLETE')
+        flag = touch('{prefix}/{sample}/bamtag/{sample}_R2.tagsplit.rnaseqqc.COMPLETE')
+    benchmark:
+        '{prefix}/{sample}/bamtag/{sample}_R2.tagsplit.rnaseqqc.benchmark.log'
     threads:
-        2
+        4
     params:
         # FIXME what's the rationale for these numbers?
         min_num_reads = 10,
@@ -229,9 +262,11 @@ rule kallisto:
         kallistobam = '{prefix}/kallisto/kallisto.bam',
         kallistotagcount= '{prefix}/kallisto/kallisto.tagcount.txt',
         abundance = '{prefix}/kallisto/abundance.tsv'
+    benchmark:
+        '{prefix}/kallisto.benchmark.log'
     params:
-        est_frag_len = 200,# FIXME can we guess this from existing bam?
-        frag_len_sd = 20# FIXME can we guess this from existing bam?
+        est_frag_len = config['frag_len'],
+        frag_len_sd = config['frag_len_sd']
     log:
         '{prefix}/kallisto.log'
     threads:
