@@ -4,8 +4,8 @@
 BED_FOR_REGION_TEMPLATE = os.path.join(RESULT_OUTDIR, "region_cluster.{ctr}.bed")
 
 
-assert "references" in config
-assert "region_clusters" in config["references"]
+assert "references" in config, ("references not in config")
+assert "region_clusters" in config["references"], ("region_clusters not in config['references']")
 
 
 rule prep_bed_files:
@@ -39,8 +39,7 @@ rule prep_bed_files:
                 for region in config["references"]["region_clusters"][ctr]:
                     r_sq, r_startend = region.split(":")
                     r_start, r_end = [int(x) for x in r_startend.split("-")]
-                    r_start -= 1
-                    assert r_start >= 0 and r_end > r_start
+                    assert r_start >= 0 and r_end > r_start, ("region {} malformed".format(region))
                     fh.write("{}\t{}\t{}\n".format(r_sq, r_start, r_end))
             # if the user provided a bed file intersect with it
             if config['intervals']:

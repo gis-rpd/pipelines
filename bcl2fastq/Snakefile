@@ -4,6 +4,7 @@ import os
 from math import ceil
 from getpass import getuser
 import glob
+import shutil
 
 # third party imports
 #
@@ -225,30 +226,40 @@ rule bcl2fastq:
     input: 
         samplesheet = lambda wildcards: config['units'][wildcards.muxdir]['samplesheet']
     output:
-        flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS"),
+        flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS")
     log:
         os.path.join(RESULT_OUTDIR, "{muxdir}.log")
     message:
         "Running bcl2fastq/Demultiplexing"
     threads: 12
     params:
-        #bcl2fastq_custom_args = lambda wildcards: config['units'][wildcards.muxdir]['bcl2fastq_custom_args'],
         bcl2fastq_custom_args = lambda wildcards: ''.join(["{}".format(bcl2fastq_custom_args) for bcl2fastq_custom_args in config['units'][wildcards.muxdir]['bcl2fastq_custom_args']]),
         barcode_mismatches = barcode_mismatch_arg_for_mux,
-        tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1]
+        tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1],
+        tool = lambda wildcards: config['units'][wildcards.muxdir]['tool']
     run:
-        res_dir = os.path.dirname(output.flag)
-        cmd = "bcl2fastq --runfolder-dir {config[rundir]} --output-dir %s" % RESULT_OUTDIR
-        cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir)
-        cmd += " {}".format(params.bcl2fastq_custom_args)
-        cmd += " --sample-sheet {input.samplesheet}"
-        cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
-        cmd += " %s" % bcl2fastq_threads_setting(threads)
-        cmd += " >& {log}"
-        shell(cmd)
-        shell("touch {output.flag}")
+        if params.tool == "bcl2fastq":
+            res_dir = os.path.dirname(output.flag)
+            cmd = "bcl2fastq --runfolder-dir {config[rundir]} --output-dir %s" % RESULT_OUTDIR
+            cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir)
+            cmd += " {}".format(params.bcl2fastq_custom_args)
+            cmd += " --sample-sheet {input.samplesheet}"
+            cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
+            cmd += " %s" % bcl2fastq_threads_setting(threads)
+            cmd += " >& {log}"
+            shell(cmd)
+            shell("touch {output.flag}")
+        elif params.tool == "10xGenomics":
+            #Check for re-analysis
+            flowcell_id = config['units'][wildcards.muxdir]['flowcell_id']
+            if os.path.exists(flowcell_id[1:]):
+                shutil.rmtree(flowcell_id[1:])
+            cmd = "cellranger mkfastq --run={config[rundir]} --output-dir=%s" % RESULT_OUTDIR
+            cmd += " --samplesheet {input.samplesheet}"
+            cmd += " >& {log}"
+            shell(cmd)
+            shell("touch {output.flag}")
           
-
 rule fastqc:
     """fastqc per muxdir. note: this will not make full use of
     parallelization of many subdirs exist simply because we don't keep
