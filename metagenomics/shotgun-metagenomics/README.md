@@ -7,18 +7,27 @@ first step is trims adapters and low-quality bases by using
 Skewer. Reads are then decontaminated against reference specified in
 the config file (default: human). Then, several metagenomics profilers
 (default: Kraken and Metaphlan2) and a pathway analysis with HUMAnN2
-is performed. Results aggregated over all input samples.
+is performed. Results aggregated over all input samples. In addition
+resistance gene typing results are produced with SRST2.
 
 This pipeline was originally developed by
 [Chenhao Li](https://github.com/orgs/CSB5/people/lch14forever) (see
-[Github repository](https://github.com/CSB5/shotgun-metagenomics-pipeline)).
+[Github repository](https://github.com/CSB5/shotgun-metagenomics-pipeline)). The
+SRST2 logic was added by KOH Jia Yu (Jayce).
+
 
 ## Output
 
 The following lists the main output files
 
 - `{sample}/reads/all-trimmed-decont_[12].fastq.gz` is the (if
-  needed concatenated,) quality trimmed and decontaminated read pair
+ needed concatenated,) quality trimmed and decontaminated read pair
+- `{sample}/reads/counts.txt`: read counts after trimming and after
+ decontamination
+- `{sample}/srst2/{sample}__genes__{db}__results.txt` and 
+- `{sample}/srst2/{sample}__fullgenes__{db}__results.txt`: SRST2
+   resistance gene typing results (see
+  [SRST2 documentation](https://github.com/katholt/srst2#gene-typing))
 - `merged_table_{profiler}/{tax}.{profiler}.profile_merged.tsv` where
   `profiler` can be `kraken` or `metaphlan2` and `tax` is a one-letter
   abbreviation for taxonomic rank (e.g. `g` for genus). Please note

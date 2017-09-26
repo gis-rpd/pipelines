@@ -28,7 +28,7 @@ SUMMARY_KEYS = ["raw total sequences:",
 ETHNICITIES = ['CHS', 'INS', 'MAS']
 MAX_CONT = 0.01999999
 MIN_DEPTH = 13.95
-MIN_COV_SOP = 15
+MIN_COV_SOP = 14.95
 
 
 
@@ -127,6 +127,7 @@ def main(conf_yamls, num_expected):
         fmtintcomma = workbook.add_format({'num_format': '###,###,###,###0'})
         fmt00 = workbook.add_format({'num_format': '0.0'})
         fmt00000 = workbook.add_format({'num_format': '0.0000'})
+        fmt000 = workbook.add_format({'num_format': '0.0'})
 
         worksheet.set_row(0, None, fmtheader)
         worksheet.set_column('B:B', 20, fmtintcomma)
@@ -134,7 +135,7 @@ def main(conf_yamls, num_expected):
         worksheet.set_column('F:H', None, fmt00)
         worksheet.set_column('E:E', None, fmt00000)
         worksheet.set_column('I:K', None, fmt00000)
-        worksheet.set_column('L:L', 20, fmtintcomma)# qc
+        worksheet.set_column('L:L', None, fmt000)# qc
         format1 = workbook.add_format({'bold': 1, 'italic': 1, 'font_color': '#FF0000'})
         worksheet.conditional_format('H2:H100',
                                      {'type':     'cell',

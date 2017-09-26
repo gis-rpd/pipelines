@@ -21,6 +21,14 @@ assemblies and also against the user-provided reference with
 BWA-MEM. Finally variants are called with LoFreq. A plot showing
 coverage and SNP allele frequency is produced for all three mappings.
 
+### On assembly quality
+
+This pipeline runs two assemblers, because neither one is clearly the
+best. One way to judge the quality is to look at the coverage and SNP
+plots created in the mapping and variant calling steps (see below for
+file names). Higher coverage and fewer SNPs (especially those with
+frequencies >50%) means a better assembly.
+
 
 ## Output
 
@@ -38,6 +46,7 @@ coverage and SNP allele frequency is produced for all three mappings.
 `method` is either `tadpole` or `spades` (and also `input-ref` for
 mapping). The mapping folders contain the corresponding reference as
 `ref.fa` symlink.
+
 
 ## References
 

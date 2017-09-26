@@ -46,9 +46,9 @@
 
 DEBUG=${{DEBUG:-0}}
 RESTARTS=${{RESTARTS:-{DEFAULT_RESTARTS}}}
-#export DRMAA_LIBRARY_PATH=
-#DRMAA_OFF=${{DRMAA_OFF:-0}}
-DRMAA_OFF=1
+export DRMAA_LIBRARY_PATH=/app/pbs-drmaa/pbs_dramaa_fix/drmaa/lib/libdrmaa.so
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/app/pbs-drmaa/pbs_dramaa_fix/pbs_exec/lib:/app/pbs-drmaa/pbs_dramaa_fix/drmaa/lib
+DRMAA_OFF=${{DRMAA_OFF:-0}}
 LOCAL_CORES=${{LOCAL_CORES:-1}}
 DEFAULT_SLAVE_Q={DEFAULT_SLAVE_Q}
 LOCAL_MASTER=${{LOCAL_MASTER:-0}}
@@ -77,7 +77,7 @@ if [ "$ENVIRONMENT" == "BATCH" ] || [ $LOCAL_MASTER -eq 1 ]; then
         #clustercmd="--cluster \"qsub $clustercmd\""
 	    clustercmd="--cluster-sync \"qsub -Wblock=true $clustercmd\""
     else
-        clustercmd="--drmaa \" $clustercmd -w n\""
+        clustercmd="--drmaa \" $clustercmd\""
     fi
     CLUSTER_ARGS="--cluster-config cluster.yaml $clustercmd --jobname \"{PIPELINE_NAME}.slave.{{rulename}}.{{jobid}}.sh\""
     N_ARG="--jobs 25"

@@ -48,7 +48,9 @@ rule final:
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.{race}.selfSM'),
                race=config['references']['cont_vcfs'], sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
-               sample=config['samples']),
+               sample=config['samples']), 
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qbinned.cram'),
+               sample=config['samples']), 
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qc-062017.txt'),
@@ -110,11 +112,22 @@ rule bam_to_cram:
     #conda:
     #    "env.yaml"
     shell:
-        # FIXME might break others
-        # BAMUTILS = '/home/users/astar/gis/gisshared/rpd/apps.testing/bamUtil-1.0.14-33-gba44ffc-NonPrimaryDedup/bin/bam'
-        "{BAMUTILS_CUSTOM_BINNING} squeeze --in {input.bam} --out -.ubam {params.bin_arg} |"
-        "samtools view -C -T {input.reffa} -@ {threads} -o {output.cram} - >& {log}"
-        
+        "module load bamutil/1.0.14-33-nonprimdup;"
+        " bam squeeze --in {input.bam} --out -.ubam {params.bin_arg} |"
+        "samtools view -C -T {input.reffa} -@ {threads} -o {output.cram} - >& {log}"        
+
+
+localrules: cram_index        
+rule cram_index:
+    input:
+        cram = '{prefix}.qbinned.cram',
+    output:
+        crai = '{prefix}.qbinned.cram.crai'
+    message:
+        "Indexing {input.cram}"
+    shell:
+        "samtools index {input.cram};"
+
         
 rule contamination_check:
     input:
