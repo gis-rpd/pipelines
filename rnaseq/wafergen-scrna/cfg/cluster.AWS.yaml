@@ -1,0 +1,25 @@
+{
+    # match short queue
+    "__default__":
+    {
+      "time" : "02:00:00",
+      "mem" : 1G,
+    },
+    "scrnapipe":
+    {
+      "time" : "72:00:00",
+      "mem" : 36G,
+    },
+    "rnaseqqc":
+    {
+      "time" : "04:00:00",
+      "mem" : 16G,
+    },      
+    "kallisto":
+    {
+      "time" : "04:00:00",
+      "mem" : 8G,
+    },      
+}
+
+

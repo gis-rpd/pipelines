@@ -10,10 +10,12 @@ analysis.
 In a first step reads are quality trimmed and adapter sequences are
 removed (both achieved with Skewer).  Reads are then further processed
 by the umis package (facilitated by scRNApipe). The preprocessed reads
-are aligned by two different methods 1. with STAR against the given
-reference genome and 2. with Kallisto against the transcripts.  The mapped
-BAM files from STAR aligner are deduplicated (user option) and
-metafeatures (genes) are counted using featurecounts. The
+are aligned by two different methods
+1. with STAR against the given reference genome and
+2. with Kallisto against the transcripts.
+
+The mapped BAM files from STAR aligner are deduplicated (user option) and
+meta-features (genes) are counted using featurecounts. The
 pseudo-aligned reads with transcripts are counted by unique UMI
 (gene-UMI). The analysis provides the expression matrix of genes and
 transcripts for cell barcodes.

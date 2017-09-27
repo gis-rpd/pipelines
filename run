@@ -26,7 +26,8 @@ if os.path.exists(disabled_pipeline_cfg):
             disabled_pipelines.append(line.strip())
 #sys.stderr.write("DEBUG disabled = {}\n".format(disabled_pipelines))
 
-SCRIPTS = ['chromatin-profiling/chipseq/chipseq.py',
+SCRIPTS = ['chromatin-profiling/atacseq/atacseq.py',
+           'chromatin-profiling/chipseq/chipseq.py',
            'custom/SG10K/SG10K.py',
            'germs/vipr/vipr.py',
            'mapping/BWA-MEM/BWA-MEM.py',

@@ -4,5 +4,6 @@ samblaster: 0.1.22
 samtools: 1.3
 verifybamid: 1.1.2
 datamash: 1.1.0
-sg10k-cov: 062017
+sg10k-cov: '062017'
+
 
