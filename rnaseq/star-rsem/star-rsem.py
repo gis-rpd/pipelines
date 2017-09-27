@@ -126,11 +126,9 @@ def main():
     cfg_dict = dict()
     cfg_dict['readunits'] = readunits
     cfg_dict['samples'] = samples
+    cfg_dict['rsem_extra_args'] = ''
     if args.rsem_estimate_rspd:
-        if 'rsem_extra_args' in cfg_dict:
-            cfg_dict['rsem_extra_args'] += ' --estimate-rspd'
-        else:
-            cfg_dict['rsem_extra_args'] = '--estimate-rspd'
+        cfg_dict['rsem_extra_args'] += ' --estimate-rspd'
     cfg_dict['stranded'] = args.stranded
     cfg_dict['run_cuffdiff'] = args.run_cuffdiff
     cfg_dict['paired_end'] = any(ru.get('fq2') for ru in readunits.values())

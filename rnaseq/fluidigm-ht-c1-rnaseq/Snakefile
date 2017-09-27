@@ -311,7 +311,8 @@ rule star_mapping:
         alignIntronMax = 1000000,
         alignMatesGapMax = 1000000,
         limitBAMsortRAM = 20016346648
-    threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
+    threads:
+        16# SY says 24 optimal on aquila. 16 more conservative RE mem
     run:
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as fh:
             commentsheader = fh.name
@@ -329,8 +330,8 @@ rule star_mapping:
             
             outpref = bam.replace("Aligned.sortedByCoord.out.bam", "")
             cmd = "STAR --genomeDir {}".format(input.staridx)
-            cmd += " --outSAMattrRGline ID:{}\tPL:{}\tLB:{}\tSM:{}\tCN:{params.center}".format(
-                rg_id, params.platform, params.lib_id, params.sample)
+            cmd += " --outSAMattrRGline ID:{}\tPL:{}\tLB:{}\tSM:{}\tCN:{}".format(
+                rg_id, params.platform, params.lib_id, params.sample, params.center)
             cmd += " --outSAMheaderCommentFile {}".format(commentsheader)
             cmd += " --runThreadN {threads}"
             cmd += " --readFilesCommand zcat"

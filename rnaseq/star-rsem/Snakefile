@@ -251,6 +251,8 @@ rule wig2bigwig:
         gsizes = config['references']['genome'] + ".sizes"
     output:
         '{prefix}.bw'
+    #benchmark:
+    #    '{prefix}.json'
     shell:
         "wigToBigWig {input.wig} {input.gsizes} {output};"
     
