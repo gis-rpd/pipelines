@@ -1,0 +1,210 @@
+# standard library imports
+#
+import os
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+# /
+
+
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from readunits import fastqs_from_unit_as_list
+
+RESULT_OUTDIR = 'out'
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+include: "../../rules/logging.rules"
+include: "../../rules/samtools.rules"
+include: "../../rules/sambamba.rules"
+include: "../../rules/report.rules"
+
+
+localrules: final, report
+# translate macs2 directory name (which indicates peak mode as macs2-{key}) to actual peak arg.
+MACS2PEAK_TO_ARG = {
+    'narrow': "",
+    'broad': "--broad"
+}
+
+
+METHOD_PEAK_COMB = ["macs2-narrow", "macs2-broad"]
+rule final:
+    input:
+        macs2_bed = expand(
+            os.path.join(RESULT_OUTDIR, "{sample}/{methodpeak}/{sample}_extbp_seq.bed"),
+            sample=config['samples'],
+            methodpeak=METHOD_PEAK_COMB),
+        bws = expand(
+            os.path.join(RESULT_OUTDIR, "{sample}/{methodpeak}/{sample}_treat_pileup.bw"),
+            sample=config['samples'],
+            methodpeak=METHOD_PEAK_COMB),
+        stats = expand(
+            os.path.join(RESULT_OUTDIR, '{sample}/{sample}.%s.dedup.flt.bamstats/stats.txt' % config['mapper']),
+            sample=config['samples']),
+        stats_proc = expand(
+            os.path.join(RESULT_OUTDIR, '{sample}/{sample}.%s.bamstats/stats.txt' % config['mapper']),
+            sample=config['samples']),
+    
+
+def bowtie_fastq_arg(wc):
+    """Construct Bowtie Fastq args"""
+    fastq_arg = ""
+
+    # fastq list of lists
+    fastq_ll = [fastqs_from_unit_as_list(config['readunits'][unit])
+                for unit in config['samples'][wc.sample]]
+
+    assert len(set([len(x) for x in fastq_ll]))==1# making sure all PE or SE
+    if len(fastq_ll[0]) == 2:
+        sample_is_pe = True
+    else:
+        sample_is_pe = False
+        
+    z = list(zip(*fastq_ll))
+    if sample_is_pe:
+        fastq_arg = "-1 {} -2 {}".format(
+            ",".join(z[0]), ",".join(z[1]))
+    else:
+        fastq_arg = "-U {}".format(
+            ",".join(z[0]))
+    return fastq_arg
+
+
+def bowtie_fastq_in(wc):
+    """helper function"""
+    return [x.strip() for x in bowtie_fastq_arg(wc)[3:].replace(" -2 ", ", ").split(",")]
+
+
+
+rule bowtie:
+    input:
+        fastqs = bowtie_fastq_in, 
+        bowtie2index = os.path.splitext(config['references']['genome'])[0] + ".1.bt2",# incomplete but should do
+    output:
+        bam = temp('{prefix}/{sample}.bowtie2.bam'),
+    log:
+        '{prefix}/{sample}.bowtie2.log'
+    params:
+        # mark_short_splits = MARK_SHORT_SPLITS,
+        bowtie2_custom_args = config.get("bowtie2_custom_args", ""),
+        sort_mem = '250M',
+        rg_id = "1",
+        sample = lambda wc: wc.sample,
+        fragment_length = "-X {}".format(config['fragment_length']),
+        fastq_arg = bowtie_fastq_arg,
+        platform = config.get('platform', "Illumina"),
+        center = config.get('center', "GIS"),
+    threads:
+        8
+    shell:
+        "{{ bowtie2 -x $(echo {input.bowtie2index} | sed -e 's,.1.bt2,,') -t -p {threads}"
+        " --rg-id {params.rg_id} --rg '@RG\\tID:{params.rg_id}\\tPL:{params.platform}\\tSM:{params.sample}\\tCN:{params.center}'"
+        " {params.bowtie2_custom_args} {params.fastq_arg} {params.fragment_length} --no-mixed --no-discordant --no-unal |"
+        " samtools fixmate -O sam - - | "
+        " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -;"
+        " }} >& {log}"
+
+
+rule bam_filter:
+    input:
+        bam = "{prefix}.bam",
+        bai = "{prefix}.bam.bai"
+    output:
+        bam = "{prefix}.flt.bam"
+    params:
+        min_mq = "30",
+        incl_chr = config['references']['incl_chroms']
+    threads:
+        2
+    shell:
+        "samtools view -@ {threads} -F 0x400 -b -q {params.min_mq} -o {output.bam} {input.bam} {params.incl_chr}"
+
+
+rule macs2:
+    input:
+        bam = os.path.join(RESULT_OUTDIR, '{sample}/{sample}.%s.dedup.flt.bam' % config['mapper']),
+    output:
+        # all suffices predefined by macs2
+        peak_xls = '{outdir}/macs2-{peak}/{sample}_peaks.xls',
+        summits_bed = '{outdir}/macs2-{peak}/{sample}_summits.bed',
+        tbdg = temp('{outdir}/macs2-{peak}/{sample}_treat_pileup.bdg'),
+    log:
+        '{outdir}/macs2-{peak}.log'
+    params:
+        basename = lambda wc: wc.sample,
+        macs2_custom_args = config.get("macs2_custom_args", ""),
+        read_type_arg = '-f BAMPE --nolambda' if config['paired_end'] else "--shift {} --extsize {}".format(
+            config['shift'], config['extsize']),
+        peak_arg = lambda wc: MACS2PEAK_TO_ARG[wc.peak],
+        gsize = config["references"]["genomesize"],
+        call_summits_arg = lambda wc: "--call-summits" if wc.peak=='narrow' else ""
+    shell:
+        "{{ macs2 callpeak --treatment {input.bam}"
+        " --nomodel {params.call_summits_arg}"
+        " --gsize {params.gsize} --bdg {params.read_type_arg}"
+        " --keep-dup all"# we've marked dups already and want to avoid problems like https://github.com/taoliu/MACS/issues/78
+        " --outdir $(dirname {output.tbdg}) --name {params.basename}"
+        " {params.peak_arg} {params.macs2_custom_args} >& {log};"
+        # in default/narrow mode the bed file describes the 1bp summit
+        # which is $2+10 from narrowPeak. in --broad mode the bed file
+        # is missing (and so is $10 from the broadPeak file). so we
+        # create a bed-file, keeping the full peak range
+        #
+        #"test -e {output.summits_bed} || awk '{{d=$3-$2; mp=$2+int(d/2); printf \"%s\\t%d\\t%d\\t%s\\t%s\\n\", $1, mp, mp+1, $4, $9}}' $(ls $(dirname {output.tbdg})/*broadPeak) > {output.summits_bed};"
+        "test -e {output.summits_bed} || awk '{{printf \"%s\\t%d\\t%d\\t%s\\n\", $1, $2, $3, $9}}' $(ls $(dirname {output.tbdg})/*broadPeak) > {output.summits_bed}; }} >& {log}"
+        
+
+rule bdg_to_bw:
+    input:
+        bdg = "{prefix}.bdg",
+        genome_sizes = config['references']['genome'] + ".fai",
+    output:
+        bw = "{prefix}.bw",
+    log:
+        "{prefix}.bw.log"
+    message:
+        "Converting bedgraph to bigwig"
+    shell:
+        "{{ "
+        # convert bedgraph to bigwig
+        # getting 'bdg is not case-sensitive sorted at line 35.  Please use "sort -k1,1 -k2,2n" with LC_COLLATE=C,  or bedSort and try again.'
+        "tmp={input.bdg}.srt;"
+        # LC_COLLATE won't always work
+        "LC_ALL=C sort -k1,1 -k2,2n {input.bdg} > $tmp;"
+        "bedGraphToBigWig $tmp {input.genome_sizes} {output.bw};"
+        "rm -f $tmp;"
+        " }} >& {log}"
+
+rule macs2_peak_to_fasta:
+    input:
+        summits_bed = '{rootdir}/macs2-{peak}/{prefix}_summits.bed',# crutch
+        genome = config['references']['genome'],
+    output:
+        seqbed = "{rootdir}/macs2-{peak}/{prefix}_extbp_seq.bed",
+    params:
+        # peak extended += ext_bp_arg i.e. 2*ext_bp_arg in total
+        # +- 250bp as in Ma et al. (2014), doi:10.1038/nprot.2014.083
+        peak_ext_bp = "{}".format(config["peak_ext_bp"]),
+    log:
+        "{rootdir}/macs2-{peak}/{prefix}_extbp.log"
+    message:
+        "Converting MACS2 peaks to fasta"
+    shell:
+        # see also comments on chipseq pipeline
+        "{{ "
+        "peaks=$(ls $(echo {input.summits_bed} | sed -e 's,_summits.bed,,')_peaks.[nb]*Peak);"
+        " awk -v ext={params.peak_ext_bp} '{{if (NF==9) {{d=$3-$2; mp=$2+int(d/2); c=$1; s=$2-ext; e=$2+ext;}} else if (NF==10) {{c=$1; s=$2+$10-ext; e=$2+$10+1+ext}} else {{exit 1}} printf \"%s\\t%d\\t%d\\t%s\\n\", c, s<0 ? 0 : s, e, $4;}}' $peaks > {output.seqbed};"
+        " }} >& {log}"
+
+        
