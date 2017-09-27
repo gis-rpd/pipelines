@@ -74,10 +74,10 @@ def main():
                         help="Fragment length argument for Bowtie (default {})".format(default))
     default = 200
     parser.add_argument("--extsize", type=int, default=default,
-                        help="extsize argument for MACS2; only used for PE reads (default {})".format(default))
+                        help="extsize argument for MACS2; only used for single-end reads (default {})".format(default))
     default = -100
     parser.add_argument("--shift", type=int, default=default,
-                        help="shift argument for MACS2; only used for PE reads (default {})".format(default))
+                        help="shift argument for MACS2; only used for single-end reads (default {})".format(default))
     default = 250
     parser.add_argument("--peak-ext-bp", type=int, default=default,
                         help="Extension around peaks for bed creation (default {})".format(default))

@@ -99,7 +99,7 @@ rule bowtie:
         # mark_short_splits = MARK_SHORT_SPLITS,
         bowtie2_custom_args = config.get("bowtie2_custom_args", ""),
         sort_mem = '250M',
-        rg_id = "1",
+        rg_id = lambda wc: wc.sample,
         sample = lambda wc: wc.sample,
         fragment_length = "-X {}".format(config['fragment_length']),
         fastq_arg = bowtie_fastq_arg,
@@ -109,7 +109,7 @@ rule bowtie:
         8
     shell:
         "{{ bowtie2 -x $(echo {input.bowtie2index} | sed -e 's,.1.bt2,,') -t -p {threads}"
-        " --rg-id {params.rg_id} --rg '@RG\\tID:{params.rg_id}\\tPL:{params.platform}\\tSM:{params.sample}\\tCN:{params.center}'"
+        " --rg-id {params.rg_id} --rg 'PL:{params.platform}' --rg 'SM:{params.sample}' --rg 'CN:{params.center}'"
         " {params.bowtie2_custom_args} {params.fastq_arg} {params.fragment_length} --no-mixed --no-discordant --no-unal |"
         " samtools fixmate -O sam - - | "
         " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -;"

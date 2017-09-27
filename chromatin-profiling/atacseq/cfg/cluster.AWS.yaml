@@ -1,0 +1,23 @@
+{
+  # match short queue
+  "__default__" : {
+    "time" : "02:00:00",
+    "mem" : 1G,
+  },
+
+  "bowtie": {
+      "time" : "06:00:00",
+      "mem" : 10G
+  },
+    
+  "dedup":
+  {
+    "time" : "6:00:00",
+    "mem" : 8G,
+  },
+
+  "bdg_to_bw" : {
+      "time" : "02:00:00",
+      "mem" : 12G
+  },
+}
