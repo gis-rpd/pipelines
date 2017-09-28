@@ -69,7 +69,7 @@ base_cmd="$WRAPPER -1 $FQ1 -2 $FQ2 -s test:DENV2-TSV01-PDH203 -r $REF";
 # FIXME fix here and elsewhere
 
 # DAG
-SKIP_DAG=1
+SKIP_DAG=0
 if [ $SKIP_DAG -eq 0 ]; then
     echo "Creating DAG" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)

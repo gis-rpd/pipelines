@@ -61,7 +61,7 @@ echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\"
 
 
 # DAG
-SKIP_DAG=1
+SKIP_DAG=0
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG: $SAMPLE" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
