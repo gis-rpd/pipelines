@@ -39,6 +39,8 @@ rule map_sort:
         fastqs = lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
         bam=temp('{prefix}/unit-{unit}.bwamem.bam')
+    benchmark:
+        '{prefix}/unit-{unit}.bwamem.bam.map_sort.benchmark.log'
     log:
         '{prefix}/unit-{unit}.bwamem.bam.log'
     params:
