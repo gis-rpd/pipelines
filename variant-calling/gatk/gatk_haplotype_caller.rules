@@ -61,25 +61,29 @@ rule gatk_haplotype_caller:
 # combining calls from different methods) see
 # https://gatkforums.broadinstitute.org/gatk/discussion/53/combining-variants-from-different-files-into-one
 localrules: concat_split_vcfs
-#ruleorder: concat_split_vcfs > bgzip
+ruleorder: concat_split_vcfs > tabix > bgzip
 rule concat_split_vcfs:
     # combine [g|gt].vcfs which where split by region. simply
-    # parse in order and keep only header of first one.  FIXME replies
-    # on unzipped input which is a waste of space. Note though that
-    # gzip reading in Python is infamously slow.
+    # parse in order and keep only header of first one.
     input:
         gvcfs = expand("{{prefix}}.{ctr}.{{type}}.vcf.gz",
                        ctr = range(len(config["references"]["region_clusters"])))
     output:
         gvcf = "{prefix}.concat.{type,(g|gt)}.vcf.gz",
-        #tbi = "{prefix}.concat.{type,(g|gt)}.vcf.gz.tbi"
+        tbi = "{prefix}.concat.{type,(g|gt)}.vcf.gz.tbi"
     benchmark:
         "{prefix}.concat.{type,(g|gt)}.vcf.gz.concat_split_vcfs.benchmark.log"
     log:
         "{prefix}.concat.{type}.vcf.gz.log"
     run:
+        # evil hack to get the path
+        res = shell("which bgzip", read=True)# alternative to read would be iterable
+        bgzip = res.decode().rstrip()
+        res = shell("which tabix", read=True)# alternative to read would be iterable
+        tabix = res.decode().rstrip()
+        
         bgzip_pipe = pipes.Template()
-        bgzip_pipe.append('bgzip', '--')
+        bgzip_pipe.append(bgzip, '--')
         header_printed = False
         with bgzip_pipe.open(output.gvcf, 'w') as fhout:
             for f in input.gvcfs:
@@ -97,7 +101,7 @@ rule concat_split_vcfs:
                                 fhout.write(line)
                         if had_header:
                             header_printed = True                    
-        
+        shell("{} -f -p vcf {}".format(tabix, output.gvcf))
                             
 def gvcf_genotyper_input(wc):
     if config.get("joint_calls"):
