@@ -45,6 +45,8 @@ rule gatk_variant_recalibration:
         recal = temp("{prefix}.{type,(snp|indel)}.vqsr"),
         tranches = temp("{prefix}.{type,(snp|indel)}.tranches"),
         plotting = temp("{prefix}.{type,(snp|indel)}.plotting.R")
+    benchmark:
+        "{prefix}.{type,(snp|indel)}.vqsr.gatk_variant_recalibration.benchmark.log"
     log:
         "{prefix}.{type,(snp|indel)}.vqsr.log"
     params:
@@ -68,6 +70,8 @@ rule gatk_apply_variant_recalibration:
         tranches = "{prefix}.{type}.tranches"
     output:
         "{prefix}.{type,(snp|indel)}_vqsr.vcf.gz"
+    benchmark:
+        "{prefix}.{type,(snp|indel)}_vqsr.vcf.gz.gatk_apply_variant_recalibration.benchmark.log"
     log:
         "{prefix}.{type,(snp|indel)}_vqsr.vcf.gz.log"
     params:

@@ -1,3 +1,4 @@
+localrules: report
 rule report:
     input:
         readme = os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "README.md"),

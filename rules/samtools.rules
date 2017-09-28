@@ -12,6 +12,8 @@ rule samtools_fasta_index:
         "{prefix}.{suffix}"
     output:
         "{prefix}.{suffix,(fasta|fa)}.fai"
+    benchmark:
+        "{prefix}/.{suffix,(fasta|fa)}.fai.samtools_fasta_index.benchmark.log"        
     log:
         "{prefix}.{suffix,(fasta|fa)}.fai.log"
     shell:
@@ -28,6 +30,8 @@ rule map_rate:
         bam="{prefix}.idxstats.txt",
     output:
         "{prefix}.maprate.txt"
+    benchmark:
+        "{prefix}.maprate.map_rate.benchmark.log"    
     log:      
         "{prefix}.maprate.txt.log"
     shell:
@@ -42,6 +46,8 @@ rule bam_idxstats:
         bai="{prefix}.bam.bai"
     output:
         "{prefix}.idxstats.txt"
+    benchmark:
+        "{prefix}.idxstats.bam_idxstats.benchmark.log"
     log:
         "{prefix}.idxstats.txt.log"
     shell:
@@ -56,6 +62,8 @@ rule bam_stats:
     output:
         stats="{prefix}.bamstats/stats.txt",
         plothtml="{prefix}.bamstats/stats_plot.html"
+    benchmark:
+        "{prefix}.bamstats.bam_stats.benchmark.log"
     log:
         "{prefix}.bamstats/stats.log",
     shell:
@@ -70,6 +78,8 @@ rule bam_index:
         "{prefix}.bam"
     output:
         "{prefix}.bam.bai"
+    benchmark:
+        "{prefix}.bam.bai.bam_index.benchmark.log"
     log:
         "{prefix}.bam.bai.log"
     shell:

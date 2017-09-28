@@ -25,6 +25,8 @@ rule gatk_haplotype_caller:
     output:
         gvcf = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz"),
         tbi = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz.tbi"),
+    benchmark:
+        "{prefix}.{ctr,[0-9]+}.g.vcf.gz.gatk_haplotype_caller.benchmark.log"
     log:
         "{prefix}.{ctr}.g.vcf.gz.log"
     params:
@@ -70,6 +72,9 @@ rule concat_split_vcfs:
                        ctr = range(len(config["references"]["region_clusters"])))
     output:
         gvcf = "{prefix}.concat.{type,(g|gt)}.vcf.gz",
+        #tbi = "{prefix}.concat.{type,(g|gt)}.vcf.gz.tbi"
+    benchmark:
+        "{prefix}.concat.{type,(g|gt)}.vcf.gz.concat_split_vcfs.benchmark.log"
     log:
         "{prefix}.concat.{type}.vcf.gz.log"
     run:
@@ -92,7 +97,7 @@ rule concat_split_vcfs:
                                 fhout.write(line)
                         if had_header:
                             header_printed = True                    
-
+        
                             
 def gvcf_genotyper_input(wc):
     if config.get("joint_calls"):
@@ -114,6 +119,8 @@ rule gatk_genotyping:
     output:
         vcf = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz"),
         tbi = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz.tbi")
+    benchmark:
+        "{prefix}.{ctr,[0-9]+}.gt.vcf.gz.gatk_genotyping.benchmark.log"
     log:
         "{prefix}.{ctr}.gt.vcf.gz.log"
     params:
