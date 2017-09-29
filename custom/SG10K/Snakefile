@@ -55,6 +55,8 @@ rule final:
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qc-062017.txt'),
                sample=config['samples']),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}MTData.txt'),
+               sample=config['samples']),        
         "report.html"
     message:
         """
@@ -63,6 +65,26 @@ rule final:
     # Set no output in final rule. Otherwise deletion of any input will not result in a rerun
 
 
+rule bam_to_mitocalc:
+    input:
+        bam = "{prefix}/{sample}.bwamem.fixmate.mdups.srt.recal.bam"
+    output:
+        mtdata = "{prefix}/{sample}MTData.txt"# defined by program. no dot in sample name allowed!
+    message:
+        "Running fastmitocalc on {wildcards.sample}"
+    #params:
+    #    basecov_path = os.path.join(FASTMITOCALC_PATH, "BaseCoverage"),
+    log:
+        "{prefix}/{sample}MTData.log"
+    shell:
+        "{{"
+        " basecov=$(dirname $(which fastMitoCalc.pl))/BaseCoverage;"
+        " resoutdir=$(dirname {output.mtdata});"
+        " fastMitoCalc.pl -f {input.bam} -n 3000 -s 1000 -w $resoutdir -p $basecov;"
+        " test -s {output.mtdata} || echo '{output.mtdata} is empty';"
+        " }} >& {log}"
+
+        
 rule sample_qc:
     input:
         bam = '{prefix}.bam'
