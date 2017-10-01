@@ -7,10 +7,8 @@ This pipeline calls signals of single-cell ATAC-seq data using MACS2.
 The following steps are performed (modelled after
 [Buenrostro et al., (2015)](https://www.ncbi.nlm.nih.gov/pubmed/26083756)):
 - The input reads (assumed to be adapter trimmed) are mapped with
-  Bowtie2 (fragment length can be set with `--fragment-length`).
-- Discordant and unaligned reads are immediately dropped
-- For default references see option `--references-cfg` and `cfg/references.yaml`
-- Duplicates are marked with Sambamba
+  Bowtie2 and iscordant and unaligned reads are immediately dropped
+- Duplicates are then marked with Sambamba
 - Duplicated reads as well as those with low mapping quality (Q30) and
   reads not mapping against autosomes (see `cfg/references.yaml`) are
   removed
@@ -19,11 +17,12 @@ The following steps are performed (modelled after
 - MACS2 is run with `--nomodel -f BAMPE --nolambda --call-summits` for
   PE data and `--nomodel --shift -100 --extsize 200` for SE data (see
   `--shift` and `--extsize` for SE specific MACS2 options)
-- 
-- Modelled after doi:10.1038/nature14590
-- Alignment with Bowtie
-- Filtering
-- Calls narrow and broad peaks with MACS
+
+## Input
+
+- The input reads are assumed to be adapter trimmed
+- Fragment length for Bowtie can be set with `--fragment-length`
+- For default references see option `--references-cfg` and `cfg/references.yaml`
 
 ## Output
 
@@ -38,5 +37,5 @@ where `{peaktype}` is 'narrow' or 'broad'
 
 ## References
 
-- [Bowtie2](http://bowtie-bio.sf.net/bowtie2)
-- [MACS2](https://github.com/taoliu/MACS)
+- [Bowtie2 homepage](http://bowtie-bio.sf.net/bowtie2)
+- [MACS2 homepage](https://github.com/taoliu/MACS)
