@@ -39,12 +39,12 @@ The following installations are available at different sites (referred to as `RP
 - NSCC: `/home/users/astar/gis/gisshared/rpd/pipelines/`
 
 Each of these contains one subfolder per pipeline version,
-e.g. `$RPD_PIPELINES/pipelines.2017-01` (referred to as
+e.g. `$RPD_PIPELINES/pipelines.2017-06` (referred to as
 `PIPELINE_ROOTDIR` below).
 
 Much of this framework assumes a certain setup and services to be
 present, as is the case in GIS / the NSCC. This repository is
-therefore of limited use to the general public. See INSTALL.md for
+therefore of limited use to the general public. See `INSTALL.md` for
 simplistic installation instructions.
 
 Some pipelines only work at a certain site (due to system or software
@@ -112,23 +112,25 @@ In either case, you must not prefix the script with `python`.
 
 | Name | Category | Notes | @GIS | @NSCC |
 | ---  | ---      | ---   | ---  | ---   |
-| [bcl2fastq](bcl2fastq/README.md)                                    | Production          | Not for end-users     | Y | Y |
-| [ChIP-seq](chromatin-profiling/chipseq/README.md)                   | Chromatin Profiling |                       | Y | Y |
-| [SG10K](custom/SG10K/README.md)                                     | Custom              | Not for end-users     | Y | Y |
-| [ViPR](germs/vipr/README.md)                                        | GERMS               |                       | Y | Y |
-| [BWA-MEM](mapping/BWA-MEM/README.md)                                | Mapping             |                       | Y | Y |
+| [bcl2fastq](bcl2fastq/README.md)            | Production          | Not for end-users     | Y | Y |
+| [ATAC-seq](chromatin-profiling/atacseq/README.md)             | Chromatin Profiling |                       | Y | Y |
+| [ChIP-seq](chromatin-profiling/chipseq/README.md)             | Chromatin Profiling |                       | Y | Y |
+| [SG10K](custom/SG10K/README.md)                | Custom              | Not for end-users     | Y | Y |
+| [ViPR](germs/vipr/README.md)                 | GERMS               |                       | Y | Y |
+| [BWA-MEM](mapping/BWA-MEM/README.md)              | Mapping             |                       | Y | Y |
 | [Shotgun Metagenomics](metagenomics/shotgun-metagenomics/README.md) | Metagenomics        |                       | Y | Y |
-| [Essential-Genes](metagenomics/essential-genes/README.md)           | Metagenomics        | Requires ref download | Y | Y |
-| [STAR-RSEM](rnaseq/star-rsem/README.md)                             | RNA-Seq             |                       | Y | Y |
-| [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)     | RNA-Seq             |                       | Y | N |
-| [LoFreq-Somatic](somatic/lofreq-somatic/README.md)                  | Somatic             |                       | Y | N |
-| [Mutect](somatic/mutect/README.md)                                  | Somatic             |                       | Y | Y |
-| [GATK](variant-calling/gatk/README.md)                              | Variant-calling     |                       | Y | Y |
-| [Lacer-LoFreq](variant-calling/lacer-lofreq/README.md)              | Variant-calling     |                       | Y | N |
+| [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |
+| [STAR-RSEM](rnaseq/star-rsem/README.md)            | RNA-Seq             |                       | Y | Y |
+| [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)| RNA-Seq             |                       | Y | N |
+| [Wafergen](rnaseq/wafergen/README.md)             | RNA-Seq             | Requires cellular barcodes | Y | Y |
+| [LoFreq-Somatic](somatic/lofreq-somatic/README.md)       | Somatic             |                            | Y | N |
+| [Mutect](somatic/mutect/README.md)               | Somatic             |                            | Y | Y |
+| [GATK](variant-calling/gatk/README.md)                 | Variant-calling     |                            | Y | Y |
+| [Lacer-LoFreq](variant-calling/lacer-lofreq/README.md)         | Variant-calling     |                            | Y | N |
 
 See `example-dag.pdf` in each pipeline's folder for a visual overview of the workflow.
 
-Note, pipelines start with fastq files as input (a few allow injection of BAM files).
+Note, most pipelines start with FastQ files as input, a few allow injection of BAM files.
 
 ## How it Works
 
@@ -138,7 +140,7 @@ Note, pipelines start with fastq files as input (a few allow injection of BAM fi
   `conf.yaml` file) and gets its own readgroup assigned where
   appropriate.
 - Software versions are defined in each pipelines' `cfg/modules.yaml`
-  and loaded via [dotkit](https://computing.llnl.gov/?set=jobs&page=dotkit)
+  and loaded via [Lmod](http://lmod.readthedocs.io/en/latest/)
 - Pipeline wrappers create an output directory containing all
   necessary configuration files, run scripts etc.
 - After creation of this folder, the analysis run is automatically submitted to the cluster
@@ -154,7 +156,6 @@ Note, pipelines start with fastq files as input (a few allow injection of BAM fi
 
 First call the wrapper in question with `--no-run`. cd into the given outdir and then
 - Check the created `conf.yaml`
-- Print the DAG: `rm -f logs/snakemake.log; type=pdf; EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > dag.$type`
 - Execute a dryrun: `rm -f logs/snakemake.log; EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh; cat logs/snakemake.log`
 - Run locally: `nohup bash run.sh; tail -f logs/snakemake.log`
 
@@ -189,11 +190,11 @@ described in the following:
   want to set the CSV delimiter with `-d`, e.g. `-d ,`
 - Use the created yaml file as input for the pipeline wrapper (option `--sample-cfg your.yaml`)
 
-Please note, not all pipelines support this feature (for example the
-somatic pipelines don't), but most do, e.g. GATK, Lacer-LoFreq. In
-some cases multisample processing can lead to very high memory
-consumption by the snakemake master process itself, a side-effect
-which is hard to predict.
+Please note, not all pipelines support this feature, for example the
+Chipseq and all somatic pipelines. In some cases multisample
+processing can lead to very high memory consumption by the snakemake
+master process itself, a side-effect which is hard to predict (the
+master process will be killed).
 
 The above configuration can be used for single sample processing as
 well, however, for single samples the corresponding use of options
