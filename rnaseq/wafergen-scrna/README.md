@@ -54,8 +54,7 @@ Reports:
 
 ## Notes
 
-Deduplication can be very slow for large data-sets. If deduplication
- is not a must, we recommend to switch it off (`--no-dedup`).
+Deduplication can be very slow for large data-sets. We recommend to not use it unless necessary (`--dedup`).
 
 ## References
 

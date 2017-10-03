@@ -192,6 +192,8 @@ rule bamtag_split:
     output:
         taggedbam = '{prefix}/{sample}/bamtag/{sample}_R2.tagged.bam',
         splitflag = touch('{prefix}/{sample}/bamtag/{sample}_R2.tagsplit.COMPLETE')
+    log:
+        '{prefix}/{sample}/bamtag/{sample}_R2.tagged.log'
     benchmark:
          '{prefix}/{sample}/bamtag/{sample}_R2.tag.bamtag_split.benchmark.log'
     params:
@@ -201,10 +203,12 @@ rule bamtag_split:
     threads:
         1
     shell:
-        'umis bamtag {input.bam} | samtools addreplacerg'
+        '{{'
+        ' umis bamtag {input.bam} | samtools addreplacerg'
         ' -r ID:{params.sample} -r LB:{params.sample} -r SM:{params.sample} -r PL:{params.platform} -r PU:1 -r CN:{params.center}'
         ' -o - - | samtools sort -o {output.taggedbam} -T {output.taggedbam}.tmp -;'
-        ' bamtools split -tag XC -in {output.taggedbam}'
+        ' bamtools split -tag XC -in {output.taggedbam};'
+        ' }} >& {log}'
         # not guaranteed to create one file per barcode
 
 

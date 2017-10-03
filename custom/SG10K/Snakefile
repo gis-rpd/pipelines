@@ -134,9 +134,11 @@ rule bam_to_cram:
     #conda:
     #    "env.yaml"
     shell:
-        "module load bamutil/1.0.14-33-nonprimdup;"
+        "{{ "
+        " module load bamutil/1.0.14-33-nonprimdup;"
         " bam squeeze --in {input.bam} --out -.ubam {params.bin_arg} |"
-        "samtools view -C -T {input.reffa} -@ {threads} -o {output.cram} - >& {log}"        
+        " samtools view -C -T {input.reffa} -@ {threads} -o {output.cram} -;"
+        " }} >& {log}"        
 
 
 localrules: cram_index        
