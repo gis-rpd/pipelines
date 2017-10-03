@@ -103,9 +103,9 @@ if [ $skip_real_runs -ne 1 ]; then
     jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
     echo "Started job $jid writing to $odir. You will receive an email"
     
-    echo "Realrun no_dedup" | tee -a $log
+    echo "Realrun dedup" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    eval $cmd_base --no-dedup -o $odir -v >> $log 2>&1
+    eval $cmd_base --dedup -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
     jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
     echo "Started job $jid writing to $odir. You will receive an email"
