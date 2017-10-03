@@ -43,9 +43,11 @@ done
 # readlink resolves links and makes path absolute
 test -z "$RPD_ROOT" && exit 1
 
-FQDIR=$RPD_ROOT/testing/data/fluidigm_800_singlecell/K562_Fldm/;
-COL1_R1=$FQDIR/COL01_S1_L001_R1_001.fastq.gz
-COL1_R2=$FQDIR/COL01_S1_L001_R2_001.fastq.gz
+
+DATA_DIR=$RPD_ROOT/testing/data/atacseq/AHK097/
+PE_TWO_PAIRS_CFG=$DATA_DIR/sample-two-pairs-100k.yaml
+SE_CFG=$DATA_DIR/sample-se-100k.yaml
+
 
 rootdir=$(readlink -f $(dirname $0))
 cd $rootdir
@@ -53,45 +55,55 @@ pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
 test -e Snakefile || exit 1
 
-
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
 
-WRAPPER=./fluidigm-ht-c1-rnaseq.py
-cmd_base="$WRAPPER -1 $COL1_R1 -2 $COL1_R2 -s COL01 --name 'test:COL01'"
+WRAPPER=./atacseq.py
+
+
+echo 'FIXME test quality of results' 1>&2
 
 
 # DAG
 SKIP_DAG=0
 if [ $SKIP_DAG -eq 0 ]; then
-    echo "DAG" | tee -a $log
+    echo "DAG: PE two pairs" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    eval $cmd_base -o $odir -v --no-run >> $log 2>&1
+    eval $WRAPPER -S $PE_TWO_PAIRS_CFG -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
     dag=example-dag.$type
+    #sed -i -e 's,num_chroms: .*,num_chroms: 1,' conf.yaml
     EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
-    # this one is massive but can only be changed by changing number of columns
-    # in snakefile so we leave it as it is
     cp $dag $rootdir
-    popd >> $log
     rm -rf $odir
+    popd >> $log
 fi
+
 
 
 # dryruns
 #
 if [ $skip_dry_runs -ne 1 ]; then
-    echo "Dryrun" | tee -a $log
+    echo "Dryrun: PE two pairs" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    eval $cmd_base -o $odir -v --no-run >> $log 2>&1
+    eval $WRAPPER -S $PE_TWO_PAIRS_CFG -o $odir -v --no-run >> $log 2>&1
     pushd $odir >> $log
     EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
     popd >> $log
-    rm -rf $odir   
+    rm -rf $odir
+
+    echo "Dryrun: SE" | tee -a $log
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
+    eval $WRAPPER -S $SE_CFG -o $odir -v --no-run >> $log 2>&1
+    pushd $odir >> $log
+    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
+    popd >> $log
+    rm -rf $odir
+        
 else
     echo "Dryruns tests skipped"
 fi
@@ -100,9 +112,16 @@ fi
 # real runs
 #
 if [ $skip_real_runs -ne 1 ]; then
-    echo "Realrun" | tee -a $log
+    echo "Real Run: PE two pairs" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    eval $cmd_base -o $odir -v >> $log 2>&1
+    eval $WRAPPER -S $PE_TWO_PAIRS_CFG -o $odir -v >> $log 2>&1
+    # magically works even if line just contains id as in the case of pbspro
+    jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
+    echo "Started job $jid writing to $odir. You will receive an email"
+
+    echo "Real Run: SE" | tee -a $log
+    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
+    eval $WRAPPER -S $SE_CFG -o $odir -v >> $log 2>&1
     # magically works even if line just contains id as in the case of pbspro
     jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
     echo "Started job $jid writing to $odir. You will receive an email"
@@ -115,3 +134,4 @@ fi
 echo
 echo "$COMPLETE_MSG"
 
+   

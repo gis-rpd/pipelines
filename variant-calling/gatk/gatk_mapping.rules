@@ -54,6 +54,8 @@ rule gatk_recalibrate_info:
         bam="{prefix}.bam"
     output:
         temp("{prefix}.bqsr.grp")
+    benchmark:
+        "{prefix}.bqsr.grp.gatk_recalibrate_info.benchmark.log"
     log:
         "{prefix}.bqsr.grp.log"
     params:
@@ -79,6 +81,8 @@ rule gatk_recalibrate_bam:
         grp="{prefix}.bqsr.grp"
     output:
         "{prefix}.bqsr.bam"
+    benchmark:
+        "{prefix}.bqsr.bam.gatk_recalibrate_bam.benchmark.log"
     log:
         "{prefix}.bqsr.bam.log"
     params:

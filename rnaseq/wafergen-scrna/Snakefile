@@ -159,6 +159,7 @@ rule scrnapipe:
             fh.write(templ.format(**d))
         with open(output.sample_barcodes, 'w') as fh:
             fh.write("1\n")# 1 == NoIndex
+            #fh.write("AGTCAG\n")
         shell('scRNApipe {params.cfg} >& {log}')
 
         if config['no_dedup']:
@@ -258,7 +259,6 @@ rule kallisto:
         kallisto_idx = config['references']['kallisto_idx'],
 	proc_fastq = '{prefix}/scrnapipe/Processed_data/R2.fastq.gz'
     output:
-        kallistosam = temp('{prefix}/kallisto/kallisto.sam'),
         kallistobam = '{prefix}/kallisto/kallisto.bam',
         kallistotagcount= '{prefix}/kallisto/kallisto.tagcount.txt',
         abundance = '{prefix}/kallisto/abundance.tsv'
@@ -270,9 +270,9 @@ rule kallisto:
     log:
         '{prefix}/kallisto.log'
     threads:
-        1
+        2
     shell:
+        # Note: pseudobam is not compatible with running on many threads.
         "{{ kallisto quant --pseudobam --single -l {params.est_frag_len} -s {params.frag_len_sd} -i {input.kallisto_idx}"
-        " -o $(dirname {output.kallistosam})  {input.proc_fastq} > {output.kallistosam};"
-        " samtools sort {output.kallistosam} -o {output.kallistobam};"
+        " -o $(dirname {output.kallistobam})  {input.proc_fastq} | samtools view -b -@ {threads} -o {output.kallistobam} -;"
         " umis tagcount {output.kallistobam} {output.kallistotagcount}; }} >& {log}"

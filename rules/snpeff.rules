@@ -8,6 +8,8 @@ rule snpeff:
         vcf = '{prefix}.vcf.gz'
     output:
         vcf = '{prefix}.snpeff.vcf.gz'
+    benchmark:
+        '{prefix}.snpeff.vcf.gz.snpeff.benchmark.log'
     message:
         'Running SnpEff on {input.vcf}'
     log:

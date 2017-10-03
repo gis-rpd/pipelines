@@ -31,6 +31,8 @@ rule unit_merge:
                                  unit=config['samples'][wildcards.sample])
     output:
         temp('{prefix}/{sample}/{sample}.bwamem.bam')
+    benchmark:
+        '{prefix}/{sample}/{sample}.bwamem.bam.unit_merge.benchmark.log'
     log:
         '{prefix}/{sample}/{sample}.bwamem.bam.log'
     message:
@@ -63,11 +65,13 @@ rule map_sort:
         fastqs = lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
         bam = temp('{prefix}/unit-{unit}.bwamem.bam')
+    benchmark:
+        "{prefix}/unit-{unit}.bwamem.bam.map_sort.benchmark.log"
     log:
         '{prefix}/unit-{unit}.bwamem.bam.log'
     params:
-        mark_short_splits=MARK_SHORT_SPLITS,
-        bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),
+        mark_short_splits = MARK_SHORT_SPLITS,
+        bwa_mem_custom_args = config.get("bwa_mem_custom_args", ""),
         center = config.get("center", "GIS"),
         platform = config.get("platform", "Illumina"),
         # samtools threading has little effect on overall runtime. but on memory.

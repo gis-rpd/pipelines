@@ -3,6 +3,8 @@ rule dedup:
         bam='{prefix}.bam',
     output:
         bam='{prefix}.dedup.bam'
+    benchmark:
+        '{prefix}.dedup.bam.dedup.benchmark.log'
     log:
         '{prefix}.dedup.bam.log'
     message:

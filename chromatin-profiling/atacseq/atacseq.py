@@ -48,7 +48,7 @@ CFG_DIR = os.path.join(PIPELINE_BASEDIR, "cfg")
 
 
 # same as folder name. also used for cluster job names
-PIPELINE_NAME = "star-rsem"
+PIPELINE_NAME = "atacseq"
 
 # global logger
 logger = logging.getLogger(__name__)
@@ -69,16 +69,18 @@ def main():
 
     parser._optionals.title = "Arguments"
     # pipeline specific args
-    parser.add_argument("--cuffdiff", action='store_true',
-                        dest="run_cuffdiff",
-                        help="Also run cuffdiff")
-    choices = ["none", "forward", "reverse"]
-    default = "none"
-    parser.add_argument('--stranded', choices=choices, default=default,
-                        help="Stranded library prep (default is {}; Following RSEM definition but see also"
-                        " http://chipster.csc.fi/manual/library-type-summary.html)".format(default))
-    parser.add_argument('--rsem-estimate-rspd', action='store_true',
-                        help="Estimate read start position distribution in RSEM")
+    default = 2000
+    parser.add_argument("--fragment-length", type=int, default=default,
+                        help="Fragment length argument for Bowtie (default {})".format(default))
+    default = 200
+    parser.add_argument("--extsize", type=int, default=default,
+                        help="extsize argument for MACS2; only used for single-end reads (default {})".format(default))
+    default = -100
+    parser.add_argument("--shift", type=int, default=default,
+                        help="shift argument for MACS2; only used for single-end reads (default {})".format(default))
+    default = 250
+    parser.add_argument("--peak-ext-bp", type=int, default=default,
+                        help="Extension around peaks for bed creation (default {})".format(default))
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -119,23 +121,26 @@ def main():
         samples = dict()
         samples[args.sample] = list(readunits.keys())
 
-    # FIXME add checks on reffa index (currently not exposed via args)
-
     # turn arguments into cfg_dict that gets merged into pipeline config
     #
     cfg_dict = dict()
     cfg_dict['readunits'] = readunits
     cfg_dict['samples'] = samples
-    cfg_dict['rsem_extra_args'] = ''
-    if args.rsem_estimate_rspd:
-        cfg_dict['rsem_extra_args'] += ' --estimate-rspd'
-    cfg_dict['stranded'] = args.stranded
-    cfg_dict['run_cuffdiff'] = args.run_cuffdiff
     cfg_dict['paired_end'] = any(ru.get('fq2') for ru in readunits.values())
     if cfg_dict['paired_end']:
         assert all(ru.get('fq2') for ru in readunits.values()), (
             "Can't handle mix of paired-end and single-end")
+    cfg_dict['mapper'] = 'bowtie2'# FIXME fixed for now
+    # cfg_dict["bowtie2_custom_args"]
+    # cfg_dict['platform']
+    # cfg_dict['center']
+    # cfg_dict["macs2_custom_args"]
 
+    cfg_dict['fragment_length'] = args.fragment_length
+    cfg_dict['shift'] = args.shift
+    cfg_dict['extsize'] = args.extsize
+    cfg_dict["peak_ext_bp"] = args.peak_ext_bp
+        
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
         args, cfg_dict,

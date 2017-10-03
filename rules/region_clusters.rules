@@ -8,6 +8,7 @@ assert "references" in config, ("references not in config")
 assert "region_clusters" in config["references"], ("region_clusters not in config['references']")
 
 
+localrules: prep_bed_files
 rule prep_bed_files:
     """Prepare bed files to be able to run haplotype/genotype caller per
     predefined region cluster (e.g. groups of chromosomes) to speed

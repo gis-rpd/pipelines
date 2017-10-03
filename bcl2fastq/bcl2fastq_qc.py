@@ -252,6 +252,14 @@ def run_qc_checks(project_dirs, machine_type):
         if v == 0:
             # no passed reads? no point in continuing checks
             continue
+
+        # test: % PF clusters 
+        v = values['% PF Clusters']
+        l = config['min-pf-clusters'][machine_type]
+        if v < float(l):
+            qcfails.append(
+                "Percent PF clusters under limit"
+                " ({} < {}) for lane {}".format(v, l, lane))
         
         # test: perfect barcode
         v = values['% Perfect barcode']
@@ -270,6 +278,7 @@ def run_qc_checks(project_dirs, machine_type):
                 "Percent Q30 bases under limit"
                 " ({} < {}) for lane {}".format(v, l, lane))
 
+        """
         # test: yield
         v = values['Yield (Mbases)'] / 1000.0
         l = config['min-lane-yield-gb'][machine_type]
@@ -277,7 +286,7 @@ def run_qc_checks(project_dirs, machine_type):
             qcfails.append(
                 "Yield under limit"
                 " ({} < {}) for lane {}".format(v, l, lane))
-
+        """
         
 
     # info about 'undetermined' sits elsewhere (only makes sense if demuxed)

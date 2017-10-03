@@ -190,6 +190,7 @@ rule srst2:
         " --min_coverage {params.mincov} >& {log}"
 
 
+localrules: countreads
 rule countreads:
     input:
         decont_log = "{prefix}/{sample}/reads/all-trimmed-decont.log",

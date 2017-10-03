@@ -10,6 +10,8 @@ rule bgzip:
         "{prefix}.vcf"
     output:
         "{prefix}.vcf.gz"
+    benchmark:
+        "{prefix}.vcf.gz.bgzip.benchmark.log"
     log:
         "{prefix}.vcf.gz.log"
     threads:
@@ -26,6 +28,8 @@ rule tabix:
         "{prefix}.vcf.gz"
     output:
         "{prefix}.vcf.gz.tbi"
+    benchmark:
+        "{prefix}.vcf.gz.tbi.tabix.benchmark.log"
     log:
         "{prefix}.vcf.gz.tbi.log"
     shell:

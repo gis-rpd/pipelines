@@ -70,6 +70,8 @@ rule unit_merge:
                                  unit=config['samples'][wildcards.sample])
     output:
         temp('{prefix}/{sample}/{sample}.bwamem.bam')
+    benchmark:
+        '{prefix}/{sample}/{sample}.bwamem.bam.unit_merge.benchmark.log'
     log:
         '{prefix}/{sample}/{sample}.log'
     message:
@@ -101,6 +103,8 @@ rule mutect_per_region:
         vcfidx = temp("{prefix}/mutect.{ctr}.vcf.idx"),# just listed to get them removed
         out = temp("{prefix}/mutect.{ctr}.txt"),
         cov = temp("{prefix}/mutect.{ctr}.wig")
+    benchmark:
+        "{prefix}/mutect.{ctr}.mutect_per_region.benchmark.log"
     log:
         "{prefix}/mutect.{ctr}.log"
     message:
@@ -133,6 +137,8 @@ rule mutect_combine:
         vcf = temp("{prefix}/mutect.vcf"),
         out = "{prefix}/mutect.txt.gz",
         cov = "{prefix}/mutect.wig.gz",
+    benchmark:
+        "{prefix}/mutect.mutect_combine.benchmark.log"
     log:
         os.path.join(VARIANTS_DIR, "mutect_combine.log")
     message:
@@ -153,6 +159,8 @@ rule mutect_pass:
         "{prefix}.vcf.gz"
     output:
         "{prefix}.PASS.vcf.gz",
+    benchmark:
+        "{prefix}.PASS.vcf.gz.mutect_pass.benchmark.log"
     log:
          "{prefix}.PASS.log",
     message:

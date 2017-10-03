@@ -24,14 +24,13 @@ The following lists the main output files
  needed concatenated,) quality trimmed and decontaminated read pair
 - `{sample}/reads/counts.txt`: read counts after trimming and after
  decontamination
-- `{sample}/srst2/{sample}__genes__{db}__results.txt` and 
-- `{sample}/srst2/{sample}__fullgenes__{db}__results.txt`: SRST2
+- `{sample}/srst2/{sample}__genes__{db}__results.txt` and  `{sample}/srst2/{sample}__fullgenes__{db}__results.txt`: SRST2
    resistance gene typing results (see
   [SRST2 documentation](https://github.com/katholt/srst2#gene-typing))
 - `merged_table_{profiler}/{tax}.{profiler}.profile_merged.tsv` where
   `profiler` can be `kraken` or `metaphlan2` and `tax` is a one-letter
   abbreviation for taxonomic rank (e.g. `g` for genus). Please note
-  that Metaphlan2 lists abundances in percentage whereas Kraken
+  that Metaphlan2 lists abundances as percentage, whereas Kraken
   produces read counts
 - `merged_table_humann2/genefamily.tsv`: Abundance (in RPK) of each
   gene family (each row) in each sample (each column)

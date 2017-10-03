@@ -32,13 +32,17 @@ rule gatk_realign_info:
     output:
         nival = temp(os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.realn.intervals')),
         tival = temp(os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.realn.intervals')),
+    benchmark:
+        # awkward choice of one
+        os.path.join(TUMOR_DIR, 'tumor.bwamem.dedup.realn.intervals.gatk_realign_info.benchmark.log')
     log:
         # just one
         os.path.join(NORMAL_DIR, 'normal.bwamem.dedup.realn.intervals.log'),
     params:
         intervals_arg = _get_intervals_arg(),
         custom = config.get("params_gatk", "")
-    threads: 8
+    threads:
+        8
     message:
         "Running RealignerTargetCreator"
     shell:
@@ -57,6 +61,8 @@ rule gatk_realign_bam:
         intervals = "{prefix}.realn.intervals"
     output:
         temp("{prefix}.realn.bam")
+    benchmark:
+        "{prefix}.realn.bam.gatk_realign_bam.benchmark.log"
     log:
         "{prefix}.realn.bam.log"
     params:
@@ -83,6 +89,8 @@ rule gatk_recalibrate_info:
         bam="{prefix}.bam"
     output:
         temp("{prefix}.recal.grp")
+    benchmark:
+        "{prefix}.recal.grp.gatk_recalibrate_info.benchmark.log"
     log:
         "{prefix}.recal.grp.log"
     params:
@@ -113,6 +121,8 @@ rule gatk_recalibrate_bam:
         grp="{prefix}.recal.grp"
     output:
         "{prefix}.recal.bam"
+    benchmark:
+        "{prefix}.recal.bam.gatk_recalibrate_bam.benchmark.log"        
     log:
         "{prefix}.recal.bam.log"
     params:

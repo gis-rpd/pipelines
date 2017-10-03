@@ -25,6 +25,8 @@ rule gatk_haplotype_caller:
     output:
         gvcf = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz"),
         tbi = temp("{prefix}.{ctr,[0-9]+}.g.vcf.gz.tbi"),
+    benchmark:
+        "{prefix}.{ctr,[0-9]+}.g.vcf.gz.gatk_haplotype_caller.benchmark.log"
     log:
         "{prefix}.{ctr}.g.vcf.gz.log"
     params:
@@ -54,23 +56,34 @@ rule gatk_haplotype_caller:
             shell("echo -n \"\" | gzip > {output.gvcf}; touch {output.tbi}; echo 'Creating empty output' > {log}")
 
 
+# FIXME best seems to be CombineGVCFs for gvcfs and CatVariants
+# (bypasses GATK engine though) otherwise (CombineVariants only for
+# combining calls from different methods) see
+# https://gatkforums.broadinstitute.org/gatk/discussion/53/combining-variants-from-different-files-into-one
 localrules: concat_split_vcfs
-#ruleorder: concat_split_vcfs > bgzip
+ruleorder: concat_split_vcfs > tabix > bgzip
 rule concat_split_vcfs:
     # combine [g|gt].vcfs which where split by region. simply
-    # parse in order and keep only header of first one.  FIXME replies
-    # on unzipped input which is a waste of space. Note though that
-    # gzip reading in Python is infamously slow.
+    # parse in order and keep only header of first one.
     input:
         gvcfs = expand("{{prefix}}.{ctr}.{{type}}.vcf.gz",
                        ctr = range(len(config["references"]["region_clusters"])))
     output:
         gvcf = "{prefix}.concat.{type,(g|gt)}.vcf.gz",
+        tbi = "{prefix}.concat.{type,(g|gt)}.vcf.gz.tbi"
+    benchmark:
+        "{prefix}.concat.{type,(g|gt)}.vcf.gz.concat_split_vcfs.benchmark.log"
     log:
         "{prefix}.concat.{type}.vcf.gz.log"
     run:
+        # evil hack to get the path
+        res = shell("which bgzip", read=True)# alternative to read would be iterable
+        bgzip = res.decode().rstrip()
+        res = shell("which tabix", read=True)# alternative to read would be iterable
+        tabix = res.decode().rstrip()
+        
         bgzip_pipe = pipes.Template()
-        bgzip_pipe.append('bgzip', '--')
+        bgzip_pipe.append(bgzip, '--')
         header_printed = False
         with bgzip_pipe.open(output.gvcf, 'w') as fhout:
             for f in input.gvcfs:
@@ -88,7 +101,7 @@ rule concat_split_vcfs:
                                 fhout.write(line)
                         if had_header:
                             header_printed = True                    
-
+        shell("{} -f -p vcf {}".format(tabix, output.gvcf))
                             
 def gvcf_genotyper_input(wc):
     if config.get("joint_calls"):
@@ -105,17 +118,19 @@ rule gatk_genotyping:
     input:
         ref = config["references"]["genome"],
         gvcfs = gvcf_genotyper_input,
-        #tbi = lambda wc: [x + ".tbi" for x in gvcf_genotyper_input], FIXME missing input vcf for bgzip errors if enabled!?
+        #tbi = lambda wc: [x + ".tbi" for x in gvcf_genotyper_input],
         bed = BED_FOR_REGION_TEMPLATE
     output:
         vcf = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz"),
         tbi = temp("{prefix}.{ctr,[0-9]+}.gt.vcf.gz.tbi")
+    benchmark:
+        "{prefix}.{ctr,[0-9]+}.gt.vcf.gz.gatk_genotyping.benchmark.log"
     log:
         "{prefix}.{ctr}.gt.vcf.gz.log"
     params:
         custom = config.get("params_gatk", ""),
     threads:
-        4
+        2
     run:
         # no need to call if bed is empty
         num_regs = 0
@@ -125,7 +140,7 @@ rule gatk_genotyping:
                     num_regs += 1
         if num_regs:
             gvcfs_arg = '-V ' + ' -V '.join(input.gvcfs)
-            shell("GATK_THREADS={threads} GATK_MEM=24g gatk_wrapper"
+            shell("GATK_THREADS={threads} GATK_MEM=16g gatk_wrapper"
                   " -T GenotypeGVCFs {gvcfs_arg} -nt {threads} {params.custom}"
                   " -L {input.bed} -R {input.ref}"
                   " --dbsnp {config[references][dbsnp]} -o {output.vcf} >& {log}")

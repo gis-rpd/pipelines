@@ -102,7 +102,10 @@ rule cuffdiff:
     output:
         matrix = "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}_genes_FPKM_Rawreadcount_GIS.txt",
         matrixisoforms = "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}_isoforms_FPKM_Rawreadcount_GIS.txt"
-    message: "Running cuffdiff"
+    benchmark:
+        "{rootdir}/cuffdiff/{sample}_{GENOME_BASENAME}.cuffdiff.benchmark.log"
+    message:
+        "Running cuffdiff"
     params:
         libtype = CUFFDIFF_LIBTYPE[config['stranded']]
     log:
@@ -136,6 +139,8 @@ rule RSEM:
         gbam = "{dir}/rsem/{sample}_{genome}_RSEM.genome.sorted.bam",
         genecount = "{dir}/rsem/{sample}_{genome}_RSEM.genes.results",
         isocount = "{dir}/rsem/{sample}_{genome}_RSEM.isoforms.results",
+    benchmark:
+        "{dir}/rsem/{sample}_{genome}_RSEM.RSEM.benchmark.log"
     message:
         "Running RSEM"
     params:
@@ -163,6 +168,8 @@ rule RSEM_postprocessing:
     output:
         wig = temp("{dir}/rsem/{sample}_{genome}_RSEM.sorted.wig"),
         plot = "{dir}/rsem/{sample}_{genome}_RSEM.pdf"
+    benchmark:
+        "{dir}/rsem/{sample}_{genome}_RSEM.RSEM_postprocessing.benchmark.log"
     message:
         "Post-processing RSEM results"
     log:
@@ -187,6 +194,8 @@ rule rnaseqc:
         ref = config['references']['genome']
     output:
         touch("{dir}/rnaseqc/{sample}_{genome}_rnaseqc_complete.OK")
+    benchmark:
+        "{dir}/rnaseqc/{sample}_{genome}_rnaseqc.rnaseqc.benchmark.log"
     log:
         "{dir}/rnaseqc/{sample}_{genome}_rnaseqc.log"    
     params:
@@ -212,7 +221,6 @@ def rg_id_for_star(wc):
 def fastqs_for_sample(sample):
     """wrapper around fastqs_from_unit which is awkward to use when
     splitting into fq1 and fq2.
-
     """
 
     fqs1 = []
@@ -251,6 +259,8 @@ rule wig2bigwig:
         gsizes = config['references']['genome'] + ".sizes"
     output:
         '{prefix}.bw'
+    benchmark:
+        '{prefix}.bw.wig2bigwig.benchmark.log'
     shell:
         "wigToBigWig {input.wig} {input.gsizes} {output};"
     
@@ -264,6 +274,8 @@ rule star_mapping:
         transbam = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_Aligned.toTranscriptome.out.bam"),
         counts = os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}_ReadsPerGene.out.tab"),
         wig = temp(expand(os.path.join(RESULT_OUTDIR, "{{sample}}/star/{{sample}}_{{genome}}_Signal.Unique.{strand}.out.wig"), strand=["str1", "str2"])),
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}/star/{sample}_{genome}.star_mapping.benchmark.log")
     log:
         os.path.join(RESULT_OUTDIR, "{sample}/star/star.log")
     message: "Running STAR"

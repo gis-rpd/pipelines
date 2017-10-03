@@ -1,0 +1,8 @@
+htslib: 1.3
+samtools: 1.3
+ucsc-userapps: 338
+#samblaster : 0.1.22
+sambamba: 0.6.5
+#bedtools: 2.25.0
+macs2: 2.1.1.20160309
+bowtie2: 2.3.0
