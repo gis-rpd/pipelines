@@ -63,7 +63,7 @@ cmd_base="$WRAPPER -c $TEST_CBINDEX -S $TEST_SAMPLECFG"
 
 
 # DAG
-SKIP_DAG=0
+SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
