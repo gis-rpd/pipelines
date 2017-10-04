@@ -70,6 +70,8 @@ directly:
   - Note, in this case you need to have a Python3 interpreter in your
     PATH, which is not needed if you use the convenience wrapper (see
     above)
+    
+    
 In either case, you must not prefix the script with `python`.
 
 - Note, there is no need to submit the script itself, as long as you
@@ -83,14 +85,14 @@ In either case, you must not prefix the script with `python`.
   (unless `--no-mail` was specified) pointing to the results. In addition a file called `report.html`
   will be generated containing some basic information about the
   analysis.
-- Should a pipeline fail for purely technical reasons (crash of a
+- Should a pipeline fail for technical reasons (crash of a
   node, connectivity issues etc.) they can be easily restarted: cd
   into the output directory and `qsub run.sh >>
-  logs/submission.log` (for GIS). Upon restart, partially created files will be
+  logs/submission.log`. Upon restart, partially created files will be
   automatically deleted and the pipeline will skip already completed
   steps
 - Note, that the output directory has to be on a shared filesystem,
-  i.e. directories local to the cluster node like `/tmp` wont't work,
+  i.e. directories local to the cluster node like `/tmp` won't work,
   unless run in local mode)
 
 ### Example
@@ -122,7 +124,7 @@ In either case, you must not prefix the script with `python`.
 | [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |
 | [STAR-RSEM](rnaseq/star-rsem/README.md)            | RNA-Seq             |                       | Y | Y |
 | [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)| RNA-Seq             |                       | Y | N |
-| [Wafergen](rnaseq/wafergen/README.md)             | RNA-Seq             | Requires cellular barcodes | Y | Y |
+| [Wafergen](rnaseq/wafergen-scrna/README.md)             | RNA-Seq             | Requires cellular barcodes | Y | Y |
 | [LoFreq-Somatic](somatic/lofreq-somatic/README.md)       | Somatic             |                            | Y | N |
 | [Mutect](somatic/mutect/README.md)               | Somatic             |                            | Y | Y |
 | [GATK](variant-calling/gatk/README.md)                 | Variant-calling     |                            | Y | Y |
@@ -242,6 +244,5 @@ No. For now you will have to use the commandline. The Datahub team is
 working on a separate web-interface for running pipelines.
 
 ## Comments,
-Questions, Bug reports
 
-Contact us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu.sg)
+For questions, feedback, bug reports etc. contact us: [Research Pipeline Development Team (RPD)](mailto:rpd@gis.a-star.edu.sg)
