@@ -3,6 +3,26 @@
 This change log only lists the major changes between releases. For a
 full list of changes refer to the commit log.
 
+## 2017-10
+
+New pipelines:
+- chromatin-profiling/atacseq: runs Bowtie2 and MACS2 to call ATAC-Seq peaks
+- rnaseq/wafergen-scrna: analyses WaferGen's single cell sequencing
+  data, using umis and scRNApipe for the core analysis.
+  
+
+Changes to pipelines and framework:
+- Major pipelines now produce benchmarking logs
+- STAR-RSEM now supports --estimate-rspd and new strandedness option
+- Shotgun-metagenomics: Added SRST2, read counting and coverage
+  threshold for decontamination
+- GATK: support for joint variant calling (--joint-calls) and added a
+  new option (--gvcf-only). Also added a new optional references
+  config for agressive splitting
+- Added --restarts option to control number of automatic restarts in
+  case of failure
+- Minor additions to SG10K and many under the hood changes to bc2lfastq
+
 ## 2017-06
 
 New pipelines:

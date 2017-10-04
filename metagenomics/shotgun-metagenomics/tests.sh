@@ -64,7 +64,7 @@ base_cmd="$WRAPPER  --sample-cfg $SAMPLECFG --name test:shotgun-metagenomics";
 # FIXME fix here and elsewhere
 
 # DAG
-SKIP_DAG=0
+SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "Creating DAG" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
