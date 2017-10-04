@@ -20,7 +20,7 @@ The following steps are performed:
 - Extraction of sequences around extended peak regions followed by
   motif discovery with MEME-ChIP
 
-Note, running a ChIPseq anlaysis requires a control and treatment
+Note, running a ChIPseq analysis requires a control and treatment
 sample. When using a sample config as input (`--sample-cfg` or `-S`),
 make sure that the control is named `control`.
 
@@ -30,8 +30,9 @@ make sure that the control is named `control`.
 The peak type is library dependent and can be set with `--peak-type`
 or `-t`. If set to `TF` or `histone-narrow`, MACS2 will call "narrow
 peaks" in either case and DFilter options will be adjusted accordingly
-If set to `histone-broad`, MACS2 will call "broad peaks" and DFilter
-options will be adjusted accordingly.  See the DFilter
+If set to `histone-broad`, MACS2 will call "broad peaks" and "narrow
+peaks" and DFilter options will be adjusted accordingly.  See the
+DFilter
 [tutorial](http://collaborations.gis.a-star.edu.sg/~cmb6/kumarv1/dfilter/tutorial.html#parameters)
 for an explanation of options.
 

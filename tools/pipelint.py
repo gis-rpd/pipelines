@@ -111,6 +111,7 @@ def check_modules(pipeline_dir):
 
     is_ok = True
     module_cfgs = glob.glob(os.path.join(pipeline_dir, "cfg/modules.yaml"))
+    assert len(module_cfgs) > 0
     modules = dict()
     for cfg in module_cfgs:
         with open(cfg) as fh:
@@ -140,7 +141,14 @@ def main(pipelinedirs,
     logger.warning("implement check reference conf (any ref to RPD_GENOMES)")
 
     snakefiles = [os.path.join(d, "Snakefile") for d in pipelinedirs]
-    
+
+    if not no_modules_check:
+        for d in pipelinedirs:
+            if not check_modules(d):
+                print("FAILED: Modules check for {}".format(d))
+            else:
+                print("OK: Modules check for {}".format(d))
+                
     includes = []
     for f in snakefiles:
         assert os.path.exists(f)
@@ -149,12 +157,6 @@ def main(pipelinedirs,
         else:
             print("OK: Expected files for {}".format(f))
             
-        if not no_modules_check:
-            if not check_modules(f):
-                print("FAILED: Modules check for {}".format(f))
-            else:
-                print("OK: Modules check for {}".format(f))
-                
         includes.extend(get_includes_from_snakefile(f))
 
         

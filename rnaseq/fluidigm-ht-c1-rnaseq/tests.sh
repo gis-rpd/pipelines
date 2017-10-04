@@ -65,7 +65,7 @@ cmd_base="$WRAPPER -1 $COL1_R1 -2 $COL1_R2 -s COL01 --name 'test:COL01'"
 
 
 # DAG
-SKIP_DAG=0
+SKIP_DAG=1
 if [ $SKIP_DAG -eq 0 ]; then
     echo "DAG" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
