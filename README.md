@@ -20,7 +20,7 @@ the
 
 ## Overview
 
-- Pipelines are organized into directories of specific category,
+- Pipelines are organised into directories of specific category,
   e.g. `variant-calling`
 - Each pipeline has its own subfolder there and the corresponding wrapper
   script has the same name
@@ -91,13 +91,13 @@ In either case, you must not prefix the script with `python`.
   logs/submission.log`. Upon restart, partially created files will be
   automatically deleted and the pipeline will skip already completed
   steps
-- Note, that the output directory has to be on a shared filesystem,
+- Note, that the output directory has to be on a shared file-system,
   i.e. directories local to the cluster node like `/tmp` won't work,
   unless run in local mode)
 
 ### Example
 
-#### Variant calling with GATK for an Exome sample with two fastq pairs
+#### Variant calling with GATK for an Exome sample with two FastQ pairs
 
     fq1_x=x_R1.fastq.gz
     fq2_x=x_R2.fastq.gz
@@ -124,7 +124,7 @@ In either case, you must not prefix the script with `python`.
 | [Essential-Genes](metagenomics/essential-genes/README.md)      | Metagenomics        | Requires ref download | Y | Y |
 | [STAR-RSEM](rnaseq/star-rsem/README.md)            | RNA-Seq             |                       | Y | Y |
 | [Fluidigm-HT-C1-RNASeq](rnaseq/fluidigm-ht-c1-rnaseq/README.md)| RNA-Seq             |                       | Y | N |
-| [Wafergen](rnaseq/wafergen-scrna/README.md)             | RNA-Seq             | Requires cellular barcodes | Y | Y |
+| [Wafergen-scRNA](rnaseq/wafergen-scrna/README.md)       | RNA-Seq             | Requires cellular barcodes | Y | Y |
 | [LoFreq-Somatic](somatic/lofreq-somatic/README.md)       | Somatic             |                            | Y | N |
 | [Mutect](somatic/mutect/README.md)               | Somatic             |                            | Y | Y |
 | [GATK](variant-calling/gatk/README.md)                 | Variant-calling     |                            | Y | Y |
@@ -137,9 +137,9 @@ Note, most pipelines start with FastQ files as input, a few allow injection of B
 ## How it Works
 
 - All pipelines are based on [![Snakemake](https://img.shields.io/badge/snakemake-≥3.7.1-brightgreen.svg?style=flat-square)](http://snakemake.bitbucket.org)
-- Input will be a single fastq file or a pair of fastq files. Multiple of these can
+- Input will be a single FastQ file or a pair of FastQ files. Multiple of these can
   be given. Each pair is treated as one readunit (see also resulting
-  `conf.yaml` file) and gets its own readgroup assigned where
+  `conf.yaml` file) and gets its own read-group assigned where
   appropriate.
 - Software versions are defined in each pipelines' `cfg/modules.yaml`
   and loaded via [Lmod](http://lmod.readthedocs.io/en/latest/)
@@ -164,21 +164,21 @@ First call the wrapper in question with `--no-run`. cd into the given outdir and
 
 ## (Multi) Sample Configuration
 
-If you have just one sample to analyze (no matter if multiple fastq
+If you have just one sample to analyse (no matter if multiple FastQ
 pairs or not), you will use options `-s`, `-1` and `-2` most of the
-time. To provide the pipeline with more information about your fastq
+time. To provide the pipeline with more information about your FastQ
 files (e.g. run-id etc.) you can create a sample configuration file
 (see below) and provide it to the wrapper script with `--sample-cfg`
 (thus replacing `-s`, `-1` and `-2`).
 
-You also need a sample configuration file if you want to analyze many
+You also need a sample configuration file if you want to analyse many
 samples identically with just one wrapper call. The easiest way to
 create such a file is to first create an Excel/CSV sheet listing all
-samples and fastq files and convert it into a sample config file as
+samples and FastQ files and convert it into a sample config file as
 described in the following:
 
 - Create an Excel sheet with the following columns:
-  1. sample name (mandatory; can be used repeatedly, e.g. if you have multiple fastqs per sample)
+  1. sample name (mandatory; can be used repeatedly, e.g. if you have multiple FastQs per sample)
   2. run id (allowed to be empty)
   3. flowcell id (allowed to be empty)
   4. library id (allowed to be empty)
@@ -200,8 +200,7 @@ master process will be killed).
 
 The above configuration can be used for single sample processing as
 well, however, for single samples the corresponding use of options
-`-s`, `-1` and `-2` is usually easierwill be sufficient for most
-cases..
+`-s`, `-1` and `-2` is usually easier.
 
 ## FAQ
 
