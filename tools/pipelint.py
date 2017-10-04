@@ -136,7 +136,8 @@ def main(pipelinedirs,
          no_modules_check=False, no_benchmark_check=False):
     """main function"""
 
-    logger.warning("include other existing tools here: check_cluster_conf.py...")
+    logger.warning("include check_cluster_conf.py")
+    logger.warning("implement check reference conf (any ref to RPD_GENOMES)")
 
     snakefiles = [os.path.join(d, "Snakefile") for d in pipelinedirs]
     
