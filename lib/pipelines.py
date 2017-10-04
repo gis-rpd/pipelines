@@ -174,6 +174,9 @@ class PipelineHandler(object):
         - def_args: argparser args. only default_argparser handled, i.e. must be subset of that
         - logger_cmd: the logger command used in run.sh. bash's 'true' doesn't do anything. Uses downstream default with conf db-id if set to None and logging is on.
         """
+        
+        if is_devel_version():
+            logger.info("Running in non-production mode")
 
         self.pipeline_name = pipeline_name
         self.pipeline_version = get_pipeline_version()# external function
