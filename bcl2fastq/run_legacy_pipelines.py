@@ -21,6 +21,7 @@ if LIB_PATH not in sys.path:
 from mongodb import mongodb_conn
 from pipelines import send_status_mail
 from pipelines import generate_window
+from pipelines import get_machine_run_flowcell_id
 from utils import generate_timestamp
 
 
@@ -39,6 +40,9 @@ PIPELINE_NAME = "Mapping"
 #CONFIG
 CONFIG = "/home/userrig/Solexa/bcl2fastq2-v2.17/"
 CONFIG += "generateBCL2FASTQ2.17config.sh"
+#SAMPLESHEET
+SAMPLESHEET = "/home/userrig/Solexa/bcl2fastq2-v2.17/"
+SAMPLESHEET += "generateBCL2FASTQ2.17SampleSheet.sh"
 #BWA mapping pipeline
 BWA = "/home/userrig/pipelines/NewBwaMappingPipelineMem/"
 BWA += "generateBwa0.7.5aconfigurationV217V2.sh"
@@ -53,7 +57,6 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(
     '[{asctime}] {levelname:8s} {filename} {message}', style='{'))
 logger.addHandler(handler)
-
 
 
 def main():
@@ -126,11 +129,27 @@ def main():
                         logger.fatal("Output: %s", e.output.decode())
                         logger.fatal("Exiting")
                         sys.exit(1)
+                    #generic sample sheet
+                    samplesheet_cmd = 'cd {} && {} -r {}'.format(out_dir, SAMPLESHEET, run_number)
+                    try:
+                        _ = subprocess.check_output(samplesheet_cmd, shell=True)
+                    except subprocess.CalledProcessError as e:
+                        logger.fatal("The following command failed with return code %s: %s",
+                                     e.returncode, ' '.join(samplesheet_cmd))
+                        logger.fatal("Output: %s", e.output.decode())
+                        logger.fatal("Exiting")
+                        sys.exit(1)
                     #Generate and Submit BWA and RNAseq mapping pipeline
-                    if os.path.exists(os.path.join(out_dir, "samplesheet.csv".format())):
+                    _, runid, _ = get_machine_run_flowcell_id(run_number)
+                    generic_samplesheet = (os.path.join(out_dir, runid + "_SampleSheet.csv"))
+                    if os.path.exists(os.path.join(out_dir, generic_samplesheet)):
                         dirs = os.path.join(out_dir, "out")
-                        cmd = "cd {} && {} -r {} -f {} -s {} -j 0 -p Production -c 5 >> {}".format(dirs, BWA, run_number, out_dir, os.path.join(out_dir, "samplesheet.csv".format()), os.path.join(out_dir, SUBMISSIONLOG))
-                        cmd += "&& {} -r {} -f {} -s {} -j 0 -p Production -c 5 >> {}".format(RNA, run_number, out_dir, os.path.join(out_dir, "samplesheet.csv".format()), os.path.join(out_dir, SUBMISSIONLOG))
+                        cmd = "cd {} && {} -r {} -f {} -s {} -j 0 -p Production -c 5 >> {}" \
+                            .format(dirs, BWA, run_number, out_dir, os.path.join(out_dir, \
+                                generic_samplesheet), os.path.join(out_dir, SUBMISSIONLOG))
+                        cmd += "&& {} -r {} -f {} -s {} -j 0 -p Production -c 5 >> {}" \
+                            .format(RNA, run_number, out_dir, os.path.join(out_dir, \
+                                generic_samplesheet), os.path.join(out_dir, SUBMISSIONLOG))
                         if args.dry_run:
                             logger.warning("Skipped following run: %s", cmd)
                             #Remove config txt
@@ -147,7 +166,8 @@ def main():
                                 logger.fatal("Output: %s", e.output.decode())
                                 logger.fatal("Exiting")
                                 #send_status_mail
-                                send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.join(out_dir, LOG_DIR_REL, "mapping_submission.log"))
+                                send_status_mail(PIPELINE_NAME, False, analysis_id, \
+                                    os.path.join(out_dir, LOG_DIR_REL, "mapping_submission.log"))
                                 sys.exit(1)
                             num_triggers += 1
 
@@ -157,7 +177,8 @@ def main():
                     else:
                         #send_status_mail
                         logger.info("samplesheet.csv missing for %s under %s", run_number, out_dir)
-                        send_status_mail(PIPELINE_NAME, False, analysis_id, os.path.abspath(out_dir))
+                        send_status_mail(PIPELINE_NAME, False, analysis_id, \
+                            os.path.abspath(out_dir))
             elif analysis.get("Status") == "FAILED":
                 logger.debug("BCL2FASTQ FAILED for %s under %s", run_number, out_dir)
      # close the connection to MongoDB
