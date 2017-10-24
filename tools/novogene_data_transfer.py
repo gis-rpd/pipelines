@@ -195,7 +195,8 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
         yaml_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], \
             mux, mux+ "_multisample.yaml")
     rsync_cmd = 'rsync -va %s %s' % (fastq_src, fastq_dest)
-    if not os.path.exists(fastq_dest):
+    mux_dir = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], mux)
+    if not os.path.exists(mux_dir):
         try:
             os.makedirs(fastq_dest)
             logger.info("data transfer started for %s from %s", mux, run_number)
