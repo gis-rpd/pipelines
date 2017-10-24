@@ -67,13 +67,16 @@ rule final:
 
 rule bam_to_mitocalc:
     input:
-        bam = "{prefix}/{sample}.bwamem.fixmate.mdups.srt.recal.bam"
+        bam = "{prefix}/{sample}.bwamem.fixmate.mdups.srt.recal.bam",
+        bai = "{prefix}/{sample}.bwamem.fixmate.mdups.srt.recal.bam.bai"
     output:
         mtdata = "{prefix}/{sample}MTData.txt"# defined by program. no dot in sample name allowed!
     message:
         "Running fastmitocalc on {wildcards.sample}"
     #params:
     #    basecov_path = os.path.join(FASTMITOCALC_PATH, "BaseCoverage"),
+    benchmark:
+        "{prefix}/{sample}MTData.txt.bam_to_mitocalc.benchmark.log"
     log:
         "{prefix}/{sample}MTData.log"
     shell:
@@ -90,6 +93,8 @@ rule sample_qc:
         bam = '{prefix}.bam'
     output:
         qc = '{prefix}.qc-062017.txt'
+    benchmark:
+        '{prefix}.qc-062017.txt.sample_qc.benchmark.log'
     log:
         '{prefix}.qc-062017.log'
     message:
@@ -104,6 +109,8 @@ rule sample_qc_pre_060217:
         bam = '{prefix}.bam'
     output:
         qc = '{prefix}.qc.txt'
+    benchmark:
+        '{prefix}.qc.txt.sample_qc_pre_060217.benchmark.log'
     log:
         '{prefix}.qc.log'
     message:
@@ -122,6 +129,8 @@ rule bam_to_cram:
 	reffa =	config['references']['genome']
     output:
         cram = '{prefix}.qbinned.cram'
+    benchmark:
+        '{prefix}.qbinned.cram.bam_to_cram.benchmark.log'
     message:
         "Converting {input.bam}"
     log:
@@ -147,6 +156,8 @@ rule cram_index:
         cram = '{prefix}.qbinned.cram',
     output:
         crai = '{prefix}.qbinned.cram.crai'
+    benchmark:
+        '{prefix}.qbinned.cram.crai.cram_index.benchmark.log'
     message:
         "Indexing {input.cram}"
     shell:
@@ -161,6 +172,8 @@ rule contamination_check:
     output:
         # assuming default option --self
         bam = os.path.join(RESULT_OUTDIR, '{prefix}.{race}.selfSM')
+    benchmark:
+        os.path.join(RESULT_OUTDIR, '{prefix}.{race}.selfSM.contamination_check.benchmark.log')
     log:
         os.path.join(RESULT_OUTDIR, '{prefix}.{race}.recal.cont.log')
     params:
@@ -195,6 +208,8 @@ rule bq_recal:
     output:
         bam = '{prefix}.recal.bam',
         qemp = '{prefix}.recal.bam.qemp'
+    benchmark:
+        '{prefix}.recal.bam.bq_recal.benchmark.log'
     log:
         '{prefix}.recal.log',
     message:
@@ -216,6 +231,8 @@ rule unit_merge:
             prefix=wildcards.prefix, unit=config['samples'][wildcards.sample])
     output:
         temp('{prefix}/{sample}/{sample}.bwamem.fixmate.mdups.srt.bam')
+    benchmark:
+        '{prefix}/{sample}/{sample}.bwamem.fixmate.mdups.srt.bam.unit_merge.benchmark.log'
     log:
         '{prefix}/{sample}/{sample}.bwamem.fixmate.mdups.srt.bam.log'
     message:
@@ -262,6 +279,8 @@ rule map_mdups_sort:
         fastqs=lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
         bam=temp('{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam')
+    benchmark:
+        '{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam.map_mdups_sort.benchmark.log'
     log:
         '{prefix}/unit-{unit}.bwamem.fixmate.mdups.srt.bam.log'
     message:
