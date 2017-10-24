@@ -39,7 +39,7 @@ def main(yaml_files, yaml_out, use_abspath=False):
                 else:
                     samples[k].extend(v)
             for k, v in d['readunits'].items():
-                assert k not in readunits
+                assert k not in readunits, ("Already got key {} for {} in readunits: {}".format(k, v, readunits))
                 # fastq path might be relativ to its config. make
                 # absolute first, otgerwise next operations won't work
                 if not isabs(v['fq1']):
