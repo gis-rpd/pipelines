@@ -43,7 +43,10 @@ rule unit_merge:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& {log};")
+            # prevent job from completing so quickly that completion
+            # can't be picked up (no idea why this is possible in the
+            # first place)
+            shell("ln {input} {output} >& {log}; sleep 60;")
 
                         
 
