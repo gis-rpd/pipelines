@@ -1,0 +1,95 @@
+# standard library imports
+#
+import os
+
+# third party imports
+#
+#/
+
+# project specific imports
+#
+from readunits import gen_rg_lib_id, gen_rg_pu_id
+from readunits import fastqs_from_unit, get_sample_for_unit
+
+
+assert 'samples' in config
+
+
+# FIXME to conf once downstream handling clear
+MARK_SHORT_SPLITS="-M"# "-M" or ""
+
+
+rule unit_merge:
+    """
+    Merge bam files for multiple units into one for the given sample
+    (or copy if just one).
+    """
+    input:
+        # switch expand and wildcards and funny things happen
+        lambda wildcards: expand('{prefix}/unit-{unit}.bwamem.bam',
+                                 prefix=wildcards.prefix,
+                                 unit=config['samples'][wildcards.sample])
+    output:
+        temp('{prefix}/{sample}/{sample}.bwamem.bam')
+    benchmark:
+        '{prefix}/{sample}/{sample}.bwamem.bam.unit_merge.benchmark.log'
+    log:
+        '{prefix}/{sample}/{sample}.bwamem.bam.log'
+    message:
+        "Merging files"
+    threads:
+        4
+    run:
+        if len(input) > 1:
+            shell("samtools merge -@ {threads} {output} {input} >& {log};")
+        else:
+            shell("ln {input} {output} >& {log};")
+
+                        
+
+# Expecting SE/PE input read length >70 (BWA-MEM limitation)
+rule map_sort:
+    """
+    - fixmate (and samblaster) only work on name sorted files.
+    - fixmate ignores secondary  alignments, i.e. safe to use with bwa mem -M:
+      http://sourceforge.net/p/samtools/mailman/message/30556922/
+    - Setting read groups correctly is tricky and also depends on downstream programs.
+      See e.g. http://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+      For example for BQSR PU takes precedence over ID. PU should contain lane.
+    - More threads mean more memory because of sorting
+    - This originated from the equally named SG10K rule
+    """
+    input:
+        reffa = config['references']['genome'],
+        bwaindex = config['references']['genome'] + ".pac",# incomplete but should do
+        fastqs = lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
+    output:
+        bam = temp('{prefix}/unit-{unit}.bwamem.bam')
+    benchmark:
+        "{prefix}/unit-{unit}.bwamem.bam.map_sort.benchmark.log"
+    log:
+        '{prefix}/unit-{unit}.bwamem.bam.log'
+    params:
+        mark_short_splits = MARK_SHORT_SPLITS,
+        bwa_mem_custom_args = config.get("bwa_mem_custom_args", ""),
+        center = config.get("center", "GIS"),
+        platform = config.get("platform", "Illumina"),
+        # samtools threading has little effect on overall runtime. but on memory.
+        # use ~half the threads provided
+        sort_mem='250M',
+        rg_id=lambda wildcards: config["readunits"][wildcards.unit]['rg_id'],# always set
+        lib_id=lambda wildcards: gen_rg_lib_id(config["readunits"][wildcards.unit]),
+        pu_id=lambda wildcards: gen_rg_pu_id(config["readunits"][wildcards.unit]),
+        sample=lambda wildcards: get_sample_for_unit(wildcards.unit, config)
+    message:
+        'Aligning PE reads, fixing mate information and converting to sorted BAM'
+    threads:
+        # 32 is where it seems to max out in GIS.
+        # standard nodes at nscc only allow 24
+        16
+    shell:
+        "{{ bwa mem {params.mark_short_splits} -t {threads}"
+        " -R '@RG\\tID:{params.rg_id}\\tPL:{params.platform}\\tPU:{params.pu_id}\\tLB:{params.lib_id}\\tSM:{params.sample}\\tCN:{params.center}'"
+        " {params.bwa_mem_custom_args} {input.reffa} {input.fastqs} |"
+        " samtools fixmate - - |"
+        " samtools sort -@ $(echo \"({threads}+1)/2\" | bc) -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"

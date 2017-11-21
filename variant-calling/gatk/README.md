@@ -4,7 +4,7 @@
 ## Summary
 
 This pipeline implements the GATK best practices variant calling
-workflow (v3.6) for single samples. It's major output are a
+workflow (v3.6) for single samples. It's main output filse are a
 recalibrated BAM file, gVCF and VCF files (per sample). 
 
 See `cfg/references.yaml` for references used by default (also refer

@@ -1,0 +1,88 @@
+# standard library imports
+#
+import os
+import subprocess
+import shutil
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+
+
+RESULT_OUTDIR = 'out'
+
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+include: "../../rules/snpeff.rules"
+include: "../../rules/samtools.rules"
+include: "../../rules/logging.rules"
+include: "../../rules/report.rules"
+include: "../../rules/vcf.rules"
+include: "../../rules/sambamba.rules"
+include: "bwa_mem.rules"
+
+
+localrules: final, report
+
+
+# expected output depends on options
+out_templ = os.path.join(RESULT_OUTDIR, "{sample}/{sample}.bwamem")
+if config['mark_dups']:
+    out_templ += ".dedup"
+
+rule final:
+    input:
+        # bam stats per sample
+        expand(out_templ + ".bamstats/stats.txt",
+               sample=config['samples']),
+        expand(out_templ + ".freebayes.hfilter.snpeff.vcf.gz.tbi",
+               sample=config['samples'])
+               
+
+localrules: prepare_regions        
+rule prepare_regions:
+    """If this is WGS we can use the Freebayes provided script that works
+    on the reference. Otherwise we take the bed file and reformat"""
+    input:
+        bed = config['bed'],
+        reffa = config["references"]["genome"]
+    output:
+        reg_list = '{dir}/regions.txt'
+    params:
+        # 100k default as given on website
+        reg_size = 100000# FIXME to config
+    log:
+        '{dir}/regions.txt.log'
+    run:
+        if input.bed:
+           shell("awk '{{printf \"%s:%d-%d\n\", $1, $2, $3}}' {input.bed} >{output.reg_list} 2>{log}")
+        else:
+            shell("fasta_generate_regions.py $ref $reg_size >{output.reg_list} 2>{log}")
+
+
+rule freebayes:
+    input:
+        reffa = config["references"]["genome"],
+        reg_list = '{dir}/regions.txt',
+        bam = '{dir}/{basename}.bam'
+    output:
+        vcf = '{prefix}/{basename}.freebayes.hfilter.vcf.gz'
+    params:
+        fb_args = '--use-best-n-alleles 4 --standard-filters'# FIXME to conv
+        min_mq = 20# FIXME to config
+    threads:
+        16
+    shell:
+        """freebayes-parallel {input.reg_list} {threads} {params.fb_args} -f ${input.reffa} {input.bam} | """
+        """ bcftools filter -e 'QUAL<{params.minq}' -O z -o {output.vcf}"""
