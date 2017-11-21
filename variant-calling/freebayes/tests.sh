@@ -67,16 +67,16 @@ echo "Logging to $log"
 echo "Check log if the following final message is not printed: \"$COMPLETE_MSG\""
 
 
-SKIP_REAL_TARGETED=0
-SKIP_REAL_WES=0
+SKIP_REAL_TARGETED=1
+SKIP_REAL_WES=1
 SKIP_REAL_WGS=0
 
 
 WRAPPER=./freebayes.py
-targeted_cmd_base="$WRAPPER --sample-cfg $TARGETED_CFG -t targeted -l $DUMMY_BED --name 'test:targeted'";# --bam-only"
-wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:WES'";# --bam-only"
-wes_run_cmd_base="../../run $(basename $WRAPPER .py) -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:run:WES'"
-wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS -t WGS --name 'test:WGS'"
+targeted_cmd_base="$WRAPPER --sample-cfg $TARGETED_CFG -l $DUMMY_BED --name 'test:targeted'"
+wes_cmd_base="$WRAPPER -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -l $TRUSEQ_BED --name 'test:WES'"
+wes_run_cmd_base="../../run $(basename $WRAPPER .py) -1 $WES_FQ1 -2 $WES_FQ2 -s NA12878-WES -l $TRUSEQ_BED --name 'test:run:WES'"
+wgs_cmd_base="$WRAPPER -1 $WGS_FQ1 -2 $WGS_FQ2 -s NA12878-WGS --name 'test:WGS'"
 
 
 # DAG
@@ -117,27 +117,10 @@ if [ $skip_dry_runs -ne 1 ]; then
     popd >> $log
     rm -rf $odir
 
-    echo "Dryrun: WES bam only" | tee -a $log
-    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    eval $wes_cmd_base -o $odir --bam-only -v --no-run >> $log 2>&1
-    pushd $odir >> $log
-    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    popd >> $log
-    rm -rf $odir
-
-    echo "Dryrun: WES injected raw" | tee -a $log
-
-    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    _wes_cmd_base="$WRAPPER -s NA12878-WES -t WES -l $TRUSEQ_BED --name 'test:WES'";# --bam-only"
-    eval $_wes_cmd_base -o $odir --raw-bam $INJ_BAM -v --no-run >> $log 2>&1
-
-    pushd $odir >> $log
-    EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
-    popd >> $log
-    rm -rf $odir
 
     echo "Dryrun: WES injected post processed" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
+    _wes_cmd_base="$WRAPPER -s NA12878-WES -l $TRUSEQ_BED --name 'test:WES'"
     eval $_wes_cmd_base -o $odir --proc-bam $INJ_BAM -v --no-run >> $log 2>&1
 
     pushd $odir >> $log

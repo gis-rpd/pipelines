@@ -55,18 +55,18 @@ rule prepare_regions:
     """If this is WGS we can use the Freebayes provided script that works
     on the reference. Otherwise we take the bed file and reformat"""
     input:
-        bed = config['bed'],
         reffa = config["references"]["genome"]
     output:
         reg_list = '{dir}/regions.txt'
     params:
         # 100k default as given on website
-        reg_size = 100000# FIXME to config
+        reg_size = 100000,
+        bed = config['bed'],# cannot be input since might not exist
     log:
         '{dir}/regions.txt.log'
     run:
-        if input.bed:
-           shell("awk '{{printf \"%s:%d-%d\n\", $1, $2, $3}}' {input.bed} >{output.reg_list} 2>{log}")
+        if params.bed:
+           shell("awk '/^[^#]/ {{if (length($1)) {{printf \"%s:%d-%d\\n\", $1, $2, $3}}}}' {params.bed} >{output.reg_list} 2>{log}")
         else:
             shell("fasta_generate_regions.py $ref $reg_size >{output.reg_list} 2>{log}")
 
@@ -77,12 +77,15 @@ rule freebayes:
         reg_list = '{dir}/regions.txt',
         bam = '{dir}/{basename}.bam'
     output:
-        vcf = '{prefix}/{basename}.freebayes.hfilter.vcf.gz'
+        vcf = '{dir}/{basename}.freebayes.hfilter.vcf.gz'
+    log:
+        '{dir}/{basename}.freebayes.hfilter.vcf.gz.log'
     params:
-        fb_args = '--use-best-n-alleles 4 --standard-filters'# FIXME to conv
-        min_mq = 20# FIXME to config
+        fb_args = '--use-best-n-alleles 4 --standard-filters',# FIXME to config?
+        min_vq = 20# FIXME to config?
+    
     threads:
         16
     shell:
-        """freebayes-parallel {input.reg_list} {threads} {params.fb_args} -f ${input.reffa} {input.bam} | """
-        """ bcftools filter -e 'QUAL<{params.minq}' -O z -o {output.vcf}"""
+        """{{ freebayes-parallel {input.reg_list} {threads} {params.fb_args} -f {input.reffa} {input.bam} | """
+        """ bcftools filter -e 'QUAL<{params.min_vq}' -O z -o {output.vcf}; }} >& {log}"""

@@ -72,7 +72,7 @@ def main():
     # pipeline specific args
     parser.add_argument('-l', "--bed",
                         help="Bed file listing regions of interest."
-                        " Required for WES and targeted sequencing.")
+                        " Use for WES and targeted sequencing.")
     parser.add_argument('--proc-bam',
                         help="Advanced: Injects processed (post-dedup) BAM (overwrites fq options)."
                         " WARNING: reference and pre-processing need to match pipeline requirements")
@@ -139,6 +139,7 @@ def main():
     cfg_dict = dict()
     cfg_dict['readunits'] = readunits
     cfg_dict['samples'] = samples
+    cfg_dict['bed'] =  args.bed if args.bed else None
     cfg_dict['mark_dups'] = MARK_DUPS
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,

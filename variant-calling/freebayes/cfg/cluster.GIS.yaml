@@ -28,49 +28,22 @@
        "mem" : 10G,
     },
 
-    "gatk_recalibrate_info":
+    "freebayes":
     {
-      "time" : "18:00:00",
+      "time" : "12:00:00",
       "mem" : 8G,
     },
 
-    "gatk_recalibrate_bam":
-    {
-      "time" : "48:00:00",
-      "mem" : 4G,
-    },
-
-    "gatk_haplotype_caller":
-    {
-      "time" : "36:00:00",
-      "mem" : 8G,
-    },
-
-    "gatk_genotyping":
-    {
-      "time" : "06:00:00",
-      "mem" : 16G,
-    },
-
-    "gatk_selectvariants":
-     {
-      "time" : "02:00:00",
-      "mem" : 2G,
-     },
-
-    "gatk_hard_filter_snps":
+    "bam_index":
     {
       "time" : "04:00:00",
-      "mem" : 2G,
+      "mem" : 1G,
+    },
+    
     "snpeff":
     {
       "time" : "02:00:00",
       "mem" : 6G,
     },
     
-    "bam_index":
-    {
-      "time" : "04:00:00",
-      "mem" : 1G,
-    },
 }

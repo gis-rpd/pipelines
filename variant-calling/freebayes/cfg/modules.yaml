@@ -3,4 +3,5 @@ bwa: 0.7.15
 bcftools: 1.3
 sambamba: 0.6.5
 samtools: 1.3
+freebayes: 1.1.0
 snpeff: 4.2
