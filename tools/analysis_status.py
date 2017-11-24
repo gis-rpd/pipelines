@@ -195,10 +195,6 @@ def main():
         for line in fh:
             line = line.rstrip()
             last_lines.append(line)
-            if line.startswith("["):
-                if 'steps (100%) done' in line or "Nothing to be done" in line:
-                    print("Workflow completed: {}".format(line))
-                    return# exit
                 
     workflow_failed = False
     for line in last_lines:
@@ -206,29 +202,46 @@ def main():
         if "Exiting because a job execution failed" in line:
             print("Workflow execution failed")
             workflow_failed = True
+        elif 'steps (100%) done' in line or "Nothing to be done" in line:
+            print("Workflow completed: {}".format(line))
+            return# exiting
+        
     if not workflow_failed:
         print("Workflow execution still ongoing")
         return# exit
 
-    print("\nLet's look at the worker job (in chronological order)")
-    abnormal_fail = False
+    print("\nLet's look at the worker jobs (in chronological order and since last rerun)")
+    worker_jids = []
     with open(masterlog) as fh:
         for line in fh:
             line = line.rstrip()
+            # reset for reruns
+            if 'Job counts:' in line:
+                worker_jids = []
+                continue
+            
             # snakemake 4.1 with drmaa
             if "Submitted DRMAA job" in line and "with external jobid" in line:
                 jid = line.strip().split()[-1].strip(".")
-                jid_status = JIDStatus(jid, scheduler=scheduler, logdir=logdir)
-                #print("DEBUG: {}".format(jid_status))
-                if jid_status.is_running:
-                    print("Worker {}: running".format(jid))
-                elif jid_status.exit_status == 0:
-                    print("Worker {}: completed successfully".format(jid))
-                elif jid_status.exit_status == 1:
-                    print("Worker {}: FAILED".format(jid))
-                elif jid_status.exit_status > 1:
-                    print("Worker {}: FAILED ABNORMALLY with status {}. Check runtime and memory limits".format(jid, jid_status.exit_status))
-                    abnormal_fail = True
+            # snakemake 3.11 with drmaa
+            elif "Submitted DRMAA job (jobid" in line:
+                jid = line.strip().split()[-1].strip(")")
+            worker_jids.append(jid)
+
+    abnormal_fail = False
+    for jid in worker_jids:
+        jid_status = JIDStatus(jid, scheduler=scheduler, logdir=logdir)
+        #print("DEBUG: {}".format(jid_status))
+        if jid_status.is_running:
+            print("Worker {}: running".format(jid))
+        elif jid_status.exit_status == 0:
+            print("Worker {}: completed successfully".format(jid))
+        elif jid_status.exit_status == 1:
+            print("Worker {}: FAILED".format(jid))
+        elif jid_status.exit_status > 1:
+            print("Worker {}: FAILED ABNORMALLY with status {} (possibly runtime or memory limit exceeded)".format(jid, jid_status.exit_status))
+            abnormal_fail = True
+            
     print()
     if abnormal_fail:
         print("Check and adjust runtime and memory limits before resubmitting")
