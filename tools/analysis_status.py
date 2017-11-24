@@ -2,9 +2,6 @@
 """Check snakemake's slave cluster jobs for a certain run
 """
 
-# FIXME rewrite
-# Have job class with jobid and stdout, stderr logs as attribute
-
 #--- standard library imports
 #
 import sys
@@ -13,6 +10,7 @@ import argparse
 import logging
 import glob
 import subprocess
+from collections import deque
 
 #--- third-party imports
 #/
@@ -32,26 +30,62 @@ handler.setFormatter(logging.Formatter(
 logger.addHandler(handler)
 
 
-def jid_is_running(jid, is_pbspro):
-    """run qstat to find out whether jid is still running
-    """
-    if is_pbspro:
-        cmd = ['qstat', jid]
-    else:
-        cmd = ['qstat', '-j', jid]
-    try:
-        _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        return True
-    except subprocess.CalledProcessError as e:
-        if is_pbspro:
-            # Unknown Job Id happens on log rotation.
-            # NOTE (possible workaround): accouting info actually part of OU
-            if not any(['Unknown Job Id' in x for x in [e.output.decode(), e.output.decode()]]):
-                assert any(['has finished' in x for x in [e.output.decode(), e.output.decode()]])
+class JIDStatus(object):
+
+    def __init__(self, jid, scheduler="UGE", logdir=None):
+        self.jid = jid
+        assert scheduler in ["UGE", "PBS"]
+
+        self.scheduler = scheduler
+        self.logdir = logdir
+        self.is_running = None
+        self.exit_status = None
+        self.get_status()
+
+        
+    def get_status(self):
+        if self.scheduler == "PBS":
+            cmd = ['qstat', self.jid]
+        elif self.scheduler == "UGE":
+            cmd = ['qstat', '-j', self.jid]
         else:
-            assert any(["Following jobs do not exist" in x for x in [e.output.decode(), e.output.decode()]])
-            # otherwise communication error?
-            return False
+            raise ValueError(self.scheduler)
+
+        try:
+            res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+
+        except subprocess.CalledProcessError as e:
+            if self.scheduler == "PBS":
+                assert 'Unknown Job Id' in e.output.decode()
+                self.is_running = False
+                if self.logdir:
+                    logm = glob.glob(os.path.join(self.logdir, self.jid + "*" + ".OU"))
+                    assert len(logm) == 1, (
+                        "No log files found for jid {} in {}".format(self.jid, self.logdir))
+                    with open(logm[0]) as fh:
+                        for line in fh:
+                            if 'Exit Status:' in line:
+                                self.exit_status = int(line.strip().split(":")[-1])
+                                break
+                if self.exit_status is None:
+                    raise ValueError(res.decode())
+
+            elif self.scheduler == "UGE":
+                assert 'not exist' in e.output.decode(), (e.output.decode())
+                self.is_running = False
+                cmd = ['qacct', '-j', self.jid]
+                res = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+                for line in res.decode().splitlines():
+                    #print("DEBUG line={}".format(line))
+                    if line.startswith("exit_status"):
+                        self.exit_status = int(line[len("exit_status"):].strip())
+                        break
+                if self.exit_status is None:
+                    raise ValueError(res.decode())
+        else:
+            self.is_running = True
+
+        #print("DEBUG: jid={} is_running={} exit_status={}".format(self.jid, self.is_running, self.exit_status))
 
 
 def jid_from_cluster_logfile(logfile):
@@ -84,10 +118,10 @@ def main():
     try:
         res = subprocess.check_output(['qstat', '--version'], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
-        is_pbspro = False
+        scheduler = "UGE"
     else:
         if 'PBSPro' in res.decode():
-            is_pbspro = True
+            scheduler = "PBS"
         else:
             raise ValueError(res.decode())
 
@@ -95,9 +129,9 @@ def main():
     parser.add_argument('dir', nargs=1,
                         help="Analysis directory (output dir of pipeline wrapper)")
     parser.add_argument('-v', '--verbose', action='count', default=0,
-                            help="Increase verbosity")
+                        help="Increase verbosity")
     parser.add_argument('-q', '--quiet', action='count', default=0,
-                            help="Decrease verbosity")
+                        help="Decrease verbosity")
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -111,69 +145,96 @@ def main():
     # script -qqq -> no logging at all
     logger.setLevel(logging.WARN + 10*args.quiet - 10*args.verbose)
 
-
-    if not os.path.exists(args.dir[0]):
-        logger.fatal("Log directory {} doesn't exist".format(args.dir[0]))
+    pipedir = args.dir[0]
+    if not os.path.exists(pipedir):
+        logger.fatal("Log directory %s doesn't exist", pipedir)
         sys.exit(1)
-    logdir = os.path.join(args.dir[0], 'logs')
+    logdir = os.path.join(pipedir, 'logs')
     if not os.path.exists(logdir):
-        logger.fatal("Couldn't find expected log directory in {}".format(args.dir[0]))
+        logger.fatal("Couldn't find expected log directory in %s", pipedir)
         sys.exit(1)
 
 
-    cluster_logfiles = []
-    # LFS
-    cluster_logfiles.extend(glob.glob(os.path.join(logdir, "*.sh.o*[0-9]")))
-    # PBS Pro
-    cluster_logfiles.extend(glob.glob(os.path.join(logdir, "*OU")))
-    print("Found {} slaves (cluster log files)".format(len(cluster_logfiles)))
-    slave_jids = [jid_from_cluster_logfile(f) for f in cluster_logfiles]
-    for jid in slave_jids:
-        if jid_is_running(jid, is_pbspro):
-            print("Slave jid {} still running".format(jid))
-        else:
-            print("Slave jid {} not running (anymore).".format(jid))
-
-
+    # Analyze submission log
+    #
     submissionlog = os.path.join(logdir, SUBMISSIONLOG)
     if not os.path.exists(submissionlog):
-        logger.warning("Submission logfile {} not found: job not submitted".format(submissionlog))
+        logger.warning("Submission logfile %s not found: job not submitted", submissionlog)
     else:
+        print("Analyzing submission logfile %s" % submissionlog)
         with open(submissionlog) as fh:
+            master_jid = []
+            # only use last one
             for line in fh:
                 line = line.rstrip()
-                if is_pbspro:
+                if scheduler == "PBS":
                     jid = line.strip()
-                    if jid_is_running(jid, is_pbspro):
-                        print("Master jid {} still running".format(jid))
-                    else:
-                        print("Master jid {} not running (anymore).".format(jid))
-
-                elif line.startswith("Your job") and line.endswith("has been submitted"):
+                elif scheduler == "UGE":
+                    assert line.startswith("Your job") and line.endswith("has been submitted")
                     jid = line.split()[2]
-                    if jid_is_running(jid, is_pbspro):
-                        print("Master jid {} still running".format(jid))
-                    else:
-                        print("Master jid {} not running (anymore).".format(jid))
                 else:
-                    raise ValueError(line)
+                    raise ValueError(scheduler)
+                    
+            jid_status = JIDStatus(jid, scheduler=scheduler, logdir=logdir)
+            if jid_status.is_running:
+                print("Master {} still running. Exiting...".format(jid))
+                return# exit
+            else:
+                print("Master {} not running.".format(jid))
 
-
+    # analyzing masterlog/snakemake.log
+    #
     masterlog = os.path.join(logdir, MASTERLOG)
     if not os.path.exists(masterlog):
-        logger.warning("Master logfile {} not found: job not (yet) running (might be in queue)".format(masterlog))
+        logger.warning("Master logfile %s not found: job not (yet) running (might be in queue). Exiting...", masterlog)
+        return# exit
+    print("\nAnalyzing master logfile %s" % submissionlog)
+    workflow_done = False
+    last_lines = deque(maxlen=10)    
+    with open(masterlog) as fh:
+        for line in fh:
+            line = line.rstrip()
+            last_lines.append(line)
+            if line.startswith("["):
+                if 'steps (100%) done' in line or "Nothing to be done" in line:
+                    print("Workflow completed: {}".format(line))
+                    return# exit
+                
+    workflow_failed = False
+    for line in last_lines:
+        # snakemake 4.1
+        if "Exiting because a job execution failed" in line:
+            print("Workflow execution failed")
+            workflow_failed = True
+    if not workflow_failed:
+        print("Workflow execution still ongoing")
+        return# exit
+
+    print("\nLet's look at the worker job (in chronological order)")
+    abnormal_fail = False
+    with open(masterlog) as fh:
+        for line in fh:
+            line = line.rstrip()
+            # snakemake 4.1 with drmaa
+            if "Submitted DRMAA job" in line and "with external jobid" in line:
+                jid = line.strip().split()[-1].strip(".")
+                jid_status = JIDStatus(jid, scheduler=scheduler, logdir=logdir)
+                #print("DEBUG: {}".format(jid_status))
+                if jid_status.is_running:
+                    print("Worker {}: running".format(jid))
+                elif jid_status.exit_status == 0:
+                    print("Worker {}: completed successfully".format(jid))
+                elif jid_status.exit_status == 1:
+                    print("Worker {}: FAILED".format(jid))
+                elif jid_status.exit_status > 1:
+                    print("Worker {}: FAILED ABNORMALLY with status {}. Check runtime and memory limits".format(jid, jid_status.exit_status))
+                    abnormal_fail = True
+    print()
+    if abnormal_fail:
+        print("Check and adjust runtime and memory limits before resubmitting")
     else:
-        workflow_done = False
-        with open(masterlog) as fh:
-            for line in fh:
-                line = line.rstrip()
-                if line.startswith("["):
-                    if 'steps (100%) done' in line or "Nothing to be done" in line:
-                        print("Workflow completed: {}".format(line))
-                        workflow_done = True
-        if not workflow_done:
-            print("Workflow not complete")
+        print("A simple resubmission should work (For GIS: cd %s && qsub run.sh >> logs/submission.log)" % pipedir)
 
-
+            
 if __name__ == "__main__":
     main()

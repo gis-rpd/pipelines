@@ -38,6 +38,7 @@ SCRIPTS = ['chromatin-profiling/atacseq/atacseq.py',
            'rnaseq/wafergen-scrna/wafergen-scrna.py',
            'somatic/lofreq-somatic/lofreq-somatic.py',
            'somatic/mutect/mutect.py',
+           'variant-calling/freebayes/freebayes.py',
            'variant-calling/gatk/gatk.py',
            'variant-calling/lacer-lofreq/lacer-lofreq.py'
        ]
