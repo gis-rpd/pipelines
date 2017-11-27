@@ -52,8 +52,10 @@ rule final:
 
 localrules: prepare_regions        
 rule prepare_regions:
-    """If this is WGS we can use the Freebayes provided script that works
-    on the reference. Otherwise we take the bed file and reformat"""
+    """Freebayes has a parallelization script. We use it on the full
+    reference and filter later. This can have unintended side effects if
+    you are really only interest in a small region of an otherwise fully
+    sequenced samples!"""
     input:
         reffa = config["references"]["genome"]
     output:
@@ -61,14 +63,10 @@ rule prepare_regions:
     params:
         # 100k default as given on website
         reg_size = 100000,
-        bed = config['bed'],# cannot be input since might not exist
     log:
         '{dir}/regions.txt.log'
-    run:
-        if params.bed:
-           shell("awk '/^[^#]/ {{if (length($1)) {{printf \"%s:%d-%d\\n\", $1, $2, $3}}}}' {params.bed} >{output.reg_list} 2>{log}")
-        else:
-            shell("fasta_generate_regions.py $ref $reg_size >{output.reg_list} 2>{log}")
+    shell:
+        "fasta_generate_regions.py {input.reffa} {params.reg_size} >{output.reg_list} 2>{log}"
 
 
 rule freebayes:
@@ -77,15 +75,28 @@ rule freebayes:
         reg_list = '{dir}/regions.txt',
         bam = '{dir}/{basename}.bam'
     output:
-        vcf = '{dir}/{basename}.freebayes.hfilter.vcf.gz'
+        vcf = '{dir}/{basename}.freebayes.vcf.gz'
     log:
-        '{dir}/{basename}.freebayes.hfilter.vcf.gz.log'
+        '{dir}/{basename}.freebayes.vcf.gz.log'
     params:
         fb_args = '--use-best-n-alleles 4 --standard-filters',# FIXME to config?
-        min_vq = 20# FIXME to config?
-    
     threads:
         16
     shell:
-        """{{ freebayes-parallel {input.reg_list} {threads} {params.fb_args} -f {input.reffa} {input.bam} | """
-        """ bcftools filter -e 'QUAL<{params.min_vq}' -O z -o {output.vcf}; }} >& {log}"""
+        "{{"
+        " freebayes-parallel {input.reg_list} {threads} {params.fb_args}"
+        "   -f {input.reffa} {input.bam} | bgzip > {output.vcf};"
+        "}} >& {log}"
+
+
+rule postprocess:
+    input:
+        vcf = '{prefix}.freebayes.vcf.gz'
+    output:
+        vcf = '{prefix}.freebayes.hfilter.vcf.gz'
+    params:
+        bedarg = "-T {}".format(config['bed']) if config['bed'] else "",
+        minvq = 20# FIXME to config?
+    shell:
+        """bcftools filter -e 'QUAL<{params.minvq}' {params.bedarg} -O z -o {output.vcf} >& {log}"""
+        
