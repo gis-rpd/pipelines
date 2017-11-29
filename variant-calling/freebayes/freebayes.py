@@ -76,6 +76,12 @@ def main():
     parser.add_argument('--proc-bam',
                         help="Advanced: Injects processed (post-dedup) BAM (overwrites fq options)."
                         " WARNING: reference and pre-processing need to match pipeline requirements")
+    default = "--use-best-n-alleles 4 --standard-filters"
+    parser.add_argument("--fb-args", default=default,
+                        help="Freebayes extra arguments (default = \"%s\")" % default)
+    default = 20
+    parser.add_argument('--minvq', default=default, type=int,
+                        help="Variant quality filtering threshold (default = %d)" % default)
 
     args = parser.parse_args()
 
@@ -141,6 +147,9 @@ def main():
     cfg_dict['samples'] = samples
     cfg_dict['bed'] =  args.bed if args.bed else None
     cfg_dict['mark_dups'] = MARK_DUPS
+    cfg_dict['minvq'] = args.minvq
+    cfg_dict['fb_args'] = args.fb_args
+
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
         args, cfg_dict,

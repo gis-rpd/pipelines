@@ -62,7 +62,7 @@ rule prepare_regions:
         reg_list = '{dir}/regions.txt'
     params:
         # 100k default as given on website
-        reg_size = 100000,
+        reg_size = 1000000
     log:
         '{dir}/regions.txt.log'
     shell:
@@ -79,7 +79,7 @@ rule freebayes:
     log:
         '{dir}/{basename}.freebayes.vcf.gz.log'
     params:
-        fb_args = '--use-best-n-alleles 4 --standard-filters',# FIXME to config?
+        fb_args = config['fb_args']
     threads:
         16
     shell:
@@ -88,15 +88,17 @@ rule freebayes:
         "   -f {input.reffa} {input.bam} | bgzip > {output.vcf};"
         "}} >& {log}"
 
-
+localrules: postprocess
 rule postprocess:
     input:
         vcf = '{prefix}.freebayes.vcf.gz'
     output:
         vcf = '{prefix}.freebayes.hfilter.vcf.gz'
+    log:
+        '{prefix}.freebayes.hfilter.vcf.gz.log'
     params:
         bedarg = "-T {}".format(config['bed']) if config['bed'] else "",
-        minvq = 20# FIXME to config?
+        minvq = config['minvq']
     shell:
-        """bcftools filter -e 'QUAL<{params.minvq}' {params.bedarg} -O z -o {output.vcf} >& {log}"""
+        """bcftools filter -e 'QUAL<{params.minvq}' {params.bedarg} -O z -o {output.vcf} {input.vcf} >& {log}"""
         
