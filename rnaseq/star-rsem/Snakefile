@@ -302,7 +302,8 @@ rule star_mapping:
     threads:
         16# SY says 24 optimal on aquila. 16 more conservative RE mem
     shell:
-        "{{ commentsheader=$(mktemp);"
+        "{{"
+        " commentsheader=$(mktemp);"
         " echo -e '@CO\tANNOTATIONFILE:{params.gtfsourcefile}' > $commentsheader;"
         " outpref=$(echo {output.bam} | sed -e 's,Aligned.sortedByCoord.out.bam,,'); "
         " STAR --genomeDir {input.staridx}"
@@ -336,5 +337,6 @@ rule star_mapping:
         " --readFilesIn {params.fmt_fq_list}; rm $commentsheader;"
         " paste <(sort -k1,1 {output.counts}) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {output.counts}.desc;"
         " sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' {output.counts}.desc;"
+        " rm -rf $(dirname {output.bam})/*__STARtmp;"
         " rm ${{outpref}}*UniqueMultiple.str*.out.wig; }} >& {log};"
  

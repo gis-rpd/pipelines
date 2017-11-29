@@ -6,6 +6,7 @@ import hashlib
 import tempfile
 import glob
 import sys
+import shutil
 from subprocess import CalledProcessError
 
 # third party imports
@@ -369,6 +370,8 @@ rule star_mapping:
             shell(cmd)
             
             # cleanup
+            for d in glob.glob(os.opath.join(os.path.dirname(bam), "*__STARtmp")):
+                shutil.rmtree(d)
             for f in glob.glob(os.path.join(os.path.dirname(bam), "*UniqueMultiple.str*.out.wig")):
                 os.unlink(f)
         cmd = "STAR --genomeDir {} --genomeLoad Remove > {} 2>&1 || echo 'OK'".format(input.staridx, log)
