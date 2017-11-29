@@ -31,6 +31,8 @@ rule lofreq_massage_sort:
         bam='{prefix}.lofreq.bam'
     log:
         '{prefix}.lofreq.log'        
+    benchmark:
+        '{prefix}.lofreq.lofreq_massage_sort.benchmark.log'
     params:
         sort_mem='500M'
     message: "Preprocessing BAMs with LoFreq"
@@ -51,6 +53,8 @@ rule lofreq_call:
         vcf = '{prefix}.both.vcf.gz'
     log:
         '{prefix}.both.vcf.log'
+    benchmark:
+        '{prefix}.both.vcf.lofreq_call.benchmark.log'
     message:
         "Calling variants with LoFreq"
     params:

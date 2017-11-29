@@ -31,6 +31,8 @@ rule lofreq_massage_sort:
         bam=temp('{prefix}.lofreq.bam')# tmp because postprocess by lacer
     log:
         '{prefix}.lofreq.log'
+    benchmark:
+        '{prefix}.lofreq_massage_sort.benchmark.log'
     params:
         sort_mem='500M'
     message: "Preprocessing BAMs with LoFreq"
@@ -41,6 +43,7 @@ rule lofreq_massage_sort:
         " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
 
 
+localrules: intervals_wo_excl
 rule intervals_wo_excl:
     input:
         reffa = config['references']['genome'],
@@ -48,7 +51,9 @@ rule intervals_wo_excl:
     output:
         bed = os.path.join(RESULT_OUTDIR, "interval_wo_excl.bed")
     log:
-        os.path.join(RESULT_OUTDIR, "interval_wo_excl.log")
+        os.path.join(RESULT_OUTDIR, "intervals_wo_excl.log")
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "intervals_wo_excl.benchmark.log")
     message:
         "Creating intervals/bed file for variant calling"
     run:
@@ -75,6 +80,8 @@ rule lofreq_call:
         vcf = '{prefix}.both.vcf.gz'
     log:
         '{prefix}.both.vcf.log'
+    benchmark:
+        '{prefix}.both.vcf.lofreq_call.benchmark.log'
     message:
         "Calling variants with LoFreq"
     threads:

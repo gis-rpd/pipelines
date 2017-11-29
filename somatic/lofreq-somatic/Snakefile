@@ -55,7 +55,6 @@ rule final:
         "report.html"
 
 
-
 # FIXME unused
 #MAXDEPTH = {'targeted': 100000,
 #             'WES': 10000,
@@ -89,6 +88,8 @@ rule lofreq_somatic:
                             dbsnp=['', '_minus-dbsnp'], vartype=['snvs', 'indels']),
     log:
         os.path.join(VARIANTS_DIR, 'lofreq_somatic.log')
+    benchmark:
+        os.path.join(VARIANTS_DIR, 'lofreq_somatic.benchmark.log')
     message:
         "Calling somatic variants with LoFreq"
     threads:
@@ -115,7 +116,9 @@ rule unit_merge:
     output:
         temp('{prefix}/{sample}/{sample}.bwamem.lofreq.bam')
     log:
-        '{prefix}/{sample}/{sample}.bwamem.lofreq.bam.unit_merge.log'        
+        '{prefix}/{sample}/{sample}.bwamem.lofreq.bam.unit_merge.log'
+    benchmark:
+        '{prefix}/{sample}/{sample}.bwamem.lofreq.bam.unit_merge.benchmark.log'
     message:
         "Merging units to {output}"
     threads:
@@ -125,7 +128,7 @@ rule unit_merge:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& {log};")
+            shell("ln {input} {output} >& {log}; sleep 30;")
 
 
 rule split_merge:
@@ -134,13 +137,15 @@ rule split_merge:
     (or copy if just one).
     """
     input:
-        bams=expand('{{prefix}}.chrsplit.{ctr}.lofreq.bam',
-                    ctr=range(config["references"]["num_chroms"]+1))
+        bams = expand('{{prefix}}.chrsplit.{ctr}.lofreq.bam',
+                      ctr=range(config["references"]["num_chroms"]+1))
         # +1 for unaligned reads
     output:
         bam = temp('{prefix}.merged.lofreq.bam')
     log:
         '{prefix}.merged.lofreq.bam.split_merge.log'
+    benchmark:
+        '{prefix}.merged.lofreq.bam.split_merge.benchmark.log'
     message:
         "Merging chr-splits"
     threads:
@@ -150,7 +155,7 @@ rule split_merge:
             # same readgroup and pg, so combine colliding PG and RG
             shell("samtools merge -c -p -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& {log}")
+            shell("ln {input} {output} >& {log}; sleep 30;")
 
 
 # WARN: Near identical copy from BWA-MEM
@@ -175,6 +180,8 @@ rule map_split:
                          # +1 for unaligned reads
     log:
         '{prefix}/unit-{unit}.bwamem.map.log'
+    benchmark:
+        '{prefix}/unit-{unit}.bwamem.map_split.benchmark.log'
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),

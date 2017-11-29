@@ -10,6 +10,8 @@ rule lofreq_call:
         reffai = '{dirname}/ref.fa.fai',
     output:
         vcf = '{dirname}/{prefix}.vcf.gz'
+    benchmark:
+        '{dirname}/{prefix}.vcf.gz.lofreq_call.benchmark.log'
     log:
         '{dirname}/{prefix}.vcf.log'
     message:

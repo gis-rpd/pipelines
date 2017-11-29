@@ -83,7 +83,7 @@ rule unit_merge:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& {log};")
+            shell("ln {input} {output} >& {log}; sleep 30;")
                
 
 rule mutect_per_region:

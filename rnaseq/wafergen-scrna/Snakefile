@@ -33,6 +33,7 @@ include: "../../rules/samtools.rules"
 include: "../../rules/report.rules"
 
 
+localrules: final
 rule final:
     input:
         #expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/trimmed/{unit}-trimmed-pair1.fastq.gz"),

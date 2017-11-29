@@ -71,6 +71,8 @@ rule unit_merge:
         temp('{prefix}/{sample}/{sample}.bwamem.bam')
     log:
         '{prefix}/{sample}/{sample}.bwamem.bam.merge.log'
+    benchmark:
+        '{prefix}/{sample}/{sample}.bwamem.bam.unit_merge.benchmark.log'
     message:
         "Merging files"
     threads:
@@ -103,6 +105,8 @@ rule map_mdups_sort:
         bam=temp('{prefix}/unit-{unit}.bwamem.bam')
     log:
         '{prefix}/unit-{unit}.bwamem.bam.log'
+    benchmark:
+        '{prefix}/unit-{unit}.bwamem.bam.map_mdups_sort.benchmark.log'
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),

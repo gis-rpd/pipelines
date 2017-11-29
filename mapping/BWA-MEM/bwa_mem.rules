@@ -33,6 +33,8 @@ rule unit_merge:
         '{prefix}/{sample}/{sample}.bwamem.bam'
     log:
         '{prefix}/{sample}/{sample}.bwamem.bam.log'
+    benchmark:
+        '{prefix}/{sample}/{sample}.bwamem.bam.unit_merge.benchmark.log'
     message:
         "Merging files"
     threads:
@@ -41,7 +43,7 @@ rule unit_merge:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& {log};")
+            shell("{{ ln {input} {output}; sleep 30; }} >& {log}")
         
     
 # Expecting SE/PE input read length >70 (BWA-MEM limitation)
@@ -62,6 +64,8 @@ rule map_sort:
         fastqs = lambda wildcards: fastqs_from_unit(config["readunits"][wildcards.unit])
     output:
         bam = temp('{prefix}/unit-{unit}.bwamem.bam')
+    benchmark:
+        '{prefix}/unit-{unit}.bwamem.bam.map_sort.benchmark.log'
     log:
         '{prefix}/unit-{unit}.bwamem.bam.log'
     params:

@@ -46,6 +46,7 @@ NUM_ROWS = 40
 #assert len(config['samples'])==1, ("Pipeline optimized for one sample, i.e. componenent-library")
 
 
+localrules: final
 rule final:
     input:
         # sample here is our typical component library
@@ -104,6 +105,8 @@ rule RSEM:
         #gbam = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam",
         #wig = temp("{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig"),
         #plot = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.pdf"
+    benchmark:        
+        os.path.join(RESULT_OUTDIR, "{sample}.RSEM.benchmark.log")
     message:
         "Running RSEM"
     params:
@@ -155,7 +158,7 @@ rule RSEM:
             shell(cmd)
 
             
-rule rnaseqQC:
+rule rnaseqqc:
     # since very fast, loop over samples
     input:
         bam = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
@@ -170,6 +173,8 @@ rule rnaseqQC:
         flag = touch(expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/rnaseqQC/{{sample}}_ROW{row}_{genome}_RNASeqQC_complete.OK"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME)),
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}.rnaseqqc.benchmark.log")
     log:
         os.path.join(RESULT_OUTDIR, "rnaseqQC.log")
     #params:
@@ -233,8 +238,10 @@ rule wig2bigwig_star:
                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                     strand=["str1", "str2"],
                     genome=GENOME_BASENAME)
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}.wig2bigwig_star.benchmark.log")
     log:
-        os.path.join(RESULT_OUTDIR, "wig2bigwig_star.log")
+        os.path.join(RESULT_OUTDIR, "{sample}.wig2bigwig_star.log")
     run:
         # when using bash, argument length can be too long
         for i, wig in enumerate(input.wig):
@@ -252,8 +259,10 @@ rule wig2bigwig_rsem:
         bw = expand(os.path.join(RESULT_OUTDIR, '{{sample}}_ROW{row}/rsem/{{sample}}_ROW{row}_{genome}_RSEM.sorted.bw'),
                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                     genome=GENOME_BASENAME)
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}.wig2bigwig_rsem.benchmark.log")        
     log:
-        os.path.join(RESULT_OUTDIR, "wig2bigwig_rsem.log")
+        os.path.join(RESULT_OUTDIR, "{sample}.wig2bigwig_rsem.log")
     run:
         # when using bash, argument length can be too long
         for i, wig in enumerate(input.wig):
@@ -293,8 +302,10 @@ rule star_mapping:
                            row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                            strand=["str1", "str2"],
                       genome=GENOME_BASENAME)),
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}/star_mapping.benchmark.log")
     log:
-        os.path.join(RESULT_OUTDIR, "{sample}/star.log")
+        os.path.join(RESULT_OUTDIR, "{sample}/star_mapping.log")
     message:
         "Running STAR against all {} sub libraries".format(NUM_ROWS)
     params:
@@ -390,7 +401,8 @@ rule trimming:
         fq = expand(os.path.join(RESULT_OUTDIR, "{{sample}}", FDEMUX_SUBDIR,
                             "{{sample}}_ROW{row}_merged_R2.trimmed.fastq.gz"),
                             row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
-       
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}", FDEMUX_SUBDIR, "{sample}.trimming.benchmark.log")
     message:
         "Running trimming on all rows at once"
     #log:
@@ -425,10 +437,12 @@ rule fluidigm_demux:
                     end=["1", "2"]),
         os.path.join(RESULT_OUTDIR, "{sample}",
                             FDEMUX_SUBDIR, "demultiplex_report.xls")
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}", FDEMUX_SUBDIR, "fluidigm_demux.benchmark.log")        
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}", FDEMUX_SUBDIR, "fluidigm_demux.log")
     message:
         "Running fluidigm_demux"
-    log:
-        os.path.join(RESULT_OUTDIR, "{sample}", FDEMUX_SUBDIR, "fdemux.log")
     shell:
         '{{ idir=$(dirname {input[0]});'
         '  odir=$(dirname {output[0]});'
@@ -444,8 +458,10 @@ rule readunit_merge:
         lambda wc: list(chain.from_iterable(
             [fastqs_from_unit(config["readunits"][ru]) for ru in config["samples"][wc.sample]]))
     output:
-        r1=temp(os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged_R1.fastq.gz")),
-        r2=temp(os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged_R2.fastq.gz"))
+        r1 = temp(os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged_R1.fastq.gz")),
+        r2 = temp(os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged_R2.fastq.gz"))
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged.fastq.readunit_merge.benchmark.log")
     message:
         "Merging fastqs per sample, i.e. read units (e.g. split across lanes or runs)"
     log:

@@ -48,6 +48,8 @@ rule coverage:
         cov='{prefix}.bam.cov.txt.gz'
     log:
         '{prefix}.bam.cov.log'
+    benchmark:
+        '{prefix}.bam.cov.coverage.benchmark.log'
     message:
         'Computing coverage'
     shell:
@@ -64,6 +66,8 @@ rule snpeff:
         #statscsv="{prefix}_stats.csv"
     log:
         "{prefix}.ann.vcf.log"
+    benchmark:
+        "{prefix}.ann.vcf.snpeff.benchmark.log"
     params:
         genome=config['references']['snpeff_genome']
     message:

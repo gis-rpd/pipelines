@@ -39,6 +39,8 @@ rule bwamem_map_filter_sort_n:
         bam = temp('{prefix}/unit-{unit}.bwa-mem-nsrt.bam')
     log:
         '{prefix}/unit-{unit}.bwa-mem.bam.log'
+    benchmark:
+        '{prefix}/unit-{unit}.bwa-mem.bam.bwamem_map_filter_sort_n.benchmark.log'
     params:
         mark_short_splits = MARK_SHORT_SPLITS,
         bwa_mem_custom_args = config.get("bwa_mem_custom_args", ""),

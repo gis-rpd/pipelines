@@ -38,10 +38,7 @@ include: "lofreq.rules"
 include: "lacer.rules"
 
 
-if config['seqtype'] == 'targeted':
-    localrules: final, report, vcf_split, lacer_apply, lacer_table
-else:
-    localrules: final, report, vcf_split
+localrules: final, report
 
 
 out_template = os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.lofreq')
@@ -60,7 +57,6 @@ else:
             "report.html",
             expand(out_template + ".bamstats/stats.txt", sample=config['samples']),
             expand(out_template + ".{vartype}.snpeff.vcf.gz.tbi", sample=config['samples'], vartype=["snps", "indels"])
-
     
 
 rule vcf_split:
@@ -71,6 +67,8 @@ rule vcf_split:
         indels = '{prefix}.indels.vcf.gz'
     log:
         '{prefix}.split.log'
+    benchmark:
+        '{prefix}.split.vcf_split.benchmark.log'
     message:
         "Splitting vcf into SNPs and Indels"
     threads:
@@ -95,6 +93,8 @@ rule unit_merge:
         temp('{prefix}/{sample}.bwamem.lofreq.bam')
     log:
         '{prefix}/{sample}.bwamem.lofreq.bam.unit_merge.log'        
+    benchmark:
+        '{prefix}/{sample}.bwamem.lofreq.bam.unit_merge.benchmark.log'
     message:
         "Merging units to samples"
     threads:
@@ -104,7 +104,7 @@ rule unit_merge:
         if len(input) > 1:
             shell("samtools merge -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& {log};")
+            shell("{{ ln {input} {output}; sleep 30; }} >& {log}")
 
 
 rule split_merge:
@@ -120,6 +120,8 @@ rule split_merge:
         bam = temp('{prefix}.merged.lofreq.bam')
     log:
         '{prefix}.merged.lofreq.bam.split_merge.log'
+    benchmark:
+        '{prefix}.merged.lofreq.bam.split_merge.benchmark.log'
     message:
         "Merging split units"
     threads:
@@ -129,7 +131,7 @@ rule split_merge:
             # same readgroup and pg, so combine colliding PG and RG
             shell("samtools merge -c -p -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& {log}")
+            shell("{{ ln {input} {output}; sleep 30; }} >& {log}")
 
 
 # WARN: Near identical copy from BWA-MEM
@@ -152,8 +154,10 @@ rule map_split:
         bams=temp(expand('{{prefix}}/unit-{{unit}}.bwamem.chrsplit.{ctr}.bam',
                          ctr=range(config["references"]["num_chroms"]+1)))
                          # +1 for unaligned reads
+    benchmark:
+        '{prefix}/unit-{unit}.bwamem.map_split.benchmark.log'
     log:
-        '{prefix}/unit-{unit}.bwamem.map.log'
+        '{prefix}/unit-{unit}.bwamem.log'
     params:
         mark_short_splits=MARK_SHORT_SPLITS,
         bwa_mem_custom_args=config.get("bwa_mem_custom_args", ""),

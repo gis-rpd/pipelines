@@ -232,6 +232,8 @@ rule bcl2fastq:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS")
     log:
         os.path.join(RESULT_OUTDIR, "{muxdir}.log")
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.benchmark.log")
     message:
         "Running bcl2fastq/Demultiplexing"
     threads: 12
@@ -274,6 +276,8 @@ rule fastqc:
         touch('{muxdir}/fastqc.SUCCESS')
     log:
         '{muxdir}/fastqc.log'
+    benchmark:
+        "{muxdir}/fastqc.benchmark.log"
     threads:
         8
     message:

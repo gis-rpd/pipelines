@@ -94,7 +94,9 @@ rule bowtie:
     output:
         bam = temp('{prefix}/{sample}.bowtie2.bam'),
     log:
-        '{prefix}/{sample}.bowtie2.log'
+        '{prefix}/{sample}.bowtie.log'
+    benchmark:
+        '{prefix}/{sample}.bowtie.benchmark.log'
     params:
         # mark_short_splits = MARK_SHORT_SPLITS,
         bowtie2_custom_args = config.get("bowtie2_custom_args", ""),
@@ -122,6 +124,8 @@ rule bam_filter:
         bai = "{prefix}.bam.bai"
     output:
         bam = "{prefix}.flt.bam"
+    benchmark:
+         "{prefix}.flt.bam.bam_filter.benchmark.log'"
     params:
         min_mq = "30",
         incl_chr = config['references']['incl_chroms']
@@ -139,6 +143,8 @@ rule macs2:
         peak_xls = '{outdir}/macs2-{peak}/{sample}_peaks.xls',
         summits_bed = '{outdir}/macs2-{peak}/{sample}_summits.bed',
         tbdg = temp('{outdir}/macs2-{peak}/{sample}_treat_pileup.bdg'),
+    benchmark:
+        '{outdir}/macs2-{peak}.macs2.benchmark.log'
     log:
         '{outdir}/macs2-{peak}.log'
     params:
@@ -171,6 +177,8 @@ rule bdg_to_bw:
         genome_sizes = config['references']['genome'] + ".fai",
     output:
         bw = "{prefix}.bw",
+    benchmark:
+        "{prefix}.bw.bdg_to_bw.benchmark.log"
     log:
         "{prefix}.bw.log"
     message:
@@ -192,6 +200,8 @@ rule macs2_peak_to_fasta:
         genome = config['references']['genome'],
     output:
         seqbed = "{rootdir}/macs2-{peak}/{prefix}_extbp_seq.bed",
+    benchmark:
+        "{rootdir}/macs2-{peak}/{prefix}_extbp_seq.bed.macs2_peak_to_fasta.benchmark.log"
     params:
         # peak extended += ext_bp_arg i.e. 2*ext_bp_arg in total
         # +- 250bp as in Ma et al. (2014), doi:10.1038/nprot.2014.083

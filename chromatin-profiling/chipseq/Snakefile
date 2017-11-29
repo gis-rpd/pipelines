@@ -123,6 +123,8 @@ rule unit_merge_n:
         '{prefix}/{sample}/{sample}.{mapper}-nsrt.bam'
     log:
         '{prefix}/{sample}/{sample}.{mapper}-nrst.bam.log'
+    benchmark:
+        '{prefix}/{sample}/{sample}.{mapper}-nrst.bam.unit_merge_n.benchmark.log'
     message:
         "Merging files (sorted by name)"
     threads:
@@ -131,7 +133,7 @@ rule unit_merge_n:
         if len(input) > 1:
             shell("samtools merge -n -@ {threads} {output} {input} >& {log};")
         else:
-            shell("ln {input} {output} >& {log};")
+            shell("{{ ln {input} {output}; sleep 30; }} >& {log};")
 
      
 rule macs2:
@@ -156,6 +158,8 @@ rule macs2:
         summits_bed = '{outdir}/macs2-{peak}/{sample}_summits.bed'
     log:
         "{outdir}/macs2-{peak}/macs2.log"
+    benchmark:
+        "{outdir}/macs2-{peak}/macs2.benchmark.log"
     message:
         "Peak calling with macs2"
     params:
@@ -196,6 +200,8 @@ rule bdg_to_bw:
         bw = "{prefix}.bw",
     log:
         "{prefix}.bw.log"
+    benchmark:
+        "{prefix}.bw.bdg_to_bw.benchmark.log"
     message:
         "Converting bedgraph to bigwig"
     shell:
@@ -216,6 +222,8 @@ rule wig_to_bw:
         genome_sizes = config['references']['genome'] + ".fai",
     output:
         bw = "{prefix}.bw",
+    benchmark:
+        "{prefix}.bw.wig_to_bw.benchmark.log"
     log:
         "{prefix}.bw.log"
     message:
@@ -230,14 +238,16 @@ rule dfilter_peak_to_fasta:
         genome = config['references']['genome'],
     output:
         seqbed = "{rootdir}/dfilter-{peak}/{prefix}_extbp_seq.bed",
-        fa = "{rootdir}/dfilter-{peak}/{prefix}_extbp_summits.fa",        
+        fa = "{rootdir}/dfilter-{peak}/{prefix}_extbp_summits.fa",
+    benchmark:
+        "{rootdir}/dfilter-{peak}/{prefix}_extbp.dfilter_peak_to_fasta.benchmark.log"
+    log:
+        "{rootdir}/dfilter-{peak}/{prefix}_extbp.log"
     params:
         # peak extended += ext_bp_arg i.e. 2*ext_bp_arg in total
         # +- 250bp as in Ma et al. (2014), doi:10.1038/nprot.2014.083
         ext_bp_arg = "{}".format(config.get("ext_bp_arg", "250")),
         max_peaks = 1000,            
-    log:
-        "{rootdir}/dfilter-{peak}/{prefix}_extbp.log"
     message:
         "Converting dfilter peaks to fasta"
     shell:
@@ -259,13 +269,15 @@ rule macs2_peak_to_fasta:
     output:
         seqbed = "{rootdir}/macs2-{peak}/{prefix}_extbp_seq.bed",
         fa = "{rootdir}/macs2-{peak}/{prefix}_extbp_summits.fa",
+    log:
+        "{rootdir}/macs2-{peak}/{prefix}_extbp.log"
+    benchmark:
+        "{rootdir}/macs2-{peak}/{prefix}_extbp.macs2_peak_to_fasta.benchmark.log"
     params:
         # peak extended += ext_bp_arg i.e. 2*ext_bp_arg in total
         # +- 250bp as in Ma et al. (2014), doi:10.1038/nprot.2014.083
         ext_bp_arg = "{}".format(config.get("ext_bp_arg", "250")),
         max_peaks = 1000,
-    log:
-        "{rootdir}/macs2-{peak}/{prefix}_extbp.log"
     message:
         "Converting MACS2 peaks to fasta"
     shell:
@@ -315,6 +327,8 @@ rule dfilter:
         treatment_pileup_wig = '{outdir}/dfilter-{peak}/{sample}_treat_pileup.wig',# fake to match macs2 naming
     log:
         "{outdir}/dfilter-{peak}/dfilter.log"
+    benchmark:
+        "{outdir}/dfilter-{peak}/dfilter.benchmark.log"
     message:
         "Running Dfilter"
     params:
@@ -352,7 +366,9 @@ rule memechip:
         "{dirname}/{sample}-{MEMECHIP_OUTDIR_SUFFIX}/index.html"
     #params:
     log:
-        "{dirname}/{sample}-{MEMECHIP_OUTDIR_SUFFIX}/meme-chip.log"
+        "{dirname}/{sample}-{MEMECHIP_OUTDIR_SUFFIX}/memechip.log"
+    benchmark:
+        "{dirname}/{sample}-{MEMECHIP_OUTDIR_SUFFIX}/memechip.benchmark.log"
     message:
         "Running meme-chip"
     params:

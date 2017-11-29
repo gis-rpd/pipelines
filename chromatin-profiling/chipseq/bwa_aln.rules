@@ -25,6 +25,8 @@ rule bwa_aln_sai:
         sai = temp("{prefix}/unit-{unit}.{no}.sai")
     log:
         "{prefix}/unit-{unit}.{no}.log"
+    benchmark:
+        "{prefix}/unit-{unit}.{no}.bwa_aln_sai.benchmark.log"
     message:
         "Running bwa aln"
     threads:
@@ -63,6 +65,8 @@ rule bwaaln_map_filter_sort_n:
         bam = temp('{prefix}/unit-{unit}.bwa-aln-nsrt.bam')
     log:
         '{prefix}/unit-{unit}.bwa-aln.bam.log'
+    benchmark:
+        '{prefix}/unit-{unit}.bwa-aln.bam.bwaaln_map_filter_sort_n.benchmark.log'
     params:
         bwa_aln_custom_args = config.get("bwa_aln_custom_args", ""),
         center = config.get("center", "GIS"),

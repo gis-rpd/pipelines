@@ -22,7 +22,9 @@ rule lacer_apply:
     output:
         bam = '{prefix}.lacer.bam'
     log:
-        '{prefix}.lacer.apply.log'
+        '{prefix}.lacer_apply.log'
+    benchmark:
+        '{prefix}.lacer_apply.benchmark.log'
     message:
         "Applying lacer recalibration to BAM"
     threads:
@@ -43,7 +45,9 @@ rule lacer_table:
     output:
         table = '{prefix}.lacer.table'
     log:
-        '{prefix}.lacer.table.log'
+        '{prefix}.lacer_table.log'
+    benchmark:
+        '{prefix}.lacer_table.benchmark.log'
     message:
         "Computing recalibration table with Lacer"
     threads:

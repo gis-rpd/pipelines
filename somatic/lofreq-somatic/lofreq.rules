@@ -24,6 +24,8 @@ rule lofreq_massage_sort:
         bam=temp('{prefix}.lofreq.bam')# tmp because postprocess by lacer
     log:
         '{prefix}.lofreq.log'
+    benchmark:
+        '{prefix}.lofreq_massage_sort.benchmark.log'
     params:
         sort_mem='500M'
     message: "Preprocessing BAMs with LoFreq"
@@ -34,6 +36,7 @@ rule lofreq_massage_sort:
         " samtools sort -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
 
 
+localrules: intervals_wo_excl
 rule intervals_wo_excl:
     input:
         reffa = config['references']['genome'],

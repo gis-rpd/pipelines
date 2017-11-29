@@ -60,6 +60,8 @@ rule prepare_regions:
         reffa = config["references"]["genome"]
     output:
         reg_list = '{dir}/regions.txt'
+    benchmark:
+        '{dir}/regions.prepare_regions.benchmark.log'
     params:
         # 100k default as given on website
         reg_size = 1000000
@@ -76,6 +78,8 @@ rule freebayes:
         bam = '{dir}/{basename}.bam'
     output:
         vcf = '{dir}/{basename}.freebayes.vcf.gz'
+    benchmark:
+        '{dir}/{basename}.freebayes.benchmark.log'
     log:
         '{dir}/{basename}.freebayes.vcf.gz.log'
     params:
@@ -88,7 +92,7 @@ rule freebayes:
         "   -f {input.reffa} {input.bam} | bgzip > {output.vcf};"
         "}} >& {log}"
 
-localrules: postprocess
+        
 rule postprocess:
     input:
         vcf = '{prefix}.freebayes.vcf.gz'
@@ -96,6 +100,8 @@ rule postprocess:
         vcf = '{prefix}.freebayes.hfilter.vcf.gz'
     log:
         '{prefix}.freebayes.hfilter.vcf.gz.log'
+    benchmark:
+        '{prefix}.freebayes.hfilter.postprocess.benchmark.log'
     params:
         bedarg = "-T {}".format(config['bed']) if config['bed'] else "",
         minvq = config['minvq']

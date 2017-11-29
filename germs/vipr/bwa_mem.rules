@@ -49,6 +49,8 @@ rule map_realn_lofreq:
         fastqs = expand(os.path.join(RESULT_OUTDIR, "{{sample}}/reads/R{n}.fastq.gz"), n=["1", "2"])
     output:
         bam = os.path.join(RESULT_OUTDIR, "{sample}/mapping/{method}/{sample}.bwamem.lofreq.bam")
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{sample}/mapping/{method}/{sample}.bwamem.lofreq.bam.map_realn_lofreq.benchmark.log")
     log:
         os.path.join(RESULT_OUTDIR, "{sample}/mapping/{method}/{sample}.bwamem.lofreq.bam.log")
     params:
