@@ -72,6 +72,8 @@ def main():
     default = ['kraken', 'metaphlan2']
     parser.add_argument("-p", "--profilers", nargs='+', default=default,
                         help="Profilers to run (default = {}".format(", ".join(default)))
+    parser.add_argument("--skip-srst2", action='store_true',
+                        help="Skip SRST2")
 
     args = parser.parse_args()
 
@@ -132,7 +134,7 @@ def main():
     cfg_dict['readunits'] = readunits
     cfg_dict['samples'] = samples
     cfg_dict['profilers'] = args.profilers
-        
+    cfg_dict['skip_srst2'] = args.skip_srst2
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
         args, cfg_dict,

@@ -4,3 +4,4 @@ kraken_db: $RPD_GENOMES/kraken/minikraken_20141208/
 decont_genome: $RPD_GENOMES/human_g1k_v37/human_g1k_v37.fasta
 humann2_nucleotide: $RPD_GENOMES/humann2/chocophlan/
 humann2_protein: $RPD_GENOMES/humann2/uniref/
+argannot: $RPD_GENOMES/srst2/0.2.0/data/ARGannot.r1.fasta

@@ -33,20 +33,33 @@ include: "../../rules/logging.rules"
 include: "../../rules/report.rules"
 
 
-rule final:
-    input:
-        "report.html",
-        expand(os.path.join(RESULT_OUTDIR, "tax_profile.SUCCESS")),
-        expand(os.path.join(RESULT_OUTDIR, "pathway_profile.SUCCESS")),
-        expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/all-trimmed_1_fastqc.html"),
-            sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/all-trimmed-decont_1_fastqc.html"),
-            sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR,"{sample}/srst2/srst2.SUCCESS"),
-                    sample=config['samples']),
-        expand(os.path.join(RESULT_OUTDIR,"{sample}/reads/counts.txt"),
-                    sample=config['samples']),
-
+if config.get('skip_srst2'):
+    rule final:
+        input:
+            "report.html",
+            expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/all-trimmed_1_fastqc.html"),
+                sample=config['samples']),
+            expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/all-trimmed-decont_1_fastqc.html"),
+                sample=config['samples']),
+            expand(os.path.join(RESULT_OUTDIR,"{sample}/reads/counts.txt"),
+                        sample=config['samples']),
+            expand(os.path.join(RESULT_OUTDIR, "tax_profile.SUCCESS")),
+            expand(os.path.join(RESULT_OUTDIR, "pathway_profile.SUCCESS")),
+else:
+    rule final:
+        input:
+            "report.html",
+            expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/all-trimmed_1_fastqc.html"),
+                sample=config['samples']),
+            expand(os.path.join(RESULT_OUTDIR, "{sample}/reads/all-trimmed-decont_1_fastqc.html"),
+                sample=config['samples']),
+            expand(os.path.join(RESULT_OUTDIR,"{sample}/reads/counts.txt"),
+                        sample=config['samples']),
+            expand(os.path.join(RESULT_OUTDIR, "tax_profile.SUCCESS")),
+            expand(os.path.join(RESULT_OUTDIR, "pathway_profile.SUCCESS")),
+            expand(os.path.join(RESULT_OUTDIR,"{sample}/srst2/srst2.SUCCESS"),
+                        sample=config['samples']),
+    
 
 rule read_trimming:
     # adopted from vipr
@@ -58,6 +71,8 @@ rule read_trimming:
         fq2 = "{prefix}/{sample}/reads/{unit}-trimmed-pair2.fastq.gz"
     log:
         "{prefix}/{sample}/reads/{unit}-trimmed.log"
+    benchmark:
+        "{prefix}/{sample}/reads/{unit}-trimmed.read_trimming.benchmark.log"
     message:
         "Trimming and filtering input reads for unit {wildcards.unit} of sample {wildcards.sample}"
     threads:
@@ -119,6 +134,8 @@ rule decont:
         fq2 = "{prefix}-decont_2.fastq.gz",
         bam = "{prefix}-decont.bam",
         log = "{prefix}-decont.log"# needed for later processing and hence not under log directive
+    benchmark:
+        "{prefix}-decont.bam.decont.benchmark.log"
     message:
         "Decontaminating reads"
     threads:
@@ -139,6 +156,8 @@ rule fastqc:
         '{prefix}_fastqc.html'
     log:
         '{prefix}_fastqc.log'
+    benchmark:
+        '{prefix}_fastqc.fastqc.benchmark.log'        
     threads:
         2
     message:
@@ -166,28 +185,36 @@ rule srst2:
     input:
         fq1 = "{prefix}/{sample}/reads/all-trimmed-decont_1.fastq.gz",
         fq2 = "{prefix}/{sample}/reads/all-trimmed-decont_2.fastq.gz",
-        db = "/mnt/projects/bertrandd/opera_lg/CRE/DATABASE/srst2/data/ARGannot.r1.fasta"
+        db = config['references']['argannot']
     output:
         fg = "{prefix}/{sample}/srst2/{sample}__fullgenes__ARGannot.r1__results.txt",
         g = "{prefix}/{sample}/srst2/{sample}__genes__ARGannot.r1__results.txt",
         pu = temp("{prefix}/{sample}/srst2/{sample}__all-trimmed-decont.ARGannot.r1.pileup"),
         bf = "{prefix}/{sample}/srst2/{sample}__all-trimmed-decont.ARGannot.r1.sorted.bam",
         flag = touch("{prefix}/{sample}/srst2/srst2.SUCCESS")
+    benchmark:
+        "{prefix}/{sample}/srst2.benchmark.log"
     message:
         "Running SRST2 (in it's own environment)"
     #conda:
     #    "envs/srst2-0.2.0.yaml"
     params:
         mincov = 90,
+        # creates it's own which ultimately tells us whether it completed or not,
+        # no matter if output files exist or not
+        srst2log = '{prefix}/{sample}/srst2/{sample}.log'
     threads:
         4
     log:
         "{prefix}/{sample}/srst2/srst2.log"
     shell:
-        "module load srst2/0.2.0;"
-        "srst2 --input_pe {input.fq1} {input.fq2} --output $(dirname {output.fg})/{wildcards.sample}"
-        " --log --gene_db {input.db} --read_type q --forward _1 --reverse _2 --threads 4"
-        " --min_coverage {params.mincov} >& {log}"
+        "{{"
+        " module load srst2/0.2.0;"
+        " srst2 --input_pe {input.fq1} {input.fq2} --output $(dirname {output.fg})/{wildcards.sample}"
+        "  --log --gene_db {input.db} --read_type q --forward _1 --reverse _2 --threads 4"
+        "  --min_coverage {params.mincov};"
+        " grep -q 'SRST2 has finished' {params.srst2log} && touch {output};"
+        " }} >& {log}"
 
 
 localrules: countreads
@@ -221,6 +248,8 @@ rule kraken:
         tsv = "{prefix}/{sample}/kraken_profile/kraken.tsv",
         mpa = "{prefix}/{sample}/kraken/kraken.mpa.gz",
         out = "{prefix}/{sample}/kraken/kraken.out.gz"
+    benchmark:
+        "{prefix}/{sample}/kraken/kraken.benchmark.log"
     log:
         "{prefix}/{sample}/kraken/kraken.log"
     message:
@@ -248,6 +277,8 @@ rule metaphlan2:
         # intermediate BowTie2 output for re-running quickly
         bowtie = "{prefix}/{sample}/metaphlan2_profile/metaphlan2.bowtie.bz2",
         sam = "{prefix}/{sample}/metaphlan2_profile/metaphlan2.sam.bz2"
+    benchmark:
+         "{prefix}/{sample}/metaphlan2_profile/metaphlan2.benchmark.log"
     log:
          "{prefix}/{sample}/metaphlan2_profile/metaphlan2.log"
     message:
@@ -273,8 +304,12 @@ rule humann2:
         pwn = "{prefix}/{sample}/humann2/{sample}_pathabundance.relab.tsv",
         cov = "{prefix}/{sample}/humann2/{sample}_pathcoverage.tsv",
         flag = "{prefix}/{sample}/humann2/humann2.SUCCESS"
+    benchmark:
+        "{prefix}/{sample}/humann2/humann2.benchmark.log"
     message:
         "Running HUMAnN2 on {wildcards.sample}"
+    resources:
+        shared_fs_footprint=51
     log:
         "{prefix}/{sample}/humann2/humann2.log"
     threads:
@@ -282,6 +317,7 @@ rule humann2:
     # rerunning metaphlan instead of reusing. chenhao says necessary because metaphlan itself is optional
     shell:
         "{{ "
+        "rm -rf $(dirname {output.gf})/*humann2_temp_*;"
         "humann2 -i {input.fq}"
         " -o $(dirname {output.gf}) "
         #" --metaphlan {METAPHLAN2_PATH} "
@@ -373,6 +409,8 @@ rule merge_tables:
         touch("{prefix}/tax_profile.SUCCESS")
     message:
         "Merging tables"
+    benchmark:
+        "{prefix}/tax_profile.merge_tables.benchmark.log"
     threads:
         1
     run:

@@ -6,6 +6,12 @@
       "mem" : 1G,
     },
 
+    "rule read_trimming":
+    {
+      "time": "04:00:00",
+      "mem": 1G
+    },
+    
     "decont":
     {
       "time": "12:00:00",
