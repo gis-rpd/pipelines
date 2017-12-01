@@ -1,0 +1,7 @@
+genome: $RPD_GENOMES/hg38/hg38.fa
+gtfmaskfile: $RPD_GENOMES/hg38/gtf/hg38_annotation_maskfile.gtf
+gtfsourcefile: $RPD_GENOMES/hg38/gtf/hg38_annotation.gtf
+rnaseqc_annotation: $RPD_GENOMES/hg38/gtf/hg38_RNASeqQCannotation.gtf
+rsemidx: $RPD_GENOMES/hg38/RSEM_index/RSEMtr_hg38
+staridx: $RPD_GENOMES/hg38/star/
+
