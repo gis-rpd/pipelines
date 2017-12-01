@@ -282,7 +282,6 @@ def main():
     LOGGER.info("Looping through {} jobs".format(cursor.count()))
     for job in cursor:
         dbid = job['_id']
-
         # only set here to avoid code duplication below
         try:
             out_dir = job['execution']['out_dir']
@@ -296,7 +295,16 @@ def main():
             # out_dir_override will take precedence over generating out_dir with get_downstream_outdir function 
             if job.get('out_dir_override'):
                 out_dir = job.get('out_dir_override')
-                assert not os.path.exists(out_dir), ("Direcotry already exists {}").format(out_dir)
+                if os.path.exists(out_dir):
+                    mux = os.path.basename(out_dir)
+                    if not args.dryrun:
+                        LOGGER.critical("Analysis for {} already exists under {}. Please start the analysis manually" .format(mux, out_dir))
+                        res = dbcol.update_one({"_id": ObjectId(dbid)},
+                                        {"$set": {"execution.status": "MANUAL"}})
+                        assert res.modified_count == 1, (
+                                        "Modified {} documents instead of 1".format(res.modified_count))
+                        sys.exit(1)
+                #assert not os.path.exists(out_dir), ("Direcotry already exists {}").format(out_dir)
             else:
                 out_dir = get_downstream_outdir(
                     job['requestor'], job['pipeline_name'], job['pipeline_version'])
@@ -317,6 +325,8 @@ def main():
                     "Modified {} documents instead of 1".format(res.modified_count))
             else:
                 LOGGER.warning("Job {} could not be started".format(dbid))
+        elif job['execution'].get('status') == "MANUAL":
+            continue
         elif list_starterflags(out_dir):# out_dir cannot be none because it's part of execution dict 
             LOGGER.info('Job {} in {} started but not yet logged as such in DB'.format(
                 dbid, out_dir))
