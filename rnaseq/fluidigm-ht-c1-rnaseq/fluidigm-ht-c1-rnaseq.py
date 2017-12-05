@@ -70,6 +70,10 @@ def main():
     parser._optionals.title = "Arguments"
     # pipeline specific args
     #/
+    parser.add_argument("--rnaseqc", action='store_true',
+                        dest="run_rnaseqc",
+                        help="Also run RNA-SeQC")
+
     args = parser.parse_args()
 
     # Repeateable -v and -q for setting logging level.
@@ -117,7 +121,8 @@ def main():
     cfg_dict = dict()
     cfg_dict['readunits'] = readunits
     cfg_dict['samples'] = samples
-
+    cfg_dict['run_rnaseqc'] = args.run_rnaseqc
+                        
     pipeline_handler = PipelineHandler(
         PIPELINE_NAME, PIPELINE_BASEDIR,
         args, cfg_dict,

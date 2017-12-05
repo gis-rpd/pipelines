@@ -3,12 +3,13 @@
 ## Summary
 
 This pipeline is for RNASeq analysis and runs STAR, followed by
-RNASeQC, RSEM and optionally Cuffdiff. It should be suitable for most
-types of RNASeq, except small RNASeq.
+Picard's CollectRnaSeqMetrics, RSEM and optionally RNASeQC and
+Cuffdiff. It should be suitable for most types of RNASeq, except small
+RNASeq.
 
 Note that this pipeline is not suitable for bacterial data as its
-parameters are tuned towards large, spliced genomes and it requires
-good quality genome annotation.
+mapping parameters are tuned towards large, spliced genomes and it
+requires good quality genome annotation.
 
 Reads are aligned to given reference genome using the
 [STAR mapper](https://github.com/alexdobin/STAR).  See
@@ -25,7 +26,8 @@ RSEM results matrix contains mapped reads count and TPM (normalized
 value) of genes and isoforms. 
 
 The pipeline also provides generic stats, coverage, mappability, QC
-e.g. by running [RNA-SeQC](https://www.broadinstitute.org/cancer/cga/rna-seqc).
+etc. through Picard's CollectRnaSeqMetrics and optionally by running
+[RNA-SeQC](https://www.broadinstitute.org/cancer/cga/rna-seqc).
 
 Cuffdiff can be run optionally (slow!): it will run in Cufflinks mode,
 with no differential analysis carried out, to get raw fragment count
@@ -69,7 +71,12 @@ Exact STAR mapping parameters can be looked up in the Snakefile.
 - Visualization: Wiggle files (`*.wig`)
 - Plots: `{sample}_{genome}_RSEM.pdf`
 
-### RNA-SeQC
+### Picard's CollectRnaSeqMetrics
+
+- Metrics about the RNA-seq alignment:: `{sample}_{genome}_rnaseq-metrics.txt`
+- See also http://broadinstitute.github.io/picard/picard-metric-definitions.html#RnaSeqMetrics
+
+### RNA-SeQC (optional)
 
 
 QC and rate of rRNA and distribution of reads on transcripts:
@@ -78,7 +85,7 @@ QC and rate of rRNA and distribution of reads on transcripts:
 - `metrics.tsv`
 
 
-### Cuffdiff
+### Cuffdiff (optional)
 
 
 - Genes expression values with annotation: `{sample}_{genome}_genes_FPKM_Rawreadcount_GIS.txt`

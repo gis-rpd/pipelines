@@ -32,10 +32,10 @@ include: "../../rules/logging.rules"
 include: "../../rules/samtools.rules"
 include: "../../rules/report.rules"
 
+
 GENOME_BASENAME = os.path.splitext(os.path.basename(
     config['references']['genome']))[0].replace("_", "-")
 # replace "_" which is used as delimiter for other things here
-
 
 
 results = dict()
@@ -58,8 +58,13 @@ results['star-bigwig'] = expand(os.path.join(RESULT_OUTDIR, "{sample}/star/{samp
 results['rsem-bigwig'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/rsem/{sample}_{genome}_RSEM.sorted.bw'),
                                  sample=config['samples'], 
                                  genome=GENOME_BASENAME)
-all_results = results['star'] + results['star-bigwig'] +  results['rsem'] + results['rsem-bigwig'] + results['rnaseqc']
-if config.get('run_cuffdiff'):
+results['picard-rnaseq-metrics'] = expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}_{genome}_rnaseq-metrics.txt'),
+                                          sample=config['samples'],
+                                          genome=GENOME_BASENAME)
+all_results = results['star'] + results['star-bigwig'] +  results['rsem'] + results['rsem-bigwig'] + results['picard-rnaseq-metrics']
+if config['run_rnaseqc']:
+    all_results += results['rnaseqc']
+if config['run_cuffdiff']:
     all_results += results['cuffdiff']
 
 
@@ -69,7 +74,6 @@ rule final:
     input:
         all_results,
         report="report.html"
-
 
         
 #rule DEXSeq:
@@ -185,7 +189,42 @@ rule RSEM_postprocessing:
         " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tgene_type\\tgene_name\\n/' {input.genecount}.desc;"
         " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\tgene_type\\tgene_name\\n/' {input.isocount}.desc; }} >& {log};"
 
-        
+
+def collectrnaseqmetrics_strand_arg(wc):
+    if not config['paired_end'] or config['stranded'] == 'forward':
+        arg = 'STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND'
+    elif config['stranded'] == 'none':
+        arg = 'STRAND_SPECIFICITY=NONE'
+    elif config['stranded'] == 'reverse':
+        arg = 'STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND'
+    else:
+        raise ValueError()
+    return arg
+
+    
+rule collectrnaseqmetrics:
+    input:
+        bam = "{dir}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam",
+        bamidx = "{dir}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam.bai",
+        refflat = config['references']['refflat'],
+    output:
+        metrics = '{dir}/{sample}_{genome}_rnaseq-metrics.txt'
+    benchmark:
+        '{dir}/{sample}_{genome}_rnaseq-metrics.collectrnaseqmetrics.benchmark.log'
+    log:
+        '{dir}/{sample}_{genome}_rnaseq-metrics.collectrnaseqmetrics.log'
+    params:
+        strand_arg = collectrnaseqmetrics_strand_arg
+    threads:
+        2
+    message:
+        "Running Picards's CollectRnaSeqMetrics"# on {sample}"
+    shell:
+        "PICARD_THREADS={threads} picard_wrapper CollectRnaSeqMetrics"
+        " I={input.bam} O={output.metrics} REF_FLAT={input.refflat}"
+        " {params.strand_arg} >& {log}"
+
+    
 rule rnaseqc:
     input:
         bam = "{dir}/star/{sample}_{genome}_Aligned.sortedByCoord.out.bam",

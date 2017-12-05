@@ -71,7 +71,10 @@ def main():
     # pipeline specific args
     parser.add_argument("--cuffdiff", action='store_true',
                         dest="run_cuffdiff",
-                        help="Also run cuffdiff")
+                        help="Also run Cuffdiff")
+    parser.add_argument("--rnaseqc", action='store_true',
+                        dest="run_rnaseqc",
+                        help="Also run RNA-SeQC")
     choices = ["none", "forward", "reverse"]
     default = "none"
     parser.add_argument('--stranded', choices=choices, default=default,
@@ -131,6 +134,7 @@ def main():
         cfg_dict['rsem_extra_args'] += ' --estimate-rspd'
     cfg_dict['stranded'] = args.stranded
     cfg_dict['run_cuffdiff'] = args.run_cuffdiff
+    cfg_dict['run_rnaseqc'] = args.run_rnaseqc
     cfg_dict['paired_end'] = any(ru.get('fq2') for ru in readunits.values())
     if cfg_dict['paired_end']:
         assert all(ru.get('fq2') for ru in readunits.values()), (

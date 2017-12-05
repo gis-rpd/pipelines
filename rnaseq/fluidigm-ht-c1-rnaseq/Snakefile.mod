@@ -1,0 +1,386 @@
+# standard library imports
+#
+import os
+from itertools import chain
+import hashlib
+import tempfile
+import glob
+
+# third party imports
+#
+from snakemake.utils import report
+
+# project specific imports
+#
+LIB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(workflow.snakefile)), "..", "..", "lib"))
+if LIB_PATH not in sys.path:
+    sys.path.insert(0, LIB_PATH)
+from readunits import fastqs_from_unit
+
+
+RESULT_OUTDIR = 'out'
+FDEMUX_SUBDIR = 'fdemux'
+
+# non-login bash
+shell.executable("/bin/bash")
+shell.prefix("source rc/snakemake_env.rc;")
+
+
+include: "../../rules/logging.rules"
+include: "../../rules/samtools.rules"
+include: "../../rules/report.rules"
+
+
+GENOME_BASENAME = os.path.splitext(os.path.basename(
+    config['references']['genome']))[0].replace("_", "-")
+# replace "_" which is used as delimiter for other things here
+
+    
+NUM_ROWS = 40
+
+
+#assert len(config['samples'])==1, ("Pipeline optimized for one sample, i.e. componenent-library")
+
+rule final:
+    input:
+        # sample here is our typical component library
+        expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK'),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results'),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.bw"),
+                      sample=config['samples'],
+                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                      strand=["str1", "str2"],
+                      genome=GENOME_BASENAME),
+        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.bw'),
+               sample=config['samples'], 
+               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+               genome=GENOME_BASENAME),
+        report="report.html"
+
+
+
+rule RSEM:
+    # FIXME some code duplication with rnaseq. sync often
+    input:
+        bam = "{dir}/star/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
+        rsemidx = config['references']['rsemidx'] + ".seq",
+        gtfdesc = config['references']['gtfsourcefile']
+    output:
+        genecount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results",
+        isocount = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.isoforms.results",
+        gbam = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.genome.sorted.bam",
+        wig = temp("{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig"),
+        plot = "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.pdf"
+    message:
+        "Running RSEM"
+    params:
+        rsemidx=config['references']['rsemidx']
+    log:
+        "{dir}/rsem/{sample}_ROW{row}_{genome}_RSEM.log"
+    threads:
+        6# using 5 in practice after loading is complete
+    shell:
+        " {{ outpref=$(echo {output.genecount} | sed -e 's,.genes.results,,'); "
+        " rsem-calculate-expression --bam --output-genome-bam"
+        " --sort-bam-by-coordinate" # required since v1.2.27 https://groups.google.com/forum/#!msg/rsem-users/f8rrVuBbKF0/trknOnzYBAAJ
+        " --seed 12345 -p {threads} --forward-prob 0.5"
+        " {input.bam} {params.rsemidx} $outpref >& {log};"
+        " ls ${{outpref}}*bam | grep -v genome.sorted.bam | xargs -r rm;"
+        " rsem-bam2wig {output.gbam} {output.wig} $outpref;"
+        " rsem-plot-model $outpref {output.plot}; }} >& {log};"
+        " grep -v gene_id {output.genecount} | paste - {input.gtfdesc}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $9, $10}}'> {output.genecount}.desc;"
+        " grep -v gene_id {output.isocount} | paste - {input.gtfdesc}.transcriptsdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, $8, $11, $12}}' > {output.isocount}.desc;"
+        " sed -i '1s/^/gene_id\\ttranscript_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tgene_type\\tgene_name\\n/' {output.genecount}.desc;"
+        " sed -i '1s/^/transcript_id\\tgene_id\\tlength\\teffective_length\\texpected_count\\tTPM\\tFPKM\\tIsoPct\\tgene_type\\tgene_name\\n/' {output.isocount}.desc"
+
+        
+rule rnaseqQC:
+    input:
+        bam = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
+        rnaseqc_annotation = config['references']['rnaseqc_annotation'],
+        ref = config['references']['genome']
+    output:
+        bamidx = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai"),
+                        sample = config['samples'],
+                        row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                        genome=GENOME_BASENAME),
+        flag = touch(expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK"),
+                     sample = config['samples'],
+                     row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME)),
+    log:
+        "{dir}/rnaseqQC.log"    
+    params:
+        sample = lambda wc: wc.sample + "-ROW" + wc.row
+    threads:
+        4
+    message:
+        "Running RNASeqQC"
+    run:
+        for bam, flag in zip(input.bam, output.flag):
+            cmd = "outpref=`dirname {}`;".format(flag)
+            cmd += "samtools index {};".format(bam)
+            cmd += "RNASEQC_THREADS={threads} RNASEQC_MEM=16g rnaseqc_wrapper -n 1000"
+            cmd += " -s '{params.sample}|{input.bam}|RNASeqQC'"
+            cmd += " -singleEnd -t {input.rnaseqc_annotation} -r {input.ref} -noDoC -o $outpref >& {log};"
+            cmd += "find $(dirname {output.flag}) -name \*tmp.txt\* -type f | xargs -r rm"
+            shell(cmd)
+
+# input files are tiny (multiplexed single cell), hence this process
+# is very fast. doesn't make sense to submit them separately (and also
+# repeatedly caused trouble (hanging))
+# 
+#rule wig2bigwig:
+#    input:
+#        wig = '{prefix}.wig',
+#        gsizes = config['references']['genome'] + ".sizes"
+#    output:
+#        '{prefix}.bw'
+#    shell:
+#        # FIXME replace mnt software later
+#        " /mnt/software/bin/wigToBigWig {input.wig} {input.gsizes} {output};"
+
+# star wig's bunched together
+rule wig2bigwig_star:
+    input:
+        wig = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.wig"),
+                    sample=config['samples'],
+                    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                    strand=["str1", "str2"],
+                    genome=GENOME_BASENAME),
+        gsizes = config['references']['genome'] + ".sizes"
+    output:
+        bw = expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.bw"),
+                    sample=config['samples'],
+                    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                    strand=["str1", "str2"],
+                    genome=GENOME_BASENAME)
+    log:
+        os.path.join(RESULT_OUTDIR, "wig2bigwig_star.log")
+    #shell:
+    #    "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
+    run:
+        # if using bash argument length can be too long
+        for wig in input.wig:
+            bw = os.path.splitext(wig)[0] + ".bw"
+            shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
+
+
+# rsem wig's bunched together
+rule wig2bigwig_rsem:
+    input:
+        wig = expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.wig'),
+                     sample=config['samples'], 
+                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                     genome=GENOME_BASENAME),
+        gsizes = config['references']['genome'] + ".sizes"
+    output:
+        bw = expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.bw'),
+                    sample=config['samples'], 
+                    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                    genome=GENOME_BASENAME)
+    log:
+        os.path.join(RESULT_OUTDIR, "wig2bigwig_rsem.log")
+    #shell:
+    #    "{{ for wig in {input.wig}; do bw=${{wig%.wig}}.bw; wigToBigWig $wig {input.gsizes} $bw; done; }} >& {log}"
+    run:
+        # if using bash argument length can be too long
+        for wig in input.wig:
+            bw = os.path.splitext(wig)[0] + ".bw"
+            shell("wigToBigWig {} {} {}".format(wig, input.gsizes, bw))
+
+
+# star is very fast, esp for single cell data. parallel jobs create
+# all sorts of trouble, e.g race conditions during index loading and
+# unloading. just run in series
+rule star_mapping:
+    input:
+        # parallel:
+        #r2 = os.path.join(RESULT_OUTDIR, "{sample}",
+        #                  FDEMUX_SUBDIR, "{sample}_ROW{row}_merged_R2.trimmed.fastq.gz"),
+        # in series (per sample, which is why it is a wildcard)
+        r2s = expand(os.path.join(RESULT_OUTDIR, "{{sample}}", FDEMUX_SUBDIR,
+                                  "{{sample}}_ROW{row}_merged_R2.trimmed.fastq.gz"),
+                     row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)]),
+        staridx = config['references']['staridx']
+    output:
+        # parallel:
+        #bam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam",
+        #transbam = "{dir}/{sample}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam",
+        #counts = "{dir}/{sample}_ROW{row}_{genome}_ReadsPerGene.out.tab",
+        #wig = "{dir}/{sample}_ROW{row}_{genome}_Signal.Unique.str1.out.wig",
+        # in series:
+        bams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                      genome=GENOME_BASENAME),
+        transbams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam"),
+                           row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                           genome=GENOME_BASENAME),
+        counts = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_ReadsPerGene.out.tab"),
+                        row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                        genome=GENOME_BASENAME),
+        wigs = temp(expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Signal.Unique.{strand}.out.wig"),
+                           row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                           strand=["str1", "str2"],
+                      genome=GENOME_BASENAME)),
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}/star.log")
+    message:
+        "Running STAR against all {} sub libraries".format(NUM_ROWS)
+    params:
+        sample = lambda wc: wc.sample,
+        lib_id = lambda wc: wc.sample,
+        outSAMmapqUnique = 50,
+        outFilterMultimapNmax = 1,
+        outFilterMismatchNmax = 999,
+        outFilterMismatchNoverLmax = 0.04,
+        alignSJoverhangMin = 8,
+        alignSJDBoverhangMin = 1,
+        alignIntronMin = 20,
+        alignIntronMax = 1000000,
+        alignMatesGapMax = 1000000,
+        limitBAMsortRAM = 20016346648
+    threads: 16# SY says 24 optimal on aquila. 16 more conservative RE mem
+    run:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as fh:
+            commentsheader = fh.name
+            # resolve link to gtfsourcefile
+            gtfsourcefile = os.path.realpath(config['references']['gtfsourcefile'])
+            fh.write('@CO\tANNOTATIONFILE:{}\n'.format(gtfsourcefile))
+        
+        cmd = "STAR --genomeDir {} --genomeLoad LoadAndExit > {} 2>&1 ".format(input.staridx, log)
+        shell(cmd)
+        for r2, bam in zip(input.r2s, output.bams):
+            # rg_id just a input specific hash
+            m = hashlib.md5()
+            m.update("%s".format(r2).encode())
+            rg_id = m.hexdigest()[:8]
+            
+            outpref = bam.replace("Aligned.sortedByCoord.out.bam", "")
+            cmd = "STAR --genomeDir {}".format(input.staridx)
+            cmd += " --outSAMattrRGline ID:{}\tPL:{}\tLB:{}\tSM:{}\tCN:GIS".format(
+                rg_id, config['platform'], params.lib_id, params.sample)
+            cmd += " --outSAMheaderCommentFile {}".format(commentsheader)
+            cmd += " --runThreadN {threads}"
+            cmd += " --readFilesCommand zcat"
+            cmd += " --outFilterType BySJout"
+            cmd += " --outSAMtype BAM SortedByCoordinate"
+            cmd += " --quantMode TranscriptomeSAM GeneCounts"
+            cmd += " --outSAMmapqUnique {}".format(params.outSAMmapqUnique)
+            cmd += " --outSAMattributes NH HI AS nM NM MD"
+            cmd += " --outBAMsortingThreadN {threads}"
+            cmd += " --outSAMstrandField intronMotif"
+            cmd += " --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
+            cmd += " --outFilterMultimapNmax {}".format(params.outFilterMultimapNmax)
+            cmd += " --outFilterMismatchNmax {}".format(params.outFilterMismatchNmax)
+            cmd += " --outFilterMismatchNoverLmax {}".format(params.outFilterMismatchNoverLmax)
+            cmd += " --outFilterIntronMotifs RemoveNoncanonical"
+            cmd += " --alignEndsType EndToEnd"
+            cmd += " --alignSJoverhangMin {}".format(params.alignSJoverhangMin)
+            cmd += " --alignSJDBoverhangMin {}".format(params.alignSJDBoverhangMin)
+            cmd += " --alignIntronMin {}".format(params.alignIntronMin)
+            cmd += " --alignIntronMax {}".format(params.alignIntronMax)
+            cmd += " --alignMatesGapMax {}".format(params.alignMatesGapMax)
+            cmd += " --limitBAMsortRAM {}".format(params.limitBAMsortRAM)
+            cmd += " --outFileNamePrefix {}".format(outpref)
+            cmd += " --readFilesIn {}".format(r2)
+            cmd += " >> {} 2>&1".format(log)
+            shell(cmd)
+
+            # FIXME test and activate
+            # add counts to zip command above. replace config[references][gtfsourcefile] with  gtfsourcefile. add description to README
+            shell("paste <(sort -k1,1 {outpref}ReadsPerGene.out.tab) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {outpref}ReadsPerGene.out.tab.desc ;")
+            #cmd = "paste <(sort -k1,1 "+ outpref +"ReadsPerGene.out.tab) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > "+ outpref +"ReadsPerGene.out.tab.desc"
+            #shell(cmd)
+            cmd = "sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' "+ outpref +"ReadsPerGene.out.tab.desc"
+            shell(cmd)
+            
+            # cleanup
+            for f in glob.glob(os.path.join(os.path.dirname(bam), "*UniqueMultiple.str*.out.wig")):
+                os.unlink(f)
+        cmd = "STAR --genomeDir {} --genomeLoad Remove > {} 2>&1 || echo 'OK'".format(input.staridx, log)
+        shell(cmd)
+        os.unlink(commentsheader)
+
+        
+rule trimming:
+    input:
+        fq="{prefix}_R2.fastq.gz"
+    output:
+        fq="{prefix}_R2.trimmed.fastq.gz"
+    message:
+        "Running trimming"
+    log:
+        "{prefix}_R2.trimmed.log"
+    params:
+        trim_tail_right=1,
+        min_len=20
+    shell:
+        # if fed with rubbish prinseq prints an error and happily
+        # exits with code 0. checking for zero size not enough since possibly valid
+        "{{ zcat {input.fq} | prinseq-lite.pl -trim_tail_right {params.trim_tail_right}"
+         " -min_len {params.min_len} -fastq stdin -out_good stdout -out_bad null | gzip > {output.fq}; }} >& log;"
+         #" test -z $(gzip -cd {output.fq} | head -c1) && false; }} >& {log}"
+         # returns always false?
+    
+
+rule fluidigm_demux:
+    # WARNING:
+    # - fdemux splits after first _ so prefix should not contain underscore
+    # - input files actually not used, but dir. make sure nothing else is in this dir.
+    #   this is the reason whywe initially only ran one sample at the time.
+    #   current way is to use one dir per sample (component library)
+    # 
+    input:
+        expand(os.path.join(RESULT_OUTDIR, "{{sample}}", "{{sample}}_merged_R{end}.fastq.gz"), 
+               end=["1", "2"])
+    output:
+        expand(os.path.join(RESULT_OUTDIR, "{{sample}}",
+                            FDEMUX_SUBDIR, "{{sample}}_ROW{row}_merged_R{end}.fastq.gz"),
+                    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)], 
+                    end=["1", "2"]),
+        os.path.join(RESULT_OUTDIR, "{sample}",
+                            FDEMUX_SUBDIR, "demultiplex_report.xls")
+    message:
+        "Running fluidigm_demux"
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}", FDEMUX_SUBDIR, "fdemux.log")
+    shell:
+        '{{ idir=$(dirname {input[0]});'
+        '  odir=$(dirname {output[0]});'
+        '  mRNASeqHT_demultiplex.pl -i $idir -o $odir; }} >& {log};'
+        
+
+# a sample refers to a component library i.e. post bcl2fastq
+# fastqs. they can be split into multiple lanes or runs (as readunits)
+# hence we merge them first so that the demux only runs once. merge
+# prex fdemux.
+rule readunit_merge:
+    input:
+        lambda wc: list(chain.from_iterable(
+            [fastqs_from_unit(config["readunits"][ru]) for ru in config["samples"][wc.sample]]))
+    output:
+        r1=temp(os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged_R1.fastq.gz")),
+        r2=temp(os.path.join(RESULT_OUTDIR, "{sample}", "{sample}_merged_R2.fastq.gz"))
+    message:
+        "Merging fastqs per sample, i.e. read units (e.g. split across lanes or runs)"
+    log:
+        os.path.join(RESULT_OUTDIR, "{sample}", "merge.log")
+    shell:
+        # cat magically works for gzipped files
+        '{{ ls {input} | grep "_R1_" | sort | xargs cat > {output.r1};'
+        ' ls {input} | grep "_R2_" | sort | xargs cat > {output.r2}; }} >& {log}'

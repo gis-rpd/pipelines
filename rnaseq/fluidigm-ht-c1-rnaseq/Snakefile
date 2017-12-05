@@ -42,35 +42,51 @@ GENOME_BASENAME = os.path.splitext(os.path.basename(
     
 NUM_ROWS = 40
 
-
 #assert len(config['samples'])==1, ("Pipeline optimized for one sample, i.e. componenent-library")
 
+# sample here is our typical component library
+results = dict()
+results['star'] = expand(
+    os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+    sample=config['samples'], 
+    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+    genome=GENOME_BASENAME),
+results['star-bigwig'] = expand(
+    os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.bw"),
+    sample=config['samples'],
+    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+    strand=["str1", "str2"],
+    genome=GENOME_BASENAME),
+results['rsem'] = expand(
+    os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results'),
+    sample=config['samples'], 
+    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+    genome=GENOME_BASENAME),
+results['rsem-bigwig'] = expand(
+    os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.bw'),
+    sample=config['samples'], 
+    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+    genome=GENOME_BASENAME),
+results['picard-rnaseq-metrics'] = expand(
+    os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}_{genome}_rnaseq-metrics.txt'),
+    sample=config['samples'], 
+    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+    genome=GENOME_BASENAME),
+results['rnaseqc'] = expand(
+    os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK'),
+    sample=config['samples'], 
+    row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+    genome=GENOME_BASENAME),
 
+all_results = results['star'] + results['star-bigwig'] +  results['rsem'] + results['rsem-bigwig'] + results['picard-rnaseq-metrics']
+if config['run_rnaseqc']:
+    all_results += results['rnaseqc']
+
+    
 localrules: final
 rule final:
     input:
-        # sample here is our typical component library
-        expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
-               sample=config['samples'], 
-               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-               genome=GENOME_BASENAME),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rnaseqQC/{sample}_ROW{row}_{genome}_RNASeqQC_complete.OK'),
-               sample=config['samples'], 
-               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-               genome=GENOME_BASENAME),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.genes.results'),
-               sample=config['samples'], 
-               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-               genome=GENOME_BASENAME),
-        expand(os.path.join(RESULT_OUTDIR, "{sample}_ROW{row}/star/{sample}_ROW{row}_{genome}_Signal.Unique.{strand}.out.bw"),
-                      sample=config['samples'],
-                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-                      strand=["str1", "str2"],
-                      genome=GENOME_BASENAME),
-        expand(os.path.join(RESULT_OUTDIR, '{sample}_ROW{row}/rsem/{sample}_ROW{row}_{genome}_RSEM.sorted.bw'),
-               sample=config['samples'], 
-               row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-               genome=GENOME_BASENAME),
+        all_results,
         report="report.html"
 
 
@@ -167,9 +183,9 @@ rule rnaseqqc:
         rnaseqc_annotation = config['references']['rnaseqc_annotation'],
         ref = config['references']['genome']
     output:
-        bamidx = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai"),
-                        row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
-                        genome=GENOME_BASENAME),
+        #bamidx = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai"),
+        #                row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+        #                genome=GENOME_BASENAME),
         flag = touch(expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/rnaseqQC/{{sample}}_ROW{row}_{genome}_RNASeqQC_complete.OK"),
                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                      genome=GENOME_BASENAME)),
@@ -184,15 +200,14 @@ rule rnaseqqc:
     message:
         "Running RNASeqQC"
     run:
-        for bam, flag, bamidx in zip(input.bam, output.flag, output.bamidx):
+        for bam, flag in zip(input.bam, output.flag):
             # if the input bam is empty, rnaseq will fail and the whole
             # pipeline is stuck. therefore, check if the file is
             # empty, and if yes, create fake output files
             res = shell("samtools view -c {}".format(bam), read=True)# alternative to read is iterable
             if res.decode().rstrip() == "0":
-                for f in [bamidx, flag]:
-                    with open(f, 'w') as fh:
-                        fh.write("WARNING: input bam is empty: {}\n".format(bam))
+                with open(flag, 'w') as fh:
+                    fh.write("WARNING: input bam is empty: {}\n".format(bam))
                 continue
 
             cmd = "outpref=`dirname {}`;".format(flag)
@@ -272,6 +287,7 @@ rule wig2bigwig_rsem:
 # STAR is very fast, esp for single cell data. parallel jobs create
 # all sorts of trouble, e.g race conditions during index loading and
 # unloading. just run in series
+ruleorder: star_mapping > bam_index
 rule star_mapping:
     input:
         # parallel:
@@ -290,6 +306,9 @@ rule star_mapping:
         #wig = "{dir}/{sample}_ROW{row}_{genome}_Signal.Unique.str1.out.wig",
         # in series:
         bams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+                      row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                      genome=GENOME_BASENAME),
+        bais = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai"),
                       row=["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
                       genome=GENOME_BASENAME),
         transbams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}", "star", "{{sample}}_ROW{row}_{genome}_Aligned.toTranscriptome.out.bam"),
@@ -372,6 +391,9 @@ rule star_mapping:
             cmd += " >> {} 2>&1".format(log)
             shell(cmd)
 
+            cmd = "samtools index {}".format(bam)
+            shell(cmd)
+            
             # FIXME test and activate
             # add counts to zip command above. replace config[references][gtfsourcefile] with  gtfsourcefile. add description to README
             shell("paste <(sort -k1,1 {outpref}ReadsPerGene.out.tab) {config[references][gtfsourcefile]}.genesdesc | awk '{{printf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $6, $7}}' > {outpref}ReadsPerGene.out.tab.desc ;")
@@ -379,12 +401,13 @@ rule star_mapping:
             #shell(cmd)
             cmd = "sed -i '1s/^/gene_id\\tcount_unstranded\\tcount_firststrand\\tcount_secondstrand\\tgene_type\\tgene_name\\n/' "+ outpref +"ReadsPerGene.out.tab.desc"
             shell(cmd)
-            
+                        
             # cleanup
-            for d in glob.glob(os.opath.join(os.path.dirname(bam), "*__STARtmp")):
+            for d in glob.glob(os.path.join(os.path.dirname(bam), "*__STARtmp")):
                 shutil.rmtree(d)
             for f in glob.glob(os.path.join(os.path.dirname(bam), "*UniqueMultiple.str*.out.wig")):
                 os.unlink(f)
+
         cmd = "STAR --genomeDir {} --genomeLoad Remove > {} 2>&1 || echo 'OK'".format(input.staridx, log)
         shell(cmd)
         os.unlink(commentsheader)
@@ -470,3 +493,38 @@ rule readunit_merge:
         # cat magically works for gzipped files
         '{{ ls {input} | grep "_R1_" | sort | xargs cat > {output.r1};'
         ' ls {input} | grep "_R2_" | sort | xargs cat > {output.r2}; }} >& {log}'
+
+
+rule collectrnaseqmetrics:
+    input:
+        bams = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam"),
+                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                      genome=GENOME_BASENAME),
+        bamidxs = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}/star/{{sample}}_ROW{row}_{genome}_Aligned.sortedByCoord.out.bam.bai"),
+                      row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                      genome=GENOME_BASENAME),
+        refflat = config['references']['refflat'],
+    output:
+        metrics = expand(os.path.join(RESULT_OUTDIR, "{{sample}}_ROW{row}_{genome}_rnaseq-metrics.txt"),
+                         row = ["{:02d}".format(x) for x in range(1, NUM_ROWS+1)],
+                         genome=GENOME_BASENAME),
+    benchmark:
+        os.path.join(RESULT_OUTDIR,
+                     "{{sample}}_{genome}_rnaseq-metrics.collectrnaseqmetrics.benchmark.log".format(genome=GENOME_BASENAME))
+    log:
+        os.path.join(RESULT_OUTDIR,
+                     "{{sample}}_{genome}_rnaseq-metrics.collectrnaseqmetrics.log".format(genome=GENOME_BASENAME))
+    params:
+        # since single end
+        strand_arg = "STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND"
+    threads:
+        1
+    message:
+        "Running Picards's CollectRnaSeqMetrics"# on {sample}"
+    run:
+        for bam, metric in zip(input.bams, output.metrics):
+            cmd = "PICARD_THREADS={threads} picard_wrapper CollectRnaSeqMetrics"
+            cmd += " I={} O={}".format(bam, metric)
+            cmd += " REF_FLAT={input.refflat} {params.strand_arg} >& {log}"
+            shell(cmd)
+        

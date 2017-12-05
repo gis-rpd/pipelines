@@ -56,7 +56,13 @@ Exact STAR mapping parameters can be looked up in the Snakefile.
 - Visualization: Wiggle files (`*.wig`)
 - Plots: `{sample}_{genome}_RSEM.pdf`
 
-### RNA-SeQC
+### Picard's CollectRnaSeqMetrics
+
+- Metrics about the RNA-seq alignment:: `{sample}_{genome}_rnaseq-metrics.txt`
+- See also http://broadinstitute.github.io/picard/picard-metric-definitions.html#RnaSeqMetrics
+
+
+### RNA-SeQC (optional)
 
 
 QC and rate of rRNA and distribution of reads on transcripts:
