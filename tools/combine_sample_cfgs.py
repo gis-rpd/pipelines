@@ -39,12 +39,17 @@ def main(yaml_files, yaml_out, use_abspath=False):
                 else:
                     samples[k].extend(v)
             for k, v in d['readunits'].items():
+                # quick and dirty hack to deal with null fq2
+                if 'fq2' in v and v['fq2'] is None:
+                    del  v['fq2']
                 assert k not in readunits, ("Already got key {} for {} in readunits: {}".format(k, v, readunits))
                 # fastq path might be relativ to its config. make
                 # absolute first, otgerwise next operations won't work
                 if not isabs(v['fq1']):
                     v['fq1'] = abspath(join(dirname(y), v['fq1']))
                     assert exists(v['fq1']), v['fq1']
+                #import pdb; pdb.set_trace()
+                
                 if 'fq2' in v and not isabs(v['fq2']):
                     v['fq2'] = abspath(join(dirname(y), v['fq2']))
                     assert exists(v['fq2']), v['fq2']
