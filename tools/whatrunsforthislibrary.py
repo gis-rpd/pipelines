@@ -16,6 +16,8 @@ from config import rest_services
 
 def main(lib_id):
     """main function"""
+
+    raise NotImplementedError("lib_details REST service was retired")
     rest_url = rest_services['lib_details']['production'].replace("lib_id", lib_id)
     r = requests.get(rest_url)
     if r.status_code != requests.codes.ok:

@@ -16,7 +16,6 @@ LIB_PATH = abspath(join(dirname(realpath(__file__)), "..", "lib"))
 if LIB_PATH not in path:
     path.insert(0, LIB_PATH)
 from mongodb import mongodb_conn
-from pipelines import mux_to_lib
 
 
 __author__ = "LIEW Jun Xian"
@@ -46,8 +45,7 @@ def main():
                                     last_out_dir = analysis["out_dir"].replace("//", "/")
                 print (last_out_dir)
     if args.lib:
-        for lib in mux_to_lib(args.lib, testing=False):
-            print (lib)
+        raise NotImplementedError
 
 if __name__ == "__main__":
     main()

@@ -875,26 +875,6 @@ def path_to_url(out_path):
         return out_path
 
 
-def mux_to_lib(mux_id, testing=False):
-    """returns the component libraries for MUX
-    """
-    lib_list = []
-    if not testing:
-        rest_url = rest_services['lib_details']['production'].replace("lib_id", mux_id)
-    else:
-        rest_url = rest_services['lib_details']['testing'].replace("lib_id", mux_id)
-    response = requests.get(rest_url)
-    if response.status_code != requests.codes.ok:
-        response.raise_for_status()
-    rest_data = response.json()
-    if 'plexes' not in rest_data:
-        logger.fatal("FATAL: plexes info for %s is not available in ELM \n", mux_id)
-        sys.exit(1)
-    for lib in rest_data['plexes']:
-        lib_list.append(lib['libraryId'])
-    return lib_list
-
-
 def bundle_and_clean_logs(pipeline_outdir, result_outdir="out/",
                           log_dir="logs/", overwrite=False):
     """bundle log files in pipeline_outdir+result_outdir and

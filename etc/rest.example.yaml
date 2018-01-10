@@ -3,9 +3,6 @@
 run_details:
         production: URL
         testing: URL
-lib_details:
-        production: URL
-        testing: URL
 sra_upload:
         production: URL
         testing: URL
