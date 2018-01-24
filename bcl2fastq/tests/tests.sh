@@ -7,7 +7,16 @@ set -euo pipefail
 
 MYNAME=$(basename $(readlink -f $0))
 PIPELINE=$(basename $(dirname $(readlink -f $0)))
-DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../tools/downstream_outdir.py)
+DOWNSTREAM_OUTDIR_PY=$(readlink -f $(dirname $MYNAME)/../../tools/downstream_outdir.py)
+if [ ! -e $DOWNSTREAM_OUTDIR_PY ]; then
+    echo "ERROR: can't find downstream_outdir.py" 1>&2
+    exit 1
+fi
+SRCDIR=../
+if [ ! -d $SRCDIR ]; then
+    echo "ERROR: can't find src directory" 1>&2
+    exit 1
+fi
 
 toaddr() {
     if [ $(whoami) == 'userrig' ]; then
@@ -21,28 +30,38 @@ usage() {
     echo "$MYNAME: run pipeline tests"
     echo " -d: Run dry-run tests"
     echo " -r: Run real-run tests"
+    echo " -c: Run cellranger tests"
+    echo " -g: Create DAG"
 }
 
 get_site() {
     # see pipelines.py:get_site()
     if [ -d '/home/users/astar/gis/userrig' ]; then
-	echo 'NSCC'
+	    echo 'NSCC'
     elif [ -d "/home/userrig" ]; then
-	echo 'GIS'
+	    echo 'GIS'
     else
-	exit 1
+	    exit 1
     fi
 }
 
 skip_dry_runs=1
 skip_real_runs=1
-while getopts "dr" opt; do
+skip_cellranger=1
+skip_dag=1
+while getopts "drcg" opt; do
     case $opt in
         d)
             skip_dry_runs=0
             ;;
         r)
             skip_real_runs=0
+            ;;
+        c)
+            skip_cellranger=0
+            ;;
+        g)
+            skip_dag=0
             ;;
         \?)
             usage
@@ -52,26 +71,33 @@ while getopts "dr" opt; do
 done
 
 
-test -z "$RPD_ROOT" && exit 1
+if [ -z "$RPD_ROOT" ]; then
+   echo "ERROR: RPD_ROOT undefined" 1>&2
+   exit 1
+fi
 
 TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
 TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/NS001-SR-R00139_HKWHTBGXX"
 TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS001-PE-R000296_AH3VF3BCXX"
 TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/NS001-PE-R00356_HCGTLAFXX";# wafergen
+CELLRANGER_TINYBCL_DIR=$RPD_ROOT/testing/data/cellranger
 if false; then
     echo "WARN: Ignoring HS007" 1>&2
 else
     TEST_SEQ_RUN_DIRS="$TEST_SEQ_RUN_DIRS $RPD_ROOT/testing/data/bcl2fastq/HS007-PE-R00020_BH5THFBBXX"
 fi
-if false; then
+if true; then
     echo "MS001 only" 1>&2
     TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/MS001-PE-R00294_000000000-AH2G7"
-fi
-if false; then
+elif false; then
     echo "HS004 only" 1>&2
-    TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX"
+    TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/HS004-PE-R00138_AC6A7EANXX";
+elif false; then
+    echo "NS001-PE-R00356 (Wafergen) only" 1>&2
+    TEST_SEQ_RUN_DIRS="$RPD_ROOT/testing/data/bcl2fastq/NS001-PE-R00356_HCGTLAFXX";
+    
 fi
-
 
 for d in $TEST_SEQ_RUN_DIRS; do
     if [ ! -d $d ]; then
@@ -83,9 +109,6 @@ rootdir=$(readlink -f $(dirname $0))
 cd $rootdir
 pipeline=$(pwd | sed -e 's,.*/,,')
 commit=$(git describe --always --dirty)
-test -e Snakefile || exit 1
-
-
 log=$(mktemp)
 COMPLETE_MSG="*** All tests completed ***"
 echo "Starting tests"
@@ -97,19 +120,20 @@ fi
 
 
 # DAG
-SKIP_DAG=1
-if [ $SKIP_DAG -eq 0 ]; then
+if [ $skip_dag -eq 0 ]; then
     d=$(echo $TEST_SEQ_RUN_DIRS | cut -f1 -d ' ')
     echo "DAG: bcl2fastq.py for $d" | tee -a $log
     odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-    ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
+    $SRCDIR/bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
     pushd $odir >> $log
     type=pdf;
-    dag=example-dag.$type
+    dag=../example-dag.$type
     EXTRA_SNAKEMAKE_ARGS="--dag" bash run.sh; cat logs/snakemake.log | dot -T$type > $dag
     cp $dag $rootdir
     popd >> $log
     rm -rf $odir
+else
+    echo "DAG creation skipped"
 fi
 
 
@@ -145,11 +169,11 @@ if [ $skip_dry_runs -ne 1 ]; then
         
 
     echo "Dryrun: bcl2fastq_starter.py" | tee -a $log
-    ./bcl2fastq_starter.py -n -1 -v >> $log 2>&1 
+    $SRCDIR/bcl2fastq_starter.py -n -1 -v >> $log 2>&1 
 
     
     echo "Dryrun: bcl2fastq_dbupdate.py" | tee -a $log
-    ./bcl2fastq_dbupdate.py -n -t -v >> $log 2>&1
+    $SRCDIR/bcl2fastq_dbupdate.py -n -t -v >> $log 2>&1
 
     if [ $(get_site) == 'NSCC' ]; then
 	    echo "Test not available at NSCC" | tee -a $log;
@@ -167,9 +191,9 @@ if [ $skip_dry_runs -ne 1 ]; then
     
         for d in $TEST_SEQ_RUN_DIRS; do
             echo "Dryrun: bcl2fastq.py dryrun for $d" | tee -a $log
-	    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
+	        odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
     
-            ./bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
+            $SRCDIR/bcl2fastq.py -d $d -o $odir --no-run -t >> $log 2>&1
             pushd $odir >> $log
             EXTRA_SNAKEMAKE_ARGS="--dryrun" bash run.sh >> $log 2>&1
             popd >> $log
@@ -179,19 +203,31 @@ if [ $skip_dry_runs -ne 1 ]; then
         # because this will try to update the db for seqrunfailed
         echo "Not a production user. Skipping" 1>&2        
     fi
+
     
     echo "Dryrun tests successfully completed"
 else
     echo "Dryruns tests skipped"
 fi
 
+
+# cellranger
+#
+if [ $skip_cellranger -ne 1 ]; then
+    echo "Running cellranger tests"
+    bash test_cellranger.sh >> $log 2>&1
+else
+    echo "Cellranger tests skipped"
+fi
+    
 # real runs
 #
-if [ $skip_real_runs -ne 1 ]; then   
+if [ $skip_real_runs -ne 1 ]; then
+    
     for d in $TEST_SEQ_RUN_DIRS; do
         echo "Real run: bcl2fastq.py for $d" | tee -a $log
-	odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
-        ./bcl2fastq.py -d $d -o $odir --name "test:$(basename $d)" -t >> $log 2>&1
+	    odir=$($DOWNSTREAM_OUTDIR_PY -r $(whoami) -p $PIPELINE)
+        $SRCDIR/bcl2fastq.py -d $d -o $odir --name "test:$(basename $d)" -t >> $log 2>&1
         # magically works even if line just contains id as in the case of pbspro
         jid=$(tail -n 1 $odir/logs/submission.log  | cut -f 3 -d ' ')
         echo "Started $jid writing to $odir"
