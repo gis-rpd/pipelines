@@ -50,7 +50,7 @@ logger.addHandler(handler)
 SAMPLESHEET_CSV = "*samplesheet.csv"
 MUXINFO_CFG = "muxinfo.yaml"
 STATUS_CFG = "status.txt"
-DEFAULT_BARCODE_MISMATCHES = None
+DEFAULT_BARCODE_MISMATCHES = 0
 TOOL = "bcl2fastq"
 
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,' \
