@@ -93,6 +93,8 @@ def check_completion(conf_yamls, num_expected):
             loglines = fh.readlines()
             if 'Pipeline run successfully completed' in ''.join(loglines[-10:]):
                 num_complete += num_samples
+            elif 'Nothing to be done' in ''.join(loglines[-10:]):
+                num_complete += num_samples
             else:
                 num_incomplete += num_samples
     print("{} completed".format(num_complete))

@@ -50,7 +50,7 @@ logger.addHandler(handler)
 SAMPLESHEET_CSV = "*samplesheet.csv"
 MUXINFO_CFG = "muxinfo.yaml"
 STATUS_CFG = "status.txt"
-DEFAULT_BARCODE_MISMATCHES = None
+DEFAULT_BARCODE_MISMATCHES = 0
 TOOL = "bcl2fastq"
 
 SAMPLESHEET_HEADER = '[Data]'+'\n'+ 'Lane,Sample_ID,Sample_Name,Sample_Plate,' \
@@ -158,6 +158,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
     non_mux_tech = False
     for rows in rest_data['lanes']:
         BCL_Mismatch = []
+        adpter_list = []
         tool = []
         if 'requestor' in rows:
             requestor = rows['requestor']
@@ -202,7 +203,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
                 barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
                 lib_list.setdefault(rows['libraryId'], []).append(sample)
         else:
-            #No analysis required
+            #Non-mux library
             if rows['libtech'] in bcl2fastq_conf['non_bcl_tech']:
                 logger.info("send_mail: bcl not required for %s", rows['libraryId'])
                 email_non_bcl(rows['libraryId'], rest_data['runId'])
@@ -227,17 +228,23 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
         else:
             tool_name = TOOL
         #Check adpter trimming
-        if 'trimadapt' in rows and rows['trimadapt']:
-            adapt_seq = rows.get('adapterseq').split(',')
-            lib_list.setdefault(rows['libraryId'], []).append('[Settings]')
-            for seq in adapt_seq:
-                reads = seq.split(':')
-                if reads[0].strip() == "Read 1":
-                    adapter = "Adapter," + reads[1].lstrip()
-                    lib_list.setdefault(rows['libraryId'], []).append(adapter)
-                elif reads[0].strip() == "Read 2":
-                    adapter = "AdapterRead2," + reads[1].lstrip()
-                    lib_list.setdefault(rows['libraryId'], []).append(adapter)
+        for lib, value in lib_list.items():
+            if lib == rows['libraryId']:
+                if not any("[Settings]" in s for s in value):
+                    if 'trimadapt' in rows and rows['trimadapt']:
+                        adapt_seq = rows.get('adapterseq').split(',')
+                        adpter_list.append("[Settings]")
+                        #lib_list.setdefault(rows['libraryId'], []).append('[Settings]')
+                        for seq in adapt_seq:
+                            reads = seq.split(':')
+                            if reads[0].strip() == "Read 1":
+                                adpter_list.append("Adapter," + reads[1].lstrip())
+                                #lib_list.setdefault(rows['libraryId'], []).append(adapter)
+                            elif reads[0].strip() == "Read 2":
+                                adpter_list.append("AdapterRead2," + reads[1].lstrip())
+                                #lib_list.setdefault(rows['libraryId'], []).append(adapter)
+                        #adpter_list.append(adapter)
+                        #lib_list.setdefault(rows['libraryId'], []).append(adpter_list)
         samplesheet = os.path.abspath(os.path.join(outdir, rows['libraryId'] + "_samplesheet.csv"))
         create_index = False
         if 'indexreads' in rows and rows['indexreads']:
@@ -288,6 +295,9 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
                 fh_out.write('[Reads]' + '\n')
                 for reads in readLength_list:
                     fh_out.write(str(reads) + '\n')
+                if adpter_list:
+                    for it in adpter_list:
+                        fh_out.write(str(it) + '\n')
 
         return True
     else:
