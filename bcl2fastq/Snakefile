@@ -232,14 +232,19 @@ rule bcl2fastq:
         flag = os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.SUCCESS")
     log:
         os.path.join(RESULT_OUTDIR, "{muxdir}.log")
+    benchmark:
+        os.path.join(RESULT_OUTDIR, "{muxdir}", "bcl2fastq.benchmark.log")
     message:
         "Running bcl2fastq/Demultiplexing"
-    threads: 12
+    threads:
+        12
     params:
         bcl2fastq_custom_args = lambda wildcards: ''.join(["{}".format(bcl2fastq_custom_args) for bcl2fastq_custom_args in config['units'][wildcards.muxdir]['bcl2fastq_custom_args']]),
         barcode_mismatches = barcode_mismatch_arg_for_mux,
         tiles = lambda wildcards: ''.join(["s_{},".format(lane_id) for lane_id in config['units'][wildcards.muxdir]['lane_ids']])[:-1],
-        tool = lambda wildcards: config['units'][wildcards.muxdir]['tool']
+        tool = lambda wildcards: config['units'][wildcards.muxdir]['tool'],
+        mux_id = lambda wildcards: config['units'][wildcards.muxdir]['mux_id'],
+        mux_dir = lambda wildcards: config['units'][wildcards.muxdir]['mux_dir']
     run:
         if params.tool == "bcl2fastq":
             res_dir = os.path.dirname(output.flag)
@@ -253,16 +258,29 @@ rule bcl2fastq:
             shell(cmd)
             shell("touch {output.flag}")
         elif params.tool == "10xGenomics":
-            #Check for re-analysis
-            flowcell_id = config['units'][wildcards.muxdir]['flowcell_id']
-            if os.path.exists(flowcell_id[1:]):
-                shutil.rmtree(flowcell_id[1:])
-            cmd = "cellranger mkfastq --run={config[rundir]} --output-dir=%s" % RESULT_OUTDIR
-            cmd += " --samplesheet {input.samplesheet}"
-            cmd += " >& {log}"
+            samplesheet = os.path.abspath(input.samplesheet)
+            tmp_workdir = "{params.mux_id}.cellranger.tmp"
+            log = os.path.abspath("%s") % log
+            res_dir = os.path.abspath(os.path.dirname(output.flag))
+            if os.path.exists(tmp_workdir):
+                shutil.rmtree(tmp_workdir)
+            assert os.path.isabs(config['rundir'])
+            cmd = "mkdir -p %s;" % tmp_workdir
+            cmd += "cd %s;" % tmp_workdir
+            cmd += " cellranger mkfastq --run={config[rundir]} --output-dir=out"
+            cmd += " --samplesheet=%s --ignore-dual-index " % samplesheet
+            cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir)
+            cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
+            cmd += " %s" % bcl2fastq_threads_setting(threads)
+            cmd += " >& %s;" % log
+            dest_mux_dir = os.path.abspath(os.path.join(RESULT_OUTDIR, '{params.mux_dir}'))
+            tmp_sample_dir = tmp_workdir + "/out/Project*/*"
+            #Move data into out folder
+            cmd += " mv -i %s %s;" % (os.path.abspath(tmp_sample_dir), dest_mux_dir)
+            cmd += " mv -i %s/out/Undetermined* %s;" % (os.path.abspath(tmp_workdir), os.path.abspath(os.path.join(RESULT_OUTDIR)))
             shell(cmd)
             shell("touch {output.flag}")
-          
+         
 rule fastqc:
     """fastqc per muxdir. note: this will not make full use of
     parallelization of many subdirs exist simply because we don't keep
@@ -274,6 +292,8 @@ rule fastqc:
         touch('{muxdir}/fastqc.SUCCESS')
     log:
         '{muxdir}/fastqc.log'
+    benchmark:
+        "{muxdir}/fastqc.benchmark.log"
     threads:
         8
     message:
@@ -337,4 +357,3 @@ rule create_sample_configs:
                         # make sure to skip dirs with no fastq files
                         sampledir_to_cfg(sample_dir, sample_cfgfile,
                                          run_id=run_id, flowcell_id=flowcell_id, fail_if_no_matches=False)
-    
