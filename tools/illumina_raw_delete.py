@@ -7,7 +7,7 @@ import sys
 import os
 import argparse
 import tarfile
-from shutil import rmtree
+import shutil
 import subprocess
 
 # project specific imports
@@ -29,6 +29,10 @@ __author__ = "Lavanya Veeravalli"
 __email__ = "veeravallil@gis.a-star.edu.sg"
 __copyright__ = "2016 Genome Institute of Singapore"
 __license__ = "The MIT License (MIT)"
+
+TAR_PATH_BASE = { 
+    'devel': '/mnt/projects/userrig/BENCHMARK_testing/test/'
+}
 
 # global logger
 LOGGER = logging.getLogger(__name__)
@@ -57,12 +61,12 @@ def check_tar_status_and_delete(db, record, days=60, dryrun=False):
     """Check run.tar status
     """
     run_num = record['run']
-    if record['deletion'].get('tar') == "locked":
+    if record['raw-delete'].get('tar') == "locked":
         LOGGER.info("%s tar ball creation in progress", run_num)
         return None
-    relative_days = relative_isoformat_time(record['deletion'].get('timestamp_tar'))
+    relative_days = relative_isoformat_time(record['raw-delete'].get('timestamp_tar'))
     if relative_days > days:
-        if record['deletion'].get('status') == "locked":
+        if record['raw-delete'].get('status') == "locked":
             LOGGER.info("Deletion of %s tar ball in progress", run_num)
             return None
         if dryrun:
@@ -71,26 +75,29 @@ def check_tar_status_and_delete(db, record, days=60, dryrun=False):
         #set deletion.status = locked, update deletion.timestamp
         res = db.update_one(
             {"run": run_num},
-            {"$set": {"deletion.status": "locked", "deletion.timestamp": generate_timestamp()}})
+            {"$set": {"raw-delete.status": "locked", "raw-delete.timestamp": generate_timestamp()}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
         #delete tar ball
-        tar_file = record['deletion'].get('tar')
+        tar_file = record['raw-delete'].get('tar')
+        md5sum_file = tar_file.replace(".tar", ".md5sum")
         assert os.path.exists(tar_file), "The run directory {} does not exists".format(tar_file)
         try:
             os.remove(tar_file)
+            os.remove(md5sum_file)
         except OSError as e:
             LOGGER.critical("Error: %s - %s.", e.filename, e.strerror)
         #unset deletion.tar and deletion.timestamp_tar
         res = db.update_one(
             {"run": run_num},
-            {"$unset": {"deletion.tar": "", "deletion.timestamp_tar": ""}})
+            {"$unset": {"raw-delete.tar": "", "raw-delete.timestamp_tar": ""}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
         #set deletion.status = deleted, update deletion.timestamp
         res = db.update_one(
             {"run": run_num},
-            {"$set": {"deletion.status": "deleted", "deletion.timestamp": generate_timestamp()}})
+            {"$set": {"raw-delete.status": "deleted", "raw-delete.timestamp": \
+                generate_timestamp()}})
         assert res.modified_count == 1, (
             "Modified {} documents instead of 1".format(res.modified_count))
         LOGGER.info("Deleted the tar ball for %s ", run_num)
@@ -99,28 +106,34 @@ def check_tar_status_and_delete(db, record, days=60, dryrun=False):
 def create_run_tar(db, run_num):
     """compress bcl directory into a tar ball
     """
+    rundir = get_bcl_runfolder_for_runid(run_num)
     #Set deletion.tar update timestamp
     res = db.update_one(
         {"run": run_num},
-        {"$set": {"deletion.tar": "locked", "deletion.timestamp_tar": generate_timestamp()}})
+        {"$set": {"raw-delete.tar": "locked", "raw-delete.timestamp_tar": generate_timestamp()}})
     assert res.modified_count == 1, (
         "Modified {} documents instead of 1".format(res.modified_count))
     #Create tar ball and md5sum
-    rundir = get_bcl_runfolder_for_runid(run_num)
-    assert os.path.isdir(rundir), "The run directory {} does not exists".format(rundir)
-    run_tar = "/mnt/projects/userrig/BENCHMARK_testing/test/" + run_num + ".tar"
+    #assert os.path.isdir(rundir), "The run directory {} does not exists".format(rundir)
+    if not os.path.exists(rundir):
+        LOGGER.warning("%s does not exists", rundir)
+        return
+    if is_devel_version():
+        basedir = TAR_PATH_BASE['devel']
+    else:
+        basedir = os.path.dirname(rundir)
+    run_tar = os.path.join(basedir, run_num) + ".tar"
     LOGGER.info("compression started %s ", run_tar)
     with tarfile.open(run_tar, "x") as tar:
         tar.add(rundir)
     md5sum_cmd = 'md5sum %s' % (run_tar)
-    dest_md5sum = "/mnt/projects/userrig/BENCHMARK_testing/test/" + run_num + ".md5sum"
+    dest_md5sum = os.path.join(basedir, run_num) + ".md5sum"
     assert os.path.exists(run_tar), "Tar ball {} does not exists".format(run_tar)
     try:
         f = open(os.path.join(dest_md5sum), "w")
         _ = subprocess.call(md5sum_cmd, shell=True, stderr=subprocess.STDOUT, stdout=f)
         LOGGER.info("compression completed %s ", run_num)
-        #Delete bcl directory ## FIXME finally
-        #shutil.rmtree(rundir)
+        shutil.rmtree(rundir)
     except (subprocess.CalledProcessError, OSError) as e:
         LOGGER.fatal("The following command failed with return code %s: %s",
                      e.returncode, ' '.join(md5sum_cmd))
@@ -131,7 +144,7 @@ def create_run_tar(db, run_num):
     #set deletion.tar = filename, update deletion.timestamp
     res = db.update_one(
         {"run": run_num},
-        {"$set": {"deletion.tar": run_tar, "deletion.timestamp_tar": generate_timestamp()}})
+        {"$set": {"raw-delete.tar": run_tar, "raw-delete.timestamp_tar": generate_timestamp()}})
     assert res.modified_count == 1, (
         "Modified {} documents instead of 1".format(res.modified_count))
 
@@ -143,7 +156,7 @@ def main():
                         help="Only process first run returned")
     parser.add_argument('-n', "--dryrun", action='store_true',
                         help="Don't run anything")
-    default = 84
+    default = 180
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
     default = 60
@@ -174,35 +187,35 @@ def main():
     if not is_production_user():
         LOGGER.warning("Not a production user. Skipping archival steps")
         sys.exit(1)
-    if is_devel_version() or args.testing:
-        mail_to = 'veeravallil'# domain added in mail function
-    else:
-        mail_to = 'rpd'
     connection = mongodb_conn(args.testing)
     if connection is None:
         sys.exit(1)
     db = connection.gisds.runcomplete
     epoch_present, epoch_back = generate_window(args.win)
-    results = db.find({"run" : {"$regex" : "^((?!NG00).)*$"}, "raw-delete": {"$exists": False},
+    results = db.find({"run" : {"$regex" : "^((?!NG00).)*$"},
                        "timestamp": {"$gt": epoch_back, "$lt": epoch_present}})
     LOGGER.info("Looping through %s jobs", results.count())
     trigger = 0
     for record in results:
+        print(record['run'])
         try:
             run_num = record['run']
         except KeyError:
             run_num = None
-        if not record.get('deletion'):
+        if not record.get('raw-delete'):
             #Check run_status
             res = check_run_status(record, args.days)
+            rundir = get_bcl_runfolder_for_runid(run_num)
             if res:
                 LOGGER.info("Create tar ball %s ", run_num)
                 if args.dryrun:
                     LOGGER.warning("Skipping Create tar ball %s ", run_num)
+                    assert os.path.exists(rundir), ("Rundir %s does not exists", rundir)
                     continue
+                assert os.path.exists(rundir), ("Rundir %s does not exists", rundir)
                 create_run_tar(db, run_num)
                 trigger = 1
-        elif record['deletion'].get('tar'):
+        elif record['raw-delete'].get('tar'):
             res = check_tar_status_and_delete(db, record, args.tardays, dryrun=args.dryrun)
             if res:
                 trigger = 1
