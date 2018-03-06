@@ -7,12 +7,12 @@ import logging
 import sys
 import os
 import argparse
-import getpass
 import subprocess
 
 #--- third party imports
 # WARN: need in conda root and snakemake env
 import pymongo
+import yaml
 
 #--- project specific imports
 #
@@ -103,17 +103,14 @@ def main():
                 # sanity checks against corrupted DB entries
                 if mux_status is None or mux_status.get('mux_id') is None:
                     logger.warning("mux_status is None or incomplete for run %s analysis %s."
-                                   " Requires fix in DB. Skipping entry for now.", run_number, analysis_id)
+                        " Requires fix in DB. Skipping entry for now.", run_number, analysis_id)
                     continue
-                
                 if mux_status.get('Status', None) != "SUCCESS":
                     logger.info("MUX %s from %s is not SUCCESS. Skipping SRA and STATS uploading",
                                 mux_status['mux_id'], run_number)
                     continue
-
                 mux_id = mux_status['mux_id']
                 out_dir = analysis['out_dir']
-
                 if args.dry_run:
                     logger.warning("Skipping analysis %s run %s MUX %s"
                                 " with StatsSubmission %s and ArchiveSubmission %s",
@@ -121,7 +118,6 @@ def main():
                                 mux_status.get('StatsSubmission', None),
                                 mux_status.get('ArchiveSubmission', None))
                     continue
-
                 # Call STATS upload
                 #
                 if mux_status.get('StatsSubmission', None) == "TODO":
@@ -135,7 +131,8 @@ def main():
                     if args.testing:
                         stats_upload_script_cmd.append("-t")
                     try:
-                        _ = subprocess.check_output(stats_upload_script_cmd, stderr=subprocess.STDOUT)
+                        _ = subprocess.check_output(stats_upload_script_cmd, \
+                            stderr=subprocess.STDOUT)
                         StatsSubmission_status = "SUCCESS"
                     except subprocess.CalledProcessError as e:
                         logger.fatal("The following command failed with return code %s: %s",
@@ -160,6 +157,23 @@ def main():
                                 mux_id, run_number, analysis_id)
                     ArchiveSubmission = "analysis.{}.per_mux_status.{}.ArchiveSubmission".format(
                         analysis_count, mux_count)
+                    #Check if archival request status
+                    conf_yaml = os.path.join(out_dir, "conf.yaml")
+                    assert conf_yaml, ("No conf.yaml available under {}".format(out_dir))
+                    with open(conf_yaml) as fh:
+                        cfg = dict(yaml.safe_load(fh))
+                        archive_status = cfg['no_archive']
+                    if archive_status:
+                        #Update MongoDB
+                        try:
+                            db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
+                                    {"$set": {
+                                        ArchiveSubmission: 'SKIPPED',
+                                    }})
+                        except pymongo.errors.OperationFailure:
+                            logger.fatal("MongoDB OperationFailure")
+                            sys.exit(0)
+                        continue
                     archive_upload_script_cmd = [archive_upload_script,
                                                  '-o', out_dir, '-m', mux_id]
                     if args.testing:
