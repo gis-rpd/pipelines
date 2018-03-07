@@ -118,6 +118,11 @@ def main():
                                 mux_status.get('StatsSubmission', None),
                                 mux_status.get('ArchiveSubmission', None))
                     continue
+                conf_yaml = os.path.join(out_dir, "conf.yaml")
+                assert conf_yaml, ("No conf.yaml available under {}".format(out_dir))
+                with open(conf_yaml) as fh:
+                    cfg = dict(yaml.safe_load(fh))
+                    archive_status = cfg['no_archive']
                 # Call STATS upload
                 #
                 if mux_status.get('StatsSubmission', None) == "TODO":
@@ -125,30 +130,40 @@ def main():
                                 mux_id, run_number, analysis_id)
                     StatsSubmission = "analysis.{}.per_mux_status.{}.StatsSubmission".format(
                         analysis_count, mux_count)
-
-                    stats_upload_script_cmd = [stats_upload_script,
-                                               '-o', out_dir, '-m', mux_id]
-                    if args.testing:
-                        stats_upload_script_cmd.append("-t")
-                    try:
-                        _ = subprocess.check_output(stats_upload_script_cmd, \
-                            stderr=subprocess.STDOUT)
-                        StatsSubmission_status = "SUCCESS"
-                    except subprocess.CalledProcessError as e:
-                        logger.fatal("The following command failed with return code %s: %s",
-                                     e.returncode, ' '.join(stats_upload_script_cmd))
-                        logger.fatal("Output: %s", e.output.decode())
-                        logger.fatal("Resetting to TODO")
-                        StatsSubmission_status = "TODO"
-                    try:
-                        db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
-                                  {"$set": {
-                                      StatsSubmission: StatsSubmission_status,
-                                  }})
-                    except pymongo.errors.OperationFailure:
-                        logger.fatal("MongoDB OperationFailure")
-                        sys.exit(0)
-                    num_triggers += 1
+                    #Check if archival request status
+                    if archive_status:
+                        try:
+                            db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
+                                    {"$set": {
+                                        StatsSubmission: 'SKIPPED',
+                                    }})
+                        except pymongo.errors.OperationFailure:
+                            logger.fatal("MongoDB OperationFailure")
+                            sys.exit(0)
+                    else:
+                        stats_upload_script_cmd = [stats_upload_script,
+                                                   '-o', out_dir, '-m', mux_id]
+                        if args.testing:
+                            stats_upload_script_cmd.append("-t")
+                        try:
+                            _ = subprocess.check_output(stats_upload_script_cmd, \
+                                stderr=subprocess.STDOUT)
+                            StatsSubmission_status = "SUCCESS"
+                        except subprocess.CalledProcessError as e:
+                            logger.fatal("The following command failed with return code %s: %s",
+                                         e.returncode, ' '.join(stats_upload_script_cmd))
+                            logger.fatal("Output: %s", e.output.decode())
+                            logger.fatal("Resetting to TODO")
+                            StatsSubmission_status = "TODO"
+                        try:
+                            db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
+                                      {"$set": {
+                                          StatsSubmission: StatsSubmission_status,
+                                      }})
+                        except pymongo.errors.OperationFailure:
+                            logger.fatal("MongoDB OperationFailure")
+                            sys.exit(0)
+                        num_triggers += 1
 
                 # Call FASTQ upload
                 #
@@ -158,13 +173,7 @@ def main():
                     ArchiveSubmission = "analysis.{}.per_mux_status.{}.ArchiveSubmission".format(
                         analysis_count, mux_count)
                     #Check if archival request status
-                    conf_yaml = os.path.join(out_dir, "conf.yaml")
-                    assert conf_yaml, ("No conf.yaml available under {}".format(out_dir))
-                    with open(conf_yaml) as fh:
-                        cfg = dict(yaml.safe_load(fh))
-                        archive_status = cfg['no_archive']
                     if archive_status:
-                        #Update MongoDB
                         try:
                             db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
                                     {"$set": {
@@ -173,30 +182,30 @@ def main():
                         except pymongo.errors.OperationFailure:
                             logger.fatal("MongoDB OperationFailure")
                             sys.exit(0)
-                        continue
-                    archive_upload_script_cmd = [archive_upload_script,
-                                                 '-o', out_dir, '-m', mux_id]
-                    if args.testing:
-                        archive_upload_script_cmd.append("-t")
-                    try:
-                        _ = subprocess.check_output(archive_upload_script_cmd, stderr=subprocess.STDOUT)
-                        ArchiveSubmission_status = "SUCCESS"
-                    except subprocess.CalledProcessError as e:
-                        logger.fatal("The following command failed with return code %s: %s",
-                                     e.returncode, ' '.join(archive_upload_script_cmd))
-                        logger.fatal("Output: %s", e.output.decode())
-                        logger.fatal("Resetting to TODO")
-                        ArchiveSubmission_status = "TODO"
-                    #update mongoDB
-                    try:
-                        db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
-                                  {"$set": {
-                                      ArchiveSubmission: ArchiveSubmission_status
-                                  }})
-                    except pymongo.errors.OperationFailure:
-                        logger.fatal("MongoDB OperationFailure")
-                        sys.exit(0)
-                    num_triggers += 1
+                    else:
+                        archive_upload_script_cmd = [archive_upload_script,
+                                                     '-o', out_dir, '-m', mux_id]
+                        if args.testing:
+                            archive_upload_script_cmd.append("-t")
+                        try:
+                            _ = subprocess.check_output(archive_upload_script_cmd, stderr=subprocess.STDOUT)
+                            ArchiveSubmission_status = "SUCCESS"
+                        except subprocess.CalledProcessError as e:
+                            logger.fatal("The following command failed with return code %s: %s",
+                                         e.returncode, ' '.join(archive_upload_script_cmd))
+                            logger.fatal("Output: %s", e.output.decode())
+                            logger.fatal("Resetting to TODO")
+                            ArchiveSubmission_status = "TODO"
+                        #update mongoDB
+                        try:
+                            db.update({"run": run_number, 'analysis.analysis_id' : analysis_id},
+                                      {"$set": {
+                                          ArchiveSubmission: ArchiveSubmission_status
+                                      }})
+                        except pymongo.errors.OperationFailure:
+                            logger.fatal("MongoDB OperationFailure")
+                            sys.exit(0)
+                        num_triggers += 1
 
     # close the connection to MongoDB
     connection.close()
