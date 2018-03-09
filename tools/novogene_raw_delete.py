@@ -19,12 +19,10 @@ from mongodb import mongodb_conn
 from pipelines import generate_window
 from pipelines import is_production_user
 from pipelines import isoformat_to_epoch_time
-from pipelines import get_machine_run_flowcell_id
 from pipelines import is_devel_version
 from pipelines import relative_epoch_time
 from pipelines import send_mail
 from pipelines import get_bcl_runfolder_for_runid
-from config import site_cfg
 from utils import generate_timestamp
 
 __author__ = "Lavanya Veeravalli"
@@ -66,7 +64,7 @@ def runs_from_db(db, days=75, win=34):
         if status == 'SUCCESS' and relative_days > days:
             yield runid_and_flowcellid
 
-def purge(db, runid_and_flowcellid, mail_to):
+def purge(db, runid_and_flowcellid, mail_to, delete_bcl=True):
     """
     purging bcl data from /mnt/seq/novogene
     """
@@ -80,6 +78,10 @@ def purge(db, runid_and_flowcellid, mail_to):
     stat_info = os.stat(rundir)
     #Check if uid is novogene (925)
     assert stat_info.st_uid == 925, "The run {} does not belong to Novogene user".format(rundir)
+    print(delete_bcl)
+    if not delete_bcl:
+        LOGGER.warning("No Novogene run gets deleted in testing mode!")
+        return
     try:
         start_time = generate_timestamp()
         res = db.update_one({"run": runid_and_flowcellid}, \
@@ -90,8 +92,7 @@ def purge(db, runid_and_flowcellid, mail_to):
                             }}})
         assert res.modified_count == 1, ("Modified {} documents instead of 1". \
             format(res.modified_count))
-        #FIXME for production release
-        #shutil.rmtree(rundir)
+        shutil.rmtree(rundir)
         end_time = generate_timestamp()
         res = db.update_one({"run": runid_and_flowcellid},
                             {"$set": {"raw-delete.Status": "SUCCESS", \
@@ -119,11 +120,11 @@ def main():
                         help="Only process first run returned")
     parser.add_argument('-n', "--dry-run", action='store_true',
                         help="Don't run anything")
-    default = 34
+    default = 100
     parser.add_argument('-w', '--win', type=int, default=default,
                         help="Number of days to look back (default {})".format(default))
     default = 75
-    parser.add_argument('-d', '--days', type=int, default=default,
+    parser.add_argument('-d', '--min-bcl-age', type=int, default=default,
                         help="Bcl analysis not older than days(default {})".format(default))
     parser.add_argument('-t', "--testing", action='store_true',
                         help="Use MongoDB test-server here and when calling bcl2fastq wrapper (-t)")
@@ -153,14 +154,16 @@ def main():
     db = connection.gisds.runcomplete
     if is_devel_version() or args.testing:
         mail_to = 'veeravallil'# domain added in mail function
+        delete_bcl = False
     else:
         mail_to = 'rpd'
-    run_records = runs_from_db(db, args.days, args.win)
+        delete_bcl = True
+    run_records = runs_from_db(db, args.min_bcl_age, args.win)
     for run in run_records:
         if args.dry_run:
             LOGGER.info("Skipping dryrun option %s", run)
             continue
-        purge(db, run, mail_to)
+        purge(db, run, mail_to, delete_bcl)
         if args.break_after_first:
             LOGGER.info("Stopping after first sequencing run")
             break
