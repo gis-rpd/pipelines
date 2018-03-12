@@ -290,6 +290,7 @@ class PipelineHandler(object):
             # init first so that modules are present
             fh.write("{}\n".format(" ".join(get_init_call())))
             fh.write("module load miniconda3\n")
+            fh.write("export PYTHONPATH=\"\"\n")# solving possible problems with incompatible py2 paths
             fh.write("source activate {}\n".format(site_cfg['snakemake_env']))
 
 

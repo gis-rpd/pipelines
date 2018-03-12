@@ -67,7 +67,7 @@ if [ "$ENVIRONMENT" == "BATCH" ] || [ $LOCAL_MASTER -eq 1 ]; then
     # log files names: qsub -o|-e: "If path is a directory, the standard error stream of
     clustercmd="$clustercmd -e $LOGDIR -o $LOGDIR"
     # PBS: cwd (workaround for missing SGE option "-cwd")
-    cd $PBS_O_WORKDIR
+    test "$ENVIRONMENT" == "BATCH" && cd $PBS_O_WORKDIR
     if [ -n "$SLAVE_Q" ]; then
         clustercmd="$clustercmd -q $SLAVE_Q"
     elif [ -n "$DEFAULT_SLAVE_Q" ]; then 
