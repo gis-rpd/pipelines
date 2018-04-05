@@ -141,7 +141,8 @@ rule bbnorm:
 rule spades:
     input:
         fq1 = "{prefix}/reads/R1.norm.fastq.gz",
-        fq2 = "{prefix}/reads/R2.norm.fastq.gz"
+        fq2 = "{prefix}/reads/R2.norm.fastq.gz",
+        _ = '{prefix}/mapping/input-ref/ref.fa.fai'# hack: make sure reference is sound, to avoid cryptic mummer failures
     output:
         scaffolds = "{prefix}/assembly/spades/scaffolds.fasta",
         contigs = "{prefix}/assembly/spades/contigs.fasta",
@@ -174,7 +175,8 @@ rule tadpole:
     input:
         # assuming these are fully processed and merged if original input was split
         fq1 = "{prefix}/reads/R1.fastq.gz",
-        fq2 = "{prefix}/reads/R2.fastq.gz"
+        fq2 = "{prefix}/reads/R2.fastq.gz",
+        _ = '{prefix}/mapping/input-ref/ref.fa.fai'# hack: make sure reference is sound, to avoid cryptic mummer failures
     output:
         contigs="{prefix}/assembly/tadpole/contigs.fa",
         scaffolds="{prefix}/assembly/tadpole/scaffolds.fasta"# fake to look the same as spades
@@ -239,7 +241,8 @@ rule contig_joined:
         ref = config['references']['genome'],
         contigs = "{prefix}/{sample}/assembly/{method}/scaffolds.fasta",
     output:
-        '{prefix}/{sample}/assembly/{method}/gap-filled-assembly.fa'
+        fa='{prefix}/{sample}/assembly/{method}/gap-filled-assembly.fa',
+        bed='{prefix}/{sample}/assembly/{method}/gap-filled-assembly.gaps.bed'
     log:
         '{prefix}/{sample}/assembly/{method}/gap-filled-assembly.log'
     message:
@@ -250,7 +253,7 @@ rule contig_joined:
         seqid = lambda wc: wc.sample + "-gap-filled-" + wc.method + "-assembly"
     shell:
         "simple_contig_joiner.py -c {input.contigs} -r {input.ref}"
-        " -o {output} -s {params.seqid} >& {log}"
+        " -o {output.fa} -s {params.seqid} -b {output.bed} >& {log}"
 
     
 localrules: map_prep
@@ -292,17 +295,28 @@ rule genomecov:
         " }} >& {log}"
 
         
+def bed_for_plot(wc):
+    if wc.method == "input-ref":
+        return ""
+    else:
+        bed_fn = os.path.join(wc.prefix, "assembly", wc.method, "gap-filled-assembly.gaps.bed")
+        return "--bed " + bed_fn
+        
 localrules: plot        
 rule plot:
     input:
-        covgz = '{prefix}.cov.gz',
-        vcfgz = '{prefix}.vcf.gz'
+        covgz = '{prefix}/mapping/{method}/{suffix}.cov.gz',
+        vcfgz = '{prefix}/mapping/{method}/{suffix}.vcf.gz',
     output:
-        plot = '{prefix}.plot.png'
+        plot = '{prefix}/mapping/{method}/{suffix}.plot.png'
     log:
-        '{prefix}.plot.log'
+        '{prefix}/mapping/{method}/{suffix}.plot.log'
+    params:
+        # would be nice to park this under input, but this won't work for the input reference mapping
+        # because there is no bed file
+        bed_arg = bed_for_plot
     message:
         'Plotting coverage variant position plus AF'
     shell:
-        PLOTPY + " --vcf {input.vcfgz} --cov {input.covgz} --plot {output.plot} >& {log};"
+        PLOTPY + " --vcf {input.vcfgz} --cov {input.covgz} {params.bed_arg} --plot {output.plot} >& {log};"
 
