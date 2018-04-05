@@ -279,7 +279,8 @@ rule bcl2fastq:
             tmp_sample_dir = tmp_workdir + "/out/Project*/*"
             #Move data into out folder
             cmd += " mv -i %s %s;" % (os.path.abspath(tmp_sample_dir), dest_mux_dir)
-            cmd += " mv -i %s/out/Undetermined* %s;" % (os.path.abspath(tmp_workdir), os.path.abspath(os.path.join(RESULT_OUTDIR)))
+            if '{params.mux_dir}'.startswith('MUX'):
+                cmd += " mv -i %s/out/Undetermined* %s;" % (os.path.abspath(tmp_workdir), os.path.abspath(os.path.join(RESULT_OUTDIR)))
             shell(cmd)
             shell("touch {output.flag}")
 
