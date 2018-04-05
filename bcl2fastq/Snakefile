@@ -181,6 +181,8 @@ rule final:
                muxdir=get_mux_dirs()),
         expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'create_sample_configs.SUCCESS'),
                muxdir=get_mux_dirs()),
+        expand(os.path.join(RESULT_OUTDIR, '{muxdir}', 'multiqc.html'),
+               muxdir=get_mux_dirs()),
         report="report.html"
     message:
         """
@@ -280,7 +282,8 @@ rule bcl2fastq:
             cmd += " mv -i %s/out/Undetermined* %s;" % (os.path.abspath(tmp_workdir), os.path.abspath(os.path.join(RESULT_OUTDIR)))
             shell(cmd)
             shell("touch {output.flag}")
-         
+
+            
 rule fastqc:
     """fastqc per muxdir. note: this will not make full use of
     parallelization of many subdirs exist simply because we don't keep
@@ -333,6 +336,40 @@ rule drop_index_note:
                 fh.write("\n{}\n".format(RPD_SIGNATURE))
     
 
+localrules: multiqc
+rule multiqc:
+    """Create sample configs (sample.yaml) per sample dir
+    """
+    input: 
+        '{muxdir}/fastqc.SUCCESS'
+    output:
+        reporthtml = '{muxdir}/multiqc.html',
+        datazip  = '{muxdir}/multiqc_data.zip'
+    threads:
+        1
+    log:
+        '{muxdir}/multiqc.log'
+    message:
+        "Running MultiQC"
+    params:
+        mux_id = lambda wildcards: os.path.split(wildcards.muxdir)[-1],
+        prefix = lambda wildcards: os.path.join(wildcards.muxdir, "multiqc")
+    shell:
+        # --outdir is where all output will be stored
+        # --filename is actually the basename prefix
+        # note: cellranger comes with its own python and conda and doesn't play nicely with multiqc
+        # so we have to load this locally
+        # LANG needs to be set because of problems with click. See http://click.pocoo.org/5/python3/
+        """{{
+        export LC_ALL=en_GB.utf8;
+        export LANG=en_GB.utf8;
+        module load multiqc/1.5a;
+        multiqc -v --title {params.mux_id} --outdir $(dirname {input}) \
+          -f --export --filename multiqc \
+          --zip-data-dir -m fastqc --ignore-samples '*_I[12]_*' $(dirname {input}); }} >& {log};
+        """
+        
+                    
 localrules: create_sample_configs
 rule create_sample_configs:
     """Create sample configs (sample.yaml) per sample dir
