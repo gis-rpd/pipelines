@@ -77,10 +77,15 @@ def check_benchmark_naming(snakefile):
     is_ok = True
     seen_rules = dict()
     rules_with_benchmark = dict()
-    exclude_rules = ['report', 'final', 'prep_bed_files']
+    #exclude_rules = ['report', 'final', 'prep_bed_files']
+    exclude_rules = []
+    local_rules = []
     with open(snakefile) as fh:
         rule = None
         for line in fh:
+            if line.strip().startswith("localrules:"):
+                for r in line.split(":")[1].strip().split(","):
+                    exclude_rules.append(r.strip())
             if line.startswith("rule "):
                 rulename = line.split()[1].replace(":", "")
                 if rulename in exclude_rules:
@@ -110,12 +115,11 @@ def check_modules(pipeline_dir):
     """FIXME"""
 
     is_ok = True
-    module_cfgs = glob.glob(os.path.join(pipeline_dir, "cfg/modules.yaml"))
-    assert len(module_cfgs) > 0
+    module_cfg = os.path.join(pipeline_dir, "cfg/modules.yaml")
+    assert os.path.exists(module_cfg), ("Required file %s missing" % module_cfg)
     modules = dict()
-    for cfg in module_cfgs:
-        with open(cfg) as fh:
-            d = yaml.safe_load(fh)
+    with open(module_cfg) as fh:
+        d = yaml.safe_load(fh)
         for p, v in d.items():
             modules[p] = v
 
