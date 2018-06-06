@@ -155,8 +155,9 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
     lib_list = dict()
     run_id = rest_data['runId']
     muxinfo_cfg = os.path.join(outdir, MUXINFO_CFG)
-    non_mux_tech = False
+    #non_mux_tech = False
     for rows in rest_data['lanes']:
+        non_mux_tech = False
         BCL_Mismatch = []
         adpter_list = []
         tool = []
@@ -215,6 +216,8 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
             index_lens = (-1, -1)
             barcode_lens.setdefault(rows['laneId'], []).append(index_lens)
             tool = [v for k, v in bcl2fastq_conf['tool'].items() if k in rows['libtech']]
+            if any(libtech in rows['libtech'] for libtech in bcl2fastq_conf['non_mux_tech']):
+                non_mux_tech = True
         if pass_bcl2_fastq:
             continue
         #Barcode mismatch has to be the same for all the libraries in one MUX.
@@ -353,7 +356,7 @@ def main():
         logger.warning("Skipping non-passed run")
         with open(status_cfg, 'w') as fh_out:
             fh_out.write("SEQRUNFAILED")
-        sys.exit(0)
+        sys.exit(0)    
     status = generate_samplesheet(rest_data, flowcellid, outdir, runinfo)
     if not status:
         with open(status_cfg, 'w') as fh_out:

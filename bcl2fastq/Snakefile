@@ -272,6 +272,7 @@ rule bcl2fastq:
             cmd += " cellranger mkfastq --run={config[rundir]} --output-dir=out"
             cmd += " --samplesheet=%s --ignore-dual-index " % samplesheet
             cmd += " --stats-dir %s --reports-dir %s" % (res_dir, res_dir)
+            cmd += " {}".format(params.bcl2fastq_custom_args)
             cmd += " {params.barcode_mismatches} --tiles {params.tiles}"
             cmd += " %s" % bcl2fastq_threads_setting(threads)
             cmd += " >& %s;" % log
