@@ -31,8 +31,10 @@ def csvs_to_xls(csv_files, xls_file):
     for fn in csv_files:
         ws_name = os.path.basename(fn.replace(".csv", ""))
         ws = wb.add_worksheet(ws_name)
-        with open(fn, 'r') as fh:
-            table = csv.reader(fh)
+        with open(fn, newline='') as fh:
+            dialect = csv.Sniffer().sniff(fh.read(1024))
+            fh.seek(0)
+            table = csv.reader(fh, dialect)
             for i, row in enumerate(table):
                 ws.write_row(i, 0, row)
     wb.close()
