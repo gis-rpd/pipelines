@@ -43,7 +43,13 @@ def convert(in_fn, out_fn):
         for rk in rk_list:
             new_data[sk]['readunits'][rk] = old_data['readunits'][rk]
 
-    yaml.dump(dict(samples=new_data), sys.stdout, default_flow_style=False)
+    if out_fn != "-":
+        fh = open(out_fn, 'w')
+    else:
+        fh = sys.stdout
+    yaml.dump(dict(samples=new_data), fh, default_flow_style=False)
+    if out_fn != "-":
+        fh.close()
 
 
 def main():
@@ -52,9 +58,10 @@ def main():
 
     old_yaml_fn = sys.argv[1]
     new_yaml_fn = sys.argv[2]
-    sys.stderr.write("Converting %s to %s\n" % (old_yaml_fn, new_yaml_fn))
-    assert os.path.exists(old_yaml_fn)
-    assert not os.path.exists(new_yaml_fn)
+    assert os.path.exists(old_yaml_fn), (
+        "Input yaml %s doesn't exist" % old_yaml_fn)
+    assert not os.path.exists(new_yaml_fn), (
+        "Output yaml %s already exists" % new_yaml_fn)
     convert(old_yaml_fn, new_yaml_fn)
 
     
