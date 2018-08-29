@@ -140,14 +140,20 @@ def check_mux_data_transfer_status(connection, mux_info):
     if status_count == 1:
         return True
 
-def insert_muxjob(connection, mux, job):
-    """Insert records into pipeline_runs collection of MongoDB
+def insert_muxjob(connection, mux, job, nf_job):
+    """Insert records into pipeline_runs and nf_pipeline_runs collection of MongoDB
     """
     try:
+        # Job for SG10K Got-cloud production job
         db = connection.gisds.pipeline_runs
         _id = db.insert_one(job)
         job_id = _id.inserted_id
         logger.info("Job inserted for %s", mux)
+        # Job for SG10K Got-cloud production job
+        db = connection.gisds.nf_pipeline_runs
+        _id = db.insert_one(nf_job)
+        nf_job_id = _id.inserted_id
+        logger.info("NF Job inserted for %s", mux)
     except pymongo.errors.OperationFailure:
         logger.fatal("mongoDB OperationFailure")
         sys.exit(1)
@@ -189,13 +195,15 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
             mux, run_number, bcl_dir)
         yaml_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['devel'], \
             mux, mux +"_multisample.yaml")
+        mux_dir = os.path.join(novogene_conf['FASTQ_DEST'][site]['devel'], mux)
     else:
         fastq_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], \
             mux, run_number, bcl_dir)
         yaml_dest = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], \
             mux, mux+ "_multisample.yaml")
+        mux_dir = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], mux)
     rsync_cmd = 'rsync -va %s %s' % (fastq_src, fastq_dest)
-    mux_dir = os.path.join(novogene_conf['FASTQ_DEST'][site]['production'], mux)
+    
     if not os.path.exists(mux_dir):
         try:
             os.makedirs(fastq_dest)
@@ -223,25 +231,34 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
             f.write("")
         with open(yaml_dest, 'w') as fh:
             yaml.dump(dict(sample_info), fh, default_flow_style=False)
-        job = {}
+        job, nf_job = {}, {}
         job['sample_cfg'] = {}
+        nf_job['sample_cfg'] = {}
         for outer_key, outer_value in sample_info.items():
             ctime, _ = generate_window(1)
             job['sample_cfg'].update({outer_key:outer_value})
-            job['site'] = site
+            nf_job['sample_cfg'].update({outer_key:outer_value})
+            job['site'], nf_job['site'] = site, site
             job['pipeline_name'] = 'custom/SG10K'
+            nf_job['pipeline_name'] = novogene_conf['NF_PIPELINE_PATH'][site]
             job['pipeline_version'] = novogene_conf['PIPELINE_VERSION']
-            job['ctime'] = ctime
-            job['requestor'] = 'userrig'
+            nf_job['pipeline_version'] = novogene_conf['NF_PIPELINE_VERSION']
+            job['ctime'], nf_job['ctime'] = ctime, ctime
+            job['requestor'], nf_job['requestor'] = 'userrig', 'userrig'
             if is_devel_version():
                 novogene_outdir = os.path.join(novogene_conf['NOVOGENE_OUTDIR'][site]['devel'], \
+                    mux)
+                nf_outdir = os.path.join(novogene_conf['NF_OUTDIR'][site]['devel'], \
                     mux)
             else:
                 novogene_outdir = os.path.join(novogene_conf['NOVOGENE_OUTDIR'][site]['production'],
                     mux)
+                nf_outdir = os.path.join(novogene_conf['NF_OUTDIR'][site]['production'],
+                    mux)
             job['out_dir_override'] = novogene_outdir
+            nf_job['out_dir_override'] = nf_outdir
         logger.info("Data transfer completed successfully for %s from %s", mux, run_number)
-        job_id = insert_muxjob(connection, mux, job)
+        job_id = insert_muxjob(connection, mux, job, nf_job)
         update_downstream_mux(connection, run_number, analysis_id, downstream_id, job_id)
         subject = "{} from {}: SG10K data transfer ({}) completed".format(mux, run_number, site)
         body = "Data transfer successfully completed for {} from {}".format(mux, run_number)
