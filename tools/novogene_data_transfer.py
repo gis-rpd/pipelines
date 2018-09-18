@@ -240,7 +240,7 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
             nf_job['sample_cfg'].update({outer_key:outer_value})
             job['site'], nf_job['site'] = site, site
             job['pipeline_name'] = 'custom/SG10K'
-            nf_job['pipeline_name'] = novogene_conf['NF_PIPELINE_PATH'][site]
+            #nf_job['pipeline_name'] = novogene_conf['NF_PIPELINE_PATH'][site]
             job['pipeline_version'] = novogene_conf['PIPELINE_VERSION']
             nf_job['pipeline_version'] = novogene_conf['NF_PIPELINE_VERSION']
             job['ctime'], nf_job['ctime'] = ctime, ctime
@@ -250,11 +250,13 @@ def start_data_transfer(connection, mux, mux_info, site, mail_to):
                     mux)
                 nf_outdir = os.path.join(novogene_conf['NF_OUTDIR'][site]['devel'], \
                     mux)
+                nf_job['pipeline_name'] = novogene_conf['NF_PIPELINE_PATH'][site]['devel']
             else:
                 novogene_outdir = os.path.join(novogene_conf['NOVOGENE_OUTDIR'][site]['production'],
                     mux)
                 nf_outdir = os.path.join(novogene_conf['NF_OUTDIR'][site]['production'],
                     mux)
+                nf_job['pipeline_name'] = novogene_conf['NF_PIPELINE_PATH'][site]['production']
             job['out_dir_override'] = novogene_outdir
             nf_job['out_dir_override'] = nf_outdir
         logger.info("Data transfer completed successfully for %s from %s", mux, run_number)
