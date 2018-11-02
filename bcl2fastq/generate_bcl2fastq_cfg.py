@@ -9,6 +9,7 @@ import logging
 import argparse
 from collections import namedtuple
 import xml.etree.ElementTree as ET
+import re
 
 #--- third-party imports
 #
@@ -161,6 +162,7 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
         BCL_Mismatch = []
         adpter_list = []
         tool = []
+        libtech = []
         if 'requestor' in rows:
             requestor = rows['requestor']
             requestor_email = user_mail_mapper(requestor)
@@ -189,8 +191,15 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
                     break
                 #tool info
                 tool = [v for k, v in bcl2fastq_conf['tool'].items() if k in child['libtech']]
-                if "-" in child['barcode']:
-                    # dual index
+                #if "-" in child['barcode'] check for cell ranger:
+                #4,Sample_XHC025,XHC025-SI-GA-C1,,,SI-GA-C1,,,,Project_XHC025,10xGenomics single cell 5' (R1:26bp)
+                if child['barcode'].count("-") > 1:
+                    sample = rows['laneId']+',Sample_'+child['libraryId']+','+ \
+                        child['libraryId']+'-'+child['barcode']+',,,'+ child['barcode'] +',,,,'+ \
+                        'Project_'+child['libraryId']+','+child['libtech']
+                    libtech.append(child['libtech'])
+                # standard dual index
+                elif child['barcode'].count("-") == 1:
                     index = child['barcode'].split('-')
                     sample = rows['laneId']+',Sample_'+child['libraryId']+','+ \
                         child['libraryId']+'-'+child['barcode']+',,,,'+ index[0] +',,'+ \
@@ -255,6 +264,13 @@ def generate_samplesheet(rest_data, flowcellid, outdir, runinfo):
         usebases, readLength_list = generate_usebases(barcode_lens, runinfo, create_index, \
             non_mux_tech, rows['libraryId'])
         use_bases_mask = " --use-bases-mask " + rows['laneId'] + ":" + usebases[rows['laneId']]
+        # For cellranger, parse libtech to get the R1 read length
+        if "R1:" in str(libtech):
+            #R1_len = libtech[0].split(":")
+            R1_use_bases_mask = int(re.search(r'\d+', libtech[0].split(":")[1]).group())
+            #Update usebase mask with R1 bps
+            replace = "Y" + str(R1_use_bases_mask) + "n*"
+            use_bases_mask = use_bases_mask.replace("Y*", replace, 1)
         bcl2fastq_custom_args = use_bases_mask
         if 'indexreads' in rows and rows['indexreads']:
             bcl2fastq_custom_args = " ".join([bcl2fastq_custom_args, \
@@ -356,7 +372,7 @@ def main():
         logger.warning("Skipping non-passed run")
         with open(status_cfg, 'w') as fh_out:
             fh_out.write("SEQRUNFAILED")
-        sys.exit(0)    
+        sys.exit(0)
     status = generate_samplesheet(rest_data, flowcellid, outdir, runinfo)
     if not status:
         with open(status_cfg, 'w') as fh_out:

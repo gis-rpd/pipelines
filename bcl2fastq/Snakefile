@@ -26,7 +26,7 @@ from utils import generate_timestamp
 from pipelines import mark_as_completed
 from elmlogger import ElmLogging, ElmUnit
 from bcl2fastq_dbupdate import DBUPDATE_TRIGGER_FILE_FMT, DBUPDATE_TRIGGER_FILE_MAXNUM
-from readunits import sampledir_to_cfg
+from readunits import sampledir_to_cfg, sampledir_to_cfg_2018
 
 
 RESULT_OUTDIR = 'out'
@@ -281,7 +281,7 @@ rule bcl2fastq:
             #Move data into out folder
             cmd += " mv -i %s %s;" % (os.path.abspath(tmp_sample_dir), dest_mux_dir)
             if '{params.mux_dir}'.startswith('MUX'):
-                cmd += " mv -i %s/out/Undetermined* %s;" % (os.path.abspath(tmp_workdir), os.path.abspath(os.path.join(RESULT_OUTDIR)))
+                cmd += " cp -rpi %s/out/Undetermined* %s;" % (os.path.abspath(tmp_workdir), os.path.abspath(os.path.join(RESULT_OUTDIR)))
             shell(cmd)
             shell("touch {output.flag}")
 
@@ -394,4 +394,11 @@ rule create_sample_configs:
                 if not os.path.exists(sample_cfgfile):
                     # make sure to skip dirs with no fastq files
                     sampledir_to_cfg(sample_dir, sample_cfgfile,
+                                     run_id=run_id, flowcell_id=flowcell_id, fail_if_no_matches=False)
+            # sample config generation for newer nfcore pipelines
+            for sample_dir in glob.glob(os.path.join(mux_dir, "Sample_*")):
+                sample_cfgfile_2018 = os.path.abspath(os.path.join(sample_dir, "sample_2018.yaml"))
+                if not os.path.exists(sample_cfgfile_2018):
+                    # make sure to skip dirs with no fastq files
+                    sampledir_to_cfg_2018(sample_dir, sample_cfgfile_2018,
                                      run_id=run_id, flowcell_id=flowcell_id, fail_if_no_matches=False)

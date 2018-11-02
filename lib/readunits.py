@@ -373,7 +373,6 @@ def sampledir_to_cfg(sampledir, samplecfg,
             raise ValueError("No matches in {}".format(sampledir))
         else:
             return
-                            
     # in theory we could support multi sample in one dir. here we're being strict
     lib_ids = [ru['library_id'] for ru in readunits.values()]
     assert len(set(lib_ids)) == 1
@@ -421,3 +420,71 @@ def sampledir_to_cfg(sampledir, samplecfg,
     yaml.dump(dict(samples=samples), fh, default_flow_style=False)
     yaml.dump(dict(readunits=readunits), fh, default_flow_style=False)
     fh.close()
+
+def sampledir_to_cfg_2018(sampledir, samplecfg,
+                     run_id=None, flowcell_id=None, fail_if_no_matches=True):
+    """run_id and flowcell_id can mostly not be inferred from
+    sampledir. values passed down will be used, but alos checked
+    against values that could be inferred, similar to sampledir_to_cfg
+    function but config file catered for newer nfcore pielines
+    """
+    readunits = readunits_for_sampledir(sampledir)
+    if readunits is None:
+        if fail_if_no_matches:
+            raise ValueError("No matches in {}".format(sampledir))
+        else:
+            return
+    # in theory we could support multi sample in one dir. here we're being strict
+    lib_ids = [ru['library_id'] for ru in readunits.values()]
+    assert len(set(lib_ids)) == 1
+    sample_name = lib_ids[0]
+    samples = dict()
+    samples[sample_name] = list(readunits.keys())
+
+    # make fastq paths relativ to output
+    for ru_key, ru in readunits.items():
+        # read units are dicts here (not namedtuple)
+        fq1 = ru['fq1']
+        ru['fq1'] = os.path.relpath(fq1, start=os.path.dirname(samplecfg))
+        fq2 = ru['fq2']
+        if fq2:
+            fq2 = os.path.relpath(fq2, start=os.path.dirname(samplecfg))
+            ru['fq2'] = fq2
+
+        renew_rg = False
+
+        # set run_id if given
+        if run_id:
+            if ru.get('run_id'):
+                assert ru.get('run_id') == run_id
+            else:
+                ru['run_id'] = run_id
+                renew_rg = True
+
+        # set flowcell_id if given
+        if flowcell_id:
+            if ru.get('flowcell_id'):
+                assert ru.get('flowcell_id') == flowcell_id
+            else:
+                ru['flowcell_id'] = flowcell_id
+                renew_rg = True
+
+        if renew_rg:
+            ru['rg_id'] = create_rg_id_from_ru(ru)
+
+    old_data = dict()
+    old_data["samples"] = samples
+    old_data["readunits"] = readunits
+    new_data = dict()
+    for sk, rk_list in old_data['samples'].items():
+        assert sk not in new_data
+        new_data[sk] = {'readunits': dict()}
+        for rk in rk_list:
+            new_data[sk]['readunits'][rk] = old_data['readunits'][rk]
+    if samplecfg != "-":
+        fh = open(samplecfg, 'w')
+    else:
+        fh = sys.stdout
+    yaml.dump(dict(samples=new_data), fh, default_flow_style=False)
+    if samplecfg != "-":
+        fh.close()
