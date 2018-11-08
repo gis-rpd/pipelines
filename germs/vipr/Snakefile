@@ -159,7 +159,8 @@ rule spades:
     #conda:
     #    "envs/spades.yaml"
     params:
-        mem_g = 8
+        # FIXME how to access cluster settings here?
+        mem_g = 12
     shell:
         "{{ "
         "outd=$(dirname {output.contigs});"

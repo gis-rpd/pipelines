@@ -423,7 +423,7 @@ rule merge_tables:
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
             for t in tax:
-                cmd = "{MERGE_TABLES} -p '[A-Z]+[0-9]+'"
+                cmd = "{MERGE_TABLES} -p '[A-z]+[0-9]+'"
                 cmd += " {}/split_table_{}/*table.{}".format(RESULT_OUTDIR, m, t)
                 cmd += " -o {}/{}.{}.profile_merged.tsv".format(output_dir, t, m)
                 shell(cmd)

@@ -42,19 +42,19 @@
 # Email address (for abort and kills only, everything else handled by snakemake)
 #PBS -M {MAILTO}
 #PBS -m a
-
+#PBS -P 13000026
 
 DEBUG=${{DEBUG:-0}}
 RESTARTS=${{RESTARTS:-{DEFAULT_RESTARTS}}}
 export DRMAA_LIBRARY_PATH=/app/pbs-drmaa/pbs_dramaa_fix/drmaa/lib/libdrmaa.so
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/app/pbs-drmaa/pbs_dramaa_fix/pbs_exec/lib:/app/pbs-drmaa/pbs_dramaa_fix/drmaa/lib
-DRMAA_OFF=${{DRMAA_OFF:-0}}
+DRMAA_OFF=${{DRMAA_OFF:-1}}
 LOCAL_CORES=${{LOCAL_CORES:-1}}
 DEFAULT_SLAVE_Q={DEFAULT_SLAVE_Q}
 LOCAL_MASTER=${{LOCAL_MASTER:-0}}
 SNAKEFILE={SNAKEFILE}
 LOGDIR="{LOGDIR}";# should be same as defined above
-DEFAULT_SNAKEMAKE_ARGS="--local-cores $LOCAL_CORES --restart-times $RESTARTS --rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60 --max-jobs-per-second 1 --keep-going"
+DEFAULT_SNAKEMAKE_ARGS="--local-cores $LOCAL_CORES --restart-times $RESTARTS --rerun-incomplete --timestamp --printshellcmds --stats $LOGDIR/snakemake.stats --configfile conf.yaml --latency-wait 60 --max-jobs-per-second 1 --max-status-checks-per-second 0.1 --keep-going"
 # --rerun-incomplete: see https://groups.google.com/forum/#!topic/snakemake/fbQbnD8yYkQ
 # --timestamp: prints timestamps in log
 # --printshellcmds: also prints actual commands
@@ -73,9 +73,16 @@ if [ "$ENVIRONMENT" == "BATCH" ] || [ $LOCAL_MASTER -eq 1 ]; then
     elif [ -n "$DEFAULT_SLAVE_Q" ]; then 
         clustercmd="$clustercmd -q $DEFAULT_SLAVE_Q"
     fi
+    # This is a crutch for inserting the SG10K project id (also used
+    # in directive above).  Using -P with DRMAA fails with "DRMAA
+    # Error: code 14: Invalid native specification:". Using the env
+    # var is a valid workaround. FIXME make project part of site.yaml
+    # and have a placeholder here. Shouldn't go on github!
+    clustercmd="$clustercmd -v project=13000026"
     if [ "$DRMAA_OFF" -eq 1 ]; then
         #clustercmd="--cluster \"qsub $clustercmd\""
 	    clustercmd="--cluster-sync \"qsub -Wblock=true $clustercmd\""
+	    #clustercmd="--cluster-sync \"qsub -P 13000026 -Wblock=true $clustercmd\""
     else
         clustercmd="--drmaa \" $clustercmd\""
     fi

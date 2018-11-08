@@ -102,18 +102,25 @@ def plot(cov_gzfile, vcf_gzfile, plot_fn, bed_fn=None):
 
     # only one genome allowed
     assert len(genomecov) == 1
-    assert len(afs) == 1
+    # only one sq is supported for plotting but could be 0 if vcf is empty
+    assert len(afs) < 2
     sq = list(genomecov.keys())[0]
-    assert sq in afs
+
+    if len(afs):
+        assert sq in afs
 
     _, ax1 = plt.subplots()
 
     x1 = list(genomecov[sq].keys())
     y1 = list(genomecov[sq].values())
 
-    x2 = list(afs[sq].keys())
-    y2 = list(afs[sq].values())
-
+    if len(afs):
+        x2 = list(afs[sq].keys())
+        y2 = list(afs[sq].values())
+    else:
+        x2 = []
+        y2 = []
+        
     ylabel_size = 'medium'
     c = 'blue'
     lgd_cov = ax1.plot(x1, y1, color=c, label="Coverage")

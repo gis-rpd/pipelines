@@ -244,7 +244,14 @@ def hash_for_fastq(fq1, fq2=None):
 def key_for_readunit(ru):
     """used for file nameing hence made unique based on fastq file names
     """
-    return hash_for_fastq(ru.fq1, ru.fq2)
+    m = hashlib.md5()
+    m.update(ru.fq1.encode())
+    ru_dict = dict(ru._asdict())
+    for k in ['fq2', 'run_id', 'flowcell_id', 'library_id', 'lane_id']:
+        if ru_dict.get(k):
+            m.update(ru_dict.get(k).encode())
+    return m.hexdigest()[:8]
+
 
 
 def create_rg_id_from_ru(ru):

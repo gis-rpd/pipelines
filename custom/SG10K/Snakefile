@@ -51,12 +51,15 @@ rule final:
                sample=config['samples']), 
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qbinned.cram'),
                sample=config['samples']), 
+        expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qbinned.cram.crai'),
+               sample=config['samples']), 
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bamstats/stats_plot.html'),
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.qc-062017.txt'),
                sample=config['samples']),
         expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}MTData.txt'),
                sample=config['samples']),        
+        os.path.join(RESULT_OUTDIR, 'indexcov/index.html'),
         "report.html"
     message:
         """
@@ -305,3 +308,26 @@ rule map_mdups_sort:
         " samblaster {params.mark_short_splits} |"
         " samtools view -@ {threads} -bu -o - |"
         " samtools sort -@ {threads} -m {params.sort_mem} -o {output.bam} -T {output.bam}.tmp -; }} >& {log}"
+
+rule indexcov:
+    """run indexcov on batch"""
+    input:
+        bams = expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bam'),
+                      sample=config['samples']),
+        bais = expand(os.path.join(RESULT_OUTDIR, '{sample}/{sample}.bwamem.fixmate.mdups.srt.recal.bam.bai'),
+                      sample=config['samples'])
+    output:
+        indexhtml = os.path.join(RESULT_OUTDIR, 'indexcov/index.html')
+    benchmark:
+        os.path.join(RESULT_OUTDIR, 'indexcov.benchmark.log')
+    log:
+        os.path.join(RESULT_OUTDIR, 'indexcov.log')
+    message:
+        "Running indexcov for batch"
+    threads:
+        1
+    shell:
+        """
+        goleft indexcov -d $(dirname {output.indexhtml}) {input.bams} >& {log}
+        """
+        

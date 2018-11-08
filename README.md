@@ -36,7 +36,7 @@ the
 
 The following installations are available at different sites (referred to as `RPD_PIPELINES` below):
 - GIS: `/mnt/projects/rpd/pipelines/`
-- NSCC: `/home/users/astar/gis/gisshared/rpd/pipelines/`
+- NSCC: `/data/users/astar/gis/rpd/pipelines/`
 
 Each of these contains one subfolder per pipeline version,
 e.g. `$RPD_PIPELINES/pipelines.2017-06` (referred to as

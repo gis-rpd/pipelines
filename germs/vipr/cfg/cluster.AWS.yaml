@@ -15,7 +15,7 @@
     "spades" :
     {
       "time" : "02:00:00",
-      "mem" : 6G,
+      "mem" : 12G,
     },
 
     "tadpole" :
