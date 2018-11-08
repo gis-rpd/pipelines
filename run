@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/data/users/astar/gis/rpd/apps/miniconda3/bin/python
 """Convenience wrapper to pipelines for users
 
 This is the only place where the interpreter needs to be set for a
