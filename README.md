@@ -5,6 +5,14 @@ This folder contains workflow developed by
 the
 [Research Pipeline Development Team (RPD)](https://www.a-star.edu.sg/gis/our-science/technology-platforms/scientific-and-research-computing-platform.aspx)
 
+## NOTE
+
+- This repo and its deployments are in maintenance mode
+- All newer pipelines are written in Nextflow.
+- Please contact us for more info
+- The NSCC setup has been affected multiple times by a forced change in setup. Let us know if you
+  have trouble using it.
+
 
 ## Features
 
@@ -39,7 +47,7 @@ The following installations are available at different sites (referred to as `RP
 - NSCC: `/data/users/astar/gis/rpd/pipelines/`
 
 Each of these contains one subfolder per pipeline version,
-e.g. `$RPD_PIPELINES/pipelines.2017-06` (referred to as
+e.g. `$RPD_PIPELINES/pipelines.2017-10` (referred to as
 `PIPELINE_ROOTDIR` below).
 
 Much of this framework assumes a certain setup and services to be
